@@ -1,8 +1,9 @@
 import { ILayer } from './IRenderable'
 import {v4} from 'uuid'
+import { Effect } from './Effect'
 
-export class VectorLayer implements ILayer {
-  public readonly layerType = 'vector'
+export class AdjustmentLayer implements ILayer {
+  public readonly layerType = 'adjustment'
 
   public readonly id: string = v4()
   public name: string = ''
@@ -15,5 +16,10 @@ export class VectorLayer implements ILayer {
   public x: number = 0
   public y: number = 0
 
-  public readonly paths: any[] = []
+  public effects: Effect[] = []
+
+  constructor({width, height}: {width: number, height: number}) {
+    this.width = width
+    this.height = height
+  }
 }

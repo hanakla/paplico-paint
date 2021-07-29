@@ -1,7 +1,7 @@
-import { IRenderable } from './IRenderable'
+import { ILayer } from './IRenderable'
 
-export class Group implements IRenderable {
+export class Group implements ILayer {
   public readonly layerType = 'group'
 
-  public layers: IRenderable[] = []
+  public layers: ILayer[] = []
 }

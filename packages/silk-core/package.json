@@ -1,5 +1,10 @@
 {
   "name": "silk-core",
   "version": "0.0.0",
-  "main": "src/index.ts"
+  "main": "src/index.ts",
+  "dependencies": {
+    "mitt": "^3.0.0",
+    "polished": "^4.1.3",
+    "uuidv4": "^6.2.11"
+  }
 }

@@ -2,23 +2,15 @@
   "name": "silk-paint",
   "version": "0.1.0",
   "private": true,
+  "workspaces": [
+    "./packages/*"
+  ],
   "scripts": {
-    "dev": "next dev",
-    "build": "next build",
-    "start": "next start"
-  },
-  "dependencies": {
-    "@fleur/fleur": "^3.0.0",
-    "@fleur/next": "^1.0.0",
-    "@fleur/react": "^5.0.0",
-    "next": "^11.0.1",
-    "react": "^17.0.2",
-    "react-dom": "^17.0.2"
+    "dev": "wsrun -p silk-web -c dev",
+    "build": "wsrun -p silk-web -c build",
+    "start": "wsrun -p silk-web -c start"
   },
   "devDependencies": {
-    "@types/node": "^16.4.4",
-    "@types/react": "^17.0.15",
-    "next-pwa": "^5.2.24",
-    "typescript": "^4.3.5"
+    "wsrun": "^5.2.4"
   }
 }

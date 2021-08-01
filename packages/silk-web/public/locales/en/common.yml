@@ -1,0 +1,8 @@
+opacity: Opacity
+blend: Blend
+
+compositeModes:
+  normal: Normal
+  multiply: Multiply
+  screen: Screen
+  overlay: Overlay

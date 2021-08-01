@@ -9,17 +9,24 @@ export class RasterLayer implements ILayer {
   public visible: boolean = true
   public lock: boolean = false
   public compositeMode: ILayer['compositeMode'] = 'normal' as const
+  public opacity: number = 100
 
-  public width: number
-  public height: number
+  public width: number = 0
+  public height: number = 0
   public x: number = 0
   public y: number = 0
 
   public readonly bitmap: Uint8ClampedArray
 
-  constructor({width, height}: {width: number, height: number}) {
-    this.bitmap = new Uint8ClampedArray(width * height * 4)
-    this.width = width
-    this.height = height
+  public static create({width, height}: {width: number, height: number}) {
+    const layer = new RasterLayer()
+
+    Object.assign(layer, {
+      bitmap: new Uint8ClampedArray(width * height * 4),
+      width: width,
+      height: height,
+    })
+
+    return layer
   }
 }

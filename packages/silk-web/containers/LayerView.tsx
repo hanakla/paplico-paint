@@ -1,79 +1,242 @@
-import { MouseEvent, useCallback, useContext, useEffect, useReducer } from "react";
-import { SilkEntity } from "silk-core";
-import { EngineContext } from "../lib/EngineContext";
+import { ChangeEvent, MouseEvent, useCallback, useContext, useEffect, useReducer, useRef, useState } from "react";
+import { SilkEntity, SilkHelper } from "silk-core";
+import {useClickAway, useUpdate} from 'react-use'
+import {rgba} from 'polished'
+import {usePopper} from 'react-popper'
+import { Portal } from "../components/Portal";
+import { arrayMove, SortableContainer, SortableElement, SortEndHandler } from "react-sortable-hoc";
+import { rangeThumb, silkScroll } from "../utils/mixins";
+import { useSilkEngine } from "../hooks/useSilkEngine";
+import { useTranslation } from "next-i18next";
+import { Stack } from "@styled-icons/remix-line";
+import { useLayerControl } from "../hooks/useLayers";
 
 export function LayerView() {
-  const engine = useContext(EngineContext)
-  const [,rerender] = useReducer(s => s + 1, 0)
+  const { t } = useTranslation('common')
+  const layerControls = useLayerControl()
+
+  const [layerTypeOpened, toggleLayerTypeOpened] = useReducer((s, ns) => ns != null ? ns : !s, false)
+  const layerTypeOpenerRef = useRef<HTMLDivElement|null>(null)
+  const layerTypeDropdownRef = useRef<HTMLUListElement|null>(null)
+  useClickAway(layerTypeDropdownRef, () => toggleLayerTypeOpened(false))
+
+  const popper = usePopper(layerTypeOpenerRef.current, layerTypeDropdownRef.current, {
+    placement: 'bottom-end',
+    strategy: 'fixed'
+  })
 
   const handleAddLayer = useCallback(() => {
-    const newLayer = new SilkEntity.Layer({ width: 1000, height: 1000})
+    const newLayer = SilkEntity.RasterLayer.create({ width: 1000, height: 1000})
+    layerControls.addLayer(newLayer, {aboveLayerId: layerControls.activeLayer?.id})
+  }, [layerControls])
 
-    engine.currentDocument?.addLayer(newLayer, {aboveLayerId: engine.activeLayer.id})
-    engine.setActiveLayer(newLayer.id)
-    rerender()
-  }, [engine])
+  const handleLayerSortEnd: SortEndHandler = useCallback((sort) => {
+    layerControls.moveLayer(sort.oldIndex, sort.newIndex)
+  }, [layerControls])
 
-  useEffect(() => {
-    engine?.on('rerender', rerender)
-    return () => engine?.off('rerender', rerender)
-  }, [engine])
+  const handleChangeCompositeMode = useCallback(({currentTarget}: ChangeEvent<HTMLSelectElement>) => {
+    layerControls.changeCompositeMode(layerControls.activeLayer?.id, currentTarget.value)
+  }, [layerControls])
 
-  return (
-    <div css="max-height: 40vh; overflow: auto; font-size: 12px;">
-      <div css={`
-        display: flex;
-        padding: 8px;
-        position: sticky;
-        top: 0;
-        background-color: #464b4e;
-    `}>
-        レイヤー
-        <div css='margin-left: auto' onClick={handleAddLayer}>＋</div>
-      </div>
-
-      {engine?.currentDocument?.layers.map(layer => (
-        <LayerItem
-          layer={layer}
-          active={engine.activeLayer.id === layer.id}
-          previewUrl={engine.previews.get(layer.id)}
-        />
-      ))}
-    </div>
-  )
-}
-
-function LayerItem({layer, active, previewUrl}: {layer: SilkEntity.LayerTypes, active: boolean, previewUrl: string}) {
-  const engine = useContext(EngineContext)
-
-  const handleToggleVisibility = useCallback(() => {
-    layer.visible = !layer.visible
-    engine.rerender()
-  }, [layer.visible, engine])
-
-  const handleChangeActiveLayer = useCallback((e: MouseEvent<HTMLDivElement>) => {
-    if ((e.target as HTMLElement).matches('[data-ignore-click]')) return
-    engine.setActiveLayer(layer.id)
-    engine.rerender()
-  }, [layer.id, engine])
+  const handleChangeOpacity = useCallback(({currentTarget}: ChangeEvent<HTMLInputElement>) => {
+    layerControls.changeOpacity(layerControls.activeLayer?.id, currentTarget.valueAsNumber)
+  }, [layerControls])
 
   return (
     <div css={`
       display: flex;
-      width: 100%;
-      align-items: center;
-      padding: 8px;
-      cursor: default;
-      ${active ? `background-color: rgba(255,255,255,.2)` : ''}
+      flex-flow: column;
+      height: 40vh;
+      overflow: auto;
+      font-size: 12px;
+      ${silkScroll}
+    `}>
+      <div css={`
+        display: flex;
+        padding: 4px;
+        height: 24px;
+        position: sticky;
+        top: 0;
+        background-color: #464b4e;
+    `}>
+        <Stack css="width: 16px;" />
+        <div css='margin-left: auto'>
+          <div css="display:flex; user-select: none;">
+            <div onClick={handleAddLayer}>＋</div>
+            <div onClick={toggleLayerTypeOpened} ref={layerTypeOpenerRef}>⇣</div>
+          </div>
+
+          <Portal>
+            <ul
+              css={`
+                background-color: #464b4e;
+                box-shadow: 0 0 4px ${rgba('#000', .5)};
+                color: ${({theme}) => theme.text.white};
+                li { padding: 8px; user-select: none; }
+                li:hover { background-color: rgba(255,255,255,.2); }
+              `}
+              ref={layerTypeDropdownRef}
+              style={{
+                ...popper.styles.popper,
+                ...(layerTypeOpened ? {opacity: 1, pointerEvents: 'all'} : { opacity: 0, pointerEvents: 'none'})
+              }}
+              {...popper.attributes.popper}
+            >
+                <li>ベクターレイヤー</li>
+                <li>調整レイヤー</li>
+              </ul>
+            </Portal>
+        </div>
+      </div>
+
+      {layerControls.activeLayer && (
+        <div
+          css={`
+            display: flex;
+            flex-flow: column;
+            gap: 2px;
+            margin-top: 4px;
+            padding: 8px 4px;
+            border-top: 1px solid ${rgba('#000', .2)};
+            border-bottom: 1px solid ${rgba('#000', .2)};
+
+            > div {
+              padding: 2px 0;
+            }
+          `}
+        >
+          <div>
+            <input
+              css={`
+                width: 100%;
+                margin-top: -2px;
+                padding: 2px;
+                appearance: none;
+                background-color: transparent;
+                border: none;
+                border-radius: 2px;
+                color: inherit;
+                outline: none;
+
+                &:focus, &:active {
+                  color: ${({theme}) => theme.text.inputActive};
+                  background-color: ${({theme}) => theme.surface.inputActive};
+                }
+              `}
+              type="text"
+              value={layerControls.activeLayer.id}
+            />
+          </div>
+          <div>
+            {t('blend')}
+            <select value={layerControls.activeLayer.compositeMode} onChange={handleChangeCompositeMode}>
+              <option value="normal">{t('compositeModes.normal')}</option>
+              <option value="multiply">{t('compositeModes.multiply')}</option>
+              <option value="screen">{t('compositeModes.screen')}</option>
+              <option value="overlay">{t('compositeModes.overlay')}</option>
+            </select>
+          </div>
+          <div
+            css={`
+              display: flex;
+              align-items: center;
+            `}
+          >
+            <span>{t('opacity')}</span>
+            <div css={`flex: 1;`}>
+            <input
+              css={`
+                width: 100%;
+                vertical-align: bottom;
+                background: linear-gradient(to right, ${rgba('#fff', 0)}, ${rgba('#fff', 1)});
+                ${rangeThumb}
+              `}
+              type="range"
+              min={0}
+              max={100}
+              step={.1}
+              value={layerControls.activeLayer.opacity}
+              onChange={handleChangeOpacity}
+            />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {layerControls.layers && (
+        <SortableLayerList
+          layers={layerControls.layers}
+          distance={1}
+          onSortEnd={handleLayerSortEnd}
+        />
+      )}
+    </div>
+  )
+}
+
+const SortableLayerItem = SortableElement(({layer}: {layer: SilkEntity.LayerTypes}) => {
+  return (
+    <LayerItem layer={layer} />
+  )
+})
+
+const SortableLayerList = SortableContainer(({layers}: {layers: SilkEntity.LayerTypes[]}) => (
+  <div
+    css={`
+      flex: 1;
+      background-color: ${({theme}) => theme.surface.sidebarList};
     `}
+  >
+    {layers.map((layer, idx) => (
+      <SortableLayerItem key={layer.id} index={idx} layer={layer} />
+    ))}
+  </div>
+))
+
+function LayerItem({layer}: {layer: SilkEntity.LayerTypes}) {
+  const layerControls = useLayerControl()
+
+  const rootRef = useRef<HTMLDivElement|null>(null)
+  const handleToggleVisibility = useCallback(() => {
+    layerControls.toggleVisibility(layer.id)
+  }, [layer, layerControls])
+
+  const handleChangeActiveLayer = useCallback((e: MouseEvent<HTMLDivElement>) => {
+    if ((e.target as HTMLElement).matches('[data-ignore-click]')) return
+    layerControls.setActiveLayer(layer.id)
+  }, [layer, layerControls])
+
+  return (
+    <div
+      ref={rootRef}
+      css={`
+        display: flex;
+        width: 100%;
+        align-items: center;
+        padding: 8px;
+        cursor: default;
+        ${layerControls.activeLayer?.id === layer.id ? `background-color: rgba(255,255,255,.2)` : ''}
+      `}
       onClick={handleChangeActiveLayer}
     >
-      <img css="width: 24px; height: 24px; flex: none;" src={previewUrl}/>
+      <img
+        css={`
+          background:
+            linear-gradient(45deg, #212121 25%, transparent 25%, transparent 75%, #212121 75%),
+            linear-gradient(45deg, #212121 25%, transparent 25%, transparent 75%, #212121 75%);
+          /* background-color: transparent; */
+          background-size: 8px 8px;
+          width: 16px;
+          height: 16px;
+          flex: none;
+        `}
+         src={layerControls.getPreview(layer.id)}/>
       <div css={`
         margin-left: 8px;
         text-overflow: ellipsis;
         white-space: nowrap;
-        overflow: auto;
+        overflow-x: hidden;
+        overflow-y: auto;
         ::-webkit-scrollbar { display: none; }
       `}>{layer.id}</div>
       <div css={`${layer.visible ? '' : 'opacity: .5;'}`} onClick={handleToggleVisibility} data-ignore-click>

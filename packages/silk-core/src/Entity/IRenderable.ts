@@ -1,9 +1,13 @@
+export type CompositeMode = 'normal' | 'multiply' | 'screen' | 'overlay'
+
 export interface ILayer {
   layerType: 'raster' | 'vector' | 'adjustment' | 'group'
   name: string
   visible: boolean
   lock: boolean
-  compositeMode: 'normal' | 'multiply' | 'screen' | 'overlay'
+  compositeMode: CompositeMode
+  /** 0 to 100 */
+  opacity: number
 
   width: number
   height: number

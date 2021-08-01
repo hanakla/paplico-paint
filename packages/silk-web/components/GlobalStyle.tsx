@@ -8,10 +8,18 @@ export const GlobalStyle = createGlobalStyle`
     box-sizing: border-box;
   }
 
+  * {
+    -webkit-tap-highlight-color: transparent;
+  }
+
   html, body , #__next {
     width: 100%;
     height: 100%;
     font-size: 14px;
     overflow: hidden;
+  }
+
+  *:not(input) {
+    user-select: none;
   }
 `

@@ -1,3 +1,5 @@
 export { SilkEngine as Silk } from './engine/Engine'
+export * as SilkBrushes from './Brushes/index'
 export * as SilkEntity from './Entity/index'
 export * as SilkHelper from './SilkHelpers'
+export * as SilkMath from './SilkMath'

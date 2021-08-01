@@ -10,5 +10,8 @@ export type BrushContext = {
 }
 
 export interface IBrush {
+  get id(): string
+
+  initialize(): Promise<void>
   render(brushContext: BrushContext): void
 }

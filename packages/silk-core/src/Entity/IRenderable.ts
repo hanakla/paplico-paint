@@ -13,4 +13,6 @@ export interface ILayer {
   height: number
   x: number
   y: number
+
+  serialize(): any
 }

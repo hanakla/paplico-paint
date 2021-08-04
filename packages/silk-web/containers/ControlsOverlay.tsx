@@ -1,9 +1,9 @@
-import { useCallback, useEffect } from "react"
-import { useUpdate } from "react-use"
-import { useLayerControl } from "../hooks/useLayers"
-import { useSilkEngine } from "../hooks/useSilkEngine"
+import { useCallback, useEffect } from 'react'
+import { useUpdate } from 'react-use'
+import { useLayerControl } from '../hooks/useLayers'
+import { useSilkEngine } from '../hooks/useSilkEngine'
 
-export const ControlsOverlay = ({scale}: {scale: number}) => {
+export const ControlsOverlay = ({ scale }: { scale: number }) => {
   const engine = useSilkEngine()
   const layerControl = useLayerControl()
   const rerender = useUpdate()
@@ -13,13 +13,13 @@ export const ControlsOverlay = ({scale}: {scale: number}) => {
   // }, [])
 
   useEffect(() => {
-    if(!engine) return
+    if (!engine) return
     engine.on('activeLayerChanged', rerender)
   }, [engine])
 
   const bbox = engine?.currentLayerBBox ?? null
 
-  return(
+  return (
     <div
       css={`
         position: absolute;
@@ -27,6 +27,7 @@ export const ControlsOverlay = ({scale}: {scale: number}) => {
         left: 0;
         width: 100%;
         height: 100%;
+        pointer-events: none;
       `}
     >
       {layerControl.activeLayer?.layerType === 'raster' && bbox && (
@@ -45,12 +46,14 @@ export const ControlsOverlay = ({scale}: {scale: number}) => {
           }}
         />
       )}
-      {layerControl.activeLayer?.layerType === 'vector' && <VectorLayerControl scale={scale} />}
+      {layerControl.activeLayer?.layerType === 'vector' && (
+        <VectorLayerControl scale={scale} />
+      )}
     </div>
   )
 }
 
-const VectorLayerControl = ({scale}: {scale: number}) => {
+const VectorLayerControl = ({ scale }: { scale: number }) => {
   const engine = useSilkEngine()
   const layerControl = useLayerControl()
 
@@ -58,7 +61,7 @@ const VectorLayerControl = ({scale}: {scale: number}) => {
 
   const bbox = engine?.currentLayerBBox ?? null
   const { currentDocument } = engine
-  const {activeLayer} = layerControl
+  const { activeLayer } = layerControl
 
   if (!activeLayer) return null
   if (!currentDocument) return null
@@ -66,7 +69,7 @@ const VectorLayerControl = ({scale}: {scale: number}) => {
 
   // const [first, ...points] = activeLayer.paths
   const zoom = 1 / scale
-  const {paths} = activeLayer
+  const { paths } = activeLayer
   console.log(paths)
 
   // MEMO: これ見て https://codepen.io/osublake/pen/ggYxvp
@@ -81,15 +84,17 @@ const VectorLayerControl = ({scale}: {scale: number}) => {
       `}
       width={currentDocument.width * 2}
       height={currentDocument.height * 2}
-      viewBox={`${currentDocument.width / -2} ${currentDocument.height / -2} ${currentDocument.width * 2} ${currentDocument.height * 2}`}
+      viewBox={`${currentDocument.width / -2} ${currentDocument.height / -2} ${
+        currentDocument.width * 2
+      } ${currentDocument.height * 2}`}
     >
-      {activeLayer.paths.map(({start, points, svgPath}) => (
+      {activeLayer.paths.map(({ start, points, svgPath }) => (
         <>
           <path
             css={`
               stroke: #4e7fff;
               stroke-width: 2;
-              fill:none;
+              fill: none;
             `}
             d={svgPath}
           />
@@ -103,14 +108,14 @@ const VectorLayerControl = ({scale}: {scale: number}) => {
           <rect
             css={`
               fill: #4e7fff;
-              stroke: rgba(0,0,0,0.2);
+              stroke: rgba(0, 0, 0, 0.2);
             `}
             x={start.x}
             y={start.y}
             width={5 * zoom}
             height={5 * zoom}
-            transform={`translate(${-5 * zoom / 2}, ${-5 * zoom / 2})`}
-            style={{strokeWidth: 1 * zoom}}
+            transform={`translate(${(-5 * zoom) / 2}, ${(-5 * zoom) / 2})`}
+            style={{ strokeWidth: 1 * zoom }}
           />
           {points.map((point, idx, points) => (
             <>
@@ -118,13 +123,13 @@ const VectorLayerControl = ({scale}: {scale: number}) => {
                 css={`
                   stroke: #4e7fff;
                 `}
-                style={{ strokeWidth: .5 * zoom}}
+                style={{ strokeWidth: 0.5 * zoom }}
                 points={`${point.x},${point.y} ${point.c1x},${point.c1y}`}
               />
               <circle
                 css={`
                   fill: #4e7fff;
-                  stroke: rgba(0,0,0,0.2);
+                  stroke: rgba(0, 0, 0, 0.2);
                 `}
                 cx={point.c1x}
                 cy={point.c1y}
@@ -135,14 +140,14 @@ const VectorLayerControl = ({scale}: {scale: number}) => {
                 css={`
                   stroke: #4e7fff;
                 `}
-                style={{ strokeWidth: .5 * zoom}}
+                style={{ strokeWidth: 0.5 * zoom }}
                 points={`${point.x},${point.y} ${point.c2x},${point.c2y}`}
               />
               <circle
                 css={`
                   fill: #4e7fff;
-                  stroke: rgba(0,0,0,0.2);
-                  stroke-width: .5;
+                  stroke: rgba(0, 0, 0, 0.2);
+                  stroke-width: 0.5;
                 `}
                 cx={point.c2x}
                 cy={point.c2y}
@@ -152,14 +157,14 @@ const VectorLayerControl = ({scale}: {scale: number}) => {
               <rect
                 css={`
                   fill: #4e7fff;
-                  stroke: rgba(0,0,0,0.2);
+                  stroke: rgba(0, 0, 0, 0.2);
                 `}
                 x={point.x}
                 y={point.y}
                 width={5 * zoom}
                 height={5 * zoom}
-                transform={`translate(${-5 * zoom / 2}, ${-5 * zoom / 2})`}
-                style={{strokeWidth: 1 * zoom}}
+                transform={`translate(${(-5 * zoom) / 2}, ${(-5 * zoom) / 2})`}
+                style={{ strokeWidth: 1 * zoom }}
               />
             </>
           ))}

@@ -1,5 +1,5 @@
 import { ILayer } from './IRenderable'
-import {v4} from 'uuid'
+import { v4 } from 'uuid'
 
 export class RasterLayer implements ILayer {
   public readonly layerType = 'raster'
@@ -16,9 +16,16 @@ export class RasterLayer implements ILayer {
   public x: number = 0
   public y: number = 0
 
-  public readonly bitmap: Uint8ClampedArray
+  public readonly bitmap: Uint8ClampedArray = null as any
+  private _imageBitmapPromise: Promise<ImageBitmap> = Promise.reject(
+    new Error('bitmap not initialized')
+  )
 
-  public static create({width, height}: {width: number, height: number}) {
+  public get imageBitmap(): Promise<ImageBitmap> {
+    return this._imageBitmapPromise
+  }
+
+  public static create({ width, height }: { width: number; height: number }) {
     const layer = new RasterLayer()
 
     Object.assign(layer, {
@@ -27,6 +34,40 @@ export class RasterLayer implements ILayer {
       height: height,
     })
 
+    if (process.env.NODE_ENV !== 'test') {
+      layer._imageBitmapPromise = createImageBitmap(
+        new ImageData(layer.bitmap, width, height)
+      )
+    } else {
+      layer._imageBitmapPromise = Promise.resolve(null as any)
+    }
+
     return layer
+  }
+
+  public async updateBitmap(
+    process: (bitmap: Uint8ClampedArray, layer: RasterLayer) => void
+  ) {
+    process(this.bitmap, this)
+
+    this._imageBitmapPromise = createImageBitmap(
+      new ImageData(this.bitmap, this.width, this.height)
+    )
+  }
+
+  public serialize() {
+    return {
+      id: this.id,
+      name: this.name,
+      visible: this.visible,
+      lock: this.lock,
+      compositeMode: this.compositeMode,
+      opacity: this.opacity,
+      width: this.width,
+      height: this.height,
+      x: this.x,
+      y: this.y,
+      // bitmap: this.bitmap,
+    }
   }
 }

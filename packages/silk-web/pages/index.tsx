@@ -1,10 +1,22 @@
 import type {} from '../utils/styled-theme'
 import type {} from 'styled-components/cssprop'
 
-import React, { useCallback, useEffect, useRef, useState } from 'react'
-import { useClickAway, useDrop, useMedia, useToggle, useUpdate } from 'react-use'
-import {serverSideTranslations} from 'next-i18next/serverSideTranslations'
-import {loadImageFromBlob} from '@hanakla/arma'
+import React, {
+  TouchEvent,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from 'react'
+import {
+  useClickAway,
+  useDrop,
+  useMedia,
+  useToggle,
+  useUpdate,
+} from 'react-use'
+import { serverSideTranslations } from 'next-i18next/serverSideTranslations'
+import { loadImageFromBlob } from '@hanakla/arma'
 import { EngineContextProvider } from '../lib/EngineContext'
 import { Silk, SilkEntity, SilkHelper } from 'silk-core'
 import { LayerView } from '../containers/LayerView'
@@ -13,44 +25,60 @@ import { ControlsOverlay } from '../containers/ControlsOverlay'
 import { GetStaticProps } from 'next'
 import i18nConfig from '../next-i18next.config'
 import { narrow } from '../utils/responsive'
-import { usePinch, } from 'react-use-gesture'
+import { usePinch } from 'react-use-gesture'
 import { createGlobalStyle } from 'styled-components'
+import { DebugView } from '../containers/DebugView'
+import { useTap } from '../hooks/useTap'
 
 export default function Index({}) {
   const engine = useRef<Silk | null>(null)
-  const canvasRef = useRef<HTMLCanvasElement| null>(null)
-  const editAreaRef = useRef<HTMLDivElement|null>(null)
-  const sidebarRef = useRef<HTMLDivElement |null>(null)
+  const canvasRef = useRef<HTMLCanvasElement | null>(null)
+  const editAreaRef = useRef<HTMLDivElement | null>(null)
+  const sidebarRef = useRef<HTMLDivElement | null>(null)
 
   const isNarrowMedia = useMedia(`(max-width: ${narrow})`, true)
-  const [position, setPosition] = useState({x: 0, y: 0})
+  const [position, setPosition] = useState({ x: 0, y: 0 })
   const rerender = useUpdate()
   const [sidebarOpened, sidebarToggle] = useToggle(!isNarrowMedia)
-  const [scale, setScale] = useState(.5)
+  const [scale, setScale] = useState(0.5)
   const [rotate, setRotate] = useState(0)
 
   const handleOnDrop = useCallback(async (files: File[]) => {
     if (!engine.current?.currentDocument) return
 
-    let lastLayerId: string | null = engine.current.activeLayer
+    let lastLayerId: string | null = engine.current.activeLayer?.id ?? null
 
     for (const file of files) {
-      const {image} = await loadImageFromBlob(file)
+      const { image } = await loadImageFromBlob(file)
       const layer = await SilkHelper.imageToLayer(image)
-      engine.current.currentDocument.addLayer(layer, {aboveLayerId: lastLayerId})
+      engine.current.currentDocument.addLayer(layer, {
+        aboveLayerId: lastLayerId,
+      })
       lastLayerId = layer.id
     }
 
     engine.current.rerender()
   }, [])
 
-  const dragState = useDrop({onFiles: handleOnDrop})
+  const handleTapEditArea = useCallback(
+    ({ touches }: TouchEvent<HTMLDivElement>) => {
+      if (touches.length === 2) console.log('undo')
+      if (touches.length === 3) console.log('redo')
+    },
+    []
+  )
 
-  usePinch(({delta: [d, r]}) => {
-    setScale(scale => Math.max(.1, scale + d / 400))
-    // setRotate(rotate => rotate + r)
-  }, {domTarget: editAreaRef, eventOptions: {passive: false}})
+  const dragState = useDrop({ onFiles: handleOnDrop })
 
+  const tapBind = useTap(handleTapEditArea)
+
+  usePinch(
+    ({ delta: [d, r] }) => {
+      setScale((scale) => Math.max(0.1, scale + d / 400))
+      // setRotate(rotate => rotate + r)
+    },
+    { domTarget: editAreaRef, eventOptions: { passive: false } }
+  )
 
   useClickAway(sidebarRef, () => {
     if (!isNarrowMedia) return
@@ -58,13 +86,15 @@ export default function Index({}) {
   })
 
   useEffect(() => {
-    (window as any).engine = engine.current = new Silk({canvas: canvasRef.current! })
+    ;(window as any).engine = engine.current = new Silk({
+      canvas: canvasRef.current!,
+    })
 
-    const document = SilkEntity.Document.create({width: 1000, height: 1000})
+    const document = SilkEntity.Document.create({ width: 1000, height: 1000 })
     engine.current.setDocument(document)
 
-    const layer = SilkEntity.RasterLayer.create({width: 1000, height: 1000})
-    const vector = SilkEntity.VectorLayer.create({width: 1000, height: 1000})
+    const layer = SilkEntity.RasterLayer.create({ width: 1000, height: 1000 })
+    const vector = SilkEntity.VectorLayer.create({ width: 1000, height: 1000 })
     document.layers.push(vector)
     document.layers.push(layer)
     engine.current.setActiveLayer(layer.id)
@@ -72,7 +102,7 @@ export default function Index({}) {
     engine.current.on('rerender', rerender)
 
     if ('scrollRestoration' in history) {
-      history.scrollRestoration = 'manual';
+      history.scrollRestoration = 'manual'
     }
 
     // window.addEventListener('mousewheel', e => {
@@ -83,14 +113,20 @@ export default function Index({}) {
   }, [])
 
   useEffect(() => {
-    const handleCanvasWheel = (e:WheelEvent) => {
-      setPosition(({x, y}) => ({x: x - e.deltaX * .5, y: y - e.deltaY * .5}))
+    const handleCanvasWheel = (e: WheelEvent) => {
+      setPosition(({ x, y }) => ({
+        x: x - e.deltaX * 0.5,
+        y: y - e.deltaY * 0.5,
+      }))
       e.preventDefault()
     }
 
-    editAreaRef.current?.addEventListener('wheel', handleCanvasWheel, {passive: false })
-    return () => editAreaRef.current?.removeEventListener('wheel', handleCanvasWheel)
-  },[])
+    editAreaRef.current?.addEventListener('wheel', handleCanvasWheel, {
+      passive: false,
+    })
+    return () =>
+      editAreaRef.current?.removeEventListener('wheel', handleCanvasWheel)
+  }, [])
 
   useEffect(() => {
     if (!engine.current) return
@@ -102,12 +138,13 @@ export default function Index({}) {
       <TouchActionStyle />
       <div
         css={`
+          position: relative;
           display: flex;
           flex-flow: row;
           width: 100%;
           height: 100%;
-          background-color: ${({theme}) => theme.surface.black};
-          color: ${({theme}) => theme.text.white};
+          background-color: ${({ theme }) => theme.surface.black};
+          color: ${({ theme }) => theme.text.white};
         `}
       >
         <div
@@ -129,22 +166,31 @@ export default function Index({}) {
               display: flex;
               flex-flow: column;
               height: 100%;
-              transition: width .2s ease-in-out;
-              background-color: ${({theme}) => theme.surface.sidebarBlack};
+              transition: width 0.2s ease-in-out;
+              background-color: ${({ theme }) => theme.surface.sidebarBlack};
             `}
-            style={{ width: (!isNarrowMedia || sidebarOpened) ? '200px' : '32px'}}
+            style={{
+              width: !isNarrowMedia || sidebarOpened ? '200px' : '32px',
+            }}
           >
             <LayerView />
-            <div css={`
+            <div
+              css={`
                 display: flex;
                 padding: 8px;
                 border-top: 1px solid #73757c;
-            `}>
-                エフェクト
-                <div css='margin-left: auto'>＋</div>
+              `}
+            >
+              エフェクト
+              <div css="margin-left: auto">＋</div>
             </div>
             <div css="display: flex; padding: 8px; margin-top: auto;">
-              <div css="margin-right: auto; cursor: default;" onClick={sidebarToggle}>三</div>
+              <div
+                css="margin-right: auto; cursor: default;"
+                onClick={sidebarToggle}
+              >
+                三
+              </div>
             </div>
           </div>
         </div>
@@ -160,34 +206,53 @@ export default function Index({}) {
           `}
         >
           {dragState.over && (
-            <div css={`
-              position: absolute;
-              top: 0;
-              left: 0;
-              display: flex;
-              align-items: center;
-              justify-content: center;
-              width: 100%;
-              height: 100%;
-              z-index: 1;
-              background-color: rgba(0,0,0,.5);
-            `}>
+            <div
+              css={`
+                position: absolute;
+                top: 0;
+                left: 0;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                width: 100%;
+                height: 100%;
+                z-index: 1;
+                background-color: rgba(0, 0, 0, 0.5);
+              `}
+            >
               ドロップして画像を追加
             </div>
           )}
-          <div css="position: absolute;" style={{transform: `scale(${scale}) rotate(${rotate}deg) translate(${position.x}px, ${position.y}px)`}}>
-            <ControlsOverlay scale={scale} />
-            <canvas css='background-color: white; box-shadow: 0 0 16px rgba(0,0,0,.1)' ref={canvasRef} />
+          <div
+            css="position: absolute;"
+            style={{
+              transform: `scale(${scale}) rotate(${rotate}deg) translate(${position.x}px, ${position.y}px)`,
+            }}
+          >
+            {/* <ControlsOverlay scale={scale} /> */}
+            <canvas
+              css="background-color: white; box-shadow: 0 0 16px rgba(0,0,0,.1)"
+              ref={canvasRef}
+            />
           </div>
-          <div css={`
-            position: absolute;
-            left: 50%;
-            bottom: 16px;
-            transform: translateX(-50%);
-          `}>
+          <div
+            css={`
+              position: absolute;
+              left: 50%;
+              bottom: 16px;
+              transform: translateX(-50%);
+            `}
+          >
             <MainActions />
           </div>
         </div>
+        <DebugView
+          css={`
+            position: absolute;
+            top: 0;
+            right: 0;
+          `}
+        />
       </div>
     </EngineContextProvider>
   )
@@ -203,7 +268,6 @@ export default function Index({}) {
 //   return {}
 // }
 
-
 const TouchActionStyle = createGlobalStyle`
   html, body { touch-action: none; }
 `
@@ -214,5 +278,5 @@ export const getStaticProps: GetStaticProps = async ({ locale }) => {
       ...(await serverSideTranslations(locale!, ['common'], i18nConfig)),
       // Will be passed to the page component as props
     },
-  };
+  }
 }

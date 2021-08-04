@@ -1,4 +1,4 @@
-import mitt, {Emitter} from 'mitt'
+import mitt, { Emitter } from 'mitt'
 import { Stroke } from './Stroke'
 import spline from '@yr/catmull-rom-spline'
 
@@ -12,7 +12,7 @@ const getTouchOffset = (target: HTMLElement, scale: number, touch: Touch) => {
   const x = (touch.clientX - window.pageXOffset - rect.left) * (1 / scale)
   const y = (touch.clientY - window.pageYOffset - rect.top) * (1 / scale)
 
-  return {x, y}
+  return { x, y }
 }
 
 export class CanvasHandler {
@@ -22,7 +22,8 @@ export class CanvasHandler {
   protected currentStroke: Stroke | null = null
   protected mitt: Emitter<Events> = mitt()
 
-  public _scale: number = 1
+  protected _scale: number = 1
+  protected _stroking: boolean = false
 
   public on: Emitter<Events>['on']
   public off: Emitter<Events>['off']
@@ -36,21 +37,30 @@ export class CanvasHandler {
 
     this.canvas.addEventListener('mousedown', (e) => {
       this.currentStroke = new Stroke()
-      this.currentStroke.points.push([e.offsetX, e.offsetY, 1])
+      this.currentStroke.updatePoints((points) => {
+        points.push([e.offsetX, e.offsetY, 1])
+      })
+
+      this._stroking = true
     })
 
     this.canvas.addEventListener('mousemove', (e) => {
       if (!this.currentStroke) return
 
-      this.currentStroke.points.push([e.offsetX, e.offsetY, 1])
+      this.currentStroke.updatePoints((points) => {
+        points.push([e.offsetX, e.offsetY, 1])
+      })
       this.mitt.emit('tmpStroke', this.currentStroke)
     })
 
     this.canvas.addEventListener('mouseup', () => {
       if (!this.currentStroke) return
+      const { currentStroke } = this
 
-      this.mitt.emit('stroke', this.currentStroke)
       this.currentStroke = null
+      this._stroking = false
+
+      this.mitt.emit('stroke', currentStroke)
     })
 
     this.canvas.addEventListener('touchstart', (e) => {
@@ -58,9 +68,17 @@ export class CanvasHandler {
 
       this.currentStroke = new Stroke()
 
-      const {x,y} = getTouchOffset(e.target as HTMLElement, this._scale, e.touches[0])
-      console.log(e.touches[0].force)
-      this.currentStroke.points.push([x, y, e.touches[0].force])
+      const { x, y } = getTouchOffset(
+        e.target as HTMLElement,
+        this._scale,
+        e.touches[0]
+      )
+
+      this._stroking = true
+
+      this.currentStroke.updatePoints((points) => {
+        points.push([x, y, e.touches[0].force])
+      })
     })
 
     this.canvas.addEventListener('touchmove', (e) => {
@@ -72,14 +90,22 @@ export class CanvasHandler {
         return
       }
 
-      const {x,y} = getTouchOffset(e.target as HTMLElement, this._scale, e.touches[0])
+      const { x, y } = getTouchOffset(
+        e.target as HTMLElement,
+        this._scale,
+        e.touches[0]
+      )
 
-      this.currentStroke.points.push([x, y, e.touches[0].force])
+      this.currentStroke.updatePoints((points) => {
+        points.push([x, y, e.touches[0].force])
+      })
+
       this.mitt.emit('tmpStroke', this.currentStroke)
     })
 
     this.canvas.addEventListener('touchend', (e) => {
-      if(!this.currentStroke) return
+      if (!this.currentStroke) return
+      const { currentStroke } = this
 
       if (e.touches.length > 1) {
         // Cancel current stroke when pinch
@@ -87,9 +113,15 @@ export class CanvasHandler {
         return
       }
 
-      this.mitt.emit('stroke', this.currentStroke)
+      this._stroking = false
       this.currentStroke = null
+
+      this.mitt.emit('stroke', currentStroke)
     })
+  }
+
+  public get stroking() {
+    return this._stroking
   }
 
   public get scale() {
@@ -100,5 +132,3 @@ export class CanvasHandler {
     this._scale = scale
   }
 }
-
-

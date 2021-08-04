@@ -1,6 +1,6 @@
-import { BrushSetting } from "./BrushSetting";
-import { IInk } from "./Inks/IInk";
-import { Stroke } from "./Stroke";
+import { BrushSetting } from './BrushSetting'
+import { IInk } from './Inks/IInk'
+import { Stroke } from './Stroke'
 
 export type BrushContext = {
   context: CanvasRenderingContext2D
@@ -10,7 +10,7 @@ export type BrushContext = {
 }
 
 export interface IBrush {
-  get id(): string
+  id(): string
 
   initialize(): Promise<void>
   render(brushContext: BrushContext): void

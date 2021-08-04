@@ -3,9 +3,9 @@ import { VectorLayer } from './VectorLayer'
 
 export { RasterLayer } from './RasterLayer'
 export { VectorLayer } from './VectorLayer'
-export { Group } from './Group'
+export { GroupLayer as Group } from './GroupLayer'
 export { Effect } from './Effect'
-export type {BrushSetting} from './BrushSetting'
+export type { BrushSetting } from './BrushSetting'
 export { Document } from './Document'
-export {Path} from './Path'
+export { Path } from './Path'
 export type LayerTypes = RasterLayer | VectorLayer

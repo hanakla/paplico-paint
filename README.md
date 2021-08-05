@@ -1,7 +1,13 @@
 # Silk
 
-`Silk` is painting application on the web.  
-Powered by TypeScript / Next.js
+`Silk` is painting application / engine on the web.
+
+## Motivation
+
+ベジエでイケイケな絵を書きたい。  
+ラスター系とベクター系が一緒に使えるアプリが欲しい。  
+
+そういう伝わりづらい個人的な欲求で作っている。
 
 ## Application Structure
 

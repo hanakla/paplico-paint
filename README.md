@@ -21,7 +21,7 @@ Do you understand????
 
 ## Application Structure
 
-- `packages/silk-core` is an package of drawing engine / native UI events handler / drawing state manager.
+- [`packages/silk-core`](packages/silk-core) is an package of drawing engine / native UI events handler / drawing state manager.
   - Made with TypeScript / HTML5 Canvas / DOM
-- `packages/silk-web` is Frontend implementation of silk-core.
+- [`packages/silk-web`](packages/silk-web) is Frontend implementation of silk-core.
   - Made with Next.js

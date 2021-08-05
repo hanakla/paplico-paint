@@ -1,6 +1,7 @@
 # silk-core
 
-`silk-core` is core engine implementation of Silk.  
+`silk-core` is core engine implementation of Silk.
+
 It's take care of rendering, native UI events handling of drawing, editor state management, caching and Interface definitons for extensiblity.
 
 ## Features

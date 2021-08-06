@@ -1,5 +1,6 @@
 import { ILayer } from './IRenderable'
 import { v4 } from 'uuid'
+import { fakeRejectedPromise } from '../utils'
 
 export class RasterLayer implements ILayer {
   public readonly layerType = 'raster'
@@ -17,7 +18,7 @@ export class RasterLayer implements ILayer {
   public y: number = 0
 
   public readonly bitmap: Uint8ClampedArray = null as any
-  private _imageBitmapPromise: Promise<ImageBitmap> = Promise.reject(
+  private _imageBitmapPromise: Promise<ImageBitmap> = fakeRejectedPromise(
     new Error('bitmap not initialized')
   )
 

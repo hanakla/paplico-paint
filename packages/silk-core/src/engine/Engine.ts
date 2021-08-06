@@ -65,7 +65,7 @@ export class SilkEngine {
     this.on = this.mitt.on.bind(this.mitt)
     this.off = this.mitt.off.bind(this.mitt)
 
-    // this._currentBrush.initialize()
+    this._currentBrush.initialize()
 
     this.canvasHandler.on('tmpStroke', this.handleTemporayStroke)
     this.canvasHandler.on('stroke', this.handleCanvasStroke)

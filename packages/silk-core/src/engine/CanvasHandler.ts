@@ -57,6 +57,10 @@ export class CanvasHandler {
       if (!this.currentStroke) return
       const { currentStroke } = this
 
+      if (this.currentStroke.points.length > 1) {
+        this.mitt.emit('stroke', this.currentStroke)
+      }
+
       this.currentStroke = null
       this._stroking = false
 
@@ -111,6 +115,10 @@ export class CanvasHandler {
         // Cancel current stroke when pinch
         this.currentStroke = null
         return
+      }
+
+      if (this.currentStroke.points.length > 1) {
+        this.mitt.emit('stroke', this.currentStroke)
       }
 
       this._stroking = false

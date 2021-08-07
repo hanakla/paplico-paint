@@ -1,3 +1,4 @@
+const ForkTsCheckerWebpackPlugin = require('fork-ts-checker-webpack-plugin')
 const withPWA = require('next-pwa')
 const runtimeCaching = require('next-pwa/cache')
 const withTranspileModules = require('next-transpile-modules')([
@@ -11,4 +12,8 @@ module.exports = withTranspileModules(withPWA({
     dest: 'public',
     runtimeCaching,
   },
+  webpack: (config) => {
+    config.plugins.push(new ForkTsCheckerWebpackPlugin())
+    return config
+  }
 }))

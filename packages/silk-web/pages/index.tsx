@@ -1,5 +1,4 @@
 import type {} from '../utils/styled-theme'
-import type {} from 'styled-components/cssprop'
 
 import React, {
   TouchEvent,
@@ -16,7 +15,7 @@ import {
   useUpdate,
 } from 'react-use'
 import { serverSideTranslations } from 'next-i18next/serverSideTranslations'
-import { loadImageFromBlob } from '@hanakla/arma'
+import { loadImageFromBlob, useAsyncEffect } from '@hanakla/arma'
 import { EngineContextProvider } from '../lib/EngineContext'
 import { Silk, SilkEntity, SilkHelper } from 'silk-core'
 import { LayerView } from '../containers/LayerView'
@@ -28,9 +27,16 @@ import { narrow } from '../utils/responsive'
 import { usePinch } from 'react-use-gesture'
 import { createGlobalStyle } from 'styled-components'
 import { DebugView } from '../containers/DebugView'
+import { useSpring, animated } from 'react-spring'
+import { Menu } from '@styled-icons/remix-line'
+import { Provider } from 'jotai'
+import { LysContext, useLysSliceRoot } from '@fleur/lys'
+import { EditorSlice } from '../domains/Editor'
 import { useTap } from '../hooks/useTap'
 
-export default function Index({}) {
+function IndexContent({}) {
+  const [, actions] = useLysSliceRoot(EditorSlice)
+
   const engine = useRef<Silk | null>(null)
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
   const editAreaRef = useRef<HTMLDivElement | null>(null)
@@ -42,6 +48,7 @@ export default function Index({}) {
   const [sidebarOpened, sidebarToggle] = useToggle(!isNarrowMedia)
   const [scale, setScale] = useState(0.5)
   const [rotate, setRotate] = useState(0)
+  const sidebarStyles = useSpring({ width: sidebarOpened ? 200 : 32 })
 
   const handleOnDrop = useCallback(async (files: File[]) => {
     if (!engine.current?.currentDocument) return
@@ -69,7 +76,6 @@ export default function Index({}) {
   )
 
   const dragState = useDrop({ onFiles: handleOnDrop })
-
   const tapBind = useTap(handleTapEditArea)
 
   usePinch(
@@ -85,10 +91,11 @@ export default function Index({}) {
     sidebarToggle(false)
   })
 
-  useEffect(() => {
-    ;(window as any).engine = engine.current = new Silk({
+  useAsyncEffect(async () => {
+    ;(window as any).engine = engine.current = await Silk.create({
       canvas: canvasRef.current!,
     })
+    actions.setEngine(engine.current)
 
     const document = SilkEntity.Document.create({ width: 1000, height: 1000 })
     engine.current.setDocument(document)
@@ -97,7 +104,7 @@ export default function Index({}) {
     const vector = SilkEntity.VectorLayer.create({ width: 1000, height: 1000 })
     document.layers.push(vector)
     document.layers.push(layer)
-    engine.current.setActiveLayer(layer.id)
+    engine.current.setActiveLayer(vector.id)
 
     engine.current.on('rerender', rerender)
 
@@ -105,11 +112,17 @@ export default function Index({}) {
       history.scrollRestoration = 'manual'
     }
 
+    window.addEventListener('contextmenu', (e) => {
+      e.preventDefault()
+    })
+
     // window.addEventListener('mousewheel', e => {
     //   // e.preventDefault()
     //   e.stopPropagation()
     // }, {passive: false})
     rerender()
+
+    return () => {}
   }, [])
 
   useEffect(() => {
@@ -153,9 +166,9 @@ export default function Index({}) {
             position: relative;
             display: flex;
             flex-flow: column;
-            width: ${isNarrowMedia ? '32px' : '200px'};
             max-width: 200px;
           `}
+          // style={sidebarStyles}
         >
           <div
             css={`
@@ -165,6 +178,7 @@ export default function Index({}) {
               z-index: 1;
               display: flex;
               flex-flow: column;
+              width: 200px;
               height: 100%;
               transition: width 0.2s ease-in-out;
               background-color: ${({ theme }) => theme.surface.sidebarBlack};
@@ -181,7 +195,7 @@ export default function Index({}) {
                 border-top: 1px solid #73757c;
               `}
             >
-              エフェクト
+              レイヤーフィルター
               <div css="margin-left: auto">＋</div>
             </div>
             <div css="display: flex; padding: 8px; margin-top: auto;">
@@ -189,7 +203,11 @@ export default function Index({}) {
                 css="margin-right: auto; cursor: default;"
                 onClick={sidebarToggle}
               >
-                三
+                <Menu
+                  css={`
+                    width: 16px;
+                  `}
+                />
               </div>
             </div>
           </div>
@@ -229,7 +247,7 @@ export default function Index({}) {
               transform: `scale(${scale}) rotate(${rotate}deg) translate(${position.x}px, ${position.y}px)`,
             }}
           >
-            {/* <ControlsOverlay scale={scale} /> */}
+            <ControlsOverlay scale={scale} />
             <canvas
               css="background-color: white; box-shadow: 0 0 16px rgba(0,0,0,.1)"
               ref={canvasRef}
@@ -271,6 +289,14 @@ export default function Index({}) {
 const TouchActionStyle = createGlobalStyle`
   html, body { touch-action: none; }
 `
+
+export default function Index() {
+  return (
+    <LysContext>
+      <IndexContent />
+    </LysContext>
+  )
+}
 
 export const getStaticProps: GetStaticProps = async ({ locale }) => {
   return {

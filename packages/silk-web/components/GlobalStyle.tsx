@@ -15,8 +15,8 @@ export const GlobalStyle = createGlobalStyle`
   html, body , #__next {
     width: 100%;
     height: 100%;
-    font-size: 14px;
-    /* overflow: hidden; */
+    font-size: 12px;
+    overflow: hidden;
   }
 
   *:not(input) {

@@ -2,11 +2,12 @@ import { ILayer } from './IRenderable'
 import { v4 } from 'uuid'
 import { Path } from './Path'
 import spline from '@yr/catmull-rom-spline'
+import { VectorObject } from './VectorObject'
 
 export class VectorLayer implements ILayer {
   public readonly layerType = 'vector'
 
-  public readonly id: string = v4()
+  public readonly id: string = `vectorlayer-${v4()}`
   public name: string = ''
   public visible: boolean = true
   public lock: boolean = false
@@ -18,10 +19,14 @@ export class VectorLayer implements ILayer {
   public x: number = 0
   public y: number = 0
 
-  public readonly paths: Path[] = []
+  public readonly objects: VectorObject[] = []
+
+  /** Mark for re-rendering decision */
+  protected _lastUpdatedAt = Date.now()
 
   public static create({ width, height }: { width: number; height: number }) {
     const layer = new VectorLayer()
+
     const sp = spline.points(
       [
         [0, 0, 1],
@@ -30,6 +35,7 @@ export class VectorLayer implements ILayer {
         [1000, 1000, 1],
       ].map(([x, y]) => [x, y])
     )
+
     const [start, ...points] = sp
     const objectPoints = points.map(([c1x, c1y, c2x, c2y, x, y]: number[]) => ({
       c1x,
@@ -39,21 +45,33 @@ export class VectorLayer implements ILayer {
       x,
       y,
     }))
-    const path = new Path({
+
+    const path = Path.create({
       start: { x: start[0], y: start[1] },
       points: objectPoints,
       svgPath: spline.svgPath(sp),
     })
-    layer.paths.push(path)
-    // Object.assign(layer, {
-    //   width: width,
-    //   height: height,
-    // })
+    layer.objects.push(VectorObject.create({ x: 0, y: 0, path }))
 
     return layer
   }
 
   public static deserialize(o: any) {}
+
+  protected constructor() {}
+
+  public get lastUpdatedAt() {
+    return this._lastUpdatedAt
+  }
+
+  public update(proc: (layer: VectorLayer) => void) {
+    proc(this)
+    this._lastUpdatedAt = Date.now()
+  }
+
+  public serialize() {
+    return {}
+  }
 
   public get width() {
     return 0
@@ -62,6 +80,4 @@ export class VectorLayer implements ILayer {
   public get height() {
     return 0
   }
-
-  public serialize() {}
 }

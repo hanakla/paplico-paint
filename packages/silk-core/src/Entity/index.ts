@@ -8,4 +8,5 @@ export { Effect } from './Effect'
 export type { BrushSetting } from './BrushSetting'
 export { Document } from './Document'
 export { Path } from './Path'
+export { VectorObject } from './VectorObject'
 export type LayerTypes = RasterLayer | VectorLayer

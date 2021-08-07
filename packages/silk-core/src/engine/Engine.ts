@@ -1,4 +1,4 @@
-import { BrushSetting, LayerTypes } from '../Entity'
+import { BrushSetting, LayerTypes, VectorLayer } from '../Entity'
 import { Document } from '../Entity/Document'
 import { Brush } from '../Brushes/Brush'
 import { CanvasHandler } from './CanvasHandler'
@@ -6,8 +6,10 @@ import mitt, { Emitter } from 'mitt'
 import { RandomInk } from './Inks/RandomInk'
 import { IInk } from './Inks/IInk'
 import { ExampleBrush } from '../Brushes/ExampleBrush'
-import { IBrush } from './IBrush'
+import { IBrush, BrushClass } from './IBrush'
 import { Stroke } from './Stroke'
+import { VectorObject } from '../Entity/VectorObject'
+import { assign } from '../utils'
 
 type EngineEvents = {
   rerender: void
@@ -32,6 +34,7 @@ export class SilkEngine {
   protected currentInk: IInk = new RandomInk()
   protected _activeLayer: LayerTypes | null = null
   protected _brushSetting: BrushSetting = {
+    id: Brush.id,
     weight: 1,
     color: { r: 0, g: 0, b: 0 },
     opacity: 1,
@@ -40,8 +43,21 @@ export class SilkEngine {
   protected blushPromise: Promise<void> | null = null
   protected lastRenderedAt: WeakMap<LayerTypes, number> = new WeakMap()
 
+  protected brushRegister = new Map<string, BrushClass>()
+  protected brushInstances = new WeakMap<BrushClass, Brush>()
+  protected vectorBitmapCache = new WeakMap<VectorLayer, any>()
+  protected vectorLayerLastRenderTimes = new WeakMap<VectorLayer, number>()
+
   public on: Emitter<EngineEvents>['on']
   public off: Emitter<EngineEvents>['on']
+
+  public static async create({ canvas }: { canvas: HTMLCanvasElement }) {
+    const silk = new SilkEngine({ canvas })
+
+    await Promise.all([silk.registerBrush(Brush)])
+
+    return silk
+  }
 
   constructor({ canvas }: { canvas: HTMLCanvasElement }) {
     this.mitt = mitt()
@@ -84,27 +100,50 @@ export class SilkEngine {
 
   public async rerender() {
     if (!this.document) return
+    const { document } = this
 
     const images = await Promise.all(
-      [...this.document.layers].reverse().map(async (layer) => {
-        if (layer.layerType !== 'raster')
-          return [layer.id, layer, null] as const
-
+      [...document.layers].reverse().map(async (layer) => {
         if (!layer.visible) return [layer.id, layer, null] as const
-        if (this.canvasHandler.stroking && layer.id === this._activeLayer?.id)
-          return [layer.id, layer, null] as const
 
-        return [
-          layer.id,
-          layer,
-          await createImageBitmap(
-            new ImageData(layer.bitmap, layer.width, layer.height)
-          ),
-        ] as const
+        switch (layer.layerType) {
+          case 'vector': {
+            if (
+              (this.vectorLayerLastRenderTimes.get(layer) ?? 0) <
+              layer.lastUpdatedAt
+            ) {
+              this.renderVectorLayer(layer)
+            }
+
+            const bitmap = this.vectorBitmapCache.get(layer)
+
+            return [
+              layer.id,
+              layer,
+              await createImageBitmap(
+                new ImageData(bitmap, document.width, document.height)
+              ),
+            ] as const
+          }
+          case 'raster': {
+            if (
+              this.canvasHandler.stroking &&
+              layer.id === this._activeLayer?.id
+            )
+              return [layer.id, layer, null] as const
+
+            return [
+              layer.id,
+              layer,
+              await createImageBitmap(
+                new ImageData(layer.bitmap, layer.width, layer.height)
+              ),
+            ] as const
+          }
+        }
       })
     )
 
-    // generete preview thumbnails
     for (const [id, , image] of images) {
       if (image == null) continue
 
@@ -134,14 +173,10 @@ export class SilkEngine {
       })
     }
 
-    this.canvasHandler.context.clearRect(
-      0,
-      0,
-      this.document.width,
-      this.document.height
-    )
+    this.canvasHandler.context.clearRect(0, 0, document.width, document.height)
 
     for (const [, layer, image] of images) {
+      if (image == null) continue
       this.canvasHandler.context.globalCompositeOperation = layer.compositeMode
       this.canvasHandler.context.globalAlpha = Math.max(
         0,
@@ -201,9 +236,23 @@ export class SilkEngine {
 
     this.strokeCanvas.width = document.width
     this.strokeCanvas.height = document.height
+
+    this.vectorBitmapCache = new Map()
   }
 
-  public async setBrush(Brush: { new (): IBrush }) {
+  public async registerBrush(Brush: BrushClass) {
+    this.brushRegister.set(Brush.id, Brush)
+
+    const brush = new Brush()
+    await brush.initialize()
+    this.brushInstances.set(Brush, brush)
+  }
+
+  public async getBrushes() {
+    return [...this.brushRegister.values()]
+  }
+
+  public async setBrush(Brush: BrushClass) {
     this._currentBrush = new Brush()
     this.blushPromise = this._currentBrush.initialize()
     await this.blushPromise
@@ -241,8 +290,6 @@ export class SilkEngine {
   }
 
   private handleTemporayStroke = async (stroke: Stroke) => {
-    if (this.document == null) return
-
     if (this.activeLayer?.layerType === 'raster') {
       const { activeLayer, strokingPreviewCtx, strokeCanvasCtx } = this
       const { width, height } = this.document
@@ -272,32 +319,74 @@ export class SilkEngine {
     }
   }
 
+  private renderVectorLayer(layer: VectorLayer) {
+    if (!this.document) return
+
+    const { document, bufferCtx } = this
+    const { width, height } = document
+
+    const bitmap =
+      this.vectorBitmapCache.get(layer) ??
+      new Uint8ClampedArray(width * height * 4)
+
+    assign(this.bufferCtx.canvas, { width, height })
+    bufferCtx.clearRect(0, 0, width, height)
+
+    for (const object of layer.objects) {
+      // this.strokeCanvas
+      const brushClass = this.brushRegister.get(object.brush.id)!
+      const brush = this.brushInstances.get(brushClass)
+
+      if (brushClass == null || brush == null)
+        throw new Error(`Unregistered brush ${object.brush.id}`)
+
+      const stroke = Stroke.fromPath(object.path)
+
+      brush.render({
+        context: bufferCtx,
+        stroke,
+        ink: this.currentInk,
+        brushSetting: this._brushSetting,
+      })
+
+      bufferCtx.globalCompositeOperation = 'source-over'
+      bufferCtx.drawImage(this.strokeCanvas, 0, 0)
+    }
+
+    bitmap.set(bufferCtx.getImageData(0, 0, width, height).data)
+    this.vectorBitmapCache.set(layer, bitmap)
+
+    return bitmap
+  }
+
   private handleCanvasStroke = async (stroke: Stroke) => {
     if (this.document == null) return
+    const { document, activeLayer } = this
+
     await this.blushPromise
 
-    if (this.activeLayer?.layerType == 'raster') {
-      const { activeLayer, strokeCanvasCtx, bufferCtx } = this
-      const { width, height } = this.document
+    if (activeLayer?.layerType == 'raster') {
+      const { width, height } = document
+      const { bufferCtx, strokeCanvasCtx } = this
+      const strokeCtx = this.strokeCanvasCtx
+
+      this.strokeCanvas.width = bufferCtx.canvas.width = document.width
+      this.strokeCanvas.height = bufferCtx.canvas.height = document.height
 
       bufferCtx.clearRect(0, 0, width, height)
-      strokeCanvasCtx.clearRect(0, 0, width, height)
+      strokeCtx.clearRect(0, 0, width, height)
 
-      this.strokeCanvas.width = this.bufferCtx.canvas.width =
-        this.document.width
-      this.strokeCanvas.height = this.bufferCtx.canvas.height =
-        this.document.height
+      bufferCtx.drawImage(await activeLayer.imageBitmap, 0, 0)
 
       strokeCanvasCtx.save()
       this._currentBrush.render({
-        context: strokeCanvasCtx,
+        context: strokeCtx,
         stroke,
         ink: this.currentInk,
         brushSetting: this.brushSetting,
       })
       strokeCanvasCtx.restore()
 
-      bufferCtx.drawImage(await activeLayer.imageBitmap, 0, 0)
       bufferCtx.globalCompositeOperation =
         this._pencilMode === 'draw' ? 'source-over' : 'destination-out'
       bufferCtx.drawImage(this.strokeCanvas, 0, 0)
@@ -310,7 +399,18 @@ export class SilkEngine {
       })
 
       this.rerender()
-    } else if (this.activeLayer?.layerType === 'vector') {
+    } else if (activeLayer?.layerType === 'vector') {
+      activeLayer.objects.unshift(
+        VectorObject.create({
+          x: 0,
+          y: 0,
+          path: stroke.splinedPath,
+          brush: { ...this.brushSetting },
+        })
+      )
+
+      this.renderVectorLayer(activeLayer)
+      this.rerender()
     }
   }
 

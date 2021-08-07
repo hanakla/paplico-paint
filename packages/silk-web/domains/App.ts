@@ -12,24 +12,13 @@ export const AppActions = actions('Counter', {
 })
 
 export const AppOps = operations({
-  increment(context) {
-    context.dispatch(AppActions.increment, { amount: 1 })
-  },
-  async asyncIncrement(context, amount: number) {
-    await new Promise(resolve => {
-      setTimeout(resolve, 1000)
-    })
-
-    context.dispatch(AppActions.increment, { amount })
-  },
-  settleAccessDate(context) {
-    context.dispatch(AppActions.accessDateSettled, { date: new Date() })
-  },
+  setCurrentTool({ dispatch }) {},
 })
 
 interface State {
   count: number
   accessDate: Date | null
+  currentTool
 }
 
 export const AppStore = reducerStore<State>('AppStore', () => ({
@@ -39,10 +28,10 @@ export const AppStore = reducerStore<State>('AppStore', () => ({
   .listen(AppActions.increment, (draft, { amount }) => (draft.count += amount))
   .listen(
     AppActions.accessDateSettled,
-    (draft, { date }) => (draft.accessDate = date),
+    (draft, { date }) => (draft.accessDate = date)
   )
 
 export const AppSelectors = {
-  getCount: selector(getState => getState(AppStore).count),
-  getAccessDate: selector(getState => getState(AppStore).accessDate),
+  getCount: selector((getState) => getState(AppStore).count),
+  getAccessDate: selector((getState) => getState(AppStore).accessDate),
 }

@@ -1,11 +1,12 @@
 import { ILayer } from './IRenderable'
 import { v4 } from 'uuid'
 import { fakeRejectedPromise } from '../utils'
+import { Filter } from './Filter'
 
 export class RasterLayer implements ILayer {
   public readonly layerType = 'raster'
 
-  public readonly id: string = v4()
+  public readonly id: string = `rasterlayer-${v4()}`
   public name: string = ''
   public visible: boolean = true
   public lock: boolean = false
@@ -16,15 +17,15 @@ export class RasterLayer implements ILayer {
   public height: number = 0
   public x: number = 0
   public y: number = 0
+  public filters: Filter[] = []
 
   public readonly bitmap: Uint8ClampedArray = null as any
   private _imageBitmapPromise: Promise<ImageBitmap> = fakeRejectedPromise(
     new Error('bitmap not initialized')
   )
 
-  public get imageBitmap(): Promise<ImageBitmap> {
-    return this._imageBitmapPromise
-  }
+  /** Mark for re-rendering decision */
+  protected _lastUpdatedAt = Date.now()
 
   public static create({ width, height }: { width: number; height: number }) {
     const layer = new RasterLayer()
@@ -44,6 +45,21 @@ export class RasterLayer implements ILayer {
     }
 
     return layer
+  }
+
+  protected constructor() {}
+
+  public get imageBitmap(): Promise<ImageBitmap> {
+    return this._imageBitmapPromise
+  }
+
+  public get lastUpdatedAt() {
+    return this._lastUpdatedAt
+  }
+
+  public update(this: this, proc: (layer: RasterLayer) => void) {
+    proc(this)
+    this._lastUpdatedAt = Date.now()
   }
 
   public async updateBitmap(

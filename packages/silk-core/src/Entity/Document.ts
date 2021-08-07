@@ -1,4 +1,4 @@
-import { LayerTypes } from 'Entity'
+import { LayerTypes } from './index'
 import mitt, { Emitter } from 'mitt'
 import { ILayer } from './IRenderable'
 import { RasterLayer } from './RasterLayer'

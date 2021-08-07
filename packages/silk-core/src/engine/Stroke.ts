@@ -4,11 +4,23 @@ import point from 'point-at-length'
 
 type StrokePoint = [x: number, y: number, weight: number]
 export class Stroke {
+  public static fromPath(path: Path) {
+    const stroke = new Stroke()
+    stroke.points = path.points.map((point) => [point.x, point.y, 1])
+    stroke.path = path
+    return stroke
+  }
+
   protected _splined: Path | null = null
   protected _length: number | null = null
   protected _pts: any
 
   public points: StrokePoint[] = []
+  public path: Path = Path.create({
+    start: { x: 0, y: 0 },
+    points: [],
+    svgPath: 'M0,0',
+  })
 
   public get splinedPath() {
     if (this._splined) return this._splined
@@ -26,7 +38,7 @@ export class Stroke {
       y,
     }))
 
-    return (this._splined = new Path({
+    return (this._splined = Path.create({
       start: { x: start[0], y: start[1] },
       points: objectPoints,
       svgPath,

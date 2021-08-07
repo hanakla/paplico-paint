@@ -1,0 +1,123 @@
+import { rgba } from 'polished'
+import { createContext, MutableRefObject, ReactNode, useEffect } from 'react'
+import { useContext } from 'react'
+import { useState } from 'react'
+import { useMemo } from 'react'
+import { useRef } from 'react'
+import { useClickAway, useToggle } from 'react-use'
+import { Portal } from './Portal'
+
+const ContextMenuContext = createContext<{
+  opened: boolean
+  position: { x: number; y: number }
+  close: () => void
+} | null>(null)
+
+export const useContextMenu = () => {
+  useEffect(() => {})
+
+  return null
+}
+
+export const ContextMenuArea = ({
+  children,
+}: {
+  children: (ref: MutableRefObject<HTMLElement | null>) => ReactNode
+}) => {
+  const [opened, toggle] = useToggle(false)
+  const [position, setPosition] = useState({ x: 0, y: 0 })
+  const handlerRef = useRef<HTMLElement | null>(null)
+
+  const contextMenuController = useMemo(
+    () => ({
+      opened,
+      position,
+      close: () => toggle(false),
+    }),
+    [opened, position, toggle]
+  )
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      e.preventDefault()
+      console.log(e)
+      setPosition({ x: e.pageX, y: e.pageY })
+      toggle(true)
+    }
+
+    handlerRef.current?.addEventListener('contextmenu', handler)
+    return () => handlerRef.current?.removeEventListener('contextmenu', handler)
+  }, [])
+
+  return (
+    <ContextMenuContext.Provider value={contextMenuController}>
+      {children(handlerRef)}
+    </ContextMenuContext.Provider>
+  )
+}
+
+export const ContextMenu: React.FC = ({ children }) => {
+  const { opened, position, close } = useContext(ContextMenuContext)!
+  const rootRef = useRef<HTMLDivElement | null>(null)
+
+  useClickAway(rootRef, () => {
+    close()
+  })
+
+  useEffect(() => {}, [])
+
+  return (
+    <Portal>
+      <div
+        ref={rootRef}
+        css={`
+          position: fixed;
+          z-index: 100;
+          padding: 4px 4px;
+          margin-top: 2px;
+          margin-left: 8px;
+          background-color: rgba(255, 255, 255, 0.8);
+          border-radius: 4px;
+          box-shadow: 0 0 5px ${rgba('#000', 0.5)};
+          font-size: 13px;
+          backdrop-filter: blur(4px);
+        `}
+        style={{
+          top: position.y,
+          left: position.x,
+          ...(opened
+            ? { visibility: 'visible', pointerEvents: 'all' }
+            : { visibility: 'hidden', pointerEvents: 'none' }),
+        }}
+      >
+        {children}
+      </div>
+    </Portal>
+  )
+}
+
+export const ContextMenuItem = ({
+  data,
+  children,
+}: {
+  data?: any
+  children?: ReactNode
+}) => {
+  return (
+    <div
+      css={`
+        min-width: 100px;
+        padding: 4px 12px;
+        border-radius: 2px;
+        text-align: left;
+
+        &:hover {
+          color: ${({ theme }) => theme.text.contextMenuActive};
+          background-color: ${({ theme }) => theme.surface.contextMenuActive};
+        }
+      `}
+    >
+      {children}
+    </div>
+  )
+}

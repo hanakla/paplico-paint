@@ -1,4 +1,13 @@
-import { Add, DeleteBin, Eye, EyeClose, Menu } from '@styled-icons/remix-line'
+import type {} from '../../utils/styled-theme'
+
+import {
+  Add,
+  DeleteBin,
+  Eye,
+  EyeClose,
+  Menu,
+  More,
+} from '@styled-icons/remix-line'
 import { useTranslation } from 'next-i18next'
 import { rgba } from 'polished'
 import {
@@ -15,26 +24,26 @@ import {
   SortableHandle,
   SortEndHandler,
 } from 'react-sortable-hoc'
-import { useTheme } from 'styled-components'
+import { css, useTheme } from 'styled-components'
 import { SilkEntity } from 'silk-core'
 import { Portal } from '../../components/Portal'
 import { useLayerControl } from '../../hooks/useLayers'
 import { rangeThumb, silkScroll } from '../../utils/mixins'
 import { useSilkEngine } from '../../hooks/useSilkEngine'
-import { useUpdate } from 'react-use'
+import { useToggle, useUpdate } from 'react-use'
+import { usePopper } from 'react-popper'
+import { SelectBox } from '../../components/SelectBox'
 
 export const LayerFloatMenu = () => {
   const { t } = useTranslation()
   const layerControl = useLayerControl()
 
-  const rootRef = useRef<HTMLDivElement | null>(null)
+  const compositeModeRootRef = useRef<HTMLDivElement | null>(null)
+  const compositModeListRef = useRef<HTMLDivElement | null>(null)
 
   const handleChangeCompositeMode = useCallback(
-    ({ currentTarget }: ChangeEvent<HTMLSelectElement>) => {
-      layerControl.changeCompositeMode(
-        layerControl.activeLayer?.id,
-        currentTarget.value
-      )
+    (mode: string) => {
+      layerControl.changeCompositeMode(layerControl.activeLayer?.id, mode)
     },
     [layerControl]
   )
@@ -79,7 +88,7 @@ export const LayerFloatMenu = () => {
           distance={1}
           // hideSortableGhost
           useDragHandle
-          // helperContainer={() => rootRef.current!}
+          // helperContainer={() => rootRef.current!} pMs
         />
         <div
           css={`
@@ -87,15 +96,36 @@ export const LayerFloatMenu = () => {
             align-items: center;
             justify-content: center;
           `}
-          onClick={handleClickAddLayer}
         >
-          <Add
+          <div
             css={`
-              width: 24px;
-              padding-bottom: 2px;
+              flex: 1;
+              text-align: center;
             `}
-          />{' '}
-          レイヤーを追加
+            onClick={handleClickAddLayer}
+          >
+            <Add
+              css={`
+                width: 24px;
+                padding-bottom: 2px;
+              `}
+            />{' '}
+            レイヤーを追加
+          </div>
+
+          <div
+            css={`
+              padding-left: 8px;
+              margin-left: auto;
+              border-left: 1px solid #fff;
+            `}
+          >
+            <More
+              css={`
+                width: 12px;
+              `}
+            />
+          </div>
         </div>
       </div>
 
@@ -165,16 +195,18 @@ export const LayerFloatMenu = () => {
               </div>
             </div>
             <div>
-              {t('blend')}
-              <select
+              <span css="margin-right: 8px;">{t('blend')}</span>
+
+              <SelectBox
+                items={[
+                  { label: t('compositeModes.normal'), value: 'normal' },
+                  { label: t('compositeModes.multiply'), value: 'multiply' },
+                  { label: t('compositeModes.screen'), value: 'screen' },
+                  { label: t('compositeModes.overlay'), value: 'overlay' },
+                ]}
                 value={layerControl.activeLayer.compositeMode}
                 onChange={handleChangeCompositeMode}
-              >
-                <option value="normal">{t('compositeModes.normal')}</option>
-                <option value="multiply">{t('compositeModes.multiply')}</option>
-                <option value="screen">{t('compositeModes.screen')}</option>
-                <option value="overlay">{t('compositeModes.overlay')}</option>
-              </select>
+              />
             </div>
             <div
               css={`
@@ -278,6 +310,7 @@ const SortableLayerItem = SortableElement(
           display: flex;
           gap: 8px;
           padding: 8px;
+          height: 48px;
           user-select: none;
           color: ${({ theme }) => theme.text.mainActionsBlack};
         `}
@@ -355,7 +388,7 @@ const SortableLayerItem = SortableElement(
           >
             {layer.id}
           </div>
-          <div css="display: flex; gap: 4px; margin-top: 4px;">
+          <div css="display: flex; gap: 4px;">
             <span>{t(`compositeModes.${layer.compositeMode}`)}</span>
             <span>{Math.round(layer.opacity)}%</span>
           </div>
@@ -380,7 +413,7 @@ const LayerSortHandle = SortableHandle(() => (
   <span tabIndex={0}>
     <Menu
       css={`
-        width: 16px;
+        width: 24px;
       `}
     />
   </span>

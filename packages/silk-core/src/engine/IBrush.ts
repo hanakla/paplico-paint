@@ -1,4 +1,4 @@
-import { CurrentBrushSetting } from './BrushSetting'
+import { CurrentBrushSetting } from './CurrentBrushSetting'
 import { IInk } from './Inks/IInk'
 import { Stroke } from './Stroke'
 

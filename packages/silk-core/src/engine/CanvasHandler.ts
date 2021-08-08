@@ -50,20 +50,25 @@ export class CanvasHandler {
       this.currentStroke.updatePoints((points) => {
         points.push([e.offsetX, e.offsetY, 1])
       })
+
+      this.currentStroke.path = this.currentStroke.splinedPath
       this.mitt.emit('tmpStroke', this.currentStroke)
     })
 
     this.canvas.addEventListener('mouseup', () => {
-      if (!this.currentStroke) return
       const { currentStroke } = this
 
-      if (this.currentStroke.points.length > 1) {
-        this.mitt.emit('stroke', this.currentStroke)
+      if (!currentStroke) return
+      if (currentStroke.points.length <= 1) {
+        this.currentStroke = null
+        this._stroking = false
+        return
       }
 
       this.currentStroke = null
       this._stroking = false
 
+      currentStroke.path = currentStroke.splinedPath
       this.mitt.emit('stroke', currentStroke)
     })
 
@@ -103,27 +108,28 @@ export class CanvasHandler {
       this.currentStroke.updatePoints((points) => {
         points.push([x, y, e.touches[0].force])
       })
+      this.currentStroke.path = currentStroke.splinedPath
 
       this.mitt.emit('tmpStroke', this.currentStroke)
     })
 
     this.canvas.addEventListener('touchend', (e) => {
-      if (!this.currentStroke) return
       const { currentStroke } = this
 
-      if (e.touches.length > 1) {
-        // Cancel current stroke when pinch
-        this.currentStroke = null
-        return
-      }
+      if (!currentStroke) return
+      if (currentStroke.points.length <= 1) return
 
-      if (this.currentStroke.points.length > 1) {
-        this.mitt.emit('stroke', this.currentStroke)
+      // Cancel current stroke when pinch
+      if (e.touches.length > 1) {
+        this.currentStroke = null
+        this._stroking = false
+        return
       }
 
       this._stroking = false
       this.currentStroke = null
 
+      currentStroke.path = currentStroke.splinedPath
       this.mitt.emit('stroke', currentStroke)
     })
   }

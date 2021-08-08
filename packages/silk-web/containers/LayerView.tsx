@@ -9,7 +9,7 @@ import {
   useState,
 } from 'react'
 import { SilkEntity, SilkHelper } from 'silk-core'
-import { useClickAway, useUpdate } from 'react-use'
+import { useClickAway, useToggle, useUpdate } from 'react-use'
 import { rgba } from 'polished'
 import { usePopper } from 'react-popper'
 import { Portal } from '../components/Portal'
@@ -22,7 +22,7 @@ import {
 import { rangeThumb, silkScroll } from '../utils/mixins'
 import { useSilkEngine } from '../hooks/useSilkEngine'
 import { useTranslation } from 'next-i18next'
-import { Stack } from '@styled-icons/remix-line'
+import { ArrowDown, ArrowDownS, Stack } from '@styled-icons/remix-line'
 import { useLayerControl } from '../hooks/useLayers'
 import {
   ContextMenu,
@@ -30,6 +30,9 @@ import {
   ContextMenuItem,
 } from '../components/ContextMenu'
 import { combineRef } from '../utils/react'
+import { useLysSlice } from '@fleur/lys'
+import { EditorSlice } from '../domains/Editor'
+import { SelectBox } from '../components/SelectBox'
 
 export function LayerView() {
   const { t } = useTranslation('common')
@@ -70,11 +73,8 @@ export function LayerView() {
   )
 
   const handleChangeCompositeMode = useCallback(
-    ({ currentTarget }: ChangeEvent<HTMLSelectElement>) => {
-      layerControls.changeCompositeMode(
-        layerControls.activeLayer?.id,
-        currentTarget.value
-      )
+    (value: string) => {
+      layerControls.changeCompositeMode(layerControls.activeLayer?.id, value)
     },
     [layerControls]
   )
@@ -189,16 +189,28 @@ export function LayerView() {
             />
           </div>
           <div>
-            {t('blend')}
-            <select
+            <span
+              css={`
+                margin-right: 8px;
+              `}
+            >
+              {t('blend')}
+            </span>
+
+            <SelectBox
+              css={`
+                padding: 0px 4px;
+              `}
+              items={[
+                { value: 'normal', label: t('compositeModes.normal') },
+                { value: 'multiply', label: t('compositeModes.multiply') },
+                { value: 'screen', label: t('compositeModes.screen') },
+                { value: 'overlay', label: t('compositeModes.overlay') },
+              ]}
               value={layerControls.activeLayer.compositeMode}
               onChange={handleChangeCompositeMode}
-            >
-              <option value="normal">{t('compositeModes.normal')}</option>
-              <option value="multiply">{t('compositeModes.multiply')}</option>
-              <option value="screen">{t('compositeModes.screen')}</option>
-              <option value="overlay">{t('compositeModes.overlay')}</option>
-            </select>
+              placement="auto-start"
+            />
           </div>
           <div
             css={`
@@ -238,7 +250,7 @@ export function LayerView() {
       {layerControls.layers && (
         <SortableLayerList
           layers={layerControls.layers}
-          distance={1}
+          distance={2}
           onSortEnd={handleLayerSortEnd}
         />
       )}
@@ -268,7 +280,10 @@ const SortableLayerList = SortableContainer(
 )
 
 function LayerItem({ layer }: { layer: SilkEntity.LayerTypes }) {
+  const [editorState, editorActions] = useLysSlice(EditorSlice)
   const layerControls = useLayerControl()
+
+  const [objectsOpened, toggleObjectsOpened] = useToggle(false)
 
   const rootRef = useRef<HTMLDivElement | null>(null)
   const handleToggleVisibility = useCallback(() => {
@@ -283,71 +298,164 @@ function LayerItem({ layer }: { layer: SilkEntity.LayerTypes }) {
     [layer, layerControls]
   )
 
+  const handleClickObject = useCallback(
+    ({ currentTarget }: MouseEvent<HTMLDivElement>) => {
+      editorActions.setActiveObject(currentTarget.dataset.objectId ?? null)
+    },
+    []
+  )
+
+  const handleClickDeleteObject = useCallback((_, data) => {
+    if (layer.layerType !== 'vector') return
+
+    const idx = layer.objects.findIndex((obj) => obj.id === data.objectId)
+    if (idx === -1) return
+
+    layer.update((layer) => {
+      layer.objects.splice(idx, 1)
+    })
+  }, [])
+
   return (
     <ContextMenuArea>
       {(ref) => (
         <div
           ref={combineRef(rootRef, ref)}
           css={`
-            display: flex;
-            width: 100%;
-            align-items: center;
-            padding: 4px;
             cursor: default;
-            ${layerControls.activeLayer?.id === layer.id
-              ? `background-color: rgba(255,255,255,.2)`
-              : ''}
           `}
           onClick={handleChangeActiveLayer}
         >
-          <img
-            css={`
-              background: linear-gradient(
-                  45deg,
-                  rgba(0, 0, 0, 0.2) 25%,
-                  transparent 25%,
-                  transparent 75%,
-                  rgba(0, 0, 0, 0.2) 75%
-                ),
-                linear-gradient(
-                  45deg,
-                  rgba(0, 0, 0, 0.2) 25%,
-                  transparent 25%,
-                  transparent 75%,
-                  rgba(0, 0, 0, 0.2) 75%
-                );
-              /* background-color: transparent; */
-              background-size: 4px 4px;
-              background-position: 0 0, 2px 2px;
-              width: 16px;
-              height: 16px;
-              flex: none;
-            `}
-            src={layerControls.getPreview(layer.id)}
-          />
           <div
             css={`
-              margin-left: 8px;
-              text-overflow: ellipsis;
-              white-space: nowrap;
-              overflow-x: hidden;
-              overflow-y: auto;
-              ::-webkit-scrollbar {
-                display: none;
-              }
+              display: flex;
+              width: 100%;
+              padding: 4px;
+              align-items: center;
             `}
+            style={{
+              backgroundColor:
+                layerControls.activeLayer?.id === layer.id
+                  ? `rgba(255,255,255,.2)`
+                  : '',
+            }}
           >
-            {layer.id}
+            <div
+              css={`
+                flex: none;
+                width: 12px;
+                margin-right: 4px;
+              `}
+            >
+              {layer.layerType === 'vector' && (
+                <ArrowDownS
+                  css={`
+                    width: 12px;
+                  `}
+                  style={{
+                    transform: objectsOpened ? 'rotateZ(180deg)' : 'rotateZ(0)',
+                  }}
+                  onClick={toggleObjectsOpened}
+                />
+              )}
+            </div>
+            <img
+              css={`
+                background: linear-gradient(
+                    45deg,
+                    rgba(0, 0, 0, 0.2) 25%,
+                    transparent 25%,
+                    transparent 75%,
+                    rgba(0, 0, 0, 0.2) 75%
+                  ),
+                  linear-gradient(
+                    45deg,
+                    rgba(0, 0, 0, 0.2) 25%,
+                    transparent 25%,
+                    transparent 75%,
+                    rgba(0, 0, 0, 0.2) 75%
+                  );
+                /* background-color: transparent; */
+                background-size: 4px 4px;
+                background-position: 0 0, 2px 2px;
+                width: 16px;
+                height: 16px;
+                flex: none;
+              `}
+              src={layerControls.getPreview(layer.id)}
+            />
+            <div
+              css={`
+                margin-left: 8px;
+                text-overflow: ellipsis;
+                white-space: nowrap;
+                overflow-x: hidden;
+                overflow-y: auto;
+                ::-webkit-scrollbar {
+                  display: none;
+                }
+              `}
+            >
+              {layer.id}
+            </div>
+            <div
+              css={`
+                ${layer.visible ? '' : 'opacity: .5;'}
+              `}
+              onClick={handleToggleVisibility}
+              data-ignore-click
+            >
+              👀
+            </div>
           </div>
-          <div
-            css={`
-              ${layer.visible ? '' : 'opacity: .5;'}
-            `}
-            onClick={handleToggleVisibility}
-            data-ignore-click
-          >
-            👀
-          </div>
+          {layer.layerType === 'vector' && (
+            <>
+              <div
+                css={`
+                  flex-basis: 100%;
+                  overflow: hidden;
+                `}
+                style={{
+                  height: objectsOpened ? 'auto' : 0,
+                }}
+              >
+                {layer.objects.map((object) => (
+                  <ContextMenuArea>
+                    {(ref) => (
+                      <>
+                        <div
+                          ref={ref}
+                          css={`
+                            padding: 6px 8px;
+                            margin-left: 24px;
+                          `}
+                          style={{
+                            backgroundColor:
+                              editorState.activeObjectId == object.id
+                                ? `rgba(255,255,255,.2)`
+                                : '',
+                          }}
+                          data-object-id={object.id}
+                          onClick={handleClickObject}
+                        >
+                          パス
+                        </div>
+
+                        <ContextMenu>
+                          <ContextMenuItem
+                            data={{ objectId: object.id }}
+                            onClick={handleClickDeleteObject}
+                          >
+                            削除
+                          </ContextMenuItem>
+                        </ContextMenu>
+                      </>
+                    )}
+                  </ContextMenuArea>
+                ))}
+              </div>
+            </>
+          )}
 
           <ContextMenu>
             <ContextMenuItem>削除</ContextMenuItem>

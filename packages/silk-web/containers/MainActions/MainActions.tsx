@@ -1,27 +1,41 @@
-import { ChangeEvent, MouseEvent, useCallback, useContext, useReducer, useRef, useState } from "react";
+import {
+  ChangeEvent,
+  MouseEvent,
+  useCallback,
+  useContext,
+  useReducer,
+  useRef,
+  useState,
+} from 'react'
 import { ChromePicker, ColorChangeHandler } from 'react-color'
-import {rgba } from 'polished'
-import { useSilkEngine } from "../../hooks/useSilkEngine";
-import { useClickAway, useMedia, useToggle, useUpdate } from "react-use";
-import { rangeThumb } from "../../utils/mixins";
-import {Close, Eraser, Pencil, Stack} from '@styled-icons/remix-line'
-import { useTheme } from "styled-components";
-import { Portal } from "../../components/Portal";
-import { usePopper } from "react-popper";
-import { useEffect } from "react";
-import { SilkBrushes } from "silk-core";
-import { narrow } from "../../utils/responsive";
-import { FloatMenu } from "../../components/FloatMenu";
-import { useTranslation } from "next-i18next";
-import { LayerFloatMenu } from "./LayerFloatMenu";
+import { rgba } from 'polished'
+import { usePopper } from 'react-popper'
+import { useEffect } from 'react'
+import { SilkBrushes } from 'silk-core'
+import { useTranslation } from 'next-i18next'
+import { useLysSlice } from '@fleur/lys'
+import { useClickAway, useMedia, useToggle, useUpdate } from 'react-use'
+import { Close, Eraser, Pencil, Stack } from '@styled-icons/remix-line'
+import { Cursor } from '@styled-icons/remix-fill'
+import { useTheme } from 'styled-components'
+import { useSilkEngine } from '../../hooks/useSilkEngine'
+import { rangeThumb } from '../../utils/mixins'
+import { Portal } from '../../components/Portal'
+import { narrow } from '../../utils/responsive'
+import { FloatMenu } from '../../components/FloatMenu'
+import { LayerFloatMenu } from './LayerFloatMenu'
+import { EditorSlice } from '../../domains/Editor'
+import { useLayerControl } from '../../hooks/useLayers'
 
 export function MainActions() {
-  const {t} = useTranslation()
+  const { t } = useTranslation()
   const engine = useSilkEngine()
+  const [editorState, editorActions] = useLysSlice(EditorSlice)
   const theme = useTheme()
   const isNarrowMedia = useMedia(`(max-width: ${narrow})`)
+  const layerControls = useLayerControl()
 
-  const [color, setColor] = useState({ r:0, g:0, b: 0 })
+  const [color, setColor] = useState({ r: 0, g: 0, b: 0 })
   const [openPicker, togglePicker] = useToggle(false)
   const [openBrush, toggleBrush] = useToggle(false)
   const [openLayers, toggleLayers] = useToggle(false)
@@ -29,65 +43,75 @@ export function MainActions() {
   const [brushOpacity, setBrushOpacity] = useState(1)
   const rerender = useUpdate()
 
-  const handleChangeColor: ColorChangeHandler = useCallback(color => {
+  const handleChangeColor: ColorChangeHandler = useCallback((color) => {
     setColor(color.rgb)
   }, [])
 
-  const handleChangeCompleteColor: ColorChangeHandler = useCallback((color) => {
-    setColor(color.rgb)
+  const handleChangeCompleteColor: ColorChangeHandler = useCallback(
+    (color) => {
+      setColor(color.rgb)
 
-    engine!.brushSetting = {
-      ...engine!.brushSetting,
-      color: color.rgb,
-    }
-  }, [engine])
+      engine!.brushSetting = {
+        ...engine!.brushSetting,
+        color: color.rgb,
+      }
+    },
+    [engine]
+  )
 
-  const handleChangeBrushOpacity = useCallback(({currentTarget}: ChangeEvent<HTMLInputElement>) => {
-    if (!engine) return
-    setBrushOpacity(currentTarget.valueAsNumber)
+  const handleChangeBrushOpacity = useCallback(
+    ({ currentTarget }: ChangeEvent<HTMLInputElement>) => {
+      if (!engine) return
+      setBrushOpacity(currentTarget.valueAsNumber)
 
-    engine!.brushSetting = {
-      ...engine!.brushSetting,
-      opacity: currentTarget.valueAsNumber
-    }
-  }, [engine])
+      engine!.brushSetting = {
+        ...engine!.brushSetting,
+        opacity: currentTarget.valueAsNumber,
+      }
+    },
+    [engine]
+  )
 
-  const handleChangeWeight = useCallback(({currentTarget}: ChangeEvent<HTMLInputElement>) => {
-    if (!engine) return
+  const handleChangeWeight = useCallback(
+    ({ currentTarget }: ChangeEvent<HTMLInputElement>) => {
+      if (!engine) return
 
-    setWeight(currentTarget.valueAsNumber)
+      setWeight(currentTarget.valueAsNumber)
 
-    engine.brushSetting = {
-      ...engine.brushSetting,
-      weight: currentTarget.valueAsNumber
-    }
-  }, [engine])
+      engine.brushSetting = {
+        ...engine.brushSetting,
+        weight: currentTarget.valueAsNumber,
+      }
+    },
+    [engine]
+  )
+
+  const handleChangeToCursorMode = useCallback(() => {
+    editorActions.setTool('cursor')
+  }, [])
 
   const handleChangeToPencilMode = useCallback(() => {
-    if (!engine) return
-
-    if (engine.pencilMode === 'draw') {
+    if (editorState.currentTool === 'draw') {
       toggleBrush(true)
       return
     }
 
-    engine.pencilMode = 'draw'
-    rerender()
-  }, [engine])
+    editorActions.setTool('draw')
+  }, [editorState])
 
   const handleChangeToEraceMode = useCallback(() => {
-    if (!engine) return
-
-    engine.pencilMode = 'erase'
-    rerender()
+    editorActions.setTool('erase')
   }, [engine])
 
-  const handleChangeBrush = useCallback((id: keyof typeof SilkBrushes) => {
-    if (!engine) return
+  const handleChangeBrush = useCallback(
+    (id: keyof typeof SilkBrushes) => {
+      if (!engine) return
 
-    engine.setBrush(SilkBrushes[id])
-    rerender()
-  }, [engine])
+      engine.setBrush(SilkBrushes[id])
+      rerender()
+    },
+    [engine]
+  )
 
   const handleClickColor = useCallback((e: MouseEvent<HTMLDivElement>) => {
     if (pickerPopRef.current!.contains(e.target as HTMLElement)) return
@@ -118,24 +142,25 @@ export function MainActions() {
   useClickAway(brushPopRef, () => toggleBrush(false))
   useClickAway(layerPopRef, () => toggleLayers(false))
 
-  useEffect(() => {
-    console.log('a')
-  },[])
-
   return (
     <div
       css={`
         display: flex;
         gap: 8px;
         padding: 8px 16px;
-        background-color: ${rgba('#ccc', .8)};
+        background-color: ${rgba('#ccc', 0.8)};
         border-radius: 100px;
-        color: ${({theme}) => theme.text.mainActionsBlack};
+        color: ${({ theme }) => theme.text.mainActionsBlack};
         border: 1px solid #aaa;
         white-space: nowrap;
       `}
     >
-      <div css={`display: flex; flex-flow: column;`}>
+      <div
+        css={`
+          display: flex;
+          flex-flow: column;
+        `}
+      >
         <div>
           <div
             css={`
@@ -171,9 +196,9 @@ export function MainActions() {
                 transform: translateY(-5px);
                 ${rangeThumb}
               `}
-              type='range'
+              type="range"
               min="0"
-              max='100'
+              max="100"
               step="0.1"
               value={weight}
               onChange={handleChangeWeight}
@@ -186,14 +211,18 @@ export function MainActions() {
               height: 8px;
               vertical-align: bottom;
               appearance: none;
-              background: linear-gradient(to right, ${rgba(color.r, color.g, color.b, 0)}, ${rgba(color.r, color.g, color.b, 1)});
+              background: linear-gradient(
+                to right,
+                ${rgba(color.r, color.g, color.b, 0)},
+                ${rgba(color.r, color.g, color.b, 1)}
+              );
               border-radius: 100px;
 
               ${rangeThumb}
             `}
-            type='range'
+            type="range"
             min="0"
-            max='1'
+            max="1"
             step="0.01"
             value={brushOpacity}
             onChange={handleChangeBrushOpacity}
@@ -202,57 +231,133 @@ export function MainActions() {
       </div>
 
       <div>
-        <div
-          css={`
-            display: inline-block;
-            position: relative;
-            width: 32px;
-            height: 32px;
-            border-radius: 100px;
-            border: 2px solid #dbdbdb;
-            vertical-align: middle;
-            box-shadow: 0 0 2px 1px rgba(0,0,0,.4);
-          `}
-          style={{backgroundColor: rgba(color.r, color.g, color.b, 1) }}
-          onClick={handleClickColor}
-        >
+        {layerControls.activeLayer?.layerType === 'raster' ? (
           <div
-            ref={pickerPopRef}
-            style={{ ...(openPicker ? {opacity: 1, pointerEvents: 'all'} : {opacity: 0, pointerEvents: 'none'}) }}
-            data-ignore-click
+            css={`
+              display: inline-block;
+              position: relative;
+              width: 32px;
+              height: 32px;
+              border-radius: 100px;
+              border: 2px solid #dbdbdb;
+              vertical-align: middle;
+              box-shadow: 0 0 2px 1px rgba(0, 0, 0, 0.4);
+            `}
+            style={{ backgroundColor: rgba(color.r, color.g, color.b, 1) }}
+            onClick={handleClickColor}
           >
-            <ChromePicker
+            <div
+              ref={pickerPopRef}
+              style={{
+                ...(openPicker
+                  ? { opacity: 1, pointerEvents: 'all' }
+                  : { opacity: 0, pointerEvents: 'none' }),
+              }}
+              data-ignore-click
+            >
+              <ChromePicker
+                css={`
+                  position: absolute;
+                  left: 50%;
+                  bottom: 100%;
+                  transform: translateX(-50%);
+                `}
+                color={color}
+                onChange={handleChangeColor}
+                onChangeComplete={handleChangeCompleteColor}
+                disableAlpha
+              />
+            </div>
+          </div>
+        ) : (
+          <div
+            css={`
+              position: relative;
+              width: 32px;
+              height: 32px;
+              overflow: hidden;
+            `}
+          >
+            {/* VectorColor */}
+            <div
               css={`
                 position: absolute;
-                left:50%;
-                bottom: 100%;
-                transform: translateX(-50%);
+                top: 12px;
+                left: 12px;
+                display: inline-block;
+                width: 20px;
+                height: 20px;
+                /* border-radius: 100px; */
+                border: 4px solid;
+                vertical-align: middle;
+                box-shadow: 0 0 0 2px #dbdbdb, 0 0 2px 1px rgba(0, 0, 0, 0.4);
               `}
-              color={color}
-              onChange={handleChangeColor}
-              onChangeComplete={handleChangeCompleteColor}
-              disableAlpha
+              style={{ borderColor: rgba(color.r, color.g, color.b, 1) }}
+              // onClick={handleClickColor}
+            />
+            <div
+              css={`
+                position: absolute;
+                top: 0;
+                left: 0;
+                z-index: 1;
+                display: inline-block;
+                width: 20px;
+                height: 20px;
+                /* border-radius: 100px; */
+                border: 1px solid #dbdbdb;
+                vertical-align: middle;
+                box-shadow: 0 0 2px 1px rgba(0, 0, 0, 0.4);
+              `}
+              style={{ backgroundColor: rgba(color.r, color.g, color.b, 1) }}
+              // onClick={handleClickColor}
             />
           </div>
-        </div>
+        )}
       </div>
 
       <div css="display: flex; gap: 0;">
         <div
           ref={brushRef}
           css="padding:4px; padding-left:8px; border-radius: 60px 0 0 60px; transition: background-color .2s ease-in-out;"
-          style={{ backgroundColor: engine?.pencilMode == 'draw' ? theme.surface.brushViewActive : 'transparent' }}
+          style={{
+            backgroundColor:
+              editorState.currentTool === 'cursor'
+                ? theme.surface.brushViewActive
+                : 'transparent',
+          }}
+          onClick={handleChangeToCursorMode}
+        >
+          <Cursor css="width:26px; vertical-align:bottom;" />
+        </div>
+
+        <div
+          ref={brushRef}
+          css="padding:4px; padding-left:8px; border-radius: 0; transition: background-color .2s ease-in-out;"
+          style={{
+            backgroundColor:
+              editorState.currentTool === 'draw'
+                ? theme.surface.brushViewActive
+                : 'transparent',
+          }}
           onClick={handleChangeToPencilMode}
         >
           <Pencil css="width:26px; vertical-align:bottom;" />
         </div>
-        <div
-          css="padding: 4px; padding-right:8px; border-radius: 0 60px 60px 0; transition: background-color .2s ease-in-out;"
-          style={{ backgroundColor: engine?.pencilMode == 'erase' ? theme.surface.brushViewActive : 'transparent' }}
-          onClick={handleChangeToEraceMode}
-        >
-          <Eraser css="width:26px; vertical-align:bottom;" />
-        </div>
+        {layerControls.activeLayer?.layerType === 'raster' && (
+          <div
+            css="padding: 4px; padding-right:8px; border-radius: 0 60px 60px 0; transition: background-color .2s ease-in-out;"
+            style={{
+              backgroundColor:
+                editorState.currentTool === 'erase'
+                  ? theme.surface.brushViewActive
+                  : 'transparent',
+            }}
+            onClick={handleChangeToEraceMode}
+          >
+            <Eraser css="width:26px; vertical-align:bottom;" />
+          </div>
+        )}
 
         <Portal>
           <div
@@ -260,7 +365,7 @@ export function MainActions() {
             css={`
               margin-left: -16px;
               margin-bottom: 16px;
-              background-color: ${({theme}) => theme.surface.floatWhite};
+              background-color: ${({ theme }) => theme.surface.floatWhite};
               border-radius: 4px;
 
               &::before {
@@ -271,55 +376,86 @@ export function MainActions() {
                 left: 50%;
                 transform: translateX(-50%);
                 border: 6px solid;
-                border-color: ${({theme}) => theme.surface.floatWhite} transparent transparent transparent;
+                border-color: ${({ theme }) => theme.surface.floatWhite}
+                  transparent transparent transparent;
               }
             `}
             data-todo-brush-selector
             style={{
               ...brushPopper.styles.popper,
-              ...(openBrush ? { opacity: 1, pointerEvents: 'all' } :  { opacity: 0, pointerEvents: 'none' })
+              ...(openBrush
+                ? { opacity: 1, pointerEvents: 'all' }
+                : { opacity: 0, pointerEvents: 'none' }),
             }}
           >
             <ul>
-              <BrushItem name='普通筆' id='Brush' onSelect={handleChangeBrush} />
-              <BrushItem name='テスト筆' id='ExampleBrush' onSelect={handleChangeBrush} />
+              <BrushItem
+                name="普通筆"
+                id="Brush"
+                onSelect={handleChangeBrush}
+              />
+              <BrushItem
+                name="テスト筆"
+                id="ExampleBrush"
+                onSelect={handleChangeBrush}
+              />
             </ul>
           </div>
         </Portal>
       </div>
 
       {/* {isNarrowMedia && ( */}
-        <div
-          ref={layerRef}
-          css={`
-            position: relative;
-            padding: 4px;
-            border-radius: 60px;
-            transition: background-color .2s ease-in-out;
-          `}
-          style={{ backgroundColor: openLayers ? theme.surface.brushViewActive : 'transparent' }}
-          onClick={handleClickLayerIcon}
-        >
-          {openLayers ? <Close css="width: 26px;" /> : <Stack css="width: 26px;" />}
+      <div
+        ref={layerRef}
+        css={`
+          position: relative;
+          padding: 4px;
+          border-radius: 60px;
+          transition: background-color 0.2s ease-in-out;
+        `}
+        style={{
+          backgroundColor: openLayers
+            ? theme.surface.brushViewActive
+            : 'transparent',
+        }}
+        onClick={handleClickLayerIcon}
+      >
+        {openLayers ? (
+          <Close css="width: 26px;" />
+        ) : (
+          <Stack css="width: 26px;" />
+        )}
 
-          <FloatMenu
-            ref={layerPopRef}
-            css={`width: 300px;`}
-            style={{
-              ...layerPopper.styles.popper,
-              ...(openLayers ? { opacity: 1, pointerEvents: 'all'} : {opacity: 0, pointerEvents: 'none'})
-            }}
-            {...layerPopper.attributes.popper}
-          >
-            <LayerFloatMenu />
-          </FloatMenu>
-        </div>
+        <FloatMenu
+          ref={layerPopRef}
+          css={`
+            width: 300px;
+          `}
+          style={{
+            ...layerPopper.styles.popper,
+            ...(openLayers
+              ? { opacity: 1, pointerEvents: 'all' }
+              : { opacity: 0, pointerEvents: 'none' }),
+          }}
+          {...layerPopper.attributes.popper}
+        >
+          <LayerFloatMenu />
+        </FloatMenu>
+      </div>
       {/* )} */}
     </div>
   )
 }
 
-const BrushItem = ({name, id, onSelect}: {name: string, id: keyof typeof SilkBrushes, onSelect: (id: keyof typeof SilkBrushes) => void}) => {
+const BrushItem = ({
+  name,
+  id,
+  onSelect,
+}: {
+  name: string
+  id: keyof typeof SilkBrushes
+  onSelect: (id: keyof typeof SilkBrushes) => void
+}) => {
   const theme = useTheme()
   const engine = useSilkEngine()
 
@@ -335,7 +471,10 @@ const BrushItem = ({name, id, onSelect}: {name: string, id: keyof typeof SilkBru
         cursor: default;
       `}
       style={{
-        backgroundColor: engine?.currentBrush?.id === SilkBrushes[id].id ?theme.surface.floatActive: 'transparent'
+        backgroundColor:
+          engine?.currentBrush?.id === SilkBrushes[id].id
+            ? theme.surface.floatActive
+            : 'transparent',
       }}
       onClick={handleClick}
     >
@@ -343,4 +482,3 @@ const BrushItem = ({name, id, onSelect}: {name: string, id: keyof typeof SilkBru
     </li>
   )
 }
-

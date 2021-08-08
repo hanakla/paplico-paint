@@ -1,10 +1,12 @@
 import { useEffect, useRef } from 'react'
-import { SilkEngine } from 'silk-core/src/engine/Engine'
+import { useMedia } from 'react-use'
 import styled from 'styled-components'
 import { useSilkEngine } from '../hooks/useSilkEngine'
+import { narrow } from '../utils/responsive'
 
 export const DebugView = ({ className }: { className?: string }) => {
   const engine = useSilkEngine()
+  const isNarrow = useMedia(`(max-width: ${narrow})`)
 
   const strokeViewRef = useRef<HTMLDivElement | null>(null)
   const bufferViewRef = useRef<HTMLDivElement | null>(null)
@@ -37,6 +39,7 @@ export const DebugView = ({ className }: { className?: string }) => {
         display: flex;
       `}
       className={className}
+      style={{ transform: isNarrow ? 'scale(.5)' : '' }}
     >
       <div>
         Stroke:

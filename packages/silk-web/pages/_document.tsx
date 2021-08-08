@@ -1,4 +1,10 @@
-import Document, { DocumentContext, Head, Html, Main, NextScript } from 'next/document'
+import Document, {
+  DocumentContext,
+  Head,
+  Html,
+  Main,
+  NextScript,
+} from 'next/document'
 import { ServerStyleSheet } from 'styled-components'
 import { GlobalStyle } from '../components/GlobalStyle'
 
@@ -8,11 +14,11 @@ export default class AppDocument extends Document {
     const originalRenderPage = ctx.renderPage
 
     try {
-      ctx.renderPage = () => (
+      ctx.renderPage = () =>
         originalRenderPage({
-          enhanceApp: (App) => (props) => sheet.collectStyles(<App {...props} />)
+          enhanceApp: (App) => (props) =>
+            sheet.collectStyles(<App {...props} />),
         })
-      )
 
       const initialProps = await Document.getInitialProps(ctx)
       return {
@@ -22,7 +28,7 @@ export default class AppDocument extends Document {
             {initialProps.styles}
             {sheet.getStyleElement()}
           </>
-        )
+        ),
       }
     } finally {
       sheet.seal()
@@ -34,12 +40,11 @@ export default class AppDocument extends Document {
       <Html>
         <Head>
           <link rel="manifest" href="/manifest.json" />
-          <meta name="viewport" content="width=device-width, initial-scale=1"></meta>
           {this.props.styles}
         </Head>
 
         <body>
-            <Main />
+          <Main />
           <NextScript />
         </body>
       </Html>

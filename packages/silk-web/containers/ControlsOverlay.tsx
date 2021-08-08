@@ -75,12 +75,16 @@ const VectorLayerControl = ({ scale }: { scale: number }) => {
   if (!activeLayer) throw new Error('')
   if (activeLayer.layerType !== 'vector') throw new Error('')
 
-  const bindHeadDrag = useDrag(async (e) => {
-    const { objects } = activeLayer!
+  const bindHeadDrag = useDrag(async ({ delta }) => {
+    const target = editorState.activeObject
+    if (!target) return
 
     activeLayer.update(() => {
-      objects[0].path.start.x = e.offset[0] * (1 / scale)
-      objects[0].path.start.y = e.offset[1] * (1 / scale)
+      target.path.start.x += delta[0] * (1 / scale)
+      target.path.points[0].c1x += delta[0] * (1 / scale)
+
+      target.path.start.y += delta[1] * (1 / scale)
+      target.path.points[0].c1y += delta[1] * (1 / scale)
     })
 
     debouncedRerender()
@@ -131,11 +135,20 @@ const VectorLayerControl = ({ scale }: { scale: number }) => {
         <>
           <path
             css={`
-              stroke: #4e7fff;
+              stroke: transparent;
               stroke-width: 2;
               fill: none;
               pointer-events: all;
+
+              &:hover {
+                stroke: #4e7fff;
+              }
             `}
+            style={{
+              ...(editorState.activeObjectId === id
+                ? { stroke: '#4e7fff' }
+                : {}),
+            }}
             d={path.svgPath}
             data-object-id={id}
             onClick={handleDoubleClickPath}

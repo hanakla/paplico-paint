@@ -28,8 +28,8 @@ export class VectorObject implements IEntity {
       y: y,
       path:
         path ?? Path.create({ start: { x: 0, y: 0 }, points: [], svgPath: '' }),
-      brush: {
-        id: '@silk-paint/brush',
+      brush: brush ?? {
+        brushId: '@silk-paint/brush',
         color: { r: 0, g: 0, b: 0 },
         weight: 1,
         opacity: 1,

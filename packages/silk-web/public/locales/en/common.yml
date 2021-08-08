@@ -1,5 +1,6 @@
 opacity: Opacity
 blend: Blend
+layerFilter: Layer filter
 
 compositeModes:
   normal: Normal

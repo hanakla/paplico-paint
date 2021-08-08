@@ -10,6 +10,7 @@ import { IBrush, BrushClass } from './IBrush'
 import { Stroke } from './Stroke'
 import { VectorObject } from '../Entity/VectorObject'
 import { assign } from '../utils'
+import { CurrentBrushSetting as _CurrentBrushSetting } from './CurrentBrushSetting'
 
 type EngineEvents = {
   rerender: void
@@ -18,7 +19,7 @@ type EngineEvents = {
 
 export class SilkEngine {
   protected canvas: HTMLCanvasElement
-  protected canvasHandler: CanvasHandler
+  public readonly canvasHandler: CanvasHandler
   protected bufferCtx: CanvasRenderingContext2D
   protected strokeCanvas: HTMLCanvasElement
   protected strokeCanvasCtx: CanvasRenderingContext2D
@@ -33,13 +34,13 @@ export class SilkEngine {
   protected _currentBrush: IBrush = new Brush()
   protected currentInk: IInk = new RandomInk()
   protected _activeLayer: LayerTypes | null = null
-  protected _brushSetting: BrushSetting = {
-    id: Brush.id,
+  protected _brushSetting: _CurrentBrushSetting = {
+    brushId: Brush.id,
     weight: 1,
     color: { r: 0, g: 0, b: 0 },
     opacity: 1,
   }
-  protected _pencilMode: 'draw' | 'erase' = 'draw'
+  protected _pencilMode: 'none' | 'draw' | 'erase' = 'draw'
   protected blushPromise: Promise<void> | null = null
   protected lastRenderedAt: WeakMap<LayerTypes, number> = new WeakMap()
 
@@ -90,7 +91,7 @@ export class SilkEngine {
     // a.getPointAtLength
   }
 
-  public set pencilMode(mode: 'draw' | 'erase') {
+  public set pencilMode(mode: 'none' | 'draw' | 'erase') {
     this._pencilMode = mode
   }
 
@@ -290,6 +291,10 @@ export class SilkEngine {
   }
 
   private handleTemporayStroke = async (stroke: Stroke) => {
+    if (!this.document) return
+    if (this.pencilMode === 'none') return
+    if (this.activeLayer?.visible === false) return
+
     if (this.activeLayer?.layerType === 'raster') {
       const { activeLayer, strokingPreviewCtx, strokeCanvasCtx } = this
       const { width, height } = this.document
@@ -321,6 +326,7 @@ export class SilkEngine {
 
   private renderVectorLayer(layer: VectorLayer) {
     if (!this.document) return
+    if (this.pencilMode === 'none') return
 
     const { document, bufferCtx } = this
     const { width, height } = document
@@ -333,12 +339,11 @@ export class SilkEngine {
     bufferCtx.clearRect(0, 0, width, height)
 
     for (const object of layer.objects) {
-      // this.strokeCanvas
-      const brushClass = this.brushRegister.get(object.brush.id)!
+      const brushClass = this.brushRegister.get(object.brush.brushId)!
       const brush = this.brushInstances.get(brushClass)
 
       if (brushClass == null || brush == null)
-        throw new Error(`Unregistered brush ${object.brush.id}`)
+        throw new Error(`Unregistered brush ${object.brush.brushId}`)
 
       const stroke = Stroke.fromPath(object.path)
 
@@ -346,7 +351,7 @@ export class SilkEngine {
         context: bufferCtx,
         stroke,
         ink: this.currentInk,
-        brushSetting: this._brushSetting,
+        brushSetting: object.brush,
       })
 
       bufferCtx.globalCompositeOperation = 'source-over'
@@ -361,26 +366,29 @@ export class SilkEngine {
 
   private handleCanvasStroke = async (stroke: Stroke) => {
     if (this.document == null) return
+    if (this.pencilMode === 'none') return
+    if (this.activeLayer?.visible === false) return
+
     const { document, activeLayer } = this
 
     await this.blushPromise
+    if (activeLayer?.visible === false) return
 
-    if (activeLayer?.layerType == 'raster') {
+    if (activeLayer?.layerType === 'raster') {
       const { width, height } = document
       const { bufferCtx, strokeCanvasCtx } = this
-      const strokeCtx = this.strokeCanvasCtx
 
       this.strokeCanvas.width = bufferCtx.canvas.width = document.width
       this.strokeCanvas.height = bufferCtx.canvas.height = document.height
 
       bufferCtx.clearRect(0, 0, width, height)
-      strokeCtx.clearRect(0, 0, width, height)
+      strokeCanvasCtx.clearRect(0, 0, width, height)
 
       bufferCtx.drawImage(await activeLayer.imageBitmap, 0, 0)
 
       strokeCanvasCtx.save()
       this._currentBrush.render({
-        context: strokeCtx,
+        context: strokeCanvasCtx,
         stroke,
         ink: this.currentInk,
         brushSetting: this.brushSetting,
@@ -405,7 +413,7 @@ export class SilkEngine {
           x: 0,
           y: 0,
           path: stroke.splinedPath,
-          brush: { ...this.brushSetting },
+          brush: { ...this._brushSetting },
         })
       )
 
@@ -417,4 +425,8 @@ export class SilkEngine {
   private handleLayerChange = () => {
     this.rerender()
   }
+}
+
+export namespace SilkEngine {
+  export type CurrentBrushSetting = _CurrentBrushSetting
 }

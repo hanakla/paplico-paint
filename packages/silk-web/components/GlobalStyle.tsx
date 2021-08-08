@@ -17,6 +17,8 @@ export const GlobalStyle = createGlobalStyle`
     height: 100%;
     font-size: 12px;
     overflow: hidden;
+    font-family: -apple-system, Roboto, Ubuntu, Cantarell, 'Noto Sans', 'Hiragino Kaku Gothic ProN', Meiryo, sans-serif;
+    line-height: 1.5;
   }
 
   *:not(input) {

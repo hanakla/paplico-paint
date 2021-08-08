@@ -2,6 +2,7 @@ import { rgba } from 'polished'
 
 export const theme = {
   text: {
+    default: '#464b4e',
     white: '#cfcfcf',
     sidebarWhite: '#cfcfcf',
     inputActive: '#333',

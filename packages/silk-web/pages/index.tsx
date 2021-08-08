@@ -25,19 +25,25 @@ import { GetStaticProps } from 'next'
 import i18nConfig from '../next-i18next.config'
 import { narrow } from '../utils/responsive'
 import { usePinch } from 'react-use-gesture'
-import { createGlobalStyle } from 'styled-components'
+import { createGlobalStyle, css } from 'styled-components'
 import { DebugView } from '../containers/DebugView'
 import { useSpring, animated } from 'react-spring'
-import { Menu } from '@styled-icons/remix-line'
+import { Menu, Restart } from '@styled-icons/remix-line'
 import { Provider } from 'jotai'
 import { LysContext, useLysSliceRoot } from '@fleur/lys'
 import { EditorSlice } from '../domains/Editor'
 import { useTap } from '../hooks/useTap'
+import { useTranslation } from 'next-i18next'
+import { CSSProp } from 'styled-components'
+import Head from 'next/head'
+import { useGlobalMouseTrap, useMouseTrap } from '../hooks/useMouseTrap'
 
 function IndexContent({}) {
   const [, actions] = useLysSliceRoot(EditorSlice)
+  const { t } = useTranslation()
 
   const engine = useRef<Silk | null>(null)
+  const rootRef = useRef<HTMLDivElement | null>(null)
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
   const editAreaRef = useRef<HTMLDivElement | null>(null)
   const sidebarRef = useRef<HTMLDivElement | null>(null)
@@ -48,7 +54,9 @@ function IndexContent({}) {
   const [sidebarOpened, sidebarToggle] = useToggle(!isNarrowMedia)
   const [scale, setScale] = useState(0.5)
   const [rotate, setRotate] = useState(0)
-  const sidebarStyles = useSpring({ width: sidebarOpened ? 200 : 32 })
+  const sidebarStyles = useSpring({
+    width: isNarrowMedia === false || sidebarOpened ? 200 : 32,
+  })
 
   const handleOnDrop = useCallback(async (files: File[]) => {
     if (!engine.current?.currentDocument) return
@@ -78,6 +86,12 @@ function IndexContent({}) {
   const dragState = useDrop({ onFiles: handleOnDrop })
   const tapBind = useTap(handleTapEditArea)
 
+  useGlobalMouseTrap([
+    { key: 'v', handler: () => actions.setTool('cursor') },
+    { key: 'b', handler: () => actions.setTool('draw') },
+    { key: 'e', handler: () => actions.setTool('erase') },
+  ])
+
   usePinch(
     ({ delta: [d, r] }) => {
       setScale((scale) => Math.max(0.1, scale + d / 400))
@@ -96,6 +110,7 @@ function IndexContent({}) {
       canvas: canvasRef.current!,
     })
     actions.setEngine(engine.current)
+    engine.current.rerender()
 
     const document = SilkEntity.Document.create({ width: 1000, height: 1000 })
     engine.current.setDocument(document)
@@ -149,8 +164,15 @@ function IndexContent({}) {
   return (
     <EngineContextProvider value={engine.current}>
       <TouchActionStyle />
+      <Head>
+        <meta
+          name="viewport"
+          content="viewport-fit=cover, width=device-width, initial-scale=1"
+        />
+      </Head>
       <div
-        css={`
+        ref={rootRef}
+        css={css`
           position: relative;
           display: flex;
           flex-flow: row;
@@ -159,10 +181,11 @@ function IndexContent({}) {
           background-color: ${({ theme }) => theme.surface.black};
           color: ${({ theme }) => theme.text.white};
         `}
+        tabIndex={-1}
       >
         <div
           ref={sidebarRef}
-          css={`
+          css={css`
             position: relative;
             display: flex;
             flex-flow: column;
@@ -171,31 +194,32 @@ function IndexContent({}) {
           // style={sidebarStyles}
         >
           <div
-            css={`
+            css={css`
               position: absolute;
               left: 0;
               top: 0;
               z-index: 1;
               display: flex;
               flex-flow: column;
-              width: 200px;
+              /* width: 200px; */
               height: 100%;
+              padding-bottom: env(safe-area-inset-bottom);
               transition: width 0.2s ease-in-out;
               background-color: ${({ theme }) => theme.surface.sidebarBlack};
             `}
             style={{
-              width: !isNarrowMedia || sidebarOpened ? '200px' : '32px',
+              width: isNarrowMedia === false || sidebarOpened ? 200 : 32,
             }}
           >
             <LayerView />
             <div
-              css={`
+              css={css`
                 display: flex;
                 padding: 8px;
                 border-top: 1px solid #73757c;
               `}
             >
-              レイヤーフィルター
+              {t('layerFilter')}
               <div css="margin-left: auto">＋</div>
             </div>
             <div css="display: flex; padding: 8px; margin-top: auto;">

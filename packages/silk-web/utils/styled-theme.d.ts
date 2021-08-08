@@ -7,7 +7,15 @@ declare module 'styled-components' {
 }
 
 declare module 'react' {
-  interface Attributes {
+  interface DOMAttributes<T> {
     css?: CSSProp<ThemeType>
+  }
+}
+
+declare global {
+  namespace JSX {
+    interface IntrinsicAttributes {
+      css?: CSSProp<ThemeType>
+    }
   }
 }

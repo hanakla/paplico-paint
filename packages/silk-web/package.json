@@ -17,6 +17,7 @@
     "@styled-icons/remix-line": "^10.18.0",
     "@types/mousetrap": "^1.6.8",
     "array-move": "^3.0.1",
+    "clone": "^2.1.2",
     "debounce": "^1.2.1",
     "debounce-raf": "^1.0.1",
     "fastclick": "^1.0.6",
@@ -41,6 +42,7 @@
     "use-measure": "^0.3.0"
   },
   "devDependencies": {
+    "@types/clone": "^2.1.1",
     "@types/debounce": "^1.2.0",
     "@types/node": "^16.4.4",
     "@types/react": "^17.0.15",

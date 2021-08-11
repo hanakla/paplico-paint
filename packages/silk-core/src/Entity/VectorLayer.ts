@@ -49,9 +49,30 @@ export class VectorLayer implements ILayer {
     const path = Path.create({
       start: { x: start[0], y: start[1] },
       points: objectPoints,
-      svgPath: spline.svgPath(sp),
+      closed: true,
     })
-    layer.objects.push(VectorObject.create({ x: 0, y: 0, path }))
+
+    const obj = VectorObject.create({ x: 0, y: 0, path })
+
+    obj.brush = {
+      brushId: '@silk-paint/brush',
+      color: { r: 0, g: 0, b: 0 },
+      opacity: 1,
+      weight: 1,
+    }
+
+    obj.fill = {
+      type: 'linear-gradient',
+      opacity: 1,
+      start: { x: -100, y: -100 },
+      end: { x: 100, y: 100 },
+      colorPoints: [
+        { color: { r: 0, g: 255, b: 255, a: 1 }, position: 0 },
+        { color: { r: 128, g: 255, b: 200, a: 1 }, position: 1 },
+      ],
+    }
+
+    layer.objects.push(obj)
 
     return layer
   }

@@ -11,6 +11,7 @@ import { Stroke } from './Stroke'
 import { VectorObject } from '../Entity/VectorObject'
 import { assign } from '../utils'
 import { CurrentBrushSetting as _CurrentBrushSetting } from './CurrentBrushSetting'
+import getBound from 'svg-path-bounds'
 
 type EngineEvents = {
   rerender: void
@@ -238,7 +239,7 @@ export class SilkEngine {
     this.strokeCanvas.width = document.width
     this.strokeCanvas.height = document.height
 
-    this.vectorBitmapCache = new Map()
+    this.vectorBitmapCache = new WeakMap()
   }
 
   public async registerBrush(Brush: BrushClass) {
@@ -326,7 +327,6 @@ export class SilkEngine {
 
   private renderVectorLayer(layer: VectorLayer) {
     if (!this.document) return
-    if (this.pencilMode === 'none') return
 
     const { document, bufferCtx } = this
     const { width, height } = document
@@ -339,20 +339,84 @@ export class SilkEngine {
     bufferCtx.clearRect(0, 0, width, height)
 
     for (const object of layer.objects) {
-      const brushClass = this.brushRegister.get(object.brush.brushId)!
-      const brush = this.brushInstances.get(brushClass)
+      if (object.fill) {
+        bufferCtx.beginPath()
+        bufferCtx.moveTo(object.path.start.x, object.path.start.y)
 
-      if (brushClass == null || brush == null)
-        throw new Error(`Unregistered brush ${object.brush.brushId}`)
+        for (const point of object.path.points) {
+          bufferCtx.bezierCurveTo(
+            point.c1x,
+            point.c1y,
+            point.c2x,
+            point.c2y,
+            point.x,
+            point.y
+          )
+        }
 
-      const stroke = Stroke.fromPath(object.path)
+        if (object.path.closed) bufferCtx.closePath()
 
-      brush.render({
-        context: bufferCtx,
-        stroke,
-        ink: this.currentInk,
-        brushSetting: object.brush,
-      })
+        switch (object.fill.type) {
+          case 'fill': {
+            const {
+              color: { r, g, b },
+              opacity,
+            } = object.fill
+
+            bufferCtx.globalAlpha = 1
+            bufferCtx.fillStyle = `rgba(${r}, ${g}, ${b}, ${opacity})`
+            bufferCtx.fill()
+            break
+          }
+          case 'linear-gradient': {
+            const { colorPoints, opacity, start, end } = object.fill
+            const bbox = getBound(object.path.svgPath)
+            const [left, top, right, bottom] = getBound(object.path.svgPath)
+            // console.log(bbox)
+
+            const width = right - left
+            const height = bottom - top
+            const centerX = left + width / 2
+            const centerY = top + height / 2
+
+            const gradient = bufferCtx.createLinearGradient(
+              centerX + start.x,
+              centerY + start.y,
+              centerX + end.x,
+              centerY + end.y
+            )
+
+            for (const {
+              position,
+              color: { r, g, b, a },
+            } of colorPoints) {
+              gradient.addColorStop(position, `rgba(${r}, ${g}, ${b}, ${a}`)
+            }
+
+            bufferCtx.globalAlpha = opacity
+            bufferCtx.fillStyle = gradient
+            bufferCtx.fill()
+            break
+          }
+        }
+      }
+
+      if (object.brush) {
+        const brushClass = this.brushRegister.get(object.brush.brushId)!
+        const brush = this.brushInstances.get(brushClass)
+
+        if (brushClass == null || brush == null)
+          throw new Error(`Unregistered brush ${object.brush.brushId}`)
+
+        const stroke = Stroke.fromPath(object.path)
+
+        brush.render({
+          context: bufferCtx,
+          stroke,
+          ink: this.currentInk,
+          brushSetting: object.brush,
+        })
+      }
 
       bufferCtx.globalCompositeOperation = 'source-over'
       bufferCtx.drawImage(this.strokeCanvas, 0, 0)

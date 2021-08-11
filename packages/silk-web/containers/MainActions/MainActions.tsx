@@ -15,7 +15,14 @@ import { SilkBrushes } from 'silk-core'
 import { useTranslation } from 'next-i18next'
 import { useLysSlice } from '@fleur/lys'
 import { useClickAway, useMedia, useToggle, useUpdate } from 'react-use'
-import { Close, Eraser, Pencil, Stack } from '@styled-icons/remix-line'
+import {
+  Brush,
+  Close,
+  Eraser,
+  Pencil,
+  Shape,
+  Stack,
+} from '@styled-icons/remix-line'
 import { Cursor } from '@styled-icons/remix-fill'
 import { useTheme } from 'styled-components'
 import { useSilkEngine } from '../../hooks/useSilkEngine'
@@ -88,6 +95,10 @@ export function MainActions() {
 
   const handleChangeToCursorMode = useCallback(() => {
     editorActions.setTool('cursor')
+  }, [])
+
+  const handleChangeToShapePenMode = useCallback(() => {
+    editorActions.setTool('shape-pen')
   }, [])
 
   const handleChangeToPencilMode = useCallback(() => {
@@ -188,6 +199,7 @@ export function MainActions() {
               css={`
                 position: relative;
                 z-index: 1;
+                width: 100px;
                 height: 8px;
                 vertical-align: bottom;
                 appearance: none;
@@ -208,6 +220,7 @@ export function MainActions() {
         <div>
           <input
             css={`
+              width: 100px;
               height: 8px;
               vertical-align: bottom;
               appearance: none;
@@ -238,7 +251,6 @@ export function MainActions() {
               position: relative;
               width: 32px;
               height: 32px;
-              border-radius: 100px;
               border: 2px solid #dbdbdb;
               vertical-align: middle;
               box-shadow: 0 0 2px 1px rgba(0, 0, 0, 0.4);
@@ -316,10 +328,25 @@ export function MainActions() {
         )}
       </div>
 
-      <div css="display: flex; gap: 0;">
+      <div
+        css={`
+          display: flex;
+          gap: 0;
+          border-radius: 100px;
+          border: 1px solid ${rgba('#000', 0.3)};
+          overflow: hidden;
+
+          div:first-of-type {
+            padding-left: 8px;
+          }
+
+          div:last-of-type {
+            padding-right: 8px;
+          }
+        `}
+      >
         <div
-          ref={brushRef}
-          css="padding:4px; padding-left:8px; border-radius: 60px 0 0 60px; transition: background-color .2s ease-in-out;"
+          css="padding:4px; border-radius: 60px 0 0 60px; transition: background-color .2s ease-in-out;"
           style={{
             backgroundColor:
               editorState.currentTool === 'cursor'
@@ -331,9 +358,25 @@ export function MainActions() {
           <Cursor css="width:26px; vertical-align:bottom;" />
         </div>
 
+        {layerControls.activeLayer?.layerType === 'vector' && (
+          <div
+            css="padding:4px; border-radius: 0; transition: background-color .2s ease-in-out;"
+            style={{
+              backgroundColor:
+                editorState.currentTool === 'shape-pen'
+                  ? theme.surface.brushViewActive
+                  : 'transparent',
+            }}
+            onClick={handleChangeToShapePenMode}
+          >
+            {/* <Shape css="width:26px; vertical-align:bottom;" /> */}
+            <Pencil css="width:24px;" />
+          </div>
+        )}
+
         <div
           ref={brushRef}
-          css="padding:4px; padding-left:8px; border-radius: 0; transition: background-color .2s ease-in-out;"
+          css="padding:4px; border-radius: 0; transition: background-color .2s ease-in-out;"
           style={{
             backgroundColor:
               editorState.currentTool === 'draw'
@@ -342,11 +385,12 @@ export function MainActions() {
           }}
           onClick={handleChangeToPencilMode}
         >
-          <Pencil css="width:26px; vertical-align:bottom;" />
+          <Brush css="width:26px; vertical-align:bottom;" />
         </div>
+
         {layerControls.activeLayer?.layerType === 'raster' && (
           <div
-            css="padding: 4px; padding-right:8px; border-radius: 0 60px 60px 0; transition: background-color .2s ease-in-out;"
+            css="padding: 4px; border-radius: 0 60px 60px 0; transition: background-color .2s ease-in-out;"
             style={{
               backgroundColor:
                 editorState.currentTool === 'erase'

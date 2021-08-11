@@ -90,6 +90,7 @@ function IndexContent({}) {
     { key: 'v', handler: () => actions.setTool('cursor') },
     { key: 'b', handler: () => actions.setTool('draw') },
     { key: 'e', handler: () => actions.setTool('erase') },
+    { key: 'p', handler: () => actions.setTool('shape-pen') },
   ])
 
   usePinch(
@@ -110,10 +111,9 @@ function IndexContent({}) {
       canvas: canvasRef.current!,
     })
     actions.setEngine(engine.current)
-    engine.current.rerender()
 
     const document = SilkEntity.Document.create({ width: 1000, height: 1000 })
-    engine.current.setDocument(document)
+    await engine.current.setDocument(document)
 
     const layer = SilkEntity.RasterLayer.create({ width: 1000, height: 1000 })
     const vector = SilkEntity.VectorLayer.create({ width: 1000, height: 1000 })
@@ -122,6 +122,7 @@ function IndexContent({}) {
     engine.current.setActiveLayer(vector.id)
 
     engine.current.on('rerender', rerender)
+    engine.current.rerender()
 
     if ('scrollRestoration' in history) {
       history.scrollRestoration = 'manual'

@@ -14,7 +14,7 @@ export const useMouseTrap = (
     return () => {
       mt.reset()
     }
-  }, [binds])
+  }, [ref.current, binds])
 
   return ref
 }

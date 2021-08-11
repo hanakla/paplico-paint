@@ -1,22 +1,25 @@
 import { assign } from '../utils'
+import point from 'point-at-length'
 
 class Path {
   public start: { x: number; y: number } = { x: 0, y: 0 }
   public points: Path.PathPoint[] = []
   public closed: boolean = false
+  private _pal: any
 
   public static create({
     start,
     points,
-    svgPath,
+    closed,
   }: {
     start: Path.StartPoint
     points: Path.PathPoint[]
-    svgPath: string
+    closed: boolean
   }) {
     return assign(new Path(), {
-      start: start,
-      points: points,
+      start,
+      points,
+      closed,
     })
   }
 
@@ -24,6 +27,7 @@ class Path {
     return assign(new Path(), {
       start: obj.start,
       points: obj.points,
+      closed: obj.closed,
     })
   }
 
@@ -48,12 +52,37 @@ class Path {
   //   this.points = points
   // }
 
+  public getTotalLength() {
+    return this.pal.length()
+  }
+
+  public getPointAtLength(pos: number): { x: number; y: number } {
+    const [x, y] = this.pal.at(pos)
+    return { x, y }
+  }
+
+  // TODO: 誰か実装してくれ
+  // public segmentIndexAtPoint(x: number, y: number) {
+  //   const segs = this.points.reverse()
+
+  //   for (let idx = 0; idx < segs.length; idx++) {
+  //     const current = segs[idx]
+  //     const prev = segs[idx + 1]
+
+  //     if (current.)
+  //   }
+  // }
+
   public serialize() {
     return {
       start: { ...this.start },
       points: [...this.points],
       closed: this.closed,
     }
+  }
+
+  private get pal() {
+    return (this._pal ??= point(this.svgPath))
   }
 }
 

@@ -39,8 +39,10 @@ import Head from 'next/head'
 import { useGlobalMouseTrap, useMouseTrap } from '../hooks/useMouseTrap'
 
 function IndexContent({}) {
-  const [, actions] = useLysSliceRoot(EditorSlice)
   const { t } = useTranslation()
+
+  const [editorState, actions] = useLysSliceRoot(EditorSlice)
+  const isNarrowMedia = useMedia(`(max-width: ${narrow})`, true)
 
   const engine = useRef<Silk | null>(null)
   const rootRef = useRef<HTMLDivElement | null>(null)
@@ -48,7 +50,6 @@ function IndexContent({}) {
   const editAreaRef = useRef<HTMLDivElement | null>(null)
   const sidebarRef = useRef<HTMLDivElement | null>(null)
 
-  const isNarrowMedia = useMedia(`(max-width: ${narrow})`, true)
   const [position, setPosition] = useState({ x: 0, y: 0 })
   const rerender = useUpdate()
   const [sidebarOpened, sidebarToggle] = useToggle(!isNarrowMedia)
@@ -123,6 +124,17 @@ function IndexContent({}) {
 
     engine.current.on('rerender', rerender)
     engine.current.rerender()
+
+    actions.setFill({
+      type: 'linear-gradient',
+      colorPoints: [
+        { color: { r: 0, g: 255, b: 255, a: 1 }, position: 0 },
+        { color: { r: 128, g: 255, b: 200, a: 1 }, position: 1 },
+      ],
+      start: { x: -100, y: -100 },
+      end: { x: 100, y: 100 },
+      opacity: 1,
+    })
 
     if ('scrollRestoration' in history) {
       history.scrollRestoration = 'manual'
@@ -247,6 +259,15 @@ function IndexContent({}) {
             justify-content: center;
             overflow: hidden;
           `}
+          style={{
+            // prettier-ignore
+            cursor:
+              editorState.currentTool === 'cursor' ? 'default' :
+              editorState.currentTool === 'draw' ? 'url(cursors/pencil.svg), auto' :
+              editorState.currentTool === 'erase' ? 'url(cursors/eraser.svg), auto' :
+              editorState.currentTool === 'shape-pen' ? 'url(cursors/pencil-line.svg), auto':
+              'default',
+          }}
         >
           {dragState.over && (
             <div

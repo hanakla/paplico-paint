@@ -3,6 +3,7 @@ import { v4 } from 'uuid'
 import { Path } from './Path'
 import spline from '@yr/catmull-rom-spline'
 import { VectorObject } from './VectorObject'
+import { SilkEntity } from 'index'
 
 export class VectorLayer implements ILayer {
   public readonly layerType = 'vector'
@@ -27,28 +28,18 @@ export class VectorLayer implements ILayer {
   public static create({ width, height }: { width: number; height: number }) {
     const layer = new VectorLayer()
 
-    const sp = spline.points(
-      [
-        [0, 0, 1],
-        [200, 500, 1],
-        [600, 500, 1],
-        [1000, 1000, 1],
-      ].map(([x, y]) => [x, y])
-    )
-
-    const [start, ...points] = sp
-    const objectPoints = points.map(([c1x, c1y, c2x, c2y, x, y]: number[]) => ({
-      c1x,
-      c1y,
-      c2x,
-      c2y,
-      x,
-      y,
-    }))
-
     const path = Path.create({
-      start: { x: start[0], y: start[1] },
-      points: objectPoints,
+      points: [
+        { x: 0, y: 0, in: { x: 0, y: 0 }, out: { x: 0, y: 0 } },
+        { x: 200, y: 500, in: { x: 200, y: 500 }, out: { x: 200, y: 500 } },
+        { x: 600, y: 500, in: { x: 600, y: 500 }, out: { x: 600, y: 500 } },
+        {
+          x: 1000,
+          y: 1000,
+          in: { x: 1000, y: 1000 },
+          out: { x: 1000, y: 1000 },
+        },
+      ],
       closed: true,
     })
 

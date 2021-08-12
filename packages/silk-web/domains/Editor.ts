@@ -1,8 +1,10 @@
 import { createSlice } from '@fleur/lys'
 import { SliceActionContext } from '@fleur/lys/dist/slice'
+import { Restaurant } from '@styled-icons/remix-line'
 import { debounce } from 'debounce'
 import { Silk, SilkEntity, SilkValue } from '../../silk-core/src'
 import { SilkEngine } from '../../silk-core/src/engine/Engine'
+import { deepClone } from '../utils/clone'
 import { log } from '../utils/log'
 
 interface State {
@@ -54,7 +56,7 @@ export const EditorSlice = createSlice(
         draft.activeObjectId = null
       },
       setActiveObject: ({ draft }, objectId: string | null) => {
-        log('activeObject changed', objectId)
+        log('activeObject changed', { objectId })
         draft.activeObjectId = objectId ?? null
       },
       setSelectedObjectPoints: ({ draft }, indices: ('head' | number)[]) => {
@@ -65,7 +67,7 @@ export const EditorSlice = createSlice(
         draft.vectorStroking = state
       },
       setVectorFocusing: ({ draft }, objectId: string | null) => {
-        log('vectorStroking changed', objectId)
+        log('vectorFocusing changed', { objectId })
         draft.vectorFocusing = objectId ? { objectId } : null
       },
       rerenderCanvas: debounce(
@@ -75,10 +77,25 @@ export const EditorSlice = createSlice(
         100,
         true
       ),
-      updateLayer: (
+      // updateLayer: (
+      //   { draft },
+      //   layerId: string,
+      //   proc: (layer: SilkEntity.LayerTypes) => void
+      // ) => {
+      //   const layer = draft.engine?.currentDocument?.layers.find(
+      //     (layer) => layer.id === layerId
+      //   )
+      //   if (!layer) {
+      //     console.warn('Layer not found')
+      //     return
+      //   }
+
+      //   ;(layer as any as SilkEntity.LayerTypes).update(proc)
+      // },
+      updateRasterLayer: (
         { draft },
         layerId: string,
-        proc: (layer: SilkEntity.LayerTypes) => void
+        proc: (layer: SilkEntity.RasterLayer) => void
       ) => {
         const layer = draft.engine?.currentDocument?.layers.find(
           (layer) => layer.id === layerId
@@ -88,7 +105,24 @@ export const EditorSlice = createSlice(
           return
         }
 
-        ;(layer as any as SilkEntity.LayerTypes).update(proc)
+        if (layer.layerType !== 'raster') return
+        layer.update(proc)
+      },
+      updateVectorLayer: (
+        { draft },
+        layerId: string,
+        proc: (layer: SilkEntity.VectorLayer) => void
+      ) => {
+        const layer = draft.engine?.currentDocument?.layers.find(
+          (layer) => layer.id === layerId
+        )
+        if (!layer) {
+          console.warn('Layer not found')
+          return
+        }
+
+        if (layer.layerType !== 'vector') return
+        layer.update(proc)
       },
       updateActiveObject: (
         { draft },
@@ -125,7 +159,27 @@ export const EditorSlice = createSlice(
     },
     computed: {
       currentBrush: ({ engine }) => engine?.currentBrush ?? null,
-      // activeObject
+      currentVectorBrush: ({ engine, activeObjectId }) => {
+        if (engine?.activeLayer?.layerType !== 'vector')
+          return engine?.brushSetting
+
+        const object = engine?.activeLayer?.objects.find(
+          (obj) => obj.id === activeObjectId
+        )
+
+        if (!object) return engine?.brushSetting ?? null
+        return deepClone(object.brush)
+      },
+      currentVectorFill: ({ engine, currentFill, activeObjectId }) => {
+        if (engine?.activeLayer?.layerType !== 'vector') return currentFill
+
+        const object = engine?.activeLayer?.objects.find(
+          (obj) => obj.id === activeObjectId
+        )
+
+        if (!object) return currentFill
+        return currentFill
+      },
       activeLayer: ({ engine }) => engine?.activeLayer,
       activeObject: ({
         engine,

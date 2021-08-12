@@ -57,7 +57,7 @@ export class RasterLayer implements ILayer {
     return this._lastUpdatedAt
   }
 
-  public update(this: this, proc: (layer: RasterLayer) => void) {
+  public update(proc: (layer: RasterLayer) => void) {
     proc(this)
     this._lastUpdatedAt = Date.now()
   }

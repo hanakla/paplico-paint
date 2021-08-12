@@ -1,23 +1,24 @@
 import { assign } from '../utils'
 import point from 'point-at-length'
+import { mapPoints } from '../SilkHelpers'
 
 class Path {
-  public start: { x: number; y: number } = { x: 0, y: 0 }
+  // public start: { x: number; y: number } = { x: 0, y: 0 }
   public points: Path.PathPoint[] = []
   public closed: boolean = false
   private _pal: any
 
   public static create({
-    start,
+    // start,
     points,
     closed,
   }: {
-    start: Path.StartPoint
+    // start: Path.StartPoint
     points: Path.PathPoint[]
     closed: boolean
   }) {
     return assign(new Path(), {
-      start,
+      // start,
       points,
       closed,
     })
@@ -25,7 +26,7 @@ class Path {
 
   public static deserialize(obj: any) {
     return assign(new Path(), {
-      start: obj.start,
+      // start: obj.start,
       points: obj.points,
       closed: obj.closed,
     })
@@ -34,7 +35,7 @@ class Path {
   protected constructor() {}
 
   public get svgPath() {
-    return pointsToSVGPath(this.start, this.points)
+    return pointsToSVGPath(this.points, this.closed)
   }
 
   // public updatePoints(
@@ -73,9 +74,26 @@ class Path {
   //   }
   // }
 
+  public mapPoints<T>(
+    proc: (
+      point: Path.PathPoint,
+      prevPoint: Path.PathPoint | undefined,
+      idx: number,
+      points: Path.PathPoint[]
+    ) => T,
+    option: { startOffset?: number } = { startOffset: 0 }
+  ): T[] {
+    const [start] = this.points
+    const points: Path.PathPoint[] = this.closed
+      ? [...this.points, start]
+      : this.points
+
+    return mapPoints(points, proc, option)
+  }
+
   public serialize() {
     return {
-      start: { ...this.start },
+      // start: { ...this.start },
       points: [...this.points],
       closed: this.closed,
     }
@@ -90,23 +108,32 @@ namespace Path {
   export type StartPoint = { x: number; y: number }
 
   export type PathPoint = {
-    c1x: number
-    c1y: number
-    c2x: number
-    c2y: number
+    in: { x: number; y: number }
+    out: { x: number; y: number }
+    // c1x: number
+    // c1y: number
+    // c2x: number
+    // c2y: number
     x: number
     y: number
     weight?: number
   }
 }
 
-const pointsToSVGPath = (start: Path.StartPoint, points: Path.PathPoint[]) => {
+const pointsToSVGPath = (points: Path.PathPoint[], closed: boolean) => {
+  const [start] = points
+
   return [
     `M${start.x},${start.y}`,
-    ...points.map(
-      (point) =>
-        `C${point.c1x},${point.c1y} ${point.c2x},${point.c2y} ${point.x},${point.y}`
-    ),
+    mapPoints(
+      points,
+      (point, prev) =>
+        `C ${prev!.out.x},${prev!.out.y} ${point.in.x},${point.in.y} ${
+          point.x
+        } ${point.y}`,
+      { startOffset: 1 }
+    ).join(' '),
+    closed ? 'Z' : '',
   ].join(' ')
 }
 

@@ -17,31 +17,38 @@ export class Stroke {
 
   public points: StrokePoint[] = []
   public path: Path = Path.create({
-    start: { x: 0, y: 0 },
+    // start: { x: 0, y: 0 },
     points: [],
-    svgPath: 'M0,0',
+    closed: false,
   })
 
   public get splinedPath() {
     if (this._splined) return this._splined
 
     const rawPoints = this.points.map(([x, y]) => [x, y])
-    const splined = spline.points(rawPoints)
+    const splined = spline.points(rawPoints) as number[][]
     const [start, ...points] = splined
-    const svgPath: string = spline.svgPath(splined)
-    const objectPoints = points.map(([c1x, c1y, c2x, c2y, x, y]: number[]) => ({
-      c1x,
-      c1y,
-      c2x,
-      c2y,
-      x,
-      y,
-    }))
+    const objectPoints = points.map(([c1x, c1y, c2x, c2y, x, y], idx, list) => {
+      const next = list[idx + 1]
+      return {
+        x,
+        y,
+        in: { x: c2x, y: c2y },
+        out: { x: next?.[0] ?? x + 5, y: next?.[y] ?? y + 5 },
+      }
+    })
 
     return (this._splined = Path.create({
-      start: { x: start[0], y: start[1] },
-      points: objectPoints,
-      svgPath,
+      points: [
+        {
+          x: start[0],
+          y: start[1],
+          in: { x: start[0], y: start[1] },
+          out: { x: start[0], y: start[1] },
+        },
+        ...objectPoints,
+      ],
+      closed: false,
     }))
   }
 

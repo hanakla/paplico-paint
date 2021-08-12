@@ -264,11 +264,11 @@ export class SilkEngine {
     return this._currentBrush
   }
 
-  public get brushSetting() {
+  public get brushSetting(): SilkEngine.CurrentBrushSetting {
     return { ...this._brushSetting }
   }
 
-  public set brushSetting(config: BrushSetting) {
+  public set brushSetting(config: SilkEngine.CurrentBrushSetting) {
     this._brushSetting = { ...config }
   }
 
@@ -341,18 +341,25 @@ export class SilkEngine {
     for (const object of layer.objects) {
       if (object.fill) {
         bufferCtx.beginPath()
-        bufferCtx.moveTo(object.path.start.x, object.path.start.y)
+        const start = object.path.points[0]
+        bufferCtx.moveTo(start.x, start.y)
 
-        for (const point of object.path.points) {
-          bufferCtx.bezierCurveTo(
-            point.c1x,
-            point.c1y,
-            point.c2x,
-            point.c2y,
-            point.x,
-            point.y
-          )
-        }
+        object.path.mapPoints(
+          (point, prev) => {
+            bufferCtx.bezierCurveTo(
+              prev!.out.x,
+              prev!.out.y,
+              point.in.x,
+              point.in.y,
+              point.x,
+              point.y
+            )
+          },
+          { startOffset: 1 }
+        )
+        // for (const point of object.path.points) {
+
+        // }
 
         if (object.path.closed) bufferCtx.closePath()
 

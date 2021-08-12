@@ -49,6 +49,7 @@ export function MainActions() {
   const [weight, setWeight] = useState(1)
   const [brushOpacity, setBrushOpacity] = useState(1)
   const rerender = useUpdate()
+  const { currentVectorBrush, currentVectorFill } = editorState
 
   const handleChangeColor: ColorChangeHandler = useCallback((color) => {
     setColor(color.rgb)
@@ -300,11 +301,20 @@ export function MainActions() {
                 width: 20px;
                 height: 20px;
                 /* border-radius: 100px; */
-                border: 4px solid;
+                border: 4px solid transparent;
                 vertical-align: middle;
                 box-shadow: 0 0 0 2px #dbdbdb, 0 0 2px 1px rgba(0, 0, 0, 0.4);
               `}
-              style={{ borderColor: rgba(color.r, color.g, color.b, 1) }}
+              style={{
+                borderColor: currentVectorBrush
+                  ? rgba(
+                      currentVectorBrush.color.r,
+                      currentVectorBrush.color.g,
+                      currentVectorBrush.color.b,
+                      currentVectorBrush.opacity
+                    )
+                  : undefined,
+              }}
               // onClick={handleClickColor}
             />
             <div
@@ -321,7 +331,16 @@ export function MainActions() {
                 vertical-align: middle;
                 box-shadow: 0 0 2px 1px rgba(0, 0, 0, 0.4);
               `}
-              style={{ backgroundColor: rgba(color.r, color.g, color.b, 1) }}
+              style={{
+                // prettier-ignore
+                background:
+                  currentVectorFill?.type ==='fill' ? rgba(currentVectorFill.color.r, currentVectorFill.color.g, currentVectorFill.color.b, currentVectorFill.opacity)  :
+                  currentVectorFill?.type === 'linear-gradient' ?
+                    `linear-gradient(45deg, ${
+                      currentVectorFill.colorPoints.map(({color, position}) => `${rgba(color.r, color.g, color.b, color.a)} ${position * 100}%`).join(', ')
+                    })` :
+                  undefined,
+              }}
               // onClick={handleClickColor}
             />
           </div>

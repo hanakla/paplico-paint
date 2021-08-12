@@ -20,14 +20,25 @@ export class Brush implements IBrush {
     ctx.strokeStyle = `${rgba(color.r, color.g, color.b, opacity)}`
     ctx.lineCap = 'round'
 
-    const { start, points, closed } = stroke.path
+    const { points, closed } = stroke.path
+    const [start] = points
 
     ctx.beginPath()
     ctx.moveTo(start.x, start.y)
 
-    for (const { c1x, c1y, c2x, c2y, x, y } of points) {
-      ctx.bezierCurveTo(c1x, c1y, c2x, c2y, x, y)
-    }
+    stroke.path.mapPoints(
+      (point, prev) => {
+        ctx.bezierCurveTo(
+          prev!.out.x,
+          prev!.out.y,
+          point.in.x,
+          point.in.y,
+          point.x,
+          point.y
+        )
+      },
+      { startOffset: 1 }
+    )
 
     if (closed) ctx.closePath()
 

@@ -19,7 +19,7 @@ export class VectorObject implements IEntity {
   public static create({
     x,
     y,
-    path = Path.create({ start: { x: 0, y: 0 }, points: [] }),
+    path = Path.create({ points: [], closed: false }),
     brush = {
       brushId: '@silk-paint/brush',
       color: { r: 0, g: 0, b: 0 },

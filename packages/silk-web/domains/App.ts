@@ -18,7 +18,7 @@ export const AppOps = operations({
 interface State {
   count: number
   accessDate: Date | null
-  currentTool
+  // currentTool
 }
 
 export const AppStore = reducerStore<State>('AppStore', () => ({

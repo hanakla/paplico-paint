@@ -25,8 +25,8 @@ export const DebugView = ({ className }: { className?: string }) => {
     clearChildren(strokingPreviewRef.current!)
     clearChildren(previewRef.current!)
 
-    strokeViewRef.current!.appendChild((engine as any).strokeCanvas)
-    bufferViewRef.current!.appendChild((engine as any).bufferCtx.canvas)
+    strokeViewRef.current!.appendChild((engine as any).strokeCanvasCtx.canvas)
+    bufferViewRef.current!.appendChild((engine as any).__dbg_bufferCtx.canvas)
     strokingPreviewRef.current!.appendChild(
       (engine as any).strokingPreviewCtx.canvas
     )
@@ -39,7 +39,7 @@ export const DebugView = ({ className }: { className?: string }) => {
         display: flex;
       `}
       className={className}
-      style={{ transform: isNarrow ? 'scale(.5)' : '' }}
+      style={{ transform: isNarrow ? 'scale(.5)' : undefined }}
     >
       <div>
         Stroke:

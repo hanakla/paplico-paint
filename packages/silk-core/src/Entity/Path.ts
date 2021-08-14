@@ -1,4 +1,4 @@
-import { assign } from '../utils'
+import { assign, deepClone } from '../utils'
 import point from 'point-at-length'
 import { mapPoints } from '../SilkHelpers'
 
@@ -91,6 +91,10 @@ class Path {
     return mapPoints(points, proc, option)
   }
 
+  public clone() {
+    return Path.create({ points: deepClone(this.points), closed: this.closed })
+  }
+
   public serialize() {
     return {
       // start: { ...this.start },
@@ -108,8 +112,8 @@ namespace Path {
   export type StartPoint = { x: number; y: number }
 
   export type PathPoint = {
-    in: { x: number; y: number }
-    out: { x: number; y: number }
+    in: { x: number; y: number } | null
+    out: { x: number; y: number } | null
     // c1x: number
     // c1y: number
     // c2x: number
@@ -127,10 +131,23 @@ const pointsToSVGPath = (points: Path.PathPoint[], closed: boolean) => {
     `M${start.x},${start.y}`,
     mapPoints(
       points,
-      (point, prev) =>
-        `C ${prev!.out.x},${prev!.out.y} ${point.in.x},${point.in.y} ${
-          point.x
-        } ${point.y}`,
+      (point, prev) => {
+        if (prev!.out && point.in) {
+          return `C ${prev!.out.x},${prev!.out.y} ${point.in.x},${point.in.y} ${
+            point.x
+          } ${point.y}`
+        } else if (prev!.out == null && point.in) {
+          return `C ${prev!.x},${prev!.y} ${point.in.x},${point.in.y} ${
+            point.x
+          } ${point.y}`
+        } else if (prev!.out && point.in == null) {
+          return `C ${prev!.out.x},${prev!.out.y} ${point.x},${point.y} ${
+            point.x
+          } ${point.y}`
+        } else {
+          return `L ${prev!.x},${prev!.y} ${point.x} ${point.y}`
+        }
+      },
       { startOffset: 1 }
     ).join(' '),
     closed ? 'Z' : '',

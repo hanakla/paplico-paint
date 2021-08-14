@@ -1,0 +1,16 @@
+opacity: Opacity
+blend: Blend
+layerFilter: Layer filter
+colorHistory: Color history
+referenceColor: Reference color
+
+compositeModes:
+  normal: Normal
+  multiply: Multiply
+  screen: Screen
+  overlay: Overlay
+
+filters:
+  '@silk-core/bloom': 'Bloom'
+  '@silk-core/gauss-blur': 'Gauss blur'
+  '@silk-core/chromatic-aberration': 'Chromatic Aberration'

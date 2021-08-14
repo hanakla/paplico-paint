@@ -4,9 +4,15 @@ import point from 'point-at-length'
 
 type StrokePoint = [x: number, y: number, weight: number]
 export class Stroke {
-  public static fromPath(path: Path) {
+  public static fromPath(
+    path: Path,
+    mapPoint?: (p: Path.PathPoint) => Path.PathPoint
+  ) {
+    const cloned = path.clone()
+    cloned.points = cloned.points.map((p) => mapPoint?.(p) ?? p)
+
     const stroke = new Stroke()
-    stroke.points = path.points.map((point) => [point.x, point.y, 1])
+    stroke.points = cloned.points.map((point) => [point.x, point.y, 1])
     stroke.path = path
     return stroke
   }
@@ -17,7 +23,6 @@ export class Stroke {
 
   public points: StrokePoint[] = []
   public path: Path = Path.create({
-    // start: { x: 0, y: 0 },
     points: [],
     closed: false,
   })
@@ -34,7 +39,7 @@ export class Stroke {
         x,
         y,
         in: { x: c2x, y: c2y },
-        out: { x: next?.[0] ?? x + 5, y: next?.[y] ?? y + 5 },
+        out: next ? { x: next[0], y: next[1] } : null,
       }
     })
 
@@ -43,8 +48,8 @@ export class Stroke {
         {
           x: start[0],
           y: start[1],
-          in: { x: start[0], y: start[1] },
-          out: { x: start[0], y: start[1] },
+          in: null,
+          out: null,
         },
         ...objectPoints,
       ],

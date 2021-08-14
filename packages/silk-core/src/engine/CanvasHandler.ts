@@ -1,6 +1,5 @@
 import mitt, { Emitter } from 'mitt'
 import { Stroke } from './Stroke'
-import spline from '@yr/catmull-rom-spline'
 
 type Events = {
   stroke: Stroke
@@ -30,7 +29,10 @@ export class CanvasHandler {
 
   constructor(canvas: HTMLCanvasElement) {
     this.canvas = canvas
-    this.context = canvas.getContext('2d')!
+    this.context = canvas.getContext('2d', {
+      desynchronized: true,
+      preserveDrawingBuffer: true,
+    })!
 
     this.on = this.mitt.on.bind(this.mitt)
     this.off = this.mitt.off.bind(this.mitt)
@@ -91,7 +93,8 @@ export class CanvasHandler {
     })
 
     this.canvas.addEventListener('touchmove', (e) => {
-      if (!this.currentStroke) return
+      const { currentStroke } = this
+      if (!currentStroke) return
 
       if (e.touches.length > 1) {
         // Cancel current stroke when pinch
@@ -105,12 +108,12 @@ export class CanvasHandler {
         e.touches[0]
       )
 
-      this.currentStroke.updatePoints((points) => {
+      currentStroke.updatePoints((points) => {
         points.push([x, y, e.touches[0].force])
       })
-      this.currentStroke.path = currentStroke.splinedPath
+      currentStroke.path = currentStroke.splinedPath
 
-      this.mitt.emit('tmpStroke', this.currentStroke)
+      this.mitt.emit('tmpStroke', currentStroke)
     })
 
     this.canvas.addEventListener('touchend', (e) => {

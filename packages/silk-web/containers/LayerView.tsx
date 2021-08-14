@@ -1,28 +1,23 @@
-import {
-  ChangeEvent,
-  MouseEvent,
-  useCallback,
-  useContext,
-  useEffect,
-  useReducer,
-  useRef,
-  useState,
-} from 'react'
-import { SilkEntity, SilkHelper } from 'silk-core'
-import { useClickAway, useToggle, useUpdate } from 'react-use'
+import { ChangeEvent, MouseEvent, useCallback, useReducer, useRef } from 'react'
+import { SilkEntity } from 'silk-core'
+import { useClickAway, useToggle } from 'react-use'
 import { rgba } from 'polished'
 import { usePopper } from 'react-popper'
 import { Portal } from '../components/Portal'
 import {
-  arrayMove,
   SortableContainer,
   SortableElement,
   SortEndHandler,
 } from 'react-sortable-hoc'
 import { rangeThumb, silkScroll } from '../utils/mixins'
-import { useSilkEngine } from '../hooks/useSilkEngine'
 import { useTranslation } from 'next-i18next'
-import { ArrowDown, ArrowDownS, Stack } from '@styled-icons/remix-line'
+import {
+  ArrowDownS,
+  Eye,
+  EyeClose,
+  More,
+  Stack,
+} from '@styled-icons/remix-line'
 import { useLayerControl } from '../hooks/useLayers'
 import {
   ContextMenu,
@@ -33,15 +28,14 @@ import { combineRef } from '../utils/react'
 import { useLysSlice } from '@fleur/lys'
 import { EditorSlice } from '../domains/Editor'
 import { SelectBox } from '../components/SelectBox'
+import { Add } from '@styled-icons/remix-fill'
+import { css } from 'styled-components'
 
 export function LayerView() {
-  const { t } = useTranslation('common')
+  const { t } = useTranslation('app')
   const layerControls = useLayerControl()
 
-  const [layerTypeOpened, toggleLayerTypeOpened] = useReducer(
-    (s, ns) => (ns != null ? ns : !s),
-    false
-  )
+  const [layerTypeOpened, toggleLayerTypeOpened] = useToggle(false)
   const layerTypeOpenerRef = useRef<HTMLDivElement | null>(null)
   const layerTypeDropdownRef = useRef<HTMLUListElement | null>(null)
   useClickAway(layerTypeDropdownRef, () => toggleLayerTypeOpened(false))
@@ -100,7 +94,7 @@ export function LayerView() {
         ${silkScroll}
       `}
     >
-      <div
+      <header
         css={`
           display: flex;
           padding: 4px;
@@ -113,18 +107,23 @@ export function LayerView() {
         <Stack css="width: 16px;" />
         <div css="margin-left: auto">
           <div css="display:flex; user-select: none;">
-            <div onClick={handleAddLayer}>＋</div>
+            <div onClick={handleAddLayer}>
+              <Add css="width: 24px" />
+            </div>
             <div onClick={toggleLayerTypeOpened} ref={layerTypeOpenerRef}>
-              ⇣
+              <More css="width: 24px;" />
             </div>
           </div>
 
           <Portal>
             <ul
-              css={`
-                background-color: #464b4e;
+              ref={layerTypeDropdownRef}
+              css={css`
+                background-color: ${({ theme }) => theme.surface.popupMenu};
                 box-shadow: 0 0 4px ${rgba('#000', 0.5)};
                 color: ${({ theme }) => theme.text.white};
+                z-index: 1;
+
                 li {
                   padding: 8px;
                   user-select: none;
@@ -133,12 +132,11 @@ export function LayerView() {
                   background-color: rgba(255, 255, 255, 0.2);
                 }
               `}
-              ref={layerTypeDropdownRef}
               style={{
                 ...popper.styles.popper,
                 ...(layerTypeOpened
-                  ? { opacity: 1, pointerEvents: 'all' }
-                  : { opacity: 0, pointerEvents: 'none' }),
+                  ? { visibility: 'visible', pointerEvents: 'all' }
+                  : { visibility: 'hidden', pointerEvents: 'none' }),
               }}
               {...popper.attributes.popper}
             >
@@ -147,7 +145,7 @@ export function LayerView() {
             </ul>
           </Portal>
         </div>
-      </div>
+      </header>
 
       {layerControls.activeLayer && (
         <div
@@ -250,8 +248,9 @@ export function LayerView() {
       {layerControls.layers && (
         <SortableLayerList
           layers={layerControls.layers}
-          distance={2}
           onSortEnd={handleLayerSortEnd}
+          distance={2}
+          lockAxis={'y'}
         />
       )}
     </div>
@@ -267,7 +266,7 @@ const SortableLayerItem = SortableElement(
 const SortableLayerList = SortableContainer(
   ({ layers }: { layers: SilkEntity.LayerTypes[] }) => (
     <div
-      css={`
+      css={css`
         flex: 1;
         background-color: ${({ theme }) => theme.surface.sidebarList};
       `}
@@ -286,6 +285,7 @@ function LayerItem({ layer }: { layer: SilkEntity.LayerTypes }) {
   const [objectsOpened, toggleObjectsOpened] = useToggle(false)
 
   const rootRef = useRef<HTMLDivElement | null>(null)
+
   const handleToggleVisibility = useCallback(() => {
     layerControls.toggleVisibility(layer.id)
   }, [layer, layerControls])
@@ -293,7 +293,7 @@ function LayerItem({ layer }: { layer: SilkEntity.LayerTypes }) {
   const handleChangeActiveLayer = useCallback(
     (e: MouseEvent<HTMLDivElement>) => {
       if ((e.target as HTMLElement).matches('[data-ignore-click]')) return
-      layerControls.setActiveLayer(layer.id)
+      editorActions.setActiveLayer(layer.id)
     },
     [layer, layerControls]
   )
@@ -329,6 +329,7 @@ function LayerItem({ layer }: { layer: SilkEntity.LayerTypes }) {
           <div
             css={`
               display: flex;
+              gap: 4px;
               width: 100%;
               padding: 4px;
               align-items: center;
@@ -344,7 +345,6 @@ function LayerItem({ layer }: { layer: SilkEntity.LayerTypes }) {
               css={`
                 flex: none;
                 width: 12px;
-                margin-right: 4px;
               `}
             >
               {layer.layerType === 'vector' && (
@@ -359,6 +359,31 @@ function LayerItem({ layer }: { layer: SilkEntity.LayerTypes }) {
                 />
               )}
             </div>
+
+            <div
+              style={{
+                ...(layer.visible ? {} : { opacity: 0.5 }),
+              }}
+              onClick={handleToggleVisibility}
+              data-ignore-click
+            >
+              {layer.visible ? (
+                <Eye
+                  css={`
+                    width: 16px;
+                    vertical-align: bottom;
+                  `}
+                />
+              ) : (
+                <EyeClose
+                  css={`
+                    width: 16px;
+                    vertical-align: bottom;
+                  `}
+                />
+              )}
+            </div>
+
             <img
               css={`
                 background: linear-gradient(
@@ -386,7 +411,6 @@ function LayerItem({ layer }: { layer: SilkEntity.LayerTypes }) {
             />
             <div
               css={`
-                margin-left: 8px;
                 text-overflow: ellipsis;
                 white-space: nowrap;
                 overflow-x: hidden;
@@ -397,15 +421,6 @@ function LayerItem({ layer }: { layer: SilkEntity.LayerTypes }) {
               `}
             >
               {layer.id}
-            </div>
-            <div
-              css={`
-                ${layer.visible ? '' : 'opacity: .5;'}
-              `}
-              onClick={handleToggleVisibility}
-              data-ignore-click
-            >
-              👀
             </div>
           </div>
           {layer.layerType === 'vector' && (
@@ -426,14 +441,14 @@ function LayerItem({ layer }: { layer: SilkEntity.LayerTypes }) {
                         <div
                           ref={ref}
                           css={`
-                            padding: 6px 8px;
-                            margin-left: 24px;
+                            padding: 4px 8px;
+                            margin-left: 16px;
                           `}
                           style={{
                             backgroundColor:
                               editorState.activeObjectId == object.id
                                 ? `rgba(255,255,255,.2)`
-                                : '',
+                                : undefined,
                           }}
                           data-object-id={object.id}
                           onClick={handleClickObject}

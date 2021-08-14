@@ -1,30 +1,14 @@
-import {
-  ChangeEvent,
-  MouseEvent,
-  useCallback,
-  useContext,
-  useReducer,
-  useRef,
-  useState,
-} from 'react'
+import { ChangeEvent, MouseEvent, useCallback, useRef, useState } from 'react'
 import { ChromePicker, ColorChangeHandler } from 'react-color'
 import { rgba } from 'polished'
 import { usePopper } from 'react-popper'
-import { useEffect } from 'react'
 import { SilkBrushes } from 'silk-core'
 import { useTranslation } from 'next-i18next'
 import { useLysSlice } from '@fleur/lys'
 import { useClickAway, useMedia, useToggle, useUpdate } from 'react-use'
-import {
-  Brush,
-  Close,
-  Eraser,
-  Pencil,
-  Shape,
-  Stack,
-} from '@styled-icons/remix-line'
+import { Brush, Close, Eraser, Pencil, Stack } from '@styled-icons/remix-line'
 import { Cursor } from '@styled-icons/remix-fill'
-import { useTheme } from 'styled-components'
+import { css, useTheme } from 'styled-components'
 import { useSilkEngine } from '../../hooks/useSilkEngine'
 import { rangeThumb } from '../../utils/mixins'
 import { Portal } from '../../components/Portal'
@@ -35,7 +19,7 @@ import { EditorSlice } from '../../domains/Editor'
 import { useLayerControl } from '../../hooks/useLayers'
 
 export function MainActions() {
-  const { t } = useTranslation()
+  const { t } = useTranslation('app')
   const engine = useSilkEngine()
   const [editorState, editorActions] = useLysSlice(EditorSlice)
   const theme = useTheme()
@@ -46,6 +30,10 @@ export function MainActions() {
   const [openPicker, togglePicker] = useToggle(false)
   const [openBrush, toggleBrush] = useToggle(false)
   const [openLayers, toggleLayers] = useToggle(false)
+  const [vectorColorOpened, toggleVectorColorOpened] = useToggle(false)
+  const [vectorColorTarget, setVectorColorTarget] = useState<'fill' | 'stroke'>(
+    'fill'
+  )
   const [weight, setWeight] = useState(1)
   const [brushOpacity, setBrushOpacity] = useState(1)
   const rerender = useUpdate()
@@ -126,13 +114,23 @@ export function MainActions() {
   )
 
   const handleClickColor = useCallback((e: MouseEvent<HTMLDivElement>) => {
-    if (pickerPopRef.current!.contains(e.target as HTMLElement)) return
+    if (colorPickerPopRef.current!.contains(e.target as HTMLElement)) return
     togglePicker()
   }, [])
 
   const handleClickLayerIcon = useCallback((e: MouseEvent<HTMLDivElement>) => {
     if (layerPopRef.current!.contains(e.target as HTMLElement)) return
     toggleLayers()
+  }, [])
+
+  const handleClickVectorStrokeColor = useCallback(() => {
+    setVectorColorTarget('stroke')
+    toggleVectorColorOpened(true)
+  }, [])
+
+  const handleClickVectorFillColor = useCallback(() => {
+    setVectorColorTarget('fill')
+    toggleVectorColorOpened(true)
   }, [])
 
   const brushRef = useRef<HTMLDivElement | null>(null)
@@ -149,14 +147,23 @@ export function MainActions() {
     placement: 'top-end',
   })
 
-  const pickerPopRef = useRef<HTMLDivElement | null>(null)
-  useClickAway(pickerPopRef, () => togglePicker(false))
+  const colorPickerPopRef = useRef<HTMLDivElement | null>(null)
+
+  const vectorColorRootRef = useRef<HTMLDivElement | null>(null)
+  const vectorColorPickerPopRef = useRef<HTMLDivElement | null>(null)
+  const vectorColorPopper = usePopper(layerRef.current, layerPopRef.current, {
+    strategy: 'absolute',
+    placement: 'top-end',
+  })
+
+  useClickAway(colorPickerPopRef, () => togglePicker(false))
   useClickAway(brushPopRef, () => toggleBrush(false))
   useClickAway(layerPopRef, () => toggleLayers(false))
+  // useClickAway(vectorColorPickerPopRef, () => toggleVectorColorOpened(false))
 
   return (
     <div
-      css={`
+      css={css`
         display: flex;
         gap: 8px;
         padding: 8px 16px;
@@ -187,7 +194,7 @@ export function MainActions() {
                 width: 0;
                 height: 0;
                 border-style: solid;
-                border-width: 4px 120px 4px 0;
+                border-width: 4px 100px 4px 0;
                 border-color: transparent #ddd transparent transparent;
                 height: 0;
                 background-color: transparent;
@@ -260,7 +267,7 @@ export function MainActions() {
             onClick={handleClickColor}
           >
             <div
-              ref={pickerPopRef}
+              ref={colorPickerPopRef}
               style={{
                 ...(openPicker
                   ? { opacity: 1, pointerEvents: 'all' }
@@ -284,6 +291,7 @@ export function MainActions() {
           </div>
         ) : (
           <div
+            ref={vectorColorRootRef}
             css={`
               position: relative;
               width: 32px;
@@ -293,6 +301,7 @@ export function MainActions() {
           >
             {/* VectorColor */}
             <div
+              // Stroke color
               css={`
                 position: absolute;
                 top: 12px;
@@ -315,13 +324,14 @@ export function MainActions() {
                     )
                   : undefined,
               }}
-              // onClick={handleClickColor}
+              onClick={handleClickVectorStrokeColor}
             />
             <div
+              // Fill color
               css={`
                 position: absolute;
-                top: 0;
-                left: 0;
+                top: 2px;
+                left: 2px;
                 z-index: 1;
                 display: inline-block;
                 width: 20px;
@@ -341,8 +351,32 @@ export function MainActions() {
                     })` :
                   undefined,
               }}
-              // onClick={handleClickColor}
+              onClick={handleClickVectorFillColor}
             />
+            <div
+              ref={vectorColorPickerPopRef}
+              style={{
+                ...(vectorColorOpened
+                  ? { opacity: 1, pointerEvents: 'all' }
+                  : { opacity: 0, pointerEvents: 'none' }),
+                ...vectorColorPopper.styles.popper,
+              }}
+              data-ignore-click
+              {...vectorColorPopper.attributes.popper}
+            >
+              <ChromePicker
+                css={`
+                  position: absolute;
+                  left: 50%;
+                  bottom: 100%;
+                  transform: translateX(-50%);
+                `}
+                color={color}
+                onChange={handleChangeColor}
+                onChangeComplete={handleChangeCompleteColor}
+                disableAlpha
+              />
+            </div>
           </div>
         )}
       </div>
@@ -425,7 +459,7 @@ export function MainActions() {
         <Portal>
           <div
             ref={brushPopRef}
-            css={`
+            css={css`
               margin-left: -16px;
               margin-bottom: 16px;
               background-color: ${({ theme }) => theme.surface.floatWhite};

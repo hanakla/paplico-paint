@@ -1,12 +1,15 @@
-export const rafDebounce = <T extends any>(cb: (...args: T[]) => void) => {
+export const rafDebounce = <T extends any>(
+  cb: (...args: T[]) => void,
+  time: number = 100
+) => {
   if (typeof requestAnimationFrame !== 'function') return cb
 
   let id: number = -1
   return (...args: T[]) => {
-    cancelAnimationFrame(id)
+    clearTimeout(id)
 
-    id = requestAnimationFrame(() => {
+    id = window.setTimeout(() => {
       cb(...args)
-    })
+    }, time)
   }
 }

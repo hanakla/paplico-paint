@@ -11,6 +11,10 @@ import { deepClone } from '../utils/clone'
 import { assign } from '../utils/assign'
 import { useMouseTrap } from '../hooks/useMouseTrap'
 import { rgba } from 'polished'
+import { any } from '../utils/anyOf'
+import { useMemo } from 'react'
+import { SilkWebMath } from '../utils/SilkWebMath'
+import path from 'path/posix'
 
 export const ControlsOverlay = ({ scale }: { scale: number }) => {
   const engine = useSilkEngine()
@@ -129,165 +133,206 @@ const VectorLayerControl = ({ scale }: { scale: number }) => {
     []
   )
 
-  useMouseTrap(rootRef, [
-    {
-      key: 'delete',
-      handler: () => {
-        console.log('del')
-        assertVectorLayer(layerControl.activeLayer)
-        editorActions.deleteSelectedPoints()
-      },
-    },
-  ])
+  const bindRootDrag = useDrag(
+    ({ initial, first, last, xy, event: e }) => {
+      assertVectorLayer(layerControl.activeLayer)
 
-  useClickAway(rootRef, () => {
-    // editorActions.setActiveObject(null)
-    editorActions.setVectorStroking(null)
-    editorActions.setSelectedObjectPoints([])
-  })
+      if (
+        editorState.currentTool === 'cursor' &&
+        e.target === rootRef.current
+      ) {
+        editorActions.setVectorStroking(null)
+        editorActions.setActiveObject(null)
+        return
+      }
 
-  const bindRootDrag = useDrag(({ initial, first, last, xy, event: e }) => {
-    assertVectorLayer(layerControl.activeLayer)
+      if (editorState.currentTool !== 'shape-pen') return
 
-    if (editorState.currentTool === 'cursor') {
-      editorActions.setVectorStroking(null)
-      return
-    }
+      // SEE: https://stackoverflow.com/a/42711775
+      const svg = e.currentTarget! as SVGSVGElement
+      const initialPt = assign(svg.createSVGPoint(), {
+        x: initial[0],
+        y: initial[1],
+      }).matrixTransform(svg.getScreenCTM()!.inverse())
+      const xyPt = assign(svg.createSVGPoint(), {
+        x: xy[0],
+        y: xy[1],
+      }).matrixTransform(svg.getScreenCTM()!.inverse())
+      const { x, y } = xyPt
 
-    if (editorState.currentTool !== 'shape-pen') return
+      if (last) {
+        // editorActions.setVectorStroking({})
+        debouncedRerender()
+        return
+      }
 
-    // SEE: https://stackoverflow.com/a/42711775
-    const svg = e.currentTarget! as SVGSVGElement
-    const initialPt = assign(svg.createSVGPoint(), {
-      x: initial[0],
-      y: initial[1],
-    }).matrixTransform(svg.getScreenCTM()!.inverse())
-    const xyPt = assign(svg.createSVGPoint(), {
-      x: xy[0],
-      y: xy[1],
-    }).matrixTransform(svg.getScreenCTM()!.inverse())
-    const { x, y } = xyPt
+      if (first) {
+        const newPoint = { in: null, out: null, x, y }
 
-    if (last) {
-      // editorActions.setVectorStroking({})
-      debouncedRerender()
-      return
-    }
+        let nextPointIndex: number = -1
+        let nextObjectId: string = ''
+        if (editorState.vectorStroking == null) {
+          // When click clear space, add new VectorObject
+          const object = SilkEntity.VectorObject.create({
+            x: 0,
+            y: 0,
+            path: SilkEntity.Path.create({
+              points: [newPoint],
+              closed: false,
+            }),
+            brush: editorState.currentStroke
+              ? deepClone(editorState.currentStroke)
+              : null,
+            fill: editorState.currentFill
+              ? deepClone(editorState.currentFill)
+              : null,
+          })
 
-    if (first) {
-      const newPoint = { in: { x, y }, out: { x, y }, x, y }
+          layerControl.activeLayer.update((layer) => {
+            layer.objects.push(object)
+          })
 
-      let nextPointIndex: number = -1
-      let nextObjectId: string = ''
-      if (editorState.vectorStroking == null) {
-        // When click clear space, add new VectorObject
-        const object = SilkEntity.VectorObject.create({
-          x: 0,
-          y: 0,
-          path: SilkEntity.Path.create({
-            start: { x, y },
-            points: [newPoint],
-            closed: false,
-          }),
-          brush: editorState.currentStroke
-            ? deepClone(editorState.currentStroke)
-            : null,
-          fill: editorState.currentFill
-            ? deepClone(editorState.currentFill)
-            : null,
+          nextObjectId = object.id
+          editorActions.setActiveObject(object.id)
+          editorActions.setSelectedObjectPoints([0])
+          nextPointIndex = 0
+        } else {
+          // Add point to active path
+          const { vectorStroking } = editorState
+
+          layerControl.activeLayer.update((layer) => {
+            const object = layer.objects.find(
+              (obj) => obj.id === vectorStroking.objectId
+            )
+
+            if (!object) return
+
+            nextObjectId = object.id
+            if (vectorStroking.isHead) {
+              object.path.points.unshift(newPoint)
+              nextPointIndex = 0
+            } else if (vectorStroking.isTail) {
+              object.path.points.push(newPoint)
+              nextPointIndex = object.path.points.length - 1
+            }
+          })
+        }
+
+        editorActions.setVectorStroking({
+          objectId: nextObjectId,
+          selectedPointIndex: nextPointIndex,
+          isHead: true,
+          isTail: false,
         })
-
-        layerControl.activeLayer.update((layer) => {
-          layer.objects.push(object)
-        })
-
-        nextObjectId = object.id
-        editorActions.setActiveObject(object.id)
-        editorActions.setSelectedObjectPoints([0])
-        nextPointIndex = 0
       } else {
-        // Add point to active path
         const { vectorStroking } = editorState
+        if (!vectorStroking) return
 
         layerControl.activeLayer.update((layer) => {
           const object = layer.objects.find(
             (obj) => obj.id === vectorStroking.objectId
           )
-
           if (!object) return
 
-          nextObjectId = object.id
-          if (vectorStroking.isHead) {
-            object.path.points.unshift(newPoint)
-            nextPointIndex = 0
-          } else if (vectorStroking.isTail) {
-            object.path.points.push(newPoint)
-            nextPointIndex = object.path.points.length - 1
+          const normalizeDegree = (angle: number) => {
+            const norm = angle % 360
+            return norm < 0 ? norm + 360 : norm
           }
+
+          const targetPointIndex = vectorStroking.selectedPointIndex
+          const point = object.path.points[targetPointIndex]
+          if (!point) return
+
+          // SEE: https://qiita.com/Hoshi_7/items/d04936883ff3eb1eed2d
+          const distance = Math.hypot(
+            xyPt.x - initialPt.x,
+            xyPt.y - initialPt.y
+          )
+
+          const rad = Math.atan2(xyPt.y - initialPt.y, xyPt.x - initialPt.x)
+          const degree = normalizeDegree((rad * 180) / Math.PI)
+
+          const oppeseDegree = normalizeDegree(degree + 180)
+          const oppeseRad = oppeseDegree * (Math.PI / 180)
+
+          const c1x = Math.cos(oppeseRad) * distance
+          const c1y = Math.sin(oppeseRad) * distance
+
+          assign(point, {
+            in: {
+              x,
+              y,
+            },
+            out: { x: c1x + (point?.x ?? 0), y: c1y + (point?.y ?? 0) },
+          })
         })
+
+        // Add point
+        // editorState.activeObject.path.points.push({
+        //   c1x: 0,
+        //   c1y: 100,
+        //   c2x: x - 4,
+        //   c2y: y,
+        //   x,
+        //   y,
+        // })
       }
 
-      editorActions.setVectorStroking({
-        objectId: nextObjectId,
-        selectedPointIndex: nextPointIndex,
-        isHead: true,
-        isTail: false,
-      })
-    } else {
-      const { vectorStroking } = editorState
-      if (!vectorStroking) return
+      debouncedRerender()
+    },
+    { useTouch: true }
+  )
 
-      layerControl.activeLayer.update((layer) => {
-        const object = layer.objects.find(
-          (obj) => obj.id === vectorStroking.objectId
-        )
+  const bindObjectDrag = useDrag(
+    ({ event, delta }) => {
+      const objectId = (event.target as SVGPathElement).dataset.objectId
+
+      editorActions.updateVectorLayer(activeLayer.id, (layer) => {
+        const object = layer.objects.find((obj) => obj.id === objectId)
         if (!object) return
 
-        const normalizeDegree = (angle: number) => {
-          const norm = angle % 360
-          return norm < 0 ? norm + 360 : norm
-        }
-
-        const targetPointIndex = vectorStroking.selectedPointIndex
-        const point = object.path.points[targetPointIndex]
-        if (!point) return
-
-        // SEE: https://qiita.com/Hoshi_7/items/d04936883ff3eb1eed2d
-        const distance = Math.hypot(xyPt.x - initialPt.x, xyPt.y - initialPt.y)
-
-        const rad = Math.atan2(xyPt.y - initialPt.y, xyPt.x - initialPt.x)
-        const degree = normalizeDegree((rad * 180) / Math.PI)
-
-        const oppeseDegree = normalizeDegree(degree + 180)
-        const oppeseRad = oppeseDegree * (Math.PI / 180)
-
-        const c1x = Math.cos(oppeseRad) * distance
-        const c1y = Math.sin(oppeseRad) * distance
-
-        assign(point, {
-          in: {
-            x,
-            y,
-          },
-          out: { x: c1x + (point?.x ?? 0), y: c1y + (point?.y ?? 0) },
-        })
+        object.x += delta[0] * (1 / scale)
+        object.y += delta[1] * (1 / scale)
       })
 
-      // Add point
-      // editorState.activeObject.path.points.push({
-      //   c1x: 0,
-      //   c1y: 100,
-      //   c2x: x - 4,
-      //   c2y: y,
-      //   x,
-      //   y,
-      // })
-    }
+      debouncedRerender()
+    },
+    { threshold: 2 }
+  )
 
-    debouncedRerender()
-
-    // console.log(e)
+  useClickAway(rootRef as any, () => {
+    // editorActions.setActiveObject(null)
+    editorActions.setVectorStroking(null)
+    editorActions.setSelectedObjectPoints([])
   })
+
+  useMouseTrap(
+    rootRef as any,
+    [
+      {
+        key: ['del', 'backspace'],
+        handler: () => {
+          if (
+            editorState.activeObjectPointIndices.length === 0 &&
+            editorState.activeObjectId == null
+          ) {
+            editorActions.updateVectorLayer(activeLayer.id, (layer) => {
+              const idx = layer.objects.findIndex(
+                (obj) => obj.id === editorState.activeObjectId
+              )
+              if (idx === -1) return
+
+              layer.objects.splice(idx, 1)
+            })
+          }
+
+          assertVectorLayer(layerControl.activeLayer)
+          editorActions.deleteSelectedObjectPoints()
+        },
+      },
+    ],
+    [layerControl.activeLayer]
+  )
 
   if (!engine) return null
 
@@ -310,6 +355,7 @@ const VectorLayerControl = ({ scale }: { scale: number }) => {
         left: -50%;
         width: 200%;
         height: 200%;
+        outline: none;
       `}
       width={currentDocument.width * 2}
       height={currentDocument.height * 2}
@@ -317,7 +363,9 @@ const VectorLayerControl = ({ scale }: { scale: number }) => {
         currentDocument.width * 2
       } ${currentDocument.height * 2}`}
       style={{
-        pointerEvents: editorState.currentTool === 'shape-pen' ? 'all' : 'none',
+        pointerEvents: any(editorState.currentTool).of('shape-pen', 'cursor')
+          ? 'all'
+          : 'none',
       }}
       {...bindRootDrag()}
       tabIndex={-1}
@@ -326,7 +374,7 @@ const VectorLayerControl = ({ scale }: { scale: number }) => {
         (object) =>
           (editorState.vectorFocusing == null ||
             editorState.vectorFocusing.objectId == object.id) && (
-            <>
+            <g style={{ transform: `translate(${object.x}px, ${object.y}px)` }}>
               <path
                 css={`
                   stroke: transparent;
@@ -339,6 +387,7 @@ const VectorLayerControl = ({ scale }: { scale: number }) => {
                 d={object.path.svgPath}
                 onClick={handleClickObjectFill}
                 data-object-id={object.id}
+                {...bindObjectDrag()}
               />
               {object.path.mapPoints((point, prevPoint, idx, points) => (
                 <PathSegment
@@ -357,7 +406,7 @@ const VectorLayerControl = ({ scale }: { scale: number }) => {
                   onHoverStateChange={handleHoverChangePath}
                 />
               ))}
-            </>
+            </g>
           )
       )}
       {activeObject?.fill?.type === 'linear-gradient' && (
@@ -390,7 +439,6 @@ const VectorLayerControl = ({ scale }: { scale: number }) => {
 
 const PathSegment = ({
   object,
-  path,
   prevPoint,
   point,
   pointIndex,
@@ -439,11 +487,15 @@ const PathSegment = ({
 
   const bindDragStartInAnchor = useDrag(({ delta, event }) => {
     event.stopPropagation()
-    assertVectorLayer(layerControls.activeLayer)
+    assertVectorLayer(editorState.activeLayer)
 
-    layerControls.activeLayer?.update(() => {
-      path.points[pointIndex].in.x += delta[0] * (1 / scale)
-      path.points[pointIndex].in.y += delta[1] * (1 / scale)
+    editorActions.updateVectorLayer(editorState.activeLayer.id, (layer) => {
+      const path = layer.objects.find((obj) => obj.id === object.id)?.path
+      const point = path?.points[pointIndex]
+      if (!point?.in) return
+
+      point.in.x += delta[0] * (1 / scale)
+      point.in.y += delta[1] * (1 / scale)
     })
 
     debouncedRerender()
@@ -453,9 +505,13 @@ const PathSegment = ({
     event.stopPropagation()
     assertVectorLayer(layerControls.activeLayer)
 
-    layerControls.activeLayer?.update(() => {
-      path.points[pointIndex].out.x += delta[0] * (1 / scale)
-      path.points[pointIndex].out.y += delta[1] * (1 / scale)
+    layerControls.activeLayer?.update((layer) => {
+      const path = layer.objects.find((obj) => obj.id === object.id)?.path
+      const point = path?.points[pointIndex]
+      if (!point?.out) return
+
+      point.out.x += delta[0] * (1 / scale)
+      point.out.y += delta[1] * (1 / scale)
     })
 
     debouncedRerender()
@@ -476,10 +532,16 @@ const PathSegment = ({
 
       point.x += deltaX
       point.y += deltaY
-      point.in.x += deltaX
-      point.in.y += deltaY
-      point.out.y += deltaX
-      point.out.y += deltaY
+
+      if (point.in) {
+        point.in.x += deltaX
+        point.in.y += deltaY
+      }
+
+      if (point.out) {
+        point.out.x += deltaX
+        point.out.y += deltaY
+      }
     })
 
     debouncedRerender()
@@ -544,9 +606,42 @@ const PathSegment = ({
     (e: MouseEvent<SVGPathElement>) => {
       e.stopPropagation()
 
+      if (editorState.currentTool === 'shape-pen') {
+        if (!prevPoint) return
+
+        const svg = (e.target as SVGPathElement).ownerSVGElement!
+        const pt = assign(svg.createSVGPoint(), {
+          x: e.clientX,
+          y: e.clientY,
+        }).matrixTransform(svg.getScreenCTM()!.inverse())
+
+        const angle = SilkWebMath.angleOfPoints(prevPoint, point)
+        const reverseAngle = SilkWebMath.degToRad(
+          SilkWebMath.deg(SilkWebMath.radToDeg(angle) + 180)
+        )
+        const distance = SilkWebMath.distanceOfPoint(prevPoint, point)
+
+        editorActions.addPoint(object, pointIndex, {
+          x: pt.x,
+          y: pt.y,
+          in: SilkWebMath.pointByAngleAndDistance({
+            angle: reverseAngle,
+            distance: distance / 2,
+            base: pt,
+          }),
+          out: SilkWebMath.pointByAngleAndDistance({
+            angle: angle,
+            distance: distance / 2,
+            base: pt,
+          }),
+        })
+
+        return
+      }
+
       onClick(object.id)
     },
-    [object]
+    [object, prevPoint, point, pointIndex]
   )
 
   const handleDoubleClickPath = useCallback(
@@ -566,6 +661,18 @@ const PathSegment = ({
     [object, pointIndex]
   )
 
+  const handleDoubleClickInPoint = useCallback(() => {
+    editorActions.updateActiveObject((object) => {
+      object.path.points[pointIndex].in = null
+    })
+  }, [pointIndex])
+
+  const handleDoubleClickOutPoint = useCallback(() => {
+    editorActions.updateActiveObject((object) => {
+      object.path.points[pointIndex].out = null
+    })
+  }, [pointIndex])
+
   // const handleDoubleClick = useCallback(() => {
 
   // }, [])
@@ -576,94 +683,103 @@ const PathSegment = ({
 
   const zoom = Math.max(1 / scale, 1)
 
+  const segmentPath = prevPoint
+    ? `
+      M${prevPoint.x},${prevPoint.y}
+      C${prevPoint.out?.x ?? prevPoint.x},${prevPoint.out?.y ?? prevPoint.y} ${
+        point.in?.x ?? point.x
+      },${point.in?.y ?? point.y} ${point.x},${point.y}
+
+    `
+    : ''
+
   return (
     <g>
-      {prevPoint && (
-        <>
-          <path
-            css={`
-              stroke: transparent;
-              stroke-width: 2;
-              fill: none;
-              pointer-events: none;
-            `}
-            style={{
-              ...(hovering || isActive ? { stroke: '#4e7fff' } : {}),
-            }}
-            d={`
-            M${prevPoint.x},${prevPoint.y}
-            C${prevPoint.out.x},${prevPoint.out.y} ${point.in.x},${point.in.y} ${point.x},${point.y}
-          `}
-            data-object-id={object.id}
-          />
+      <path
+        css={`
+          stroke: transparent;
+          stroke-width: 2;
+          fill: none;
+          pointer-events: none;
+        `}
+        style={{
+          ...(hovering || isActive ? { stroke: '#4e7fff' } : {}),
+        }}
+        d={segmentPath}
+        data-object-id={object.id}
+      />
 
-          <path
-            // 当たり判定ブチ上げくん
-            css={`
-              stroke: transparent;
-              fill: none;
-              pointer-events: visiblePainted;
-              stroke: transparent;
-            `}
-            style={{
-              strokeWidth: 5 * zoom,
-              fill: object.fill != null ? 'transparent' : 'none',
-            }}
-            d={`
-            M${prevPoint.x},${prevPoint.y}
-            C${prevPoint.out.x},${prevPoint.out.y} ${point.in.x},${point.in.y} ${point.x},${point.y}
-          `}
-            data-object-id={object.id}
-            onClick={handleClickPath}
-            onDoubleClick={handleDoubleClickPath}
-            {...pathHoverBind()}
-          />
-        </>
-      )}
-      {isActive && (
+      <path
+        // 当たり判定ブチ上げくん
+        css={`
+          stroke: transparent;
+          fill: none;
+          pointer-events: visiblePainted;
+          stroke: transparent;
+        `}
+        style={{
+          strokeWidth: 5 * zoom,
+        }}
+        d={segmentPath}
+        data-object-id={object.id}
+        onClick={handleClickPath}
+        onDoubleClick={handleDoubleClickPath}
+        {...pathHoverBind()}
+      />
+      {isActive && !(object.path.closed && isLastSegment) && (
         <>
           {/* handle from previous to current */}
-          <polyline
-            css={`
-              stroke: #4e7fff;
-              pointer-events: none;
-            `}
-            style={{ strokeWidth: 0.5 * zoom }}
-            points={`${point.in.x},${point.in.y} ${point.x},${point.y}`}
-          />
-          <circle
-            css={`
-              fill: #4e7fff;
-              stroke: rgba(0, 0, 0, 0.2);
-              pointer-events: visiblePainted;
-            `}
-            cx={point.in.x}
-            cy={point.in.y}
-            r="5"
-            {...bindDragStartInAnchor()}
-          />
+          {point.in && (
+            <>
+              <polyline
+                css={`
+                  stroke: #4e7fff;
+                  pointer-events: none;
+                `}
+                style={{ strokeWidth: 0.5 * zoom }}
+                points={`${point.in.x},${point.in.y} ${point.x},${point.y}`}
+              />
+              <circle
+                css={`
+                  fill: #4e7fff;
+                  stroke: rgba(0, 0, 0, 0.2);
+                  pointer-events: visiblePainted;
+                `}
+                cx={point.in.x}
+                cy={point.in.y}
+                r="5"
+                onDoubleClick={handleDoubleClickInPoint}
+                {...bindDragStartInAnchor()}
+              />
+            </>
+          )}
 
           {/* handle current to previous  */}
-          <polyline
-            css={`
-              stroke: #4e7fff;
-              pointer-events: none;
-            `}
-            style={{ strokeWidth: 0.5 * zoom }}
-            points={`${point.x},${point.y} ${point.out.x},${point.out.y}`}
-          />
-          <circle
-            css={`
-              fill: #4e7fff;
-              stroke: rgba(0, 0, 0, 0.2);
-              stroke-width: 0.5;
-              pointer-events: visiblePainted;
-            `}
-            cx={point.out.x}
-            cy={point.out.y}
-            r="5"
-            {...bindDragOutAnchor()}
-          />
+          {point.out && (
+            <>
+              <polyline
+                css={`
+                  stroke: #4e7fff;
+                  pointer-events: none;
+                `}
+                style={{ strokeWidth: 0.5 * zoom }}
+                points={`${point.x},${point.y} ${point.out.x},${point.out.y}`}
+              />
+              <circle
+                css={`
+                  fill: #4e7fff;
+                  stroke: rgba(0, 0, 0, 0.2);
+                  stroke-width: 0.5;
+                  pointer-events: visiblePainted;
+                `}
+                cx={point.out.x}
+                cy={point.out.y}
+                r="5"
+                onDoubleClick={handleDoubleClickOutPoint}
+                {...bindDragOutAnchor()}
+              />
+            </>
+          )}
 
           <rect
             css={`
@@ -693,6 +809,6 @@ const PathSegment = ({
 function assertVectorLayer(
   layer: any
 ): asserts layer is SilkEntity.VectorLayer {
-  if (layer.layerType !== 'vector')
+  if (layer?.layerType !== 'vector')
     throw new Error('Expect VectorLayer but RasterLayer given')
 }

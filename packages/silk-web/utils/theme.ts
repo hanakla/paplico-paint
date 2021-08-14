@@ -20,6 +20,7 @@ export const theme = {
     floatActive: rgba('#85baf6', 0.9),
     contextMenu: '#4798f5',
     contextMenuActive: rgba('#4798f5', 0.9),
+    popupMenu: rgba('#464b4e', 1),
   },
   border: {
     floatActiveLayer: '#336cff',

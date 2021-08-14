@@ -35,7 +35,7 @@ import { usePopper } from 'react-popper'
 import { SelectBox } from '../../components/SelectBox'
 
 export const LayerFloatMenu = () => {
-  const { t } = useTranslation()
+  const { t } = useTranslation('app')
   const layerControl = useLayerControl()
 
   const compositeModeRootRef = useRef<HTMLDivElement | null>(null)
@@ -284,7 +284,7 @@ const SortableLayerList = SortableContainer(
 
 const SortableLayerItem = SortableElement(
   ({ layer }: { layer: SilkEntity.LayerTypes }) => {
-    const { t } = useTranslation()
+    const { t } = useTranslation('app')
     const theme = useTheme()
     const layerControl = useLayerControl()
 

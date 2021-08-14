@@ -36,13 +36,16 @@ import { useTap } from '../hooks/useTap'
 import { useTranslation } from 'next-i18next'
 import { CSSProp } from 'styled-components'
 import Head from 'next/head'
-import { useGlobalMouseTrap, useMouseTrap } from '../hooks/useMouseTrap'
+import { useGlobalMouseTrap } from '../hooks/useMouseTrap'
+import { Sidebar } from '../components/Sidebar'
+import { clearScreenDown } from 'readline'
+import { FilterView } from '../containers/FilterView'
 
 function IndexContent({}) {
-  const { t } = useTranslation()
+  const { t } = useTranslation('app')
 
-  const [editorState, actions] = useLysSliceRoot(EditorSlice)
-  const isNarrowMedia = useMedia(`(max-width: ${narrow})`, true)
+  const [editorState, editorActions] = useLysSliceRoot(EditorSlice)
+  const isNarrowMedia = useMedia(`(max-width: ${narrow})`, false)
 
   const engine = useRef<Silk | null>(null)
   const rootRef = useRef<HTMLDivElement | null>(null)
@@ -55,9 +58,9 @@ function IndexContent({}) {
   const [sidebarOpened, sidebarToggle] = useToggle(!isNarrowMedia)
   const [scale, setScale] = useState(0.5)
   const [rotate, setRotate] = useState(0)
-  const sidebarStyles = useSpring({
-    width: isNarrowMedia === false || sidebarOpened ? 200 : 32,
-  })
+  // const sidebarStyles = useSpring({
+  //   width: isNarrowMedia === false || sidebarOpened ? 200 : 32,
+  // })
 
   const handleOnDrop = useCallback(async (files: File[]) => {
     if (!engine.current?.currentDocument) return
@@ -85,14 +88,24 @@ function IndexContent({}) {
   )
 
   const dragState = useDrop({ onFiles: handleOnDrop })
-  const tapBind = useTap(handleTapEditArea)
+  // const tapBind = useTap(handleTapEditArea)
 
-  useGlobalMouseTrap([
-    { key: 'v', handler: () => actions.setTool('cursor') },
-    { key: 'b', handler: () => actions.setTool('draw') },
-    { key: 'e', handler: () => actions.setTool('erase') },
-    { key: 'p', handler: () => actions.setTool('shape-pen') },
-  ])
+  useGlobalMouseTrap(
+    [
+      { key: 'v', handler: () => editorActions.setTool('cursor') },
+      { key: 'b', handler: () => editorActions.setTool('draw') },
+      { key: 'e', handler: () => editorActions.setTool('erase') },
+      { key: 'p', handler: () => editorActions.setTool('shape-pen') },
+      {
+        key: 'tab',
+        handler: (e) => {
+          e.preventDefault()
+          sidebarToggle()
+        },
+      },
+    ],
+    []
+  )
 
   usePinch(
     ({ delta: [d, r] }) => {
@@ -111,21 +124,27 @@ function IndexContent({}) {
     ;(window as any).engine = engine.current = await Silk.create({
       canvas: canvasRef.current!,
     })
-    actions.setEngine(engine.current)
+    editorActions.setEngine(engine.current)
 
     const document = SilkEntity.Document.create({ width: 1000, height: 1000 })
     await engine.current.setDocument(document)
 
     const layer = SilkEntity.RasterLayer.create({ width: 1000, height: 1000 })
     const vector = SilkEntity.VectorLayer.create({ width: 1000, height: 1000 })
+    vector.filters.unshift(
+      SilkEntity.Filter.create({
+        filterId: '@silk-core/gauss-blur',
+        settings: {},
+      })
+    )
     document.layers.push(vector)
     document.layers.push(layer)
-    engine.current.setActiveLayer(vector.id)
+    editorActions.setActiveLayer(vector.id)
 
     engine.current.on('rerender', rerender)
     engine.current.rerender()
 
-    actions.setFill({
+    editorActions.setFill({
       type: 'linear-gradient',
       colorPoints: [
         { color: { r: 0, g: 255, b: 255, a: 1 }, position: 0 },
@@ -196,59 +215,59 @@ function IndexContent({}) {
         `}
         tabIndex={-1}
       >
-        <div
-          ref={sidebarRef}
-          css={css`
-            position: relative;
-            display: flex;
-            flex-flow: column;
-            max-width: 200px;
-          `}
-          // style={sidebarStyles}
-        >
-          <div
-            css={css`
-              position: absolute;
-              left: 0;
-              top: 0;
-              z-index: 1;
-              display: flex;
-              flex-flow: column;
-              /* width: 200px; */
-              height: 100%;
-              padding-bottom: env(safe-area-inset-bottom);
-              transition: width 0.2s ease-in-out;
-              background-color: ${({ theme }) => theme.surface.sidebarBlack};
-            `}
-            style={{
-              width: isNarrowMedia === false || sidebarOpened ? 200 : 32,
-            }}
-          >
-            <LayerView />
+        <>
+          {!isNarrowMedia && (
             <div
+              ref={sidebarRef}
               css={css`
+                position: relative;
                 display: flex;
-                padding: 8px;
-                border-top: 1px solid #73757c;
+                flex-flow: column;
+                max-width: 200px;
+                overflow: hidden;
               `}
+              // style={sidebarStyles}
+              style={{
+                width: sidebarOpened ? 200 : 32,
+              }}
             >
-              {t('layerFilter')}
-              <div css="margin-left: auto">＋</div>
-            </div>
-            <div css="display: flex; padding: 8px; margin-top: auto;">
-              <div
-                css="margin-right: auto; cursor: default;"
-                onClick={sidebarToggle}
+              <Sidebar
+                css={css`
+                  position: absolute;
+                  left: 0;
+                  top: 0;
+                  z-index: 1;
+                  display: flex;
+                  flex-flow: column;
+                  width: 200px;
+                  height: 100%;
+                  padding-bottom: env(safe-area-inset-bottom);
+                  transition: width 0.2s ease-in-out;
+                  background-color: ${({ theme }) =>
+                    theme.surface.sidebarBlack};
+                `}
               >
-                <Menu
-                  css={`
-                    width: 16px;
-                  `}
-                />
-              </div>
+                <LayerView />
+
+                <FilterView />
+
+                <div css="display: flex; padding: 8px; margin-top: auto;">
+                  <div
+                    css="margin-right: auto; cursor: default;"
+                    onClick={sidebarToggle}
+                  >
+                    <Menu
+                      css={`
+                        width: 16px;
+                      `}
+                    />
+                  </div>
+                </div>
+              </Sidebar>
             </div>
-          </div>
-        </div>
+          )}
+        </>
+
         <div
           ref={editAreaRef}
           css={`
@@ -309,14 +328,40 @@ function IndexContent({}) {
           >
             <MainActions />
           </div>
+
+          <DebugView
+            css={`
+              position: absolute;
+              top: 0;
+              right: 0;
+            `}
+          />
         </div>
-        <DebugView
-          css={`
-            position: absolute;
-            top: 0;
-            right: 0;
-          `}
-        />
+
+        <>
+          {!isNarrowMedia && (
+            <Sidebar
+              style={{
+                width: sidebarOpened ? 200 : 32,
+              }}
+            >
+              <div
+                css={`
+                  padding: 4px 8px;
+                `}
+              >
+                {t('colorHistory')}
+              </div>
+              <div
+                css={`
+                  padding: 4px 8px;
+                `}
+              >
+                {t('referenceColor')}
+              </div>
+            </Sidebar>
+          )}
+        </>
       </div>
     </EngineContextProvider>
   )
@@ -347,7 +392,7 @@ export default function Index() {
 export const getStaticProps: GetStaticProps = async ({ locale }) => {
   return {
     props: {
-      ...(await serverSideTranslations(locale!, ['common'], i18nConfig)),
+      ...(await serverSideTranslations(locale!, ['app'], i18nConfig)),
       // Will be passed to the page component as props
     },
   }

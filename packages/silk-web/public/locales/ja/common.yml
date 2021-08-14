@@ -1,9 +1,0 @@
-opacity: 透明度
-blend: ブレンド
-layerFilter: レイヤーフィルター
-
-compositeModes:
-  normal: 通常
-  multiply: 乗算
-  screen: スクリーン
-  overlay: オーバーレイ

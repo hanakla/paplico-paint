@@ -1,0 +1,16 @@
+opacity: 透明度
+blend: ブレンド
+layerFilter: レイヤーフィルター
+colorHistory: カラー履歴
+referenceColor: 参照カラー
+
+compositeModes:
+  normal: 通常
+  multiply: 乗算
+  screen: スクリーン
+  overlay: オーバーレイ
+
+filters:
+  '@silk-core/bloom': '発光'
+  '@silk-core/gauss-blur': 'ガウスぼかし'
+  '@silk-core/chromatic-aberration': '色収差'

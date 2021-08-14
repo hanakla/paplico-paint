@@ -1,9 +1,8 @@
 import { ILayer } from './IRenderable'
 import { v4 } from 'uuid'
 import { Path } from './Path'
-import spline from '@yr/catmull-rom-spline'
 import { VectorObject } from './VectorObject'
-import { SilkEntity } from 'index'
+import { Filter } from './Filter'
 
 export class VectorLayer implements ILayer {
   public readonly layerType = 'vector'
@@ -21,6 +20,7 @@ export class VectorLayer implements ILayer {
   public y: number = 0
 
   public readonly objects: VectorObject[] = []
+  public readonly filters: Filter[] = []
 
   /** Mark for re-rendering decision */
   protected _lastUpdatedAt = Date.now()
@@ -30,14 +30,14 @@ export class VectorLayer implements ILayer {
 
     const path = Path.create({
       points: [
-        { x: 0, y: 0, in: { x: 0, y: 0 }, out: { x: 0, y: 0 } },
-        { x: 200, y: 500, in: { x: 200, y: 500 }, out: { x: 200, y: 500 } },
-        { x: 600, y: 500, in: { x: 600, y: 500 }, out: { x: 600, y: 500 } },
+        { x: 0, y: 0, in: null, out: null },
+        { x: 200, y: 500, in: null, out: null },
+        { x: 600, y: 500, in: null, out: null },
         {
           x: 1000,
           y: 1000,
-          in: { x: 1000, y: 1000 },
-          out: { x: 1000, y: 1000 },
+          in: null,
+          out: null,
         },
       ],
       closed: true,

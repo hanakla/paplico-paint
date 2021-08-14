@@ -29,10 +29,10 @@ export class Brush implements IBrush {
     stroke.path.mapPoints(
       (point, prev) => {
         ctx.bezierCurveTo(
-          prev!.out.x,
-          prev!.out.y,
-          point.in.x,
-          point.in.y,
+          prev!.out?.x ?? prev!.x,
+          prev!.out?.y ?? prev!.y,
+          point.in?.x ?? point.x,
+          point.in?.y ?? point.y,
           point.x,
           point.y
         )

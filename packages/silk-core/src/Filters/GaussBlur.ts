@@ -1,3 +1,4 @@
+import { assign } from '../utils'
 import { FilterContext, IFilter } from '../engine/IFilter'
 
 const SAMPLE_COUNT = 40
@@ -23,7 +24,7 @@ export class GaussBlurFilter implements IFilter {
     return GaussBlurFilter.id
   }
 
-  public get initialConfig() {
+  public static get initialConfig() {
     return {}
   }
 
@@ -34,7 +35,11 @@ export class GaussBlurFilter implements IFilter {
     const programH = gl.createProgram(this.generateShader(radius, true))
     const programV = gl.createProgram(this.generateShader(radius, false))
 
-    const buffer = new OffscreenCanvas(size.width, size.height)
+    const buffer = assign(document.createElement('canvas')!, {
+      width: size.width,
+      height: size.height,
+    }).getContext('2d')!
+
     const weights = this.generateWeight(radius)
 
     gl.applyProgram(
@@ -44,7 +49,7 @@ export class GaussBlurFilter implements IFilter {
         resolution: gl.uni2fv([size.width, size.height]),
       },
       source,
-      buffer
+      buffer.canvas
     )
     gl.applyProgram(
       programV,
@@ -52,7 +57,7 @@ export class GaussBlurFilter implements IFilter {
         weight: gl.uni1fv(weights),
         resolution: gl.uni2fv([size.width, size.height]),
       },
-      buffer,
+      buffer.canvas,
       dest
     )
   }

@@ -25,7 +25,7 @@ export class VectorLayer implements ILayer {
   /** Mark for re-rendering decision */
   protected _lastUpdatedAt = Date.now()
 
-  public static create({ width, height }: { width: number; height: number }) {
+  public static create({}: {}) {
     const layer = new VectorLayer()
 
     const path = Path.create({

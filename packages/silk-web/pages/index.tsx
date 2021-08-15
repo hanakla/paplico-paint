@@ -1,19 +1,14 @@
 import type {} from '../utils/styled-theme'
 
 import React, {
+  ChangeEvent,
   TouchEvent,
   useCallback,
   useEffect,
   useRef,
   useState,
 } from 'react'
-import {
-  useClickAway,
-  useDrop,
-  useMedia,
-  useToggle,
-  useUpdate,
-} from 'react-use'
+import { useClickAway, useDrop, useToggle, useUpdate } from 'react-use'
 import { serverSideTranslations } from 'next-i18next/serverSideTranslations'
 import { loadImageFromBlob, useAsyncEffect } from '@hanakla/arma'
 import { EngineContextProvider } from '../lib/EngineContext'
@@ -40,6 +35,7 @@ import { useGlobalMouseTrap } from '../hooks/useMouseTrap'
 import { Sidebar } from '../components/Sidebar'
 import { clearScreenDown } from 'readline'
 import { FilterView } from '../containers/FilterView'
+import { useMedia } from '../utils/hooks'
 
 function IndexContent({}) {
   const { t } = useTranslation('app')
@@ -83,6 +79,15 @@ function IndexContent({}) {
     ({ touches }: TouchEvent<HTMLDivElement>) => {
       if (touches.length === 2) console.log('undo')
       if (touches.length === 3) console.log('redo')
+    },
+    []
+  )
+
+  const handleChangeDisableFilters = useCallback(
+    ({ currentTarget }: ChangeEvent<HTMLInputElement>) => {
+      editorActions.setRenderSetting({
+        disableAllFilters: currentTarget.checked,
+      })
     },
     []
   )
@@ -131,14 +136,22 @@ function IndexContent({}) {
 
     const layer = SilkEntity.RasterLayer.create({ width: 1000, height: 1000 })
     const vector = SilkEntity.VectorLayer.create({ width: 1000, height: 1000 })
-    vector.filters.unshift(
+    const filter = SilkEntity.FilterLayer.create({})
+
+    vector.filters.push(
       SilkEntity.Filter.create({
         filterId: '@silk-core/gauss-blur',
         settings: {},
+      }),
+      SilkEntity.Filter.create({
+        filterId: '@silk-core/chromatic-aberration',
+        settings: {},
       })
     )
-    document.layers.push(vector)
+
     document.layers.push(layer)
+    document.layers.push(vector)
+    document.layers.push(filter)
     editorActions.setActiveLayer(vector.id)
 
     engine.current.on('rerender', rerender)
@@ -358,6 +371,21 @@ function IndexContent({}) {
                 `}
               >
                 {t('referenceColor')}
+              </div>
+              <div
+                css={`
+                  padding: 4px 8px;
+                `}
+              >
+                <label>
+                  <input
+                    css="margin-right: 4px"
+                    type="checkbox"
+                    checked={editorState.renderSetting.disableAllFilters}
+                    onChange={handleChangeDisableFilters}
+                  />
+                  作業中のフィルター効果をオフ
+                </label>
               </div>
             </Sidebar>
           )}

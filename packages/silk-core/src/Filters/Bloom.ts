@@ -1,3 +1,4 @@
+import { assign } from '../utils'
 import { FilterContext, IFilter } from '../engine/IFilter'
 
 const SAMPLE_COUNT = 40
@@ -80,7 +81,10 @@ export class BloomFilter implements IFilter {
     const program1 = gl.createProgram(FRAGMENT_SHADER_1)
     const program2 = gl.createProgram(FRAGMENT_SHADER_2)
     const program3 = gl.createProgram(FRAGMENT_SHADER_ADD)
-    const buffer = new OffscreenCanvas(size.width, size.height)
+    const buffer = assign(document.createElement('canvas')!, {
+      width: size.width,
+      height: size.height,
+    }).getContext('2d')!
 
     let offsetH = new Array(SAMPLE_COUNT)
     let weightH = new Array(SAMPLE_COUNT)
@@ -135,8 +139,8 @@ export class BloomFilter implements IFilter {
         offsetsV: gl.uni2fv(offsetV),
         weightsV: gl.uni1fv(weightV),
       },
-      buffer,
-      buffer
+      buffer.canvas,
+      buffer.canvas
     )
 
     gl.applyProgram(
@@ -146,17 +150,17 @@ export class BloomFilter implements IFilter {
         offsetsH: gl.uni2fv(offsetH),
         weightsH: gl.uni1fv(weightH),
       },
-      buffer,
-      buffer
+      buffer.canvas,
+      buffer.canvas
     )
     gl.applyProgram(
       program3,
       {
         originalTexture: gl.uniTexture2D(source),
-        bloomTexture: gl.uniTexture2D(buffer),
+        bloomTexture: gl.uniTexture2D(buffer.canvas),
         toneScale: gl.uni1f(1),
       },
-      buffer,
+      buffer.canvas,
       dest
     )
   }

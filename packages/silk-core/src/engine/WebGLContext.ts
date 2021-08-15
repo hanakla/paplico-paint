@@ -48,6 +48,16 @@ void main(void) {
 }
 `
 
+const handleShadeCompilationError = (
+  gl: WebGLRenderingContext,
+  shader: WebGLShader
+) => {
+  if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+    const log = gl.getShaderInfoLog(shader)
+    throw new Error(`Failed to compile shader: \n${log}`)
+  }
+}
+
 export default class WebGLContext {
   private gl: WebGLRenderingContext
   private vertexBuffer: WebGLBuffer
@@ -80,19 +90,21 @@ export default class WebGLContext {
     const vertShader = this.gl.createShader(this.gl.VERTEX_SHADER)!
     this.gl.shaderSource(vertShader, vertexShaderSource)
     this.gl.compileShader(vertShader)
+    handleShadeCompilationError(this.gl, vertShader)
 
     const fragShader = this.gl.createShader(this.gl.FRAGMENT_SHADER)!
     this.gl.shaderSource(fragShader, fragmentShaderSource)
     this.gl.compileShader(fragShader)
+    handleShadeCompilationError(this.gl, fragShader)
 
     this.gl.attachShader(program, vertShader)
     this.gl.attachShader(program, fragShader)
     this.gl.linkProgram(program)
 
-    // if (!this.gl.getProgramParameter(program, this.gl.LINK_STATUS)) {
-    //   const error = this.gl.getProgramInfoLog(program)
-    //   throw new Error(`Failed to compile shader: ${error}`)
-    // }
+    if (!this.gl.getProgramParameter(program, this.gl.LINK_STATUS)) {
+      const error = this.gl.getProgramInfoLog(program)
+      throw new Error(`Failed to compile shader: ${error}`)
+    }
 
     return program
   }
@@ -141,8 +153,8 @@ export default class WebGLContext {
     gl.activeTexture(gl.TEXTURE0)
     gl.bindTexture(gl.TEXTURE_2D, tex)
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, source)
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST)
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST)
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR)
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR)
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE)
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE)
 

@@ -1,13 +1,12 @@
 import '../lib/polyfill'
 
-import App, { AppProps } from 'next/app'
+import App, { AppProps, AppContext } from 'next/app'
 import { appWithTranslation } from 'next-i18next'
 import { ThemeProvider } from 'styled-components'
 import { useEffect } from 'react'
 import { useRouter } from 'next/router'
 import { Restart } from '@styled-icons/remix-line'
 import { GlobalStyle } from '../components/GlobalStyle'
-import { appWithFleurContext, FleurAppContext } from '../lib/fleur'
 import { theme } from '../utils/theme'
 import { ErrorBoundary } from 'react-error-boundary'
 
@@ -33,9 +32,9 @@ function MyApp({ Component, pageProps }: AppProps) {
   )
 }
 
-MyApp.getInitialProps = async (appContext: FleurAppContext) => {
+MyApp.getInitialProps = async (context: AppContext) => {
   // calls page's `getInitialProps` and fills `appProps.pageProps`
-  const appProps = await App.getInitialProps(appContext)
+  const appProps = await App.getInitialProps(context)
 
   return { ...appProps }
 }
@@ -72,4 +71,4 @@ const ErrorFallback = () => {
   )
 }
 
-export default appWithTranslation(appWithFleurContext(MyApp))
+export default appWithTranslation(MyApp)

@@ -1,13 +1,18 @@
 import { forwardRef, DetailedHTMLProps, InputHTMLAttributes } from 'react'
+import { css } from 'styled-components'
+import { useMedia } from '../utils/hooks'
+import { narrow } from '../utils/responsive'
 
 export const FakeInput = forwardRef<
   HTMLInputElement,
   DetailedHTMLProps<InputHTMLAttributes<HTMLInputElement>, HTMLInputElement>
 >((props, ref) => {
+  const isNarrow = useMedia(`(max-width: ${narrow})`, false)
+
   return (
     <input
       ref={ref}
-      css={`
+      css={css`
         width: 100%;
         margin-top: -2px;
         padding: 2px;
@@ -17,6 +22,7 @@ export const FakeInput = forwardRef<
         border-radius: 2px;
         color: inherit;
         outline: none;
+        font-size: ${isNarrow ? '16px' : 'inherit'};
 
         &:focus,
         &:active {

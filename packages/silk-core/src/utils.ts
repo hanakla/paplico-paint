@@ -29,6 +29,9 @@ export class AtomicResource<T> {
     }
 
     this.locked = true
+    // console.groupCollapsed('enjure', this.resource)
+    // console.trace()
+    // console.groupEnd()
     return Promise.resolve(this.resource)
   }
 
@@ -41,6 +44,9 @@ export class AtomicResource<T> {
       throw new Error('Incorrect resource released')
     if (!this.locked) throw new Error('Unused resource released')
 
+    // console.groupCollapsed('release', this.resource)
+    // console.trace()
+    // console.groupEnd()
     const next = this.que.splice(0, 1)[0]
     if (next) {
       next.resolve(this.resource)

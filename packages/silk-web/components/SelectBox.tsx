@@ -75,6 +75,7 @@ export const SelectBox = ({
       <div
         ref={listRef}
         css={css`
+          width: max-content;
           background-color: ${({ theme }) => theme.surface.floatWhite};
           filter: drop-shadow(0 0 5px ${rgba('#000', 0.5)});
           border-radius: 4px;

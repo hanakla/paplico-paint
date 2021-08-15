@@ -1,6 +1,6 @@
 import { ChangeEvent, MouseEvent, useCallback, useRef, useState } from 'react'
 import { ChromePicker, ColorChangeHandler } from 'react-color'
-import { rgba } from 'polished'
+import { rgba, readableColor, rgb } from 'polished'
 import { usePopper } from 'react-popper'
 import { SilkBrushes } from 'silk-core'
 import { useTranslation } from 'next-i18next'
@@ -10,13 +10,15 @@ import { Brush, Close, Eraser, Pencil, Stack } from '@styled-icons/remix-line'
 import { Cursor } from '@styled-icons/remix-fill'
 import { css, useTheme } from 'styled-components'
 import { useSilkEngine } from '../../hooks/useSilkEngine'
-import { rangeThumb } from '../../utils/mixins'
 import { Portal } from '../../components/Portal'
 import { narrow } from '../../utils/responsive'
 import { FloatMenu } from '../../components/FloatMenu'
 import { LayerFloatMenu } from './LayerFloatMenu'
 import { EditorSlice } from '../../domains/Editor'
 import { useLayerControl } from '../../hooks/useLayers'
+import { useDrag } from 'react-use-gesture'
+import { DOMUtils } from '../../utils/dom'
+import { useEffect } from 'react'
 
 export function MainActions() {
   const { t } = useTranslation('app')
@@ -50,33 +52,6 @@ export function MainActions() {
       engine!.brushSetting = {
         ...engine!.brushSetting,
         color: color.rgb,
-      }
-    },
-    [engine]
-  )
-
-  const handleChangeBrushOpacity = useCallback(
-    ({ currentTarget }: ChangeEvent<HTMLInputElement>) => {
-      if (!engine) return
-      setBrushOpacity(currentTarget.valueAsNumber)
-
-      engine!.brushSetting = {
-        ...engine!.brushSetting,
-        opacity: currentTarget.valueAsNumber,
-      }
-    },
-    [engine]
-  )
-
-  const handleChangeWeight = useCallback(
-    ({ currentTarget }: ChangeEvent<HTMLInputElement>) => {
-      if (!engine) return
-
-      setWeight(currentTarget.valueAsNumber)
-
-      engine.brushSetting = {
-        ...engine.brushSetting,
-        weight: currentTarget.valueAsNumber,
       }
     },
     [engine]
@@ -152,14 +127,73 @@ export function MainActions() {
   const vectorColorRootRef = useRef<HTMLDivElement | null>(null)
   const vectorColorPickerPopRef = useRef<HTMLDivElement | null>(null)
   const vectorColorPopper = usePopper(layerRef.current, layerPopRef.current, {
-    strategy: 'absolute',
-    placement: 'top-end',
+    strategy: 'absolute' ?? '',
+    placement: 'bottom-end',
   })
 
+  // useEffect(() => {
+  //   layerPopper.forceUpdate?.()
+  // })
+
   useClickAway(colorPickerPopRef, () => togglePicker(false))
-  useClickAway(brushPopRef, () => toggleBrush(false))
-  useClickAway(layerPopRef, () => toggleLayers(false))
+  useClickAway(brushPopRef, (e) => {
+    if (DOMUtils.childrenOrSelf(e.target, brushRef.current)) return
+    toggleBrush(false)
+  })
+  useClickAway(layerPopRef, (e) => {
+    if (DOMUtils.childrenOrSelf(e.target, layerRef.current)) return
+
+    toggleLayers(false)
+  })
   // useClickAway(vectorColorPickerPopRef, () => toggleVectorColorOpened(false))
+
+  const bindWeightDrag = useDrag(({ delta, first, last, event }) => {
+    if (!engine) return
+
+    if (first) {
+      ;(event.currentTarget as HTMLDivElement).requestPointerLock?.()
+    }
+
+    if (last) {
+      document.exitPointerLock?.()
+    }
+
+    const changed = delta[0] * 0.2
+    setWeight((weight) => {
+      const next = Math.max(0, weight + changed)
+
+      engine.brushSetting = {
+        ...engine.brushSetting,
+        weight: next,
+      }
+
+      return next
+    })
+  })
+
+  const bindBrushOpacityDrag = useDrag(({ delta, first, last, event }) => {
+    if (!engine) return
+
+    if (first) {
+      ;(event.currentTarget as HTMLDivElement).requestPointerLock?.()
+    }
+
+    if (last) {
+      document.exitPointerLock?.()
+    }
+
+    const changed = delta[0] * 0.003
+    setBrushOpacity((opacity) => {
+      const next = Math.min(Math.max(0, opacity + changed), 1)
+
+      engine.brushSetting = {
+        ...engine.brushSetting,
+        opacity: next,
+      }
+
+      return next
+    })
+  })
 
   return (
     <div
@@ -167,91 +201,88 @@ export function MainActions() {
         display: flex;
         gap: 8px;
         padding: 8px 16px;
+        margin-bottom: env(safe-area-inset-bottom);
         background-color: ${rgba('#ccc', 0.8)};
         border-radius: 100px;
         color: ${({ theme }) => theme.text.mainActionsBlack};
         border: 1px solid #aaa;
         white-space: nowrap;
+        touch-action: manipulation;
       `}
     >
       <div
         css={`
           display: flex;
-          flex-flow: column;
+          gap: 4px;
         `}
       >
-        <div>
-          <div
-            css={`
-              position: relative;
-
-              &::before {
-                content: '';
-                display: block;
-                position: absolute;
-                top: 50%;
-                left: 0;
-                width: 0;
-                height: 0;
-                border-style: solid;
-                border-width: 4px 100px 4px 0;
-                border-color: transparent #ddd transparent transparent;
-                height: 0;
-                background-color: transparent;
-                border-radius: 100px;
-                transform: translateY(-50%);
-              }
-            `}
-          >
-            <input
-              css={`
-                position: relative;
-                z-index: 1;
-                width: 100px;
-                height: 8px;
-                vertical-align: bottom;
-                appearance: none;
-                border-radius: 100px;
-                background: transparent;
-                transform: translateY(-5px);
-                ${rangeThumb}
-              `}
-              type="range"
-              min="0"
-              max="100"
-              step="0.1"
-              value={weight}
-              onChange={handleChangeWeight}
-            />
-          </div>
+        <div
+          css={`
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 36px;
+            height: 36px;
+            border: 1px solid #000;
+            border-radius: 64px;
+          `}
+          {...bindWeightDrag()}
+        >
+          {(Math.round(weight * 10) / 10).toString(10)}
         </div>
-        <div>
-          <input
-            css={`
-              width: 100px;
-              height: 8px;
-              vertical-align: bottom;
-              appearance: none;
-              background: linear-gradient(
-                to right,
-                ${rgba(color.r, color.g, color.b, 0)},
-                ${rgba(color.r, color.g, color.b, 1)}
-              );
-              border-radius: 100px;
+        <div
+          css={`
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 36px;
+            height: 36px;
+            border: 1px solid #000;
+            border-radius: 64px;
 
-              ${rangeThumb}
-            `}
-            type="range"
-            min="0"
-            max="1"
-            step="0.01"
-            value={brushOpacity}
-            onChange={handleChangeBrushOpacity}
-          />
+            background: linear-gradient(
+                45deg,
+                rgba(0, 0, 0, 0.2) 25%,
+                transparent 25%,
+                transparent 75%,
+                rgba(0, 0, 0, 0.2) 75%
+              ),
+              linear-gradient(
+                45deg,
+                rgba(0, 0, 0, 0.2) 25%,
+                transparent 25%,
+                transparent 75%,
+                rgba(0, 0, 0, 0.2) 75%
+              );
+            background-size: 4px 4px;
+            background-position: 0 0, 2px 2px; ;
+          `}
+          style={{
+            backgroundColor: rgba(color.r, color.g, color.b, brushOpacity),
+          }}
+          {...bindBrushOpacityDrag()}
+        >
+          <div
+            style={{
+              color: readableColor(
+                rgb(color.r, color.g, color.b),
+                '#222',
+                '#eee'
+              ),
+            }}
+          >
+            {Math.round(brushOpacity * 100)}%
+          </div>
         </div>
       </div>
 
-      <div>
+      <div
+        css={`
+          width: 36px;
+          height: 36px;
+          overflow: hidden;
+        `}
+      >
         {layerControls.activeLayer?.layerType === 'raster' ? (
           <div
             css={`
@@ -294,8 +325,8 @@ export function MainActions() {
             ref={vectorColorRootRef}
             css={`
               position: relative;
-              width: 32px;
-              height: 32px;
+              width: 36px;
+              height: 36px;
               overflow: hidden;
             `}
           >
@@ -384,6 +415,7 @@ export function MainActions() {
       <div
         css={`
           display: flex;
+          height: 36px;
           gap: 0;
           border-radius: 100px;
           border: 1px solid ${rgba('#000', 0.3)};
@@ -408,7 +440,7 @@ export function MainActions() {
           }}
           onClick={handleChangeToCursorMode}
         >
-          <Cursor css="width:26px; vertical-align:bottom;" />
+          <Cursor css="width:24px; vertical-align:bottom;" />
         </div>
 
         {layerControls.activeLayer?.layerType === 'vector' && (
@@ -422,7 +454,6 @@ export function MainActions() {
             }}
             onClick={handleChangeToShapePenMode}
           >
-            {/* <Shape css="width:26px; vertical-align:bottom;" /> */}
             <Pencil css="width:24px;" />
           </div>
         )}
@@ -438,7 +469,7 @@ export function MainActions() {
           }}
           onClick={handleChangeToPencilMode}
         >
-          <Brush css="width:26px; vertical-align:bottom;" />
+          <Brush css="width:24px; vertical-align:bottom;" />
         </div>
 
         {layerControls.activeLayer?.layerType === 'raster' && (
@@ -452,7 +483,7 @@ export function MainActions() {
             }}
             onClick={handleChangeToEraceMode}
           >
-            <Eraser css="width:26px; vertical-align:bottom;" />
+            <Eraser css="width:24px; vertical-align:bottom;" />
           </div>
         )}
 
@@ -517,11 +548,13 @@ export function MainActions() {
         }}
         onClick={handleClickLayerIcon}
       >
-        {openLayers ? (
-          <Close css="width: 26px;" />
-        ) : (
-          <Stack css="width: 26px;" />
-        )}
+        <>
+          {openLayers ? (
+            <Close css="width: 26px;" />
+          ) : (
+            <Stack css="width: 26px;" />
+          )}
+        </>
 
         <FloatMenu
           ref={layerPopRef}

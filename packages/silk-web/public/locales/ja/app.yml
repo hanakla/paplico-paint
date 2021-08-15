@@ -3,6 +3,13 @@ blend: ブレンド
 layerFilter: レイヤーフィルター
 colorHistory: カラー履歴
 referenceColor: 参照カラー
+filter: フィルター
+cancel: キャンセル
+
+layerType:
+  filter: フィルターレイヤー
+  vector: ベクターレイヤー
+  raster: 通常レイヤー
 
 compositeModes:
   normal: 通常

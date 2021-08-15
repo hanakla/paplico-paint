@@ -5,9 +5,11 @@ import { debounce } from 'debounce'
 import { Silk, SilkEntity, SilkValue } from '../../silk-core/src'
 import { deepClone } from '../utils/clone'
 import { log, trace, warn } from '../utils/log'
+import { assign } from '../utils/assign'
 
 interface State {
   engine: Silk | null
+  renderSetting: Silk.RenderSetting
   currentTool: Tool
   currentFill: SilkValue.FillSetting | null
   currentStroke: SilkValue.BrushSetting | null
@@ -34,6 +36,17 @@ export const EditorSlice = createSlice(
       setEngine: ({ draft }, engine: Silk) => {
         draft.engine = engine as any
         engine.pencilMode = 'none'
+        engine.renderSetting = { ...draft.renderSetting }
+      },
+      setRenderSetting: ({ draft }, setting: Partial<Silk.RenderSetting>) => {
+        if (!draft.engine) return
+
+        draft.engine.renderSetting = draft.renderSetting = assign(
+          draft.engine.renderSetting,
+          setting
+        )
+
+        draft.engine?.rerender()
       },
       setTool: ({ draft }, tool: Tool) => {
         draft.currentTool = tool
@@ -134,6 +147,15 @@ export const EditorSlice = createSlice(
 
         if (object) proc(object as SilkEntity.VectorObject)
       },
+      addLayer: (
+        { draft },
+        newLayer: SilkEntity.LayerTypes,
+        { aboveLayerId }: { aboveLayerId?: string }
+      ) => {
+        draft.engine?.currentDocument?.addLayer(newLayer, { aboveLayerId })
+        draft.engine?.setActiveLayer(newLayer.id)
+        draft.engine?.rerender()
+      },
       addPoint: (
         { draft },
         objectOrId: SilkEntity.VectorObject | string,
@@ -152,6 +174,13 @@ export const EditorSlice = createSlice(
 
         if (!object) throw new Error(`Object(id: ${objectOrId}) not found`)
         object.path.points.splice(segmentIndex, 0, point)
+      },
+      deleteLayer: ({draft}, layerId: string) => {
+        const idx = draft.currentDocument.layers.findIndex(layer => layer.id === layerId)
+        if (idx === -1) return
+
+        draft.currentDocument.layers.splice(idx, 1)
+        if (layerId === draft.activeLayerId) draft.activeLayerId = null
       },
       deleteSelectedFilters: ({ draft }) => {
         findLayer(draft.engine?.currentDocument, draft.activeLayerId)?.update(
@@ -211,6 +240,7 @@ export const EditorSlice = createSlice(
         if (!object) return currentFill
         return currentFill
       },
+      currentDocument: ({ engine }) => engine?.currentDocument,
       activeLayer: ({ engine }) => engine?.activeLayer,
       activeObject: ({
         engine,
@@ -225,6 +255,7 @@ export const EditorSlice = createSlice(
   },
   (): State => ({
     engine: null,
+    renderSetting: { disableAllFilters: false },
     currentTool: 'cursor',
     currentFill: null,
     currentStroke: null,

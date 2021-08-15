@@ -133,7 +133,7 @@ export const FilterView = () => {
                   onClick={handleClickAddFilter}
                   data-filter-id={filter.id}
                 >
-                  {t(`filter.${filter.id}`)}
+                  {t(`filters.${filter.id}`)}
                 </li>
               ))}
             </ul>
@@ -282,7 +282,7 @@ const SortableFilterItem = SortableElement(function FilterItem({
             )}
           </div>
 
-          <div>{t(`filter.${filter.filterId}`)}</div>
+          <div>{t(`filters.${filter.filterId}`)}</div>
 
           <ContextMenu>
             <ContextMenuItem onClick={handleClickRemove}>削除</ContextMenuItem>

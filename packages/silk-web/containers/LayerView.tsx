@@ -30,10 +30,12 @@ import { EditorSlice } from '../domains/Editor'
 import { SelectBox } from '../components/SelectBox'
 import { Add } from '@styled-icons/remix-fill'
 import { css } from 'styled-components'
+import { FakeInput } from '../components/FakeInput'
 
 export function LayerView() {
   const { t } = useTranslation('app')
   const layerControls = useLayerControl()
+  const [editorState, editorActions] = useLysSlice(EditorSlice)
 
   const [layerTypeOpened, toggleLayerTypeOpened] = useToggle(false)
   const layerTypeOpenerRef = useRef<HTMLDivElement | null>(null)
@@ -75,12 +77,13 @@ export function LayerView() {
 
   const handleChangeOpacity = useCallback(
     ({ currentTarget }: ChangeEvent<HTMLInputElement>) => {
-      layerControls.changeOpacity(
-        layerControls.activeLayer?.id,
-        currentTarget.valueAsNumber
-      )
+      if (!editorState.activeLayerId) return
+
+      editorActions.updateLayer(editorState.activeLayerId, (layer) => {
+        layer.opacity = currentTarget.valueAsNumber
+      })
     },
-    [layerControls]
+    [editorState.activeLayerId]
   )
 
   return (
@@ -147,43 +150,42 @@ export function LayerView() {
         </div>
       </header>
 
-      {layerControls.activeLayer && (
+      {editorState.activeLayer && (
         <div
           css={`
             display: flex;
             flex-flow: column;
-            gap: 2px;
+            gap: 4px;
             margin-top: 4px;
             padding: 8px 4px;
             border-top: 1px solid ${rgba('#000', 0.2)};
             border-bottom: 1px solid ${rgba('#000', 0.2)};
-
-            > div {
-              padding: 2px 0;
-            }
           `}
         >
           <div>
-            <input
-              css={`
-                width: 100%;
-                margin-top: -2px;
-                padding: 2px;
-                appearance: none;
-                background-color: transparent;
-                border: none;
-                border-radius: 2px;
-                color: inherit;
-                outline: none;
+            <FakeInput
+              // css={`
+              //   width: 100%;
+              //   margin-top: -2px;
+              //   padding: 2px;
+              //   appearance: none;
+              //   background-color: transparent;
+              //   border: none;
+              //   border-radius: 2px;
+              //   color: inherit;
+              //   outline: none;
 
-                &:focus,
-                &:active {
-                  color: ${({ theme }) => theme.text.inputActive};
-                  background-color: ${({ theme }) => theme.surface.inputActive};
-                }
-              `}
-              type="text"
-              value={layerControls.activeLayer.id}
+              //   &:focus,
+              //   &:active {
+              //     color: ${({ theme }) => theme.text.inputActive};
+              //     background-color: ${({ theme }) => theme.surface.inputActive};
+              //   }
+              // `}
+              // type="text"
+              value={editorState.activeLayer.name}
+              placeholder={`<${t(
+                `layerType.${editorState.activeLayer.layerType}`
+              )}>`}
             />
           </div>
           <div>
@@ -205,7 +207,7 @@ export function LayerView() {
                 { value: 'screen', label: t('compositeModes.screen') },
                 { value: 'overlay', label: t('compositeModes.overlay') },
               ]}
-              value={layerControls.activeLayer.compositeMode}
+              value={editorState.activeLayer.compositeMode}
               onChange={handleChangeCompositeMode}
               placement="auto-start"
             />
@@ -237,7 +239,7 @@ export function LayerView() {
                 min={0}
                 max={100}
                 step={0.1}
-                value={layerControls.activeLayer.opacity}
+                value={editorState.activeLayer.opacity}
                 onChange={handleChangeOpacity}
               />
             </div>
@@ -245,9 +247,9 @@ export function LayerView() {
         </div>
       )}
 
-      {layerControls.layers && (
+      {editorState.currentDocument?.layers && (
         <SortableLayerList
-          layers={layerControls.layers}
+          layers={[...editorState.currentDocument?.layers].reverse()}
           onSortEnd={handleLayerSortEnd}
           distance={2}
           lockAxis={'y'}
@@ -279,6 +281,7 @@ const SortableLayerList = SortableContainer(
 )
 
 function LayerItem({ layer }: { layer: SilkEntity.LayerTypes }) {
+  const { t } = useTranslation('app')
   const [editorState, editorActions] = useLysSlice(EditorSlice)
   const layerControls = useLayerControl()
 
@@ -315,6 +318,14 @@ function LayerItem({ layer }: { layer: SilkEntity.LayerTypes }) {
       layer.objects.splice(idx, 1)
     })
   }, [])
+
+  const handleChangeLayerName = useCallback(
+    ({ currentTarget }: ChangeEvent<HTMLInputElement>) => {
+      editorActions.updateLayer(layer.id, (layer) => {
+        layer.name = currentTarget.value
+      })
+    }
+  )
 
   return (
     <ContextMenuArea>
@@ -420,7 +431,17 @@ function LayerItem({ layer }: { layer: SilkEntity.LayerTypes }) {
                 }
               `}
             >
-              {layer.id}
+              <FakeInput
+                css={`
+                  font-size: 12px;
+                  &::placeholder {
+                    color: #9e9e9e;
+                  }
+                `}
+                value={layer.name}
+                placeholder={`<${t(`layerType.${layer.layerType}`)}>`}
+                onChange={handleChangeLayerName}
+              />
             </div>
           </div>
           {layer.layerType === 'vector' && (

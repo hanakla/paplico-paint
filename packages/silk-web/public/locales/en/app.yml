@@ -3,6 +3,13 @@ blend: Blend
 layerFilter: Layer filter
 colorHistory: Color history
 referenceColor: Reference color
+filter: Filter
+cancel: Cancel
+
+layerType:
+  filter: Filter layer
+  vector: Vector layer
+  raster: Normal layer
 
 compositeModes:
   normal: Normal

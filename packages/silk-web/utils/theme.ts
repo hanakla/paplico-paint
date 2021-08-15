@@ -16,7 +16,7 @@ export const theme = {
     brushViewWhite: '#ccc',
     brushViewActive: rgba('#999', 0.5),
     inputActive: '#eee',
-    floatWhite: rgba('#e1e1e1', 0.9),
+    floatWhite: rgba('#f5f5f5', 0.9),
     floatActive: rgba('#85baf6', 0.9),
     contextMenu: '#4798f5',
     contextMenuActive: rgba('#4798f5', 0.9),

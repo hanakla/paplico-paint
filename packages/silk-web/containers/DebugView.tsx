@@ -30,7 +30,7 @@ export const DebugView = ({ className }: { className?: string }) => {
     strokingPreviewRef.current!.appendChild(
       (engine as any).strokingPreviewCtx.canvas
     )
-    previewRef.current!.appendChild((engine as any).previewCanvas)
+    previewRef.current!.appendChild((engine as any).thumbnailCanvas)
   }, [engine])
 
   return (

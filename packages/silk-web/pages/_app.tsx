@@ -7,13 +7,17 @@ import { useEffect } from 'react'
 import { useRouter } from 'next/router'
 import { Restart } from '@styled-icons/remix-line'
 import { GlobalStyle } from '../components/GlobalStyle'
-import { theme } from '../utils/theme'
+import { lightTheme, theme } from '../utils/theme'
 import { ErrorBoundary } from 'react-error-boundary'
+import { useMedia } from '../utils/hooks'
+import { narrow } from '../utils/responsive'
+import { LysContext } from '@fleur/lys'
 
 const fastclick = process.browser ? require('fastclick') : null
 
 function MyApp({ Component, pageProps }: AppProps) {
   const router = useRouter()
+  const isNarrow = useMedia(`(max-width: ${narrow})`, false)
 
   useEffect(() => {
     fastclick?.attach(document.body)
@@ -21,13 +25,13 @@ function MyApp({ Component, pageProps }: AppProps) {
 
   return (
     <>
-      <ThemeProvider theme={theme}>
-        <ErrorBoundary FallbackComponent={ErrorFallback}>
-          <GlobalStyle />
+      <GlobalStyle isNarrow={isNarrow} />
 
+      <ErrorBoundary FallbackComponent={ErrorFallback}>
+        <LysContext>
           <Component {...pageProps} />
-        </ErrorBoundary>
-      </ThemeProvider>
+        </LysContext>
+      </ErrorBoundary>
     </>
   )
 }

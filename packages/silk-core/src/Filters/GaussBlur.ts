@@ -24,23 +24,31 @@ export class GaussBlurFilter implements IFilter {
     return GaussBlurFilter.id
   }
 
-  public static get initialConfig() {
-    return {}
+  public get initialConfig() {
+    return { radius: 10, power: 200 }
   }
 
   public async initialize() {}
-  public render({ source, dest, gl, size }: FilterContext) {
-    const radius = 20
 
-    const programH = gl.createProgram(this.generateShader(radius, true))
-    const programV = gl.createProgram(this.generateShader(radius, false))
+  public render({
+    source,
+    dest,
+    gl,
+    size,
+    settings: { radius, power },
+  }: FilterContext) {
+    const rad = Math.round(radius)
+
+    console.log({ rad })
+    const programH = gl.createProgram(this.generateShader(rad, true))
+    const programV = gl.createProgram(this.generateShader(rad, false))
 
     const buffer = assign(document.createElement('canvas')!, {
       width: size.width,
       height: size.height,
     }).getContext('2d')!
 
-    const weights = this.generateWeight(radius)
+    const weights = this.generateWeight(rad, power)
 
     gl.applyProgram(
       programH,

@@ -1,6 +1,6 @@
 import { ILayer } from './IRenderable'
 import { v4 } from 'uuid'
-import { fakeRejectedPromise } from '../utils'
+import { assign, fakeRejectedPromise } from '../utils'
 import { Filter } from './Filter'
 
 export class RasterLayer implements ILayer {
@@ -30,7 +30,7 @@ export class RasterLayer implements ILayer {
   public static create({ width, height }: { width: number; height: number }) {
     const layer = new RasterLayer()
 
-    Object.assign(layer, {
+    assign(layer, {
       bitmap: new Uint8ClampedArray(width * height * 4),
       width: width,
       height: height,
@@ -43,6 +43,29 @@ export class RasterLayer implements ILayer {
     } else {
       layer._imageBitmapPromise = Promise.resolve(null as any)
     }
+
+    return layer
+  }
+
+  public static deserialize(obj: any) {
+    const layer = assign(new RasterLayer(), {
+      id: obj.id,
+      name: obj.name,
+      visible: obj.visible,
+      lock: obj.lock,
+      compositeMode: obj.compositeMode,
+      opacity: obj.opacity,
+      width: obj.width,
+      height: obj.height,
+      x: obj.x,
+      y: obj.y,
+      bitmap: obj.bitmap,
+      filters: obj.filters.map((filter: any) => Filter.deserialize(filter)),
+    })
+
+    layer._imageBitmapPromise = createImageBitmap(
+      new ImageData(layer.bitmap, obj.width, obj.height)
+    )
 
     return layer
   }
@@ -74,6 +97,7 @@ export class RasterLayer implements ILayer {
 
   public serialize() {
     return {
+      layerType: this.layerType,
       id: this.id,
       name: this.name,
       visible: this.visible,
@@ -84,7 +108,8 @@ export class RasterLayer implements ILayer {
       height: this.height,
       x: this.x,
       y: this.y,
-      // bitmap: this.bitmap,
+      filters: this.filters.map((f) => f.serialize()),
+      bitmap: this.bitmap,
     }
   }
 }

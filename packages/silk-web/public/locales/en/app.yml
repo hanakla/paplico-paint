@@ -5,6 +5,15 @@ colorHistory: Color history
 referenceColor: Reference color
 filter: Filter
 cancel: Cancel
+addFromImage: Add from Image file
+export: Export
+untitled: Untitled
+
+vectorColorPicker:
+  noFill: Fill none
+  modes:
+    solid: Solid
+    linearGradient: Linear gradient
 
 layerType:
   filter: Filter layer
@@ -21,3 +30,14 @@ filters:
   '@silk-core/bloom': 'Bloom'
   '@silk-core/gauss-blur': 'Gauss blur'
   '@silk-core/chromatic-aberration': 'Chromatic Aberration'
+
+filterOptions:
+  '@silk-core/bloom':
+    threshold: Threshold
+    power: Threshold
+  '@silk-core/gauss-blur':
+    radius: Radius
+    powerDev: Power(dev)
+  '@silk-core/chromatic-aberration':
+    distance: Distance
+    angleDeg: Angle

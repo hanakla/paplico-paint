@@ -940,10 +940,10 @@
   resolved "https://registry.yarnpkg.com/@fleur/react/-/react-5.0.0.tgz#e6127a55958a3878c1d07ab510a2dc9d567371a9"
   integrity sha512-PETkur87HjuiliM0B3tCJEUvDcdYs2h71YJ9+I9ZqE/GLq59rCGFAtFj65HsQ4lt5vESk3Rw4fpolG1vloQhKA==
 
-"@hanakla/arma@^0.1.5":
-  version "0.1.5"
-  resolved "https://registry.yarnpkg.com/@hanakla/arma/-/arma-0.1.5.tgz#9dc311a774216f6710f45dd5eb9630d2c8bb164a"
-  integrity sha512-Aoggu+MzWcyvS1VQCvB+qE6wJT/QtadhX///jQGsYBdsYEFtSVrk6pXDU8TQ3lPWWh26gZN9fA75MtT/Gqoldw==
+"@hanakla/arma@^0.1.10":
+  version "0.1.10"
+  resolved "https://registry.yarnpkg.com/@hanakla/arma/-/arma-0.1.10.tgz#68cabc3ae71cc2fd7a1a215bde54534989ae989b"
+  integrity sha512-OozSrYFh2i5KC0qla6PCYmLUeVDOyN6BP1uPgp1PhBwh35cMWdmYmd4W2xGr7Yz4pCr7zA6lUEcsFLdE2rYGzA==
   dependencies:
     "@hanakla/rescue" "^1.0.3"
     immer "^8.0.0"
@@ -1069,10 +1069,10 @@
     "@nodelib/fs.scandir" "2.1.5"
     fastq "^1.6.0"
 
-"@popperjs/core@^2.9.2":
-  version "2.9.2"
-  resolved "https://registry.yarnpkg.com/@popperjs/core/-/core-2.9.2.tgz#adea7b6953cbb34651766b0548468e743c6a2353"
-  integrity sha512-VZMYa7+fXHdwIq1TDhSXoVmSPEGM/aa+6Aiq3nVVJ9bXr24zScr+NlKFKC3iPljA7ho/GAZr+d2jOf5GIRC30Q==
+"@popperjs/core@^2.9.3":
+  version "2.9.3"
+  resolved "https://registry.yarnpkg.com/@popperjs/core/-/core-2.9.3.tgz#8b68da1ebd7fc603999cf6ebee34a4899a14b88e"
+  integrity sha512-xDu17cEfh7Kid/d95kB6tZsLOmSWKCZKtprnhVepjsSaCij+lM3mItSJDuuHDMbCWTh8Ejmebwb+KONcCJ0eXQ==
 
 "@react-spring/animated@~9.2.0":
   version "9.2.4"

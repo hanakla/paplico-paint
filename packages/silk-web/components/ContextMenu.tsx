@@ -80,15 +80,16 @@ export const ContextMenu: React.FC = ({ children }) => {
     // <Portal>
     <div
       ref={rootRef}
-      css={`
+      css={css`
         position: fixed;
         z-index: 100;
         padding: 4px 4px;
         margin-top: -8px;
         margin-left: 2px;
-        background-color: rgba(255, 255, 255, 0.8);
+        background-color: ${({ theme }) => theme.exactColors.whiteFade40};
         border-radius: 4px;
-        box-shadow: 0 0 5px ${rgba('#000', 0.5)};
+        box-shadow: ${({ theme }) =>
+          `0 0 5px 1px ${theme.exactColors.black50}`};
         font-size: 13px;
         backdrop-filter: blur(4px);
       `}

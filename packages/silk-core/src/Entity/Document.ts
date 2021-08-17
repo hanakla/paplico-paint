@@ -1,9 +1,9 @@
 import { LayerTypes } from './index'
 import mitt, { Emitter } from 'mitt'
-import { ILayer } from './IRenderable'
+import { assign } from '../utils'
 import { RasterLayer } from './RasterLayer'
 import { VectorLayer } from './VectorLayer'
-import msgpack from 'msgpack5'
+import { FilterLayer } from './FilterLayer'
 
 type DocumentEvents = {
   layersChanged: void
@@ -12,11 +12,34 @@ type DocumentEvents = {
 export class Document {
   public static create({ width, height }: { width: number; height: number }) {
     const document = new Document()
-    Object.assign(document, { width, height })
+    assign(document, { width, height })
 
     return document
   }
 
+  public static deserialize(obj: any) {
+    return assign(new Document(), {
+      width: obj.width,
+      height: obj.height,
+      activeLayerId: obj.activeLayerId,
+      layers: obj.layers.map((layer: any) => {
+        switch (layer.layerType as LayerTypes['layerType']) {
+          case 'raster':
+            return RasterLayer.deserialize(layer)
+          case 'vector':
+            return VectorLayer.deserialize(layer)
+          case 'filter':
+            return FilterLayer.deserialize(layer)
+          default:
+            throw new Error(
+              `Deserialization failed, unexpected layerType ${layer.layerType}`
+            )
+        }
+      }),
+    })
+  }
+
+  public title: string = ''
   public width: number = 0
   public height: number = 0
 
@@ -37,7 +60,8 @@ export class Document {
     { aboveLayerId }: { aboveLayerId?: string | null } = {}
   ) {
     if (aboveLayerId == null) {
-      this.layers = [layer, ...this.layers]
+      this.layers.unshift(layer)
+      return
     }
 
     const index = this.layers.findIndex((layer) => layer.id == aboveLayerId)
@@ -56,6 +80,7 @@ export class Document {
 
   public serialize() {
     return {
+      title: this.title,
       width: this.width,
       height: this.height,
       activeLayerId: this.activeLayerId,
@@ -63,11 +88,5 @@ export class Document {
     }
   }
 
-  public toArrayBuffer() {
-    const packer = msgpack()
-    const buf = packer.encode(this.serialize())
-    const ab = new Uint8Array(buf.length)
-    ab.set(buf.slice())
-    return ab
-  }
+  public toArrayBuffer() {}
 }

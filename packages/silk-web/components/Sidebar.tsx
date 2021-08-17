@@ -16,20 +16,20 @@ export const Sidebar = forwardRef<HTMLDivElement, Props>(
           position: relative;
           display: flex;
           flex-flow: column;
+          height: 100%;
           max-width: 200px;
         `}
         className={className}
       >
         <div
-          ref={ref}
           css={css`
             display: flex;
             flex-flow: column;
-            /* width: 200px; */
+            flex: 1;
             height: 100%;
             padding-bottom: env(safe-area-inset-bottom);
             transition: width 0.2s ease-in-out;
-            background-color: ${({ theme }) => theme.surface.sidebarBlack};
+            background-color: ${({ theme }) => theme.colors.black40};
           `}
           style={style}
         >

@@ -4,7 +4,7 @@ import { IEntity } from './IEntity'
 import { Path } from './Path'
 import { BrushSetting } from '../Value/BrushSetting'
 import { FillSetting } from '../Value/FillSetting'
-import { assign } from '../utils'
+import { assign, deepClone } from '../utils'
 
 export class VectorObject implements IEntity {
   public readonly id: string = `vectorobj-${v4()}`
@@ -38,15 +38,23 @@ export class VectorObject implements IEntity {
     brush?: BrushSetting | null
     fill?: FillSetting | null
   }) {
-    const obj = assign(new VectorObject(), {
+    return assign(new VectorObject(), {
       x: x,
       y: y,
       path,
       brush,
       fill,
     })
+  }
 
-    return obj
+  public static deserialize(obj: any) {
+    return assign(new VectorObject(), {
+      id: obj.id,
+      x: obj.x,
+      y: obj.y,
+      path: Path.deserialize(obj.path),
+      brush: obj.brush,
+    })
   }
 
   protected constructor() {}
@@ -56,8 +64,8 @@ export class VectorObject implements IEntity {
       id: this.id,
       x: this.x,
       y: this.y,
-      // path: this.path.serialize()
-      brush: { ...this.brush },
+      path: this.path.serialize(),
+      brush: deepClone(this.brush),
     }
   }
 }

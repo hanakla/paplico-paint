@@ -1,24 +1,22 @@
-import { assign, deepClone } from '../utils'
 import point from 'point-at-length'
+import bounds from 'svg-path-bounds'
+
+import { assign, deepClone } from '../utils'
 import { mapPoints } from '../SilkHelpers'
 
 class Path {
-  // public start: { x: number; y: number } = { x: 0, y: 0 }
   public points: Path.PathPoint[] = []
   public closed: boolean = false
   private _pal: any
 
   public static create({
-    // start,
     points,
     closed,
   }: {
-    // start: Path.StartPoint
     points: Path.PathPoint[]
     closed: boolean
   }) {
     return assign(new Path(), {
-      // start,
       points,
       closed,
     })
@@ -26,7 +24,6 @@ class Path {
 
   public static deserialize(obj: any) {
     return assign(new Path(), {
-      // start: obj.start,
       points: obj.points,
       closed: obj.closed,
     })
@@ -36,6 +33,23 @@ class Path {
 
   public get svgPath() {
     return pointsToSVGPath(this.points, this.closed)
+  }
+
+  public getBoundingBox() {
+    const [left, top, right, bottom] = bounds(this.svgPath)
+    const width = Math.abs(right - left)
+    const height = Math.abs(bottom - right)
+
+    return {
+      left,
+      top,
+      right,
+      bottom,
+      centerX: left + width / 2,
+      centerY: top + height / 2,
+      width,
+      height,
+    }
   }
 
   // public updatePoints(
@@ -97,8 +111,7 @@ class Path {
 
   public serialize() {
     return {
-      // start: { ...this.start },
-      points: [...this.points],
+      points: deepClone(this.points),
       closed: this.closed,
     }
   }

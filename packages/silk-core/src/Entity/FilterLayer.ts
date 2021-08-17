@@ -33,6 +33,22 @@ export class FilterLayer implements ILayer {
     return layer
   }
 
+  public static deserialize(obj: any) {
+    return assign(new FilterLayer(), {
+      id: obj.id,
+      name: obj.name,
+      visible: obj.visible,
+      lock: obj.lock,
+      compositeMode: obj.compositeMode,
+      opacity: obj.opacity,
+      width: obj.width,
+      height: obj.height,
+      x: obj.x,
+      y: obj.y,
+      filters: obj.filters.map((f: any) => Filter.deserialize(f)),
+    })
+  }
+
   protected constructor() {}
 
   public get lastUpdatedAt() {
@@ -46,6 +62,7 @@ export class FilterLayer implements ILayer {
 
   public serialize() {
     return {
+      layerType: this.layerType,
       id: this.id,
       name: this.name,
       visible: this.visible,
@@ -56,6 +73,7 @@ export class FilterLayer implements ILayer {
       height: this.height,
       x: this.x,
       y: this.y,
+      filters: this.filters.map((f) => f.serialize()),
     }
   }
 }

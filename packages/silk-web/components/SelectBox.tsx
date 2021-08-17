@@ -1,7 +1,7 @@
 import { Placement } from '@popperjs/core'
 import { ArrowDownS, Check } from '@styled-icons/remix-line'
 import { rgba } from 'polished'
-import { useMemo, MouseEvent, useCallback, useRef } from 'react'
+import { useMemo, MouseEvent, useCallback, useRef, useEffect } from 'react'
 import { usePopper } from 'react-popper'
 import { useToggle } from 'react-use'
 import { css } from 'styled-components'
@@ -11,12 +11,14 @@ export const SelectBox = ({
   items,
   value,
   placement = 'top-start',
+  placeholder,
   onChange,
 }: {
-  value: string
+  value?: string | null | undefined
   items: { label: string; value: string }[]
   className?: string
   placement?: Placement
+  placeholder?: string
   onChange: (value: string) => void
 }) => {
   const [listOpened, toggleListOpened] = useToggle(false)
@@ -24,7 +26,7 @@ export const SelectBox = ({
   const listRef = useRef<HTMLDivElement | null>(null)
 
   const compositeModePopper = usePopper(rootRef.current, listRef.current, {
-    // strategy: 'fixed',
+    strategy: 'fixed',
     placement,
   })
 
@@ -43,6 +45,11 @@ export const SelectBox = ({
     [value]
   )
 
+  useEffect(() => {
+    if (!listOpened) return
+    setTimeout(() => compositeModePopper.forceUpdate?.(), 100)
+  }, [listOpened])
+
   return (
     <div
       ref={rootRef}
@@ -53,13 +60,25 @@ export const SelectBox = ({
         padding: 4px;
         border: 1px solid #aaa;
         border-radius: 4px;
-        background-color: #eee;
-        color: ${({ theme }) => theme.text.default};
+        background-color: ${({ theme }) => theme.exactColors.white40};
+        color: ${({ theme }) => theme.exactColors.black50};
+
+        &::placeholder {
+          color: ${({ theme }) => theme.exactColors.black30};
+        }
       `}
       className={className}
       onClick={toggleListOpened}
     >
-      {currentItem?.label}
+      {currentItem?.label ?? (
+        <span
+          css={`
+            opacity: 0.5;
+          `}
+        >
+          {placeholder}
+        </span>
+      )}
 
       <ArrowDownS
         css={`
@@ -89,14 +108,17 @@ export const SelectBox = ({
         }}
         {...compositeModePopper.attributes.popper}
       >
-        {items.map((item) => (
+        {items.map((item, idx) => (
           <div
+            key={idx}
             css={css`
               padding: 8px 4px;
               padding-right: 8px;
 
               &:hover {
-                background-color: ${({ theme }) => theme.surface.floatActive};
+                color: ${({ theme }) => theme.exactColors.white50};
+                background-color: ${({ theme }) =>
+                  theme.exactColors.blueFade40};
               }
             `}
             onClick={handleItemClick}

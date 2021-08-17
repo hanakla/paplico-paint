@@ -29,10 +29,7 @@ export class CanvasHandler {
 
   constructor(canvas: HTMLCanvasElement) {
     this.canvas = canvas
-    this.context = canvas.getContext('2d', {
-      desynchronized: true,
-      preserveDrawingBuffer: true,
-    })!
+    this.context = canvas.getContext('2d')!
 
     this.on = this.mitt.on.bind(this.mitt)
     this.off = this.mitt.off.bind(this.mitt)

@@ -25,6 +25,7 @@ type EngineEvents = {
 
 type _RenderSetting = {
   disableAllFilters: boolean
+  updateThumbnail: boolean
 }
 
 export class SilkEngine {
@@ -56,7 +57,10 @@ export class SilkEngine {
   }
   protected _pencilMode: 'none' | 'draw' | 'erase' = 'draw'
   protected blushPromise: Promise<void> | null = null
-  protected _renderSetting: _RenderSetting = { disableAllFilters: false }
+  protected _renderSetting: _RenderSetting = {
+    disableAllFilters: false,
+    updateThumbnail: true,
+  }
 
   protected lastRenderedAt: WeakMap<LayerTypes, number> = new WeakMap()
 
@@ -137,15 +141,14 @@ export class SilkEngine {
     return this._pencilMode
   }
 
-  public async rerender() {
+  public async render({
+    disableAllFilters = false,
+    updateThumbnail = false,
+  }: Partial<_RenderSetting> = {}) {
     if (!this.document) return
-    if (this.atomicRerender.isLocked) return
-    const renderLock = await this.atomicRerender.enjure()
 
-    const {
-      document,
-      _renderSetting: { disableAllFilters },
-    } = this
+    const renderLock = await this.atomicRerender.enjure()
+    const { document } = this
 
     this.gl.setSize(document.width, document.height)
 
@@ -196,6 +199,7 @@ export class SilkEngine {
 
     // Generate thumbnails
     for (const [id, , image] of images) {
+      if (!updateThumbnail) break
       if (image == null) continue
 
       this.thumbnailCtx.clearRect(
@@ -345,6 +349,24 @@ export class SilkEngine {
       this.atomicRerender.release(renderLock)
     }
 
+    return {
+      export: (mimeType: string, quality?: number) => {
+        return new Promise<Blob>((resolve, rejecct) => {
+          destCtx.canvas.toBlob(
+            (blob) => {
+              if (blob) resolve(blob)
+              else rejecct(new Error('Failed to export canvas'))
+            },
+            mimeType,
+            quality
+          )
+        })
+      },
+    }
+  }
+
+  public async rerender() {
+    this.render({ ...this.renderSetting, updateThumbnail: true })
     this.mitt.emit('rerender')
   }
 
@@ -374,6 +396,7 @@ export class SilkEngine {
 
     this.document = document
     this.document.on('layersChanged', this.handleLayerChange)
+    this.setActiveLayer(document.activeLayerId)
 
     this.canvas.width = document.width
     this.canvas.height = document.height
@@ -451,14 +474,13 @@ export class SilkEngine {
     this.canvasHandler.scale = scale
   }
 
-  public setActiveLayer(id: string) {
+  public setActiveLayer(id: string | null) {
     if (!this.document) return
 
     this.document.activeLayerId = id
     this._activeLayer =
-      this.document.layers.find(
-        (layer) => layer.id === this.document!.activeLayerId
-      ) ?? null
+      this.document.layers.find((layer) => layer.id === id) ?? null
+
     this.mitt.emit('activeLayerChanged')
   }
 

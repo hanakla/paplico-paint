@@ -3,6 +3,7 @@ import { v4 } from 'uuid'
 import { Path } from './Path'
 import { VectorObject } from './VectorObject'
 import { Filter } from './Filter'
+import { assign } from '../utils'
 
 export class VectorLayer implements ILayer {
   public readonly layerType = 'vector'
@@ -68,7 +69,20 @@ export class VectorLayer implements ILayer {
     return layer
   }
 
-  public static deserialize(o: any) {}
+  public static deserialize(obj: any) {
+    return assign(new VectorLayer(), {
+      id: obj.id,
+      name: obj.name,
+      visible: obj.visible,
+      lock: obj.lock,
+      compositeMode: obj.compositeMode,
+      opacity: obj.opacity,
+      x: obj.x,
+      y: obj.y,
+      objects: obj.objects.map((obj: any) => VectorObject.deserialize(obj)),
+      filters: obj.filters.map((filter: any) => Filter.deserialize(filter)),
+    })
+  }
 
   protected constructor() {}
 
@@ -82,7 +96,19 @@ export class VectorLayer implements ILayer {
   }
 
   public serialize() {
-    return {}
+    return {
+      layerType: this.layerType,
+      id: this.id,
+      name: this.name,
+      visible: this.visible,
+      lock: this.lock,
+      compositeMode: this.compositeMode,
+      opacity: this.opacity,
+      x: this.x,
+      y: this.y,
+      objects: this.objects.map((o) => o.serialize()),
+      filters: this.filters.map((f) => f.serialize()),
+    }
   }
 
   public get width() {

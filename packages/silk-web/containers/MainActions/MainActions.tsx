@@ -1,8 +1,9 @@
-import { ChangeEvent, MouseEvent, useCallback, useRef, useState } from 'react'
-import { ChromePicker, ColorChangeHandler } from 'react-color'
+import { MouseEvent, useCallback, useRef, useState } from 'react'
+import { ChromePicker, ColorChangeHandler, CustomPicker } from 'react-color'
+import { Hue, Saturation } from 'react-color/lib/components/common'
 import { rgba, readableColor, rgb } from 'polished'
 import { usePopper } from 'react-popper'
-import { SilkBrushes } from 'silk-core'
+import { SilkBrushes, SilkEntity } from 'silk-core'
 import { useTranslation } from 'next-i18next'
 import { useLysSlice } from '@fleur/lys'
 import { useClickAway, useMedia, useToggle, useUpdate } from 'react-use'
@@ -15,18 +16,16 @@ import { narrow } from '../../utils/responsive'
 import { FloatMenu } from '../../components/FloatMenu'
 import { LayerFloatMenu } from './LayerFloatMenu'
 import { EditorSlice } from '../../domains/Editor'
-import { useLayerControl } from '../../hooks/useLayers'
 import { useDrag } from 'react-use-gesture'
 import { DOMUtils } from '../../utils/dom'
-import { useEffect } from 'react'
+import { SelectBox } from '../../components/SelectBox'
 
 export function MainActions() {
-  const { t } = useTranslation('app')
   const engine = useSilkEngine()
   const [editorState, editorActions] = useLysSlice(EditorSlice)
+  const { currentVectorBrush, currentVectorFill, activeLayer } = editorState
   const theme = useTheme()
   const isNarrowMedia = useMedia(`(max-width: ${narrow})`)
-  const layerControls = useLayerControl()
 
   const [color, setColor] = useState({ r: 0, g: 0, b: 0 })
   const [openPicker, togglePicker] = useToggle(false)
@@ -39,7 +38,6 @@ export function MainActions() {
   const [weight, setWeight] = useState(1)
   const [brushOpacity, setBrushOpacity] = useState(1)
   const rerender = useUpdate()
-  const { currentVectorBrush, currentVectorFill } = editorState
 
   const handleChangeColor: ColorChangeHandler = useCallback((color) => {
     setColor(color.rgb)
@@ -118,8 +116,8 @@ export function MainActions() {
   const layerRef = useRef<HTMLDivElement | null>(null)
   const layerPopRef = useRef<HTMLDivElement | null>(null)
   const layerPopper = usePopper(layerRef.current, layerPopRef.current, {
-    strategy: 'absolute',
-    placement: 'top-end',
+    strategy: 'fixed',
+    placement: 'top-start',
   })
 
   const colorPickerPopRef = useRef<HTMLDivElement | null>(null)
@@ -127,8 +125,8 @@ export function MainActions() {
   const vectorColorRootRef = useRef<HTMLDivElement | null>(null)
   const vectorColorPickerPopRef = useRef<HTMLDivElement | null>(null)
   const vectorColorPopper = usePopper(layerRef.current, layerPopRef.current, {
-    strategy: 'absolute' ?? '',
-    placement: 'bottom-end',
+    strategy: 'fixed' ?? '',
+    placement: 'top-start',
   })
 
   // useEffect(() => {
@@ -136,6 +134,7 @@ export function MainActions() {
   // })
 
   useClickAway(colorPickerPopRef, () => togglePicker(false))
+  useClickAway(vectorColorPickerPopRef, () => toggleVectorColorOpened(false))
   useClickAway(brushPopRef, (e) => {
     if (DOMUtils.childrenOrSelf(e.target, brushRef.current)) return
     toggleBrush(false)
@@ -202,9 +201,9 @@ export function MainActions() {
         gap: 8px;
         padding: 8px 16px;
         margin-bottom: env(safe-area-inset-bottom);
-        background-color: ${rgba('#ccc', 0.8)};
+        background-color: ${({ theme }) => theme.exactColors.whiteFade50};
         border-radius: 100px;
-        color: ${({ theme }) => theme.text.mainActionsBlack};
+        color: ${({ theme }) => theme.exactColors.black40};
         border: 1px solid #aaa;
         white-space: nowrap;
         touch-action: manipulation;
@@ -232,13 +231,11 @@ export function MainActions() {
         </div>
         <div
           css={`
-            display: flex;
-            align-items: center;
-            justify-content: center;
             width: 36px;
             height: 36px;
             border: 1px solid #000;
             border-radius: 64px;
+            overflow: hidden;
 
             background: linear-gradient(
                 45deg,
@@ -257,13 +254,18 @@ export function MainActions() {
             background-size: 4px 4px;
             background-position: 0 0, 2px 2px; ;
           `}
-          style={{
-            backgroundColor: rgba(color.r, color.g, color.b, brushOpacity),
-          }}
           {...bindBrushOpacityDrag()}
         >
           <div
+            css={`
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              width: 100%;
+              height: 100%;
+            `}
             style={{
+              backgroundColor: rgba(color.r, color.g, color.b, brushOpacity),
               color: readableColor(
                 rgb(color.r, color.g, color.b),
                 '#222',
@@ -271,7 +273,8 @@ export function MainActions() {
               ),
             }}
           >
-            {Math.round(brushOpacity * 100)}%
+            {Math.round(brushOpacity * 100)}
+            <span css="font-size: .8em">%</span>
           </div>
         </div>
       </div>
@@ -283,7 +286,7 @@ export function MainActions() {
           overflow: hidden;
         `}
       >
-        {layerControls.activeLayer?.layerType === 'raster' ? (
+        {activeLayer?.layerType === 'raster' ? (
           <div
             css={`
               display: inline-block;
@@ -327,7 +330,6 @@ export function MainActions() {
               position: relative;
               width: 36px;
               height: 36px;
-              overflow: hidden;
             `}
           >
             {/* VectorColor */}
@@ -346,6 +348,7 @@ export function MainActions() {
                 box-shadow: 0 0 0 2px #dbdbdb, 0 0 2px 1px rgba(0, 0, 0, 0.4);
               `}
               style={{
+                zIndex: vectorColorTarget === 'stroke' ? 1 : 0,
                 borderColor: currentVectorBrush
                   ? rgba(
                       currentVectorBrush.color.r,
@@ -373,6 +376,7 @@ export function MainActions() {
                 box-shadow: 0 0 2px 1px rgba(0, 0, 0, 0.4);
               `}
               style={{
+                zIndex: vectorColorTarget === 'fill' ? 1 : 0,
                 // prettier-ignore
                 background:
                   currentVectorFill?.type ==='fill' ? rgba(currentVectorFill.color.r, currentVectorFill.color.g, currentVectorFill.color.b, currentVectorFill.opacity)  :
@@ -395,18 +399,12 @@ export function MainActions() {
               data-ignore-click
               {...vectorColorPopper.attributes.popper}
             >
-              <ChromePicker
-                css={`
-                  position: absolute;
-                  left: 50%;
-                  bottom: 100%;
-                  transform: translateX(-50%);
-                `}
-                color={color}
-                onChange={handleChangeColor}
-                onChangeComplete={handleChangeCompleteColor}
-                disableAlpha
-              />
+              {editorState.activeObject && (
+                <VectorColorPicker
+                  mode={vectorColorTarget}
+                  object={editorState.activeObject}
+                />
+              )}
             </div>
           </div>
         )}
@@ -435,7 +433,7 @@ export function MainActions() {
           style={{
             backgroundColor:
               editorState.currentTool === 'cursor'
-                ? theme.surface.brushViewActive
+                ? theme.exactColors.blackFade30
                 : 'transparent',
           }}
           onClick={handleChangeToCursorMode}
@@ -443,13 +441,13 @@ export function MainActions() {
           <Cursor css="width:24px; vertical-align:bottom;" />
         </div>
 
-        {layerControls.activeLayer?.layerType === 'vector' && (
+        {activeLayer?.layerType === 'vector' && (
           <div
             css="padding:4px; border-radius: 0; transition: background-color .2s ease-in-out;"
             style={{
               backgroundColor:
                 editorState.currentTool === 'shape-pen'
-                  ? theme.surface.brushViewActive
+                  ? theme.exactColors.blackFade30
                   : 'transparent',
             }}
             onClick={handleChangeToShapePenMode}
@@ -464,7 +462,7 @@ export function MainActions() {
           style={{
             backgroundColor:
               editorState.currentTool === 'draw'
-                ? theme.surface.brushViewActive
+                ? theme.exactColors.blackFade30
                 : 'transparent',
           }}
           onClick={handleChangeToPencilMode}
@@ -472,13 +470,13 @@ export function MainActions() {
           <Brush css="width:24px; vertical-align:bottom;" />
         </div>
 
-        {layerControls.activeLayer?.layerType === 'raster' && (
+        {activeLayer?.layerType === 'raster' && (
           <div
             css="padding: 4px; border-radius: 0 60px 60px 0; transition: background-color .2s ease-in-out;"
             style={{
               backgroundColor:
                 editorState.currentTool === 'erase'
-                  ? theme.surface.brushViewActive
+                  ? theme.exactColors.blackFade30
                   : 'transparent',
             }}
             onClick={handleChangeToEraceMode}
@@ -603,7 +601,7 @@ const BrushItem = ({
       style={{
         backgroundColor:
           engine?.currentBrush?.id === SilkBrushes[id].id
-            ? theme.surface.floatActive
+            ? theme.exactColors.blueFade50
             : 'transparent',
       }}
       onClick={handleClick}
@@ -612,3 +610,94 @@ const BrushItem = ({
     </li>
   )
 }
+
+const VectorColorPicker = ({
+  object,
+  mode,
+}: // color,
+// onChange,
+// onChangeComplete,
+
+{
+  object: SilkEntity.VectorObject
+  mode: 'fill' | 'stroke'
+  // color: Color
+  // onChange: ColorChangeHandler
+  // onChangeComplete: ColorChangeHandler
+}) => {
+  const { t } = useTranslation('app')
+  const [editorState, editorActions] = useLysSlice(EditorSlice)
+
+  const handleChangeFillMode = useCallback(() => {
+    handleChangeFillMode
+  }, [])
+
+  const handleChangeStrokeColor: ColorChangeHandler = useCallback(
+    ({ rgb: { r, g, b } }) => {
+      editorActions.updateActiveObject((obj) => {
+        obj.brush = obj.brush
+          ? { ...obj.brush, color: { r, g, b } }
+          : {
+              ...(editorState.currentVectorBrush ??
+                editorState.defaultVectorBrush),
+              color: { r, g, b },
+            }
+      })
+    },
+    [editorState]
+  )
+
+  return (
+    <div>
+      {mode === 'fill' && (
+        <>
+          <div>
+            <SelectBox
+              items={[
+                { label: t('vectorColorPicker.modes.solid'), value: 'solid' },
+                {
+                  label: t('vectorColorPicker.modes.linearGradient'),
+                  value: 'linear-gradient',
+                },
+              ]}
+              value={object.fill?.type}
+              placeholder={t('vectorColorPicker.noFill')}
+              placement="auto"
+              onChange={handleChangeFillMode}
+            />
+          </div>
+          <div
+            css={`
+              position: relative;
+              height: 100px;
+            `}
+          >
+            <CustomColorPicker color={{ r: 0, g: 0, b: 0 }} />
+          </div>
+        </>
+      )}
+      {mode === 'stroke' && object.brush && (
+        <ChromePicker
+          css={`
+            /* position: absolute;
+    left: 50%;
+    bottom: 100%;
+    transform: translateX(-50%); */
+          `}
+          color={object.brush?.color}
+          onChange={handleChangeStrokeColor}
+          onChangeComplete={handleChangeStrokeColor}
+        />
+      )}
+    </div>
+  )
+}
+
+const CustomColorPicker = CustomPicker((props) => {
+  return (
+    <div>
+      <Hue {...props} />
+      <Saturation {...props} />
+    </div>
+  )
+})

@@ -20,6 +20,14 @@ export class Filter {
     return assign(new Filter(), { filterId, settings, visible })
   }
 
+  public static deserialize(obj: any) {
+    return assign(new Filter(), {
+      id: obj.id,
+      filterId: obj.filterId,
+      setttings: obj.setttings,
+    })
+  }
+
   public serialize() {
     return {
       filterId: this.filterId,

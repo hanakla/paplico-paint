@@ -56,9 +56,8 @@ export const ActionSheet = forwardRef<HTMLDivElement, Props>(
             bottom: 0;
             width: 100vw;
             max-width: 400px;
-            min-height: 40vh;
             padding: 8px;
-            padding-bottom: env(safe-area-inset-bottom);
+            padding-bottom: max(env(safe-area-inset-bottom), 16px);
             overflow: hidden;
 
             ${styleWhen(fill)`
@@ -146,7 +145,7 @@ export const ActionSheetItem = ({
         font-size: 16px;
 
         + & {
-          border-top: 1px solid ${rgba('#000', .5)}
+          border-top: 1px solid ${rgba('#000', 0.5)};
         }
       `}
       className={className}

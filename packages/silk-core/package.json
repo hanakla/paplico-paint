@@ -21,6 +21,8 @@
     "@types/clone": "^2.1.1",
     "@types/jest": "^26.0.24",
     "@types/msgpack5": "^3.4.2",
-    "jest-canvas-mock": "^2.3.1"
+    "bili": "^5.0.5",
+    "rollup-plugin-glslify": "^1.2.0",
+    "rollup-plugin-typescript2": "^0.30.0"
   }
 }

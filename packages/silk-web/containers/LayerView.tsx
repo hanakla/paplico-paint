@@ -1,23 +1,21 @@
-import { ChangeEvent, MouseEvent, useCallback, useReducer, useRef } from 'react'
-import { SilkEntity } from 'silk-core'
+import { ChangeEvent, MouseEvent, useCallback, useRef } from 'react'
+import { SilkEntity, SilkHelper } from 'silk-core'
 import { useClickAway, useToggle } from 'react-use'
+import { loadImageFromBlob, selectFile } from '@hanakla/arma'
 import { rgba } from 'polished'
 import { usePopper } from 'react-popper'
+import { Add } from '@styled-icons/remix-fill'
+import { css } from 'styled-components'
 import { Portal } from '../components/Portal'
 import {
   SortableContainer,
   SortableElement,
   SortEndHandler,
 } from 'react-sortable-hoc'
-import { rangeThumb, silkScroll } from '../utils/mixins'
+import { centering, rangeThumb, silkScroll } from '../utils/mixins'
 import { useTranslation } from 'next-i18next'
-import {
-  ArrowDownS,
-  Eye,
-  EyeClose,
-  More,
-  Stack,
-} from '@styled-icons/remix-line'
+import { ArrowDownS, Stack } from '@styled-icons/remix-line'
+import { Eye, EyeClose } from '@styled-icons/remix-fill'
 import { useLayerControl } from '../hooks/useLayers'
 import {
   ContextMenu,
@@ -28,38 +26,89 @@ import { combineRef } from '../utils/react'
 import { useLysSlice } from '@fleur/lys'
 import { EditorSlice } from '../domains/Editor'
 import { SelectBox } from '../components/SelectBox'
-import { Add } from '@styled-icons/remix-fill'
-import { css } from 'styled-components'
+
 import { FakeInput } from '../components/FakeInput'
+import { DOMUtils } from '../utils/dom'
+import { useMouseTrap } from '../hooks/useMouseTrap'
+import { useTheme } from 'styled-components'
 
 export function LayerView() {
   const { t } = useTranslation('app')
+  const theme = useTheme()
   const layerControls = useLayerControl()
-  const [editorState, editorActions] = useLysSlice(EditorSlice)
+  const [{ activeLayer, currentDocument }, editorActions] =
+    useLysSlice(EditorSlice)
 
   const [layerTypeOpened, toggleLayerTypeOpened] = useToggle(false)
   const layerTypeOpenerRef = useRef<HTMLDivElement | null>(null)
   const layerTypeDropdownRef = useRef<HTMLUListElement | null>(null)
   useClickAway(layerTypeDropdownRef, () => toggleLayerTypeOpened(false))
 
-  const popper = usePopper(
+  const layerTypePopper = usePopper(
     layerTypeOpenerRef.current,
     layerTypeDropdownRef.current,
     {
       placement: 'bottom-end',
-      strategy: 'fixed',
+      strategy: 'absolute',
     }
   )
 
-  const handleAddLayer = useCallback(() => {
-    const newLayer = SilkEntity.RasterLayer.create({
-      width: 1000,
-      height: 1000,
-    })
-    layerControls.addLayer(newLayer, {
-      aboveLayerId: layerControls.activeLayer?.id,
-    })
-  }, [layerControls])
+  const handleClickAddLayerItem = useCallback(
+    async ({ currentTarget }: MouseEvent<HTMLLIElement>) => {
+      if (!currentDocument) return
+
+      const layerType = currentTarget.dataset.layerType!
+      const lastLayerId = activeLayer?.id
+      const { width, height } = currentDocument
+
+      let layer: SilkEntity.LayerTypes
+      switch (layerType) {
+        case 'raster': {
+          layer = SilkEntity.RasterLayer.create({ width, height })
+          break
+        }
+        case 'vector': {
+          layer = SilkEntity.VectorLayer.create({})
+          break
+        }
+        case 'filter': {
+          layer = SilkEntity.FilterLayer.create({})
+          break
+        }
+        case 'image': {
+          const [file] = await selectFile({
+            extensions: ['.jpg', '.jpeg', '.png'],
+          })
+          if (!file) return
+
+          const { image } = await loadImageFromBlob(file)
+          layer = await SilkHelper.imageToLayer(image)
+          break
+        }
+        default:
+          throw new Error('なんかおかしなっとるで')
+      }
+
+      editorActions.addLayer(layer, { aboveLayerId: lastLayerId })
+      toggleLayerTypeOpened(false)
+    },
+    [currentDocument, activeLayer]
+  )
+
+  const handleChangeFile = useCallback(
+    async ({ currentTarget }: ChangeEvent<HTMLInputElement>) => {
+      const [file] = Array.from(currentTarget.files!)
+      if (!file) return
+
+      const lastLayerId = activeLayer?.id
+      const { image } = await loadImageFromBlob(file)
+      const layer = await SilkHelper.imageToLayer(image)
+      editorActions.addLayer(layer, { aboveLayerId: lastLayerId })
+
+      currentTarget.value = ''
+    },
+    [activeLayer]
+  )
 
   const handleLayerSortEnd: SortEndHandler = useCallback(
     (sort) => {
@@ -68,22 +117,38 @@ export function LayerView() {
     [layerControls]
   )
 
+  const handleChangeLayerName = useCallback(
+    ({ currentTarget }: ChangeEvent<HTMLInputElement>) => {
+      editorActions.updateLayer(
+        activeLayer?.id,
+        (layer) => {
+          layer.name = currentTarget.value
+        },
+        { skipRerender: false }
+      )
+    },
+    [activeLayer]
+  )
+
   const handleChangeCompositeMode = useCallback(
     (value: string) => {
-      layerControls.changeCompositeMode(layerControls.activeLayer?.id, value)
+      editorActions.updateLayer(
+        activeLayer?.id,
+        (layer) => (layer.compositeMode = value as any)
+      )
     },
-    [layerControls]
+    [activeLayer]
   )
 
   const handleChangeOpacity = useCallback(
     ({ currentTarget }: ChangeEvent<HTMLInputElement>) => {
-      if (!editorState.activeLayerId) return
+      if (!activeLayer) return
 
-      editorActions.updateLayer(editorState.activeLayerId, (layer) => {
+      editorActions.updateLayer(activeLayer.id, (layer) => {
         layer.opacity = currentTarget.valueAsNumber
       })
     },
-    [editorState.activeLayerId]
+    [activeLayer]
   )
 
   return (
@@ -91,30 +156,22 @@ export function LayerView() {
       css={`
         display: flex;
         flex-flow: column;
-        height: 40vh;
-        overflow: auto;
         font-size: 12px;
-        ${silkScroll}
       `}
     >
       <header
         css={`
           display: flex;
-          padding: 4px;
-          height: 24px;
+          padding: 6px;
           position: sticky;
           top: 0;
-          background-color: #464b4e;
         `}
       >
         <Stack css="width: 16px;" />
         <div css="margin-left: auto">
           <div css="display:flex; user-select: none;">
-            <div onClick={handleAddLayer}>
-              <Add css="width: 24px" />
-            </div>
-            <div onClick={toggleLayerTypeOpened} ref={layerTypeOpenerRef}>
-              <More css="width: 24px;" />
+            <div ref={layerTypeOpenerRef} onClick={toggleLayerTypeOpened}>
+              <Add css="width: 16px;" />
             </div>
           </div>
 
@@ -136,56 +193,63 @@ export function LayerView() {
                 }
               `}
               style={{
-                ...popper.styles.popper,
+                ...layerTypePopper.styles.popper,
                 ...(layerTypeOpened
                   ? { visibility: 'visible', pointerEvents: 'all' }
                   : { visibility: 'hidden', pointerEvents: 'none' }),
               }}
-              {...popper.attributes.popper}
+              {...layerTypePopper.attributes.popper}
             >
-              <li>ベクターレイヤー</li>
-              <li>調整レイヤー</li>
+              <li data-layer-type="raster" onClick={handleClickAddLayerItem}>
+                {t('layerType.raster')}
+              </li>
+              <li data-layer-type="vector" onClick={handleClickAddLayerItem}>
+                {t('layerType.vector')}
+              </li>
+              <li data-layer-type="filter" onClick={handleClickAddLayerItem}>
+                {t('layerType.filter')}
+              </li>
+              <li data-layer-type="image" onClick={handleClickAddLayerItem}>
+                <label>
+                  {t('addFromImage')}
+                  <input
+                    css={`
+                      display: block;
+                      width: 1px;
+                      height: 1px;
+                      opacity: 0;
+                    `}
+                    type="file"
+                    accept="'.png,.jpeg,.jpg"
+                    onChange={handleChangeFile}
+                  />
+                </label>
+              </li>
             </ul>
           </Portal>
         </div>
       </header>
 
-      {editorState.activeLayer && (
+      {activeLayer && (
         <div
-          css={`
+          css={css`
             display: flex;
             flex-flow: column;
-            gap: 4px;
+            gap: 8px;
             margin-top: 4px;
-            padding: 8px 4px;
-            border-top: 1px solid ${rgba('#000', 0.2)};
-            border-bottom: 1px solid ${rgba('#000', 0.2)};
+            padding: 8px;
+            padding-bottom: 14px;
+            border-top: 1px solid
+              ${({ theme }) => theme.exactColors.blackFade30};
+            border-bottom: 1px solid
+              ${({ theme }) => theme.exactColors.blackFade30};
           `}
         >
           <div>
             <FakeInput
-              // css={`
-              //   width: 100%;
-              //   margin-top: -2px;
-              //   padding: 2px;
-              //   appearance: none;
-              //   background-color: transparent;
-              //   border: none;
-              //   border-radius: 2px;
-              //   color: inherit;
-              //   outline: none;
-
-              //   &:focus,
-              //   &:active {
-              //     color: ${({ theme }) => theme.text.inputActive};
-              //     background-color: ${({ theme }) => theme.surface.inputActive};
-              //   }
-              // `}
-              // type="text"
-              value={editorState.activeLayer.name}
-              placeholder={`<${t(
-                `layerType.${editorState.activeLayer.layerType}`
-              )}>`}
+              value={activeLayer.name}
+              placeholder={`<${t(`layerType.${activeLayer.layerType}`)}>`}
+              onChange={handleChangeLayerName}
             />
           </div>
           <div>
@@ -199,7 +263,7 @@ export function LayerView() {
 
             <SelectBox
               css={`
-                padding: 0px 4px;
+                padding: 2px 4px;
               `}
               items={[
                 { value: 'normal', label: t('compositeModes.normal') },
@@ -207,9 +271,9 @@ export function LayerView() {
                 { value: 'screen', label: t('compositeModes.screen') },
                 { value: 'overlay', label: t('compositeModes.overlay') },
               ]}
-              value={editorState.activeLayer.compositeMode}
+              value={activeLayer.compositeMode}
               onChange={handleChangeCompositeMode}
-              placement="auto-start"
+              placement="bottom-start"
             />
           </div>
           <div
@@ -239,7 +303,7 @@ export function LayerView() {
                 min={0}
                 max={100}
                 step={0.1}
-                value={editorState.activeLayer.opacity}
+                value={activeLayer.opacity}
                 onChange={handleChangeOpacity}
               />
             </div>
@@ -247,9 +311,9 @@ export function LayerView() {
         </div>
       )}
 
-      {editorState.currentDocument?.layers && (
+      {currentDocument?.layers && (
         <SortableLayerList
-          layers={[...editorState.currentDocument?.layers].reverse()}
+          layers={[...currentDocument.layers].reverse()}
           onSortEnd={handleLayerSortEnd}
           distance={2}
           lockAxis={'y'}
@@ -259,46 +323,32 @@ export function LayerView() {
   )
 }
 
-const SortableLayerItem = SortableElement(
-  ({ layer }: { layer: SilkEntity.LayerTypes }) => {
-    return <LayerItem layer={layer} />
-  }
-)
-
-const SortableLayerList = SortableContainer(
-  ({ layers }: { layers: SilkEntity.LayerTypes[] }) => (
-    <div
-      css={css`
-        flex: 1;
-        background-color: ${({ theme }) => theme.surface.sidebarList};
-      `}
-    >
-      {layers.map((layer, idx) => (
-        <SortableLayerItem key={layer.id} index={idx} layer={layer} />
-      ))}
-    </div>
-  )
-)
-
-function LayerItem({ layer }: { layer: SilkEntity.LayerTypes }) {
+const SortableLayerItem = SortableElement(function LayerItem({
+  layer,
+}: {
+  layer: SilkEntity.LayerTypes
+}) {
   const { t } = useTranslation('app')
+  const theme = useTheme()
   const [editorState, editorActions] = useLysSlice(EditorSlice)
-  const layerControls = useLayerControl()
 
   const [objectsOpened, toggleObjectsOpened] = useToggle(false)
 
   const rootRef = useRef<HTMLDivElement | null>(null)
 
   const handleToggleVisibility = useCallback(() => {
-    layerControls.toggleVisibility(layer.id)
-  }, [layer, layerControls])
+    editorActions.updateLayer(
+      layer.id,
+      (layer) => (layer.visible = !layer.visible)
+    )
+  }, [layer])
 
   const handleChangeActiveLayer = useCallback(
     (e: MouseEvent<HTMLDivElement>) => {
-      if ((e.target as HTMLElement).matches('[data-ignore-click]')) return
+      if (DOMUtils.closestOrSelf(e.target, '[data-ignore-click]')) return
       editorActions.setActiveLayer(layer.id)
     },
-    [layer, layerControls]
+    [layer]
   )
 
   const handleClickObject = useCallback(
@@ -324,7 +374,21 @@ function LayerItem({ layer }: { layer: SilkEntity.LayerTypes }) {
       editorActions.updateLayer(layer.id, (layer) => {
         layer.name = currentTarget.value
       })
-    }
+    },
+    [layer]
+  )
+
+  useMouseTrap(
+    rootRef,
+    [
+      {
+        key: ['del', 'backspace'],
+        handler: () => {
+          editorActions.deleteLayer(layer.id)
+        },
+      },
+    ],
+    [layer]
   )
 
   return (
@@ -336,6 +400,7 @@ function LayerItem({ layer }: { layer: SilkEntity.LayerTypes }) {
             cursor: default;
           `}
           onClick={handleChangeActiveLayer}
+          tabIndex={-1}
         >
           <div
             css={`
@@ -347,8 +412,12 @@ function LayerItem({ layer }: { layer: SilkEntity.LayerTypes }) {
             `}
             style={{
               backgroundColor:
-                layerControls.activeLayer?.id === layer.id
-                  ? `rgba(255,255,255,.2)`
+                editorState.activeLayer?.id === layer.id
+                  ? theme.surface.sidebarListActive
+                  : '',
+              color:
+                editorState.activeLayer?.id === layer.id
+                  ? theme.text.sidebarListActive
                   : '',
             }}
           >
@@ -372,6 +441,10 @@ function LayerItem({ layer }: { layer: SilkEntity.LayerTypes }) {
             </div>
 
             <div
+              css={css`
+                padding: 4px;
+                color: ${({ theme }) => theme.colors.white10};
+              `}
               style={{
                 ...(layer.visible ? {} : { opacity: 0.5 }),
               }}
@@ -418,10 +491,11 @@ function LayerItem({ layer }: { layer: SilkEntity.LayerTypes }) {
                 height: 16px;
                 flex: none;
               `}
-              src={layerControls.getPreview(layer.id)}
+              src={editorState.thumbnailUrlOfLayer(layer.id)}
             />
             <div
               css={`
+                ${centering({ x: false, y: true })}
                 text-overflow: ellipsis;
                 white-space: nowrap;
                 overflow-x: hidden;
@@ -434,6 +508,7 @@ function LayerItem({ layer }: { layer: SilkEntity.LayerTypes }) {
               <FakeInput
                 css={`
                   font-size: 12px;
+                  pointer-events: none;
                   &::placeholder {
                     color: #9e9e9e;
                   }
@@ -441,6 +516,7 @@ function LayerItem({ layer }: { layer: SilkEntity.LayerTypes }) {
                 value={layer.name}
                 placeholder={`<${t(`layerType.${layer.layerType}`)}>`}
                 onChange={handleChangeLayerName}
+                disabled
               />
             </div>
           </div>
@@ -462,13 +538,13 @@ function LayerItem({ layer }: { layer: SilkEntity.LayerTypes }) {
                         <div
                           ref={ref}
                           css={`
-                            padding: 4px 8px;
+                            padding: 6px 8px;
                             margin-left: 16px;
                           `}
                           style={{
                             backgroundColor:
                               editorState.activeObjectId == object.id
-                                ? `rgba(255,255,255,.2)`
+                                ? theme.surface.sidebarListActive
                                 : undefined,
                           }}
                           data-object-id={object.id}
@@ -500,4 +576,23 @@ function LayerItem({ layer }: { layer: SilkEntity.LayerTypes }) {
       )}
     </ContextMenuArea>
   )
-}
+})
+
+const SortableLayerList = SortableContainer(
+  ({ layers }: { layers: SilkEntity.LayerTypes[] }) => (
+    <div
+      css={css`
+        min-height: 40vh;
+        max-height: 40vh;
+        flex: 1;
+        overflow: auto;
+        background-color: ${({ theme }) => theme.colors.black50};
+        ${silkScroll}
+      `}
+    >
+      {layers.map((layer, idx) => (
+        <SortableLayerItem key={layer.id} index={idx} layer={layer} />
+      ))}
+    </div>
+  )
+)

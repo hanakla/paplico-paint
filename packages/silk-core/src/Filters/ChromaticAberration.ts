@@ -44,12 +44,17 @@ export class ChromaticAberrationFilter implements IFilter {
   }
 
   public get initialConfig() {
-    return {}
+    return { distance: 10, angleDeg: 0 }
   }
 
   public async initialize() {}
-  public render({ source, dest, gl, size }: FilterContext) {
-    const distance = 10
+  public render({
+    source,
+    dest,
+    gl,
+    size,
+    settings: { distance, angleDeg },
+  }: FilterContext) {
     const program = gl.createProgram(FRAGMENT_SHADER)
 
     gl.applyProgram(
@@ -57,6 +62,7 @@ export class ChromaticAberrationFilter implements IFilter {
       {
         resolution: gl.uni2f(size.width, size.height),
         distancePx: gl.uni1f(distance),
+        angleDeg: gl.uni1f(angleDeg),
       },
       source,
       dest

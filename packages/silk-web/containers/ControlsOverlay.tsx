@@ -14,21 +14,10 @@ import { rgba } from 'polished'
 import { any } from '../utils/anyOf'
 import { useMemo } from 'react'
 import { SilkWebMath } from '../utils/SilkWebMath'
-import path from 'path/posix'
 
 export const ControlsOverlay = ({ scale }: { scale: number }) => {
   const engine = useSilkEngine()
-  const layerControl = useLayerControl()
-  const rerender = useUpdate()
-
-  // const handleLayerChanged = useCallback(() => {
-  //   engine?.currentLayerBBox
-  // }, [])
-
-  useEffect(() => {
-    if (!engine) return
-    engine.on('activeLayerChanged', rerender)
-  }, [engine])
+  const [editorState] = useLysSlice(EditorSlice)
 
   const bbox = engine?.currentLayerBBox ?? null
 
@@ -43,7 +32,7 @@ export const ControlsOverlay = ({ scale }: { scale: number }) => {
         pointer-events: none;
       `}
     >
-      {layerControl.activeLayer?.layerType === 'raster' && bbox && (
+      {editorState.activeLayer?.layerType === 'raster' && bbox && (
         <div
           css={`
             position: absolute;
@@ -58,7 +47,7 @@ export const ControlsOverlay = ({ scale }: { scale: number }) => {
           }}
         />
       )}
-      {layerControl.activeLayer?.layerType === 'vector' && (
+      {editorState.activeLayer?.layerType === 'vector' && (
         <VectorLayerControl scale={scale} />
       )}
     </div>
@@ -66,11 +55,10 @@ export const ControlsOverlay = ({ scale }: { scale: number }) => {
 }
 
 const VectorLayerControl = ({ scale }: { scale: number }) => {
-  const [editorState, editorActions] = useLysSlice(EditorSlice)
   const engine = useSilkEngine()
-  const layerControl = useLayerControl()
+  const [editorState, editorActions] = useLysSlice(EditorSlice)
+  const { activeLayer } = editorState
   const rerender = useUpdate()
-  const { activeLayer } = layerControl
 
   const rootRef = useRef<SVGSVGElement | null>(null)
 
@@ -109,7 +97,7 @@ const VectorLayerControl = ({ scale }: { scale: number }) => {
       // Insert point to current path
 
       // SEE: http://polymathprogrammer.com/2007/06/27/reverse-engineering-bezier-curves/
-      ;(editorState.activeLayer as SilkEntity.VectorLayer)?.update((layer) => {
+      editorActions.updateVectorLayer(activeLayer.id, (layer) => {
         const path = layer.objects.find((obj) => obj.id === objectId)?.path
         if (!path) return
 
@@ -120,10 +108,8 @@ const VectorLayerControl = ({ scale }: { scale: number }) => {
           out: { x: x - 2, y: y + 2 },
         })
       })
-
-      debouncedRerender()
     },
-    [editorState]
+    [activeLayer]
   )
 
   const handleClickObjectFill = useCallback(
@@ -135,7 +121,7 @@ const VectorLayerControl = ({ scale }: { scale: number }) => {
 
   const bindRootDrag = useDrag(
     ({ initial, first, last, xy, event: e }) => {
-      assertVectorLayer(layerControl.activeLayer)
+      assertVectorLayer(activeLayer)
 
       if (
         editorState.currentTool === 'cursor' &&
@@ -188,7 +174,7 @@ const VectorLayerControl = ({ scale }: { scale: number }) => {
               : null,
           })
 
-          layerControl.activeLayer.update((layer) => {
+          editorActions.updateVectorLayer(activeLayer.id, (layer) => {
             layer.objects.push(object)
           })
 
@@ -200,7 +186,7 @@ const VectorLayerControl = ({ scale }: { scale: number }) => {
           // Add point to active path
           const { vectorStroking } = editorState
 
-          layerControl.activeLayer.update((layer) => {
+          editorActions.updateVectorLayer(activeLayer.id, (layer) => {
             const object = layer.objects.find(
               (obj) => obj.id === vectorStroking.objectId
             )
@@ -228,7 +214,7 @@ const VectorLayerControl = ({ scale }: { scale: number }) => {
         const { vectorStroking } = editorState
         if (!vectorStroking) return
 
-        layerControl.activeLayer.update((layer) => {
+        editorActions.updateVectorLayer(activeLayer.id, (layer) => {
           const object = layer.objects.find(
             (obj) => obj.id === vectorStroking.objectId
           )
@@ -277,8 +263,6 @@ const VectorLayerControl = ({ scale }: { scale: number }) => {
         //   y,
         // })
       }
-
-      debouncedRerender()
     },
     { useTouch: true }
   )
@@ -326,23 +310,20 @@ const VectorLayerControl = ({ scale }: { scale: number }) => {
             })
           }
 
-          assertVectorLayer(layerControl.activeLayer)
+          assertVectorLayer(activeLayer)
           editorActions.deleteSelectedObjectPoints()
         },
       },
     ],
-    [layerControl.activeLayer]
+    [editorState, activeLayer]
   )
 
   if (!engine) return null
 
-  const bbox = engine?.currentLayerBBox ?? null
-  const { currentDocument } = engine
-  const { activeObject } = editorState
+  const { currentDocument, activeObject } = editorState
 
   if (!currentDocument) return null
 
-  // const [first, ...points] = activeLayer.paths
   const zoom = 1 / scale
 
   // MEMO: これ見て https://codepen.io/osublake/pen/ggYxvp
@@ -410,30 +391,63 @@ const VectorLayerControl = ({ scale }: { scale: number }) => {
           )
       )}
       {activeObject?.fill?.type === 'linear-gradient' && (
-        <defs>
-          <linearGradient id="silk-ui-linear-gradient">
-            {activeObject.fill.colorPoints.map(
-              ({ color: { r, g, b, a }, position }) => (
-                <stop
-                  offset={`${position * 100}%`}
-                  stop-color={rgba(r, g, b, a)}
-                />
-              )
-            )}
-          </linearGradient>
-
-          <g>
-            <line
-              x1={activeObject.fill.start.x}
-              y1={activeObject.fill.start.y}
-              x2={activeObject.fill.end.x}
-              y2={activeObject.fill.end.y}
-              stroke="url(#silk-ui-linear-gradient)"
-            />
-          </g>
-        </defs>
+        <GradientControl object={activeObject} scale={scale} />
       )}
     </svg>
+  )
+}
+
+const GradientControl = ({
+  object,
+  scale,
+}: {
+  object: SilkEntity.VectorObject
+  scale: number
+}) => {
+  const zoom = 1 / scale
+  const objectBBox = useMemo(() => object?.path.getBoundingBox(), [object])
+
+  if (object?.fill?.type !== 'linear-gradient') return null
+
+  return (
+    <>
+      <defs>
+        <linearGradient id="silk-ui-linear-gradient">
+          {object.fill.colorPoints.map(
+            ({ color: { r, g, b, a }, position }) => (
+              <stop
+                offset={`${position * 100}%`}
+                stop-color={rgba(r, g, b, a)}
+              />
+            )
+          )}
+        </linearGradient>
+      </defs>
+
+      <g>
+        <line
+          css={`
+            filter: drop-shadow(0 0 4px ${rgba('#000', 0.2)});
+          `}
+          x1={objectBBox?.centerX + object.fill.start.x}
+          y1={objectBBox?.centerY + object.fill.start.y}
+          x2={objectBBox?.centerX + object.fill.end.x}
+          y2={objectBBox?.centerY + object.fill.end.y}
+          stroke="#fff"
+          strokeWidth={7 * zoom}
+          strokeLinecap="round"
+        />
+        <line
+          x1={objectBBox?.centerX + object.fill.start.x}
+          y1={objectBBox?.centerY + object.fill.start.y}
+          x2={objectBBox?.centerX + object.fill.end.x}
+          y2={objectBBox?.centerY + object.fill.end.y}
+          stroke="url(#silk-ui-linear-gradient)"
+          strokeWidth={4 * zoom}
+          strokeLinecap="round"
+        />
+      </g>
+    </>
   )
 }
 
@@ -469,12 +483,14 @@ const PathSegment = ({
   ) => void
   onHoverStateChange: (e: { hovering: boolean; objectId: string }) => void
 }) => {
+  const POINT_SIZE = 8
+
   const engine = useSilkEngine()
   const rerender = useUpdate()
   const layerControls = useLayerControl()
   const [editorState, editorActions] = useLysSlice(EditorSlice)
 
-  if (layerControls.activeLayer?.layerType !== 'vector')
+  if (editorState.activeLayer?.layerType !== 'vector')
     throw new Error('Invalid layerType in PathSegment component')
 
   const debouncedRerender = useCallback(
@@ -487,7 +503,6 @@ const PathSegment = ({
 
   const bindDragStartInAnchor = useDrag(({ delta, event }) => {
     event.stopPropagation()
-    assertVectorLayer(editorState.activeLayer)
 
     editorActions.updateVectorLayer(editorState.activeLayer.id, (layer) => {
       const path = layer.objects.find((obj) => obj.id === object.id)?.path
@@ -503,9 +518,8 @@ const PathSegment = ({
 
   const bindDragOutAnchor = useDrag(({ delta, event }) => {
     event.stopPropagation()
-    assertVectorLayer(layerControls.activeLayer)
 
-    layerControls.activeLayer?.update((layer) => {
+    editorActions.updateVectorLayer(editorState.activeLayer?.id, (layer) => {
       const path = layer.objects.find((obj) => obj.id === object.id)?.path
       const point = path?.points[pointIndex]
       if (!point?.out) return
@@ -519,10 +533,8 @@ const PathSegment = ({
 
   const bindDragPoint = useDrag(({ delta, event }) => {
     event.stopPropagation()
-    assertVectorLayer(layerControls.activeLayer)
 
-    if (!editorState.activeLayer) return
-    editorActions.updateVectorLayer(editorState.activeLayer.id, (layer) => {
+    editorActions.updateVectorLayer(editorState.activeLayer?.id, (layer) => {
       const point = layer.objects.find((obj) => obj.id === object.id)?.path
         .points[pointIndex]
       if (!point) return
@@ -718,7 +730,7 @@ const PathSegment = ({
           stroke: transparent;
         `}
         style={{
-          strokeWidth: 5 * zoom,
+          strokeWidth: POINT_SIZE * zoom,
         }}
         d={segmentPath}
         data-object-id={object.id}
@@ -747,7 +759,7 @@ const PathSegment = ({
                 `}
                 cx={point.in.x}
                 cy={point.in.y}
-                r="5"
+                r={POINT_SIZE * zoom}
                 onDoubleClick={handleDoubleClickInPoint}
                 {...bindDragStartInAnchor()}
               />
@@ -774,7 +786,7 @@ const PathSegment = ({
                 `}
                 cx={point.out.x}
                 cy={point.out.y}
-                r="5"
+                r={POINT_SIZE * zoom}
                 onDoubleClick={handleDoubleClickOutPoint}
                 {...bindDragOutAnchor()}
               />
@@ -788,9 +800,11 @@ const PathSegment = ({
             `}
             x={point.x}
             y={point.y}
-            width={5 * zoom}
-            height={5 * zoom}
-            transform={`translate(${(-5 * zoom) / 2}, ${(-5 * zoom) / 2})`}
+            width={POINT_SIZE * zoom}
+            height={POINT_SIZE * zoom}
+            transform={`translate(${(-POINT_SIZE * zoom) / 2}, ${
+              (-POINT_SIZE * zoom) / 2
+            })`}
             style={{
               strokeWidth: 1 * zoom,
               ...(editorState.activeObjectPointIndices.includes(pointIndex)

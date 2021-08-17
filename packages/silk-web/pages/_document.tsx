@@ -6,7 +6,6 @@ import Document, {
   NextScript,
 } from 'next/document'
 import { ServerStyleSheet } from 'styled-components'
-import { GlobalStyle } from '../components/GlobalStyle'
 
 export default class AppDocument extends Document {
   static async getInitialProps(ctx: DocumentContext) {

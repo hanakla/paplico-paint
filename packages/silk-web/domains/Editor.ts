@@ -9,7 +9,10 @@ import { assign } from '../utils/assign'
 
 interface State {
   engine: Silk | null
+  editorMode: EditorMode
+  editorPage: EditorPage
   renderSetting: Silk.RenderSetting
+  _currentDocument: SilkEntity.Document | null
   currentTool: Tool
   currentFill: SilkValue.FillSetting | null
   currentStroke: SilkValue.BrushSetting | null
@@ -20,8 +23,11 @@ interface State {
   vectorStroking: VectorStroking | null
   vectorFocusing: { objectId: string } | null
   clipboard: SilkEntity.VectorObject | null
+  currentTheme: 'dark' | 'light'
 }
 
+type EditorMode = 'pc' | 'sp' | 'tablet'
+type EditorPage = 'home' | 'app'
 type Tool = 'cursor' | 'shape-pen' | 'draw' | 'erase'
 type VectorStroking = {
   objectId: string
@@ -33,10 +39,34 @@ type VectorStroking = {
 export const EditorSlice = createSlice(
   {
     actions: {
-      setEngine: ({ draft }, engine: Silk) => {
+      setEngine: async ({ draft }, engine: Silk) => {
         draft.engine = engine as any
+
         engine.pencilMode = 'none'
         engine.renderSetting = { ...draft.renderSetting }
+        engine.on('rerender', () => {
+          trace('Canvas rerendered')
+        })
+
+        if (draft._currentDocument) {
+          await engine.setDocument(draft._currentDocument as any)
+          engine.setActiveLayer(draft._currentDocument.activeLayerId)
+        }
+      },
+      setDocument: async ({ draft }, document: SilkEntity.Document) => {
+        draft._currentDocument = document
+
+        if (draft.engine) {
+          await draft.engine.setDocument(document)
+          draft.activeLayerId = document.activeLayerId
+        }
+      },
+      setTheme: ({ draft }, theme: 'dark' | 'light') => {
+        draft.currentTheme = theme
+      },
+      setEditorMode: ({ draft }, mode: EditorMode) => {},
+      setEditorPage: ({ draft }, page: EditorPage) => {
+        draft.editorPage = page
       },
       setRenderSetting: ({ draft }, setting: Partial<Silk.RenderSetting>) => {
         if (!draft.engine) return
@@ -107,16 +137,33 @@ export const EditorSlice = createSlice(
         100,
         true
       ),
+      updateDocument: (
+        { draft },
+        proc: (document: SilkEntity.Document) => void,
+        { skipRerender = false }: { skipRerender?: boolean } = {}
+      ) => {
+        if (!draft._currentDocument) return
+        proc(draft._currentDocument as SilkEntity.Document)
+
+        if (!skipRerender) {
+          debouncing((engine) => engine?.rerender(), draft.engine)
+        }
+      },
       updateLayer: (
         { draft },
-        layerId: string,
-        proc: (layer: SilkEntity.LayerTypes) => void
+        layerId: string | null | undefined,
+        proc: (layer: SilkEntity.LayerTypes) => void,
+        { skipRerender = false }: { skipRerender?: boolean } = {}
       ) => {
         findLayer(draft.engine?.currentDocument, layerId)?.update(proc)
+
+        if (!skipRerender) {
+          debouncing((engine) => engine?.rerender(), draft.engine)
+        }
       },
       updateRasterLayer: (
         { draft },
-        layerId: string,
+        layerId: string | null | undefined,
         proc: (layer: SilkEntity.RasterLayer) => void
       ) => {
         const layer = findLayer(draft.engine?.currentDocument, layerId)
@@ -126,13 +173,27 @@ export const EditorSlice = createSlice(
       },
       updateVectorLayer: (
         { draft },
-        layerId: string,
+        layerId: string | null | undefined,
         proc: (layer: SilkEntity.VectorLayer) => void
       ) => {
         const layer = findLayer(draft.engine?.currentDocument, layerId)
         if (layer?.layerType !== 'vector') return
 
         layer.update(proc)
+      },
+      updateFilter: (
+        { draft },
+        layerId: string | null,
+        filterId: string | null,
+        proc: (filter: SilkEntity.Filter) => void
+      ) => {
+        const layer = findLayer(draft.engine?.currentDocument, layerId)
+        if (!layer) return
+
+        const filter = layer.filters.find((filter) => filter.id === filterId)
+        if (!filter) return
+
+        proc(filter)
       },
       updateActiveObject: (
         { draft },
@@ -150,7 +211,7 @@ export const EditorSlice = createSlice(
       addLayer: (
         { draft },
         newLayer: SilkEntity.LayerTypes,
-        { aboveLayerId }: { aboveLayerId?: string }
+        { aboveLayerId }: { aboveLayerId?: string | null }
       ) => {
         draft.engine?.currentDocument?.addLayer(newLayer, { aboveLayerId })
         draft.engine?.setActiveLayer(newLayer.id)
@@ -175,12 +236,24 @@ export const EditorSlice = createSlice(
         if (!object) throw new Error(`Object(id: ${objectOrId}) not found`)
         object.path.points.splice(segmentIndex, 0, point)
       },
-      deleteLayer: ({draft}, layerId: string) => {
-        const idx = draft.currentDocument.layers.findIndex(layer => layer.id === layerId)
+      deleteLayer: ({ draft }, layerId: string | null | undefined) => {
+        if (!draft.engine?.currentDocument) return
+
+        const { currentDocument } = draft.engine
+        if (currentDocument.layers.length === 1) return
+
+        const idx = findLayerIndex(currentDocument, layerId)
         if (idx === -1) return
 
-        draft.currentDocument.layers.splice(idx, 1)
-        if (layerId === draft.activeLayerId) draft.activeLayerId = null
+        currentDocument.layers.splice(idx, 1)
+
+        // ActiveLayerがなくなると画面がアになるので……
+        const nextActiveLayer = currentDocument.layers[idx - 1]
+
+        if (layerId === draft.activeLayerId) {
+          draft.engine.setActiveLayer(nextActiveLayer.id)
+          draft.activeLayerId = nextActiveLayer.id
+        }
       },
       deleteSelectedFilters: ({ draft }) => {
         findLayer(draft.engine?.currentDocument, draft.activeLayerId)?.update(
@@ -240,6 +313,12 @@ export const EditorSlice = createSlice(
         if (!object) return currentFill
         return currentFill
       },
+      defaultVectorBrush: (): Silk.CurrentBrushSetting => ({
+        brushId: '@silk-paint/brush',
+        color: { r: 26, g: 26, b: 26 },
+        opacity: 1,
+        weight: 1,
+      }),
       currentDocument: ({ engine }) => engine?.currentDocument,
       activeLayer: ({ engine }) => engine?.activeLayer,
       activeObject: ({
@@ -251,11 +330,19 @@ export const EditorSlice = createSlice(
           (obj) => obj.id === activeObjectId
         ) as any
       },
+      thumbnailUrlOfLayer:
+        ({ engine }) =>
+        (layerId: string) =>
+          engine?.previews.get(layerId),
     },
   },
   (): State => ({
     engine: null,
-    renderSetting: { disableAllFilters: false },
+    _currentDocument: null,
+    editorMode: 'sp',
+    editorPage: 'app',
+    currentTheme: 'light',
+    renderSetting: { disableAllFilters: false, updateThumbnail: true },
     currentTool: 'cursor',
     currentFill: null,
     currentStroke: null,
@@ -270,17 +357,34 @@ export const EditorSlice = createSlice(
 )
 
 const findLayer = (
-  document: Draft<SilkEntity.Document> | undefined | null,
-  layerId: string | null
+  document: Draft<SilkEntity.Document> | null | undefined,
+  layerId: string | null | undefined
 ) => {
   if (document == null || layerId === null) return
 
-  const layer = document.layers.find((layer) => layer.id === layerId)
+  const index = findLayerIndex(document, layerId)
+  return document.layers[index]
+}
 
-  if (!layer) {
+const findLayerIndex = (
+  document: Draft<SilkEntity.Document> | null | undefined,
+  layerId: string | null | undefined
+) => {
+  if (document == null || layerId === null) return -1
+
+  const index = document.layers.findIndex((layer) => layer.id === layerId)
+
+  if (index === -1) {
     warn('Layer not found:', layerId)
-    return
   }
 
-  return layer
+  return index
 }
+
+const debouncing = debounce(
+  <T extends (...args: A[]) => void, A>(proc: T, ...args: A[]) => {
+    proc(...args)
+  },
+  100,
+  true
+)

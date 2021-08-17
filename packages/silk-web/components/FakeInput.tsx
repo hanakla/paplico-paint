@@ -24,8 +24,7 @@ export const FakeInput = forwardRef<
         outline: none;
         font-size: ${isNarrow ? '16px' : 'inherit'};
 
-        &:focus,
-        &:active {
+        &:focus {
           color: ${({ theme }) => theme.text.inputActive};
           background-color: ${({ theme }) => theme.surface.inputActive};
         }

@@ -7,10 +7,9 @@ import {
   EyeClose,
   Menu,
   More,
-  Magic
+  Magic,
 } from '@styled-icons/remix-line'
-import { Magic as MagicFill
-} from '@styled-icons/remix-fill'
+import { Magic as MagicFill } from '@styled-icons/remix-fill'
 import { useTranslation } from 'next-i18next'
 import { rgba } from 'polished'
 import {
@@ -31,15 +30,21 @@ import { css, useTheme } from 'styled-components'
 import { Silk, SilkEntity } from 'silk-core'
 import { Portal } from '../../components/Portal'
 import { useLayerControl } from '../../hooks/useLayers'
-import { rangeThumb, silkScroll } from '../../utils/mixins'
+import { centering, rangeThumb, silkScroll } from '../../utils/mixins'
 import { useSilkEngine } from '../../hooks/useSilkEngine'
 import { useClickAway, useToggle, useUpdate } from 'react-use'
 import { usePopper } from 'react-popper'
 import { SelectBox } from '../../components/SelectBox'
 import { FakeInput } from '../../components/FakeInput'
-import { ActionSheet, ActionSheetItemGroup, ActionSheetItem } from '../../components/ActionSheet'
+import {
+  ActionSheet,
+  ActionSheetItemGroup,
+  ActionSheetItem,
+} from '../../components/ActionSheet'
 import { EditorSlice } from '../../domains/Editor'
 import { useLysSlice } from '@fleur/lys'
+import { FilterSettings } from '../FilterSettings'
+import { DOMUtils } from '../../utils/dom'
 
 export const LayerFloatMenu = () => {
   const { t } = useTranslation('app')
@@ -51,19 +56,20 @@ export const LayerFloatMenu = () => {
 
   const handleChangeCompositeMode = useCallback(
     (mode: string) => {
-      layerControl.changeCompositeMode(layerControl.activeLayer?.id, mode)
+      editorActions.updateLayer(activeLayer?.id, (layer) => {
+        layer.compositeMode = mode as any
+      })
     },
-    [layerControl]
+    [activeLayer]
   )
 
   const handleChangeOpacity = useCallback(
     ({ currentTarget }: ChangeEvent<HTMLInputElement>) => {
-      layerControl.changeOpacity(
-        layerControl.activeLayer?.id,
-        currentTarget.valueAsNumber
-      )
+      editorActions.updateLayer(activeLayer?.id, (layer) => {
+        layer.opacity = currentTarget.valueAsNumber
+      })
     },
-    [layerControl]
+    [activeLayer]
   )
 
   const handleLayerSortEnd: SortEndHandler = useCallback(
@@ -74,12 +80,11 @@ export const LayerFloatMenu = () => {
   )
 
   const handleClickAddLayer = useCallback(() => {
-    console.log('hi')
     toggleAddLayerSheetOpened(true)
-  }, [layerControl])
+  }, [])
 
   const handleClickAddLayerItem = useCallback(
-    ({ currentTarget }: MouseEvent<HTMLLIElement>) => {
+    ({ currentTarget }: MouseEvent<HTMLDivElement>) => {
       if (!currentDocument) return
 
       const layerType = currentTarget.dataset
@@ -111,8 +116,8 @@ export const LayerFloatMenu = () => {
   )
 
   const handleClickRemoveLayer = useCallback(() => {
-    editorActions.deleteLayer(activeLayer.id)
-  }, [activeLayer])
+    editorActions.deleteLayer(activeLayer?.id)
+  }, [])
 
   const addLayerSheetRef = useRef<HTMLDivElement | null>(null)
   const handleCloseAddLayerSheet = useCallback(() => {
@@ -131,7 +136,7 @@ export const LayerFloatMenu = () => {
     >
       <div>
         <SortableLayerList
-          layers={[...layerControl.layers].reverse()}
+          layers={[...(currentDocument?.layers ?? [])].reverse()}
           onSortEnd={handleLayerSortEnd}
           distance={1}
           // hideSortableGhost
@@ -173,53 +178,44 @@ export const LayerFloatMenu = () => {
                   padding-top: 16px;
 
                   div + div {
-                    border-top: 1px solid ${rgba('#000', .2)}
+                    border-top: 1px solid ${rgba('#000', 0.2)};
                   }
                 `}
               >
-              <ActionSheetItemGroup>
-                <div
-                  onClick={handleClickAddLayerItem}
-                  data-layer-type="raster"
-                >
-                  <ActionSheetItem>{t('layerType.raster')}</ActionSheetItem>
-                </div>
-                <div
-                  onClick={handleClickAddLayerItem}
-                  data-layer-type="vector"
-                >
-                  <ActionSheetItem>{t('layerType.vector')}</ActionSheetItem>
-                </div>
-                <div
-                  onClick={handleClickAddLayerItem}
-                  data-layer-type="filter"
-                >
-                  <ActionSheetItem>{t('layerType.filter')}</ActionSheetItem>
-                </div>
+                <ActionSheetItemGroup>
+                  <div
+                    onClick={handleClickAddLayerItem}
+                    data-layer-type="raster"
+                  >
+                    <ActionSheetItem>{t('layerType.raster')}</ActionSheetItem>
+                  </div>
+                  <div
+                    onClick={handleClickAddLayerItem}
+                    data-layer-type="vector"
+                  >
+                    <ActionSheetItem>{t('layerType.vector')}</ActionSheetItem>
+                  </div>
+                  <div
+                    onClick={handleClickAddLayerItem}
+                    data-layer-type="filter"
+                  >
+                    <ActionSheetItem>{t('layerType.filter')}</ActionSheetItem>
+                  </div>
                 </ActionSheetItemGroup>
 
                 <ActionSheetItemGroup>
-                <div css={`font-weight: bold;`} onClick={handleCloseAddLayerSheet}>
-                  <ActionSheetItem>{t('cancel')}</ActionSheetItem>
-                </div>
+                  <div
+                    css={`
+                      font-weight: bold;
+                    `}
+                    onClick={handleCloseAddLayerSheet}
+                  >
+                    <ActionSheetItem>{t('cancel')}</ActionSheetItem>
+                  </div>
                 </ActionSheetItemGroup>
               </div>
             </ActionSheet>
           </Portal>
-
-          <div
-            css={`
-              padding-left: 8px;
-              margin-left: auto;
-              border-left: 1px solid #fff;
-            `}
-          >
-            <More
-              css={`
-                width: 12px;
-              `}
-            />
-          </div>
         </div>
       </div>
 
@@ -250,25 +246,6 @@ export const LayerFloatMenu = () => {
               `}
             >
               <FakeInput
-                // css={`
-                //   width: 100%;
-                //   margin-top: -2px;
-                //   padding: 2px;
-                //   appearance: none;
-                //   background-color: transparent;
-                //   border: none;
-                //   border-radius: 2px;
-                //   color: inherit;
-                //   outline: none;
-
-                //   &:focus,
-                //   &:active {
-                //     color: ${({ theme }) => theme.text.inputActive};
-                //     background-color: ${({ theme }) =>
-                //       theme.surface.inputActive};
-                //   }
-                // `}
-                // type="text"
                 placeholder={`<${t(
                   `layerType.${layerControl.activeLayer.layerType}`
                 )}>`}
@@ -347,7 +324,6 @@ export const LayerFloatMenu = () => {
 const SortableLayerList = SortableContainer(
   ({ layers }: { layers: SilkEntity.LayerTypes[] }) => {
     const listRef = useRef<HTMLDivElement | null>(null)
-    const rerender = useUpdate()
 
     const [hasScroll, setHasScroll] = useState(false)
 
@@ -384,25 +360,26 @@ const SortableLayerItem = SortableElement(
   ({ layer }: { layer: SilkEntity.LayerTypes }) => {
     const { t } = useTranslation('app')
     const theme = useTheme()
-    const layerControl = useLayerControl()
+    const [editorState, editorActions] = useLysSlice(EditorSlice)
 
     const [actionSheetOpened, setActionSheetOpen] = useToggle(false)
     const actionSheetRef = useRef<HTMLDivElement | null>(null)
 
     const handleClick = useCallback(
       (e: MouseEvent<HTMLDivElement>) => {
-        if ((e.target as HTMLElement).matches('[data-ignore-click]')) return
-        layerControl.setActiveLayer(layer.id)
+        if (DOMUtils.closestOrSelf(e.target, '[data-ignore-click]')) return
+        editorActions.setActiveLayer(layer.id)
       },
-      [layerControl, layer]
+      [layer]
     )
 
     const handleClickToggleVisible = useCallback(
       (e: MouseEvent) => {
-        e.stopPropagation()
-        layerControl.toggleVisibility(layer.id)
+        editorActions.updateLayer(layer.id, (layer) => {
+          layer.visible = !layer.visible
+        })
       },
-      [layerControl, layer]
+      [layer]
     )
 
     const handleClickLayerConfig = useCallback((e: MouseEvent) => {
@@ -426,14 +403,16 @@ const SortableLayerItem = SortableElement(
           padding: 8px;
           height: 48px;
           user-select: none;
-          color: ${({ theme }) => theme.text.mainActionsBlack};
+          color: ${({ theme }) => theme.exactColors.black40};
         `}
-        style={{
-          backgroundColor:
-            layerControl.activeLayer?.id === layer.id
-              ? theme.surface.floatActive
-              : 'transparent',
-        }}
+        style={
+          {
+            // backgroundColor:
+            //   layerControl.activeLayer?.id === layer.id
+            //     ? theme.surface.floatActive
+            //     : 'transparent',
+          }
+        }
         onClick={handleClick}
       >
         <img
@@ -459,11 +438,11 @@ const SortableLayerItem = SortableElement(
           `}
           style={{
             border:
-              layerControl.activeLayer?.id === layer.id
-                ? `2px solid ${theme.border.floatActiveLayer}`
+              editorState.activeLayer?.id === layer.id
+                ? `2px solid ${theme.colors.blueFade40}`
                 : '2px solid transparent',
           }}
-          src={layerControl?.getPreview(layer.id)}
+          src={editorState.thumbnailUrlOfLayer(layer.id)}
         />
         <div
           css={`
@@ -519,15 +498,19 @@ const SortableLayerItem = SortableElement(
           onClick={handleClickLayerConfig}
           data-ignore-click
         >
-        {layer.filters.length > 0 ? (
-          <MagicFill css={`width: 20px;`} />
-        ): (
-          <Magic
-            css={`
-              width: 20px;
-            `}
-          />
-        )}
+          {layer.filters.length > 0 ? (
+            <MagicFill
+              css={`
+                width: 20px;
+              `}
+            />
+          ) : (
+            <Magic
+              css={`
+                width: 20px;
+              `}
+            />
+          )}
         </div>
 
         <div
@@ -550,22 +533,37 @@ const SortableLayerItem = SortableElement(
           >
             <div
               css={`
-                margin-bottom: 24px;
+                display: flex;
+                flex-flow: column;
               `}
             >
-              フィルター -{' '}
-              <span
+              <div
                 css={`
-                  max-width: 100px;
-                  white-space: nowrap;
-                  text-overflow: ellipsis;
+                  margin-bottom: 24px;
                 `}
               >
-                {layer.name}
-              </span>
-            </div>
+                フィルター -{' '}
+                <span
+                  css={`
+                    max-width: 100px;
+                    white-space: nowrap;
+                    text-overflow: ellipsis;
+                  `}
+                >
+                  {layer.name}
+                </span>
+              </div>
 
-            <SortableFiltersList layer={layer} axis="y" useDragHandle />
+              <SortableFiltersList
+                css={`
+                  flex: 1;
+                  overflow: auto;
+                `}
+                layer={layer}
+                axis="y"
+                useDragHandle
+              />
+            </div>
           </ActionSheet>
         </Portal>
       </div>
@@ -584,9 +582,15 @@ const LayerSortHandle = SortableHandle(() => (
 ))
 
 const SortableFiltersList = SortableContainer(
-  ({ layer }: { layer: SilkEntity.LayerTypes }) => {
+  ({
+    layer,
+    className,
+  }: {
+    layer: SilkEntity.LayerTypes
+    className?: string
+  }) => {
     return (
-      <ul>
+      <ul className={className}>
         {layer.filters.map((filter, idx) => (
           <SortableFilterItem
             key={filter.id}
@@ -610,10 +614,11 @@ const SortableFilterItem = SortableElement(
   }) => {
     const { t } = useTranslation('app')
     const [editorState, editorActions] = useLysSlice(EditorSlice)
+    const active = editorState.selectedFilterIds[filter.id]
 
     const handleClick = useCallback(
       (e: MouseEvent<HTMLDivElement>) => {
-        if ((e.target as HTMLElement).matches('[data-ignore-click]')) return
+        if (DOMUtils.closestOrSelf(e.target, '[data-ignore-click]')) return
 
         editorActions.setSelectedFilterIds({ [filter.id]: true })
       },
@@ -637,20 +642,20 @@ const SortableFilterItem = SortableElement(
       <div
         css={`
           display: flex;
-          gap: 16px;
+          flex-wrap: wrap;
+          gap: 4px 16px;
           padding: 8px 0;
           padding-right: 8px;
+
+          & + & {
+            border-top: 1px solid ${rgba('#000', 0.1)};
+          }
         `}
         onClick={handleClick}
       >
-        <div>{t(`filters.${filter.filterId}`)}</div>
-
         <div
           css={`
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            margin-left: auto;
+            ${centering()}
           `}
           onClick={handleToggleVisibility}
           data-ignore-click
@@ -658,14 +663,14 @@ const SortableFilterItem = SortableElement(
           {filter.visible ? (
             <Eye
               css={`
-                width: 24px;
+                width: 20px;
                 vertical-align: bottom;
               `}
             />
           ) : (
             <EyeClose
               css={`
-                width: 24px;
+                width: 20px;
                 vertical-align: bottom;
               `}
             />
@@ -674,14 +679,34 @@ const SortableFilterItem = SortableElement(
 
         <div
           css={`
+            ${centering()}
+          `}
+        >
+          {t(`filters.${filter.filterId}`)}
+        </div>
+
+        <div
+          css={`
             display: flex;
             align-items: center;
             justify-content: center;
+            margin-left: auto;
           `}
           data-ignore-click
         >
           <FilterSortHandle />
         </div>
+
+        {active && (
+          <div
+            css={`
+              flex-basis: 100%;
+              padding-left: 24px;
+            `}
+          >
+            <FilterSettings layer={layer} filter={filter}></FilterSettings>
+          </div>
+        )}
       </div>
     )
   }

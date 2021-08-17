@@ -77,6 +77,7 @@ export class BloomFilter implements IFilter {
   }
 
   public async initialize() {}
+
   public render({ source, dest, gl, size }: FilterContext) {
     const program1 = gl.createProgram(FRAGMENT_SHADER_1)
     const program2 = gl.createProgram(FRAGMENT_SHADER_2)

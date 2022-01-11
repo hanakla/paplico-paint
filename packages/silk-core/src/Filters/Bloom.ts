@@ -132,7 +132,12 @@ export class BloomFilter implements IFilter {
       offsetV = tmp
     }
 
-    gl.applyProgram(program1, { minBright: gl.uni1f(0.5) }, source, buffer)
+    gl.applyProgram(
+      program1,
+      { minBright: gl.uni1f(0.5) },
+      source,
+      buffer.canvas
+    )
     gl.applyProgram(
       program2,
       {

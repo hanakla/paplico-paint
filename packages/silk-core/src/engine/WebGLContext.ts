@@ -356,7 +356,7 @@ export default class WebGLContext {
   }
 
   private attachUniforms(
-    gl: WebGL2RenderingContext,
+    gl: WebGLRenderingContext,
     program: WebGLProgram,
     uniforms: { [uniform: string]: Uniform }
   ) {
@@ -387,28 +387,28 @@ export default class WebGLContext {
           )
           break
         }
-        case '1ui': {
-          gl.uniform1ui(loc, uni.value[0])
-          break
-        }
-        case '2ui': {
-          gl.uniform2ui(loc, uni.value[0], uni.value[1])
-          break
-        }
-        case '3ui': {
-          gl.uniform3ui(loc, uni.value[0], uni.value[1], uni.value[2])
-          break
-        }
-        case '4ui': {
-          gl.uniform4ui(
-            loc,
-            uni.value[0],
-            uni.value[1],
-            uni.value[2],
-            uni.value[3]
-          )
-          break
-        }
+        // case '1ui': {
+        //   gl.uniform1ui(loc, uni.value[0])
+        //   break
+        // }
+        // case '2ui': {
+        //   gl.uniform2ui(loc, uni.value[0], uni.value[1])
+        //   break
+        // }
+        // case '3ui': {
+        //   gl.uniform3ui(loc, uni.value[0], uni.value[1], uni.value[2])
+        //   break
+        // }
+        // case '4ui': {
+        //   gl.uniform4ui(
+        //     loc,
+        //     uni.value[0],
+        //     uni.value[1],
+        //     uni.value[2],
+        //     uni.value[3]
+        //   )
+        //   break
+        // }
         case '1f': {
           gl.uniform1f(loc, uni.value[0])
           break
@@ -463,54 +463,54 @@ export default class WebGLContext {
           gl.uniform4fv(loc, uni.value)
           break
         }
-        case '1uiv': {
-          gl.uniform1uiv(loc, uni.value)
-          break
-        }
-        case '2uiv': {
-          gl.uniform2uiv(loc, uni.value)
-          break
-        }
-        case '3uiv': {
-          gl.uniform3uiv(loc, uni.value)
-          break
-        }
-        case '4uiv': {
-          gl.uniform4uiv(loc, uni.value)
-          break
-        }
+        // case '1uiv': {
+        //   gl.uniform1uiv(loc, uni.value)
+        //   break
+        // }
+        // case '2uiv': {
+        //   gl.uniform2uiv(loc, uni.value)
+        //   break
+        // }
+        // case '3uiv': {
+        //   gl.uniform3uiv(loc, uni.value)
+        //   break
+        // }
+        // case '4uiv': {
+        //   gl.uniform4uiv(loc, uni.value)
+        //   break
+        // }
         case 'matrix2fv': {
           gl.uniformMatrix2fv(loc, false, uni.value)
           break
         }
-        case 'matrix3x2fv': {
-          gl.uniformMatrix3x2fv(loc, false, uni.value)
-          break
-        }
-        case 'matrix4x2fv': {
-          gl.uniformMatrix4x2fv(loc, false, uni.value)
-          break
-        }
-        case 'matrix2x3fv': {
-          gl.uniformMatrix2x3fv(loc, false, uni.value)
-          break
-        }
-        case 'matrix3fv': {
-          gl.uniformMatrix3fv(loc, false, uni.value)
-          break
-        }
-        case 'matrix4x3fv': {
-          gl.uniformMatrix4x3fv(loc, false, uni.value)
-          break
-        }
-        case 'matrix2x4fv': {
-          gl.uniformMatrix2x4fv(loc, false, uni.value)
-          break
-        }
-        case 'matrix3x4fv': {
-          gl.uniformMatrix3x4fv(loc, false, uni.value)
-          break
-        }
+        // case 'matrix3x2fv': {
+        //   gl.uniformMatrix3x2fv(loc, false, uni.value)
+        //   break
+        // }
+        // case 'matrix4x2fv': {
+        //   gl.uniformMatrix4x2fv(loc, false, uni.value)
+        //   break
+        // }
+        // case 'matrix2x3fv': {
+        //   gl.uniformMatrix2x3fv(loc, false, uni.value)
+        //   break
+        // }
+        // case 'matrix3fv': {
+        //   gl.uniformMatrix3fv(loc, false, uni.value)
+        //   break
+        // }
+        // case 'matrix4x3fv': {
+        //   gl.uniformMatrix4x3fv(loc, false, uni.value)
+        //   break
+        // }
+        // case 'matrix2x4fv': {
+        //   gl.uniformMatrix2x4fv(loc, false, uni.value)
+        //   break
+        // }
+        // case 'matrix3x4fv': {
+        //   gl.uniformMatrix3x4fv(loc, false, uni.value)
+        //   break
+        // }
         case 'matrix4fv': {
           gl.uniformMatrix4fv(loc, false, uni.value)
           break

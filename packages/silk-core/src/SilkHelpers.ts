@@ -1,4 +1,4 @@
-import { CompositeMode } from 'Entity/IRenderable'
+import { CompositeMode } from './Entity/IRenderable'
 import * as SilkEntity from './Entity/index'
 
 export async function imageToLayer(img: HTMLImageElement) {

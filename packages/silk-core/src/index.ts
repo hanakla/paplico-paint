@@ -1,3 +1,5 @@
+/// <reference path="./declarations.d.ts" />
+
 export { SilkEngine as Silk } from './engine/Engine'
 export * as SilkBrushes from './Brushes/index'
 export * as SilkEntity from './Entity/index'

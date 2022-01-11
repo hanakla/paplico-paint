@@ -20,4 +20,17 @@ export class GroupLayer implements ILayer {
   public get height() {
     return 0
   }
+
+  public serialize() {
+    return {
+      name: this.name,
+      visible: this.visible,
+      lock: this.lock,
+      compositeMode: this.compositeMode,
+      opacity: this.opacity,
+      x: this.x,
+      y: this.y,
+      layers: this.layers.map((l) => l.serialize()),
+    }
+  }
 }

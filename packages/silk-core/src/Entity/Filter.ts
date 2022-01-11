@@ -24,7 +24,7 @@ export class Filter {
     return assign(new Filter(), {
       id: obj.id,
       filterId: obj.filterId,
-      setttings: obj.setttings,
+      settings: obj.setttings,
     })
   }
 

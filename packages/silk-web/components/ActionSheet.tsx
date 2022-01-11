@@ -37,6 +37,7 @@ export const ActionSheet = forwardRef<HTMLDivElement, Props>(
 
     return (
       <div>
+        {/* @ts-expect-error */}
         <animated.div
           css={`
             position: fixed;
@@ -110,9 +111,11 @@ export const ActionSheetItemGroup = ({
   className?: string
   children: ReactNode
 }) => {
+  let a = `${() => ''}`
+
   return (
     <div
-      css={`
+      css={css`
         background-color: ${({ theme }) => theme.surface.floatWhite};
         box-shadow: 0 0 5px ${rgba('#000', 0.5)};
         backdrop-filter: blur(4px);

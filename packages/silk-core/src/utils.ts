@@ -56,8 +56,8 @@ export class AtomicResource<T> {
   }
 }
 
-export const fakeRejectedPromise = (error: Error) => {
-  const p = new Rejected(() => {})
+export const fakeRejectedPromise = <T>(error: Error) => {
+  const p = new Rejected<T>(() => {})
   p.error = error
   return p
 }

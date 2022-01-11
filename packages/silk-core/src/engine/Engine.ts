@@ -219,6 +219,8 @@ export class SilkEngine {
       // generate thumbnails
       await new Promise<void>((resolve) => {
         this.thumbnailCanvas.toBlob((blob) => {
+          if (!blob) return
+
           const oldUrl = this.previews.get(id)
           if (oldUrl) URL.revokeObjectURL(oldUrl)
 

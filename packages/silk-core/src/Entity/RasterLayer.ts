@@ -20,9 +20,8 @@ export class RasterLayer implements ILayer {
   public filters: Filter[] = []
 
   public readonly bitmap: Uint8ClampedArray = null as any
-  private _imageBitmapPromise: Promise<ImageBitmap> = fakeRejectedPromise(
-    new Error('bitmap not initialized')
-  )
+  private _imageBitmapPromise: Promise<ImageBitmap> =
+    fakeRejectedPromise<ImageBitmap>(new Error('bitmap not initialized'))
 
   /** Mark for re-rendering decision */
   protected _lastUpdatedAt = Date.now()

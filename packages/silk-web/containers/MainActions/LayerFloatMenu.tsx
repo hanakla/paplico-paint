@@ -41,22 +41,29 @@ import {
   ActionSheetItemGroup,
   ActionSheetItem,
 } from '../../components/ActionSheet'
-import { EditorSlice } from '../../domains/Editor'
-import { useLysSlice } from '@fleur/lys'
 import { FilterSettings } from '../FilterSettings'
 import { DOMUtils } from '../../utils/dom'
+import {
+  editorOps,
+  EditorSelector,
+  EditorStore,
+} from '../../domains/EditorStable'
+import { useFleurContext, useStore } from '@fleur/react'
 
 export const LayerFloatMenu = () => {
   const { t } = useTranslation('app')
   const layerControl = useLayerControl()
 
-  const [{ currentDocument, activeLayer }, editorActions] =
-    useLysSlice(EditorSlice)
+  const { executeOperation } = useFleurContext()
+  const { currentDocument, activeLayer } = useStore((get) => ({
+    currentDocument: EditorSelector.currentDocument(get),
+    activeLayer: EditorSelector.activeLayer(get),
+  }))
   const [addLayerSheetOpened, toggleAddLayerSheetOpened] = useToggle(false)
 
   const handleChangeCompositeMode = useCallback(
     (mode: string) => {
-      editorActions.updateLayer(activeLayer?.id, (layer) => {
+      executeOperation(editorOps.updateLayer, activeLayer?.id, (layer) => {
         layer.compositeMode = mode as any
       })
     },
@@ -65,7 +72,7 @@ export const LayerFloatMenu = () => {
 
   const handleChangeOpacity = useCallback(
     ({ currentTarget }: ChangeEvent<HTMLInputElement>) => {
-      editorActions.updateLayer(activeLayer?.id, (layer) => {
+      executeOperation(editorOps.updateLayer, activeLayer?.id, (layer) => {
         layer.opacity = currentTarget.valueAsNumber
       })
     },
@@ -109,14 +116,16 @@ export const LayerFloatMenu = () => {
           throw new Error('なんかおかしなっとるで')
       }
 
-      editorActions.addLayer(layer, { aboveLayerId: activeLayer?.id ?? null })
+      executeOperation(editorOps.addLayer, layer, {
+        aboveLayerId: activeLayer?.id ?? null,
+      })
       toggleAddLayerSheetOpened(false)
     },
     [currentDocument, activeLayer]
   )
 
   const handleClickRemoveLayer = useCallback(() => {
-    editorActions.deleteLayer(activeLayer?.id)
+    executeOperation(editorOps.deleteLayer, activeLayer?.id)
   }, [])
 
   const addLayerSheetRef = useRef<HTMLDivElement | null>(null)
@@ -360,7 +369,11 @@ const SortableLayerItem = SortableElement(
   ({ layer }: { layer: SilkEntity.LayerTypes }) => {
     const { t } = useTranslation('app')
     const theme = useTheme()
-    const [editorState, editorActions] = useLysSlice(EditorSlice)
+    const { executeOperation } = useFleurContext()
+    const { activeLayer, thumbnailUrlOfLayer } = useStore((get) => ({
+      activeLayer: EditorSelector.activeLayer(get),
+      thumbnailUrlOfLayer: EditorSelector.thumbnailUrlOfLayer(get),
+    }))
 
     const [actionSheetOpened, setActionSheetOpen] = useToggle(false)
     const actionSheetRef = useRef<HTMLDivElement | null>(null)
@@ -368,14 +381,14 @@ const SortableLayerItem = SortableElement(
     const handleClick = useCallback(
       (e: MouseEvent<HTMLDivElement>) => {
         if (DOMUtils.closestOrSelf(e.target, '[data-ignore-click]')) return
-        editorActions.setActiveLayer(layer.id)
+        executeOperation(editorOps.setActiveLayer, layer.id)
       },
       [layer]
     )
 
     const handleClickToggleVisible = useCallback(
       (e: MouseEvent) => {
-        editorActions.updateLayer(layer.id, (layer) => {
+        executeOperation(editorOps.updateLayer, layer.id, (layer) => {
           layer.visible = !layer.visible
         })
       },
@@ -438,11 +451,11 @@ const SortableLayerItem = SortableElement(
           `}
           style={{
             border:
-              editorState.activeLayer?.id === layer.id
+              activeLayer?.id === layer.id
                 ? `2px solid ${theme.colors.blueFade40}`
                 : '2px solid transparent',
           }}
-          src={editorState.thumbnailUrlOfLayer(layer.id)}
+          src={thumbnailUrlOfLayer(layer.id)}
         />
         <div
           css={`
@@ -613,29 +626,33 @@ const SortableFilterItem = SortableElement(
     filter: SilkEntity.Filter
   }) => {
     const { t } = useTranslation('app')
-    const [editorState, editorActions] = useLysSlice(EditorSlice)
-    const active = editorState.selectedFilterIds[filter.id]
+
+    const { executeOperation } = useFleurContext()
+    const { selectedFilterIds } = useStore((get) => ({
+      selectedFilterIds: get(EditorStore).state.selectedFilterIds,
+    }))
+    const active = selectedFilterIds[filter.id]
 
     const handleClick = useCallback(
       (e: MouseEvent<HTMLDivElement>) => {
         if (DOMUtils.closestOrSelf(e.target, '[data-ignore-click]')) return
 
-        editorActions.setSelectedFilterIds({ [filter.id]: true })
+        executeOperation(editorOps.setSelectedFilterIds, { [filter.id]: true })
       },
       [filter]
     )
 
     const handleToggleVisibility = useCallback(() => {
-      if (!editorState.activeLayer) return
+      if (!activeLayer) return
 
-      editorActions.updateLayer(layer.id, (layer) => {
+      executeOperation(editorOps.updateLayer, layer.id, (layer) => {
         const targetFilter = layer.filters.find((f) => f.id === filter.id)
         if (!targetFilter) return
 
         targetFilter.visible = !targetFilter.visible
       })
 
-      editorActions.rerenderCanvas()
+      executeOperation(editorOps.rerenderCanvas)
     }, [filter])
 
     return (

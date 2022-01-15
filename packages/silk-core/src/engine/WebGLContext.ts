@@ -388,10 +388,7 @@ export default class WebGLContext {
           )
           break
         }
-<<<<<<< Updated upstream
-=======
         // WebGL2
->>>>>>> Stashed changes
         // case '1ui': {
         //   gl.uniform1ui(loc, uni.value[0])
         //   break

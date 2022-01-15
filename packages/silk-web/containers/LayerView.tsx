@@ -23,21 +23,25 @@ import {
   ContextMenuItem,
 } from '../components/ContextMenu'
 import { combineRef } from '../utils/react'
-import { useLysSlice } from '@fleur/lys'
-import { EditorSlice } from '../domains/Editor'
 import { SelectBox } from '../components/SelectBox'
 
 import { FakeInput } from '../components/FakeInput'
 import { DOMUtils } from '../utils/dom'
 import { useMouseTrap } from '../hooks/useMouseTrap'
 import { useTheme } from 'styled-components'
+import { useFleurContext, useStore } from '@fleur/react'
+import { editorOps, EditorSelector, EditorStore } from '../domains/EditorStable'
 
 export function LayerView() {
   const { t } = useTranslation('app')
   const theme = useTheme()
   const layerControls = useLayerControl()
-  const [{ activeLayer, currentDocument }, editorActions] =
-    useLysSlice(EditorSlice)
+
+  const { executeOperation } = useFleurContext()
+  const { activeLayer, currentDocument } = useStore((get) => ({
+    activeLayer: EditorSelector.activeLayer(get),
+    currentDocument: EditorSelector.currentDocument(get),
+  }))
 
   const [layerTypeOpened, toggleLayerTypeOpened] = useToggle(false)
   const layerTypeOpenerRef = useRef<HTMLDivElement | null>(null)
@@ -89,7 +93,7 @@ export function LayerView() {
           throw new Error('なんかおかしなっとるで')
       }
 
-      editorActions.addLayer(layer, { aboveLayerId: lastLayerId })
+      executeOperation(editorOps.addLayer, layer, { aboveLayerId: lastLayerId })
       toggleLayerTypeOpened(false)
     },
     [currentDocument, activeLayer]
@@ -103,7 +107,7 @@ export function LayerView() {
       const lastLayerId = activeLayer?.id
       const { image } = await loadImageFromBlob(file)
       const layer = await SilkHelper.imageToLayer(image)
-      editorActions.addLayer(layer, { aboveLayerId: lastLayerId })
+      executeOperation(editorOps.addLayer, layer, { aboveLayerId: lastLayerId })
 
       currentTarget.value = ''
     },
@@ -119,7 +123,8 @@ export function LayerView() {
 
   const handleChangeLayerName = useCallback(
     ({ currentTarget }: ChangeEvent<HTMLInputElement>) => {
-      editorActions.updateLayer(
+      executeOperation(
+        editorOps.updateLayer,
         activeLayer?.id,
         (layer) => {
           layer.name = currentTarget.value
@@ -132,7 +137,8 @@ export function LayerView() {
 
   const handleChangeCompositeMode = useCallback(
     (value: string) => {
-      editorActions.updateLayer(
+      executeOperation(
+        editorOps.updateLayer,
         activeLayer?.id,
         (layer) => (layer.compositeMode = value as any)
       )
@@ -144,7 +150,7 @@ export function LayerView() {
     ({ currentTarget }: ChangeEvent<HTMLInputElement>) => {
       if (!activeLayer) return
 
-      editorActions.updateLayer(activeLayer.id, (layer) => {
+      executeOperation(editorOps.updateLayer, activeLayer.id, (layer) => {
         layer.opacity = currentTarget.valueAsNumber
       })
     },
@@ -330,14 +336,23 @@ const SortableLayerItem = SortableElement(function LayerItem({
 }) {
   const { t } = useTranslation('app')
   const theme = useTheme()
-  const [editorState, editorActions] = useLysSlice(EditorSlice)
+
+  const { executeOperation } = useFleurContext()
+  const { activeLayer, currentDocument, thumbnailUrlOfLayer, activeObjectId } =
+    useStore((get) => ({
+      activeLayer: EditorSelector.activeLayer(get),
+      currentDocument: EditorSelector.currentDocument(get),
+      thumbnailUrlOfLayer: EditorSelector.thumbnailUrlOfLayer(get),
+      activeObjectId: get(EditorStore).state.activeObjectId,
+    }))
 
   const [objectsOpened, toggleObjectsOpened] = useToggle(false)
 
   const rootRef = useRef<HTMLDivElement | null>(null)
 
   const handleToggleVisibility = useCallback(() => {
-    editorActions.updateLayer(
+    executeOperation(
+      editorOps.updateLayer,
       layer.id,
       (layer) => (layer.visible = !layer.visible)
     )
@@ -346,14 +361,17 @@ const SortableLayerItem = SortableElement(function LayerItem({
   const handleChangeActiveLayer = useCallback(
     (e: MouseEvent<HTMLDivElement>) => {
       if (DOMUtils.closestOrSelf(e.target, '[data-ignore-click]')) return
-      editorActions.setActiveLayer(layer.id)
+      executeOperation(editorOps.setActiveLayer, layer.id)
     },
     [layer]
   )
 
   const handleClickObject = useCallback(
     ({ currentTarget }: MouseEvent<HTMLDivElement>) => {
-      editorActions.setActiveObject(currentTarget.dataset.objectId ?? null)
+      executeOperation(
+        editorOps.setActiveObject,
+        currentTarget.dataset.objectId ?? null
+      )
     },
     []
   )
@@ -371,7 +389,7 @@ const SortableLayerItem = SortableElement(function LayerItem({
 
   const handleChangeLayerName = useCallback(
     ({ currentTarget }: ChangeEvent<HTMLInputElement>) => {
-      editorActions.updateLayer(layer.id, (layer) => {
+      executeOperation(editorOps.updateLayer, layer.id, (layer) => {
         layer.name = currentTarget.value
       })
     },
@@ -384,7 +402,7 @@ const SortableLayerItem = SortableElement(function LayerItem({
       {
         key: ['del', 'backspace'],
         handler: () => {
-          editorActions.deleteLayer(layer.id)
+          executeOperation(editorOps.deleteLayer, layer.id)
         },
       },
     ],
@@ -412,11 +430,11 @@ const SortableLayerItem = SortableElement(function LayerItem({
             `}
             style={{
               backgroundColor:
-                editorState.activeLayer?.id === layer.id
+                activeLayer?.id === layer.id
                   ? theme.surface.sidebarListActive
                   : '',
               color:
-                editorState.activeLayer?.id === layer.id
+                activeLayer?.id === layer.id
                   ? theme.text.sidebarListActive
                   : '',
             }}
@@ -491,7 +509,7 @@ const SortableLayerItem = SortableElement(function LayerItem({
                 height: 16px;
                 flex: none;
               `}
-              src={editorState.thumbnailUrlOfLayer(layer.id)}
+              src={thumbnailUrlOfLayer(layer.id)}
             />
             <div
               css={`
@@ -543,7 +561,7 @@ const SortableLayerItem = SortableElement(function LayerItem({
                           `}
                           style={{
                             backgroundColor:
-                              editorState.activeObjectId == object.id
+                              activeObjectId == object.id
                                 ? theme.surface.sidebarListActive
                                 : undefined,
                           }}

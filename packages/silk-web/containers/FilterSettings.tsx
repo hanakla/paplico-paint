@@ -1,10 +1,11 @@
-import { useLysSlice } from '@fleur/lys'
+import { useFleurContext } from '@fleur/react'
 import { useTranslation } from 'next-i18next'
 import { useCallback } from 'react'
 import { ReactNode } from 'react'
 import { SilkEntity } from 'silk-core'
 import { DeltaRange } from '../components/DeltaRange'
 import { EditorSlice } from '../domains/Editor'
+import { editorOps } from '../domains/EditorStable'
 import { centering } from '../utils/mixins'
 import { roundString } from '../utils/StringUtils'
 
@@ -28,14 +29,14 @@ export const FilterSettings = ({ layer, filter }: Props) => {
 }
 
 const BloomSetting = ({ layer, filter }: Props) => {
-  const [, editorActions] = useLysSlice(EditorSlice)
+  const { executeOperation } = useFleurContext()
 
   // const handleChange = useCallback(() => {
   //   editorActions.updateFilter(layer.id, filter.id, (filter) => {})
   // }, [layer, filter])
 
   const handleChangeComplete = useCallback(() => {
-    editorActions.rerenderCanvas()
+    executeOperation(editorOps.rerenderCanvas)
   }, [])
 
   return (
@@ -48,22 +49,22 @@ const BloomSetting = ({ layer, filter }: Props) => {
 }
 
 const GaussBlur = ({ layer, filter }: Props) => {
-  const [, editorActions] = useLysSlice(EditorSlice)
+  const { executeOperation } = useFleurContext()
 
   const handleChangeRadius = useCallback((value: number) => {
-    editorActions.updateFilter(layer.id, filter.id, (filter) => {
+    executeOperation(editorOps.updateFilter, layer.id, filter.id, (filter) => {
       filter.settings.radius = value
     })
   }, [])
 
   const handleChangePower = useCallback((value: number) => {
-    editorActions.updateFilter(layer.id, filter.id, (filter) => {
+    executeOperation(editorOps.updateFilter, layer.id, filter.id, (filter) => {
       filter.settings.power = value
     })
   }, [])
 
   const handleChangeComplete = useCallback(() => {
-    editorActions.rerenderCanvas()
+    executeOperation(editorOps.rerenderCanvas)
   }, [])
 
   return (
@@ -108,22 +109,22 @@ const GaussBlur = ({ layer, filter }: Props) => {
 }
 
 const ChromaticAberration = ({ layer, filter }: Props) => {
-  const [, editorActions] = useLysSlice(EditorSlice)
+  const { executeOperation } = useFleurContext()
 
   const handleChangeDistance = useCallback((value: number) => {
-    editorActions.updateFilter(layer.id, filter.id, (filter) => {
+    executeOperation(editorOps.updateFilter, layer.id, filter.id, (filter) => {
       filter.settings.distance = value
     })
   }, [])
 
   const handleChangeAngleDeg = useCallback((value: number) => {
-    editorActions.updateFilter(layer.id, filter.id, (filter) => {
+    executeOperation(editorOps.updateFilter, layer.id, filter.id, (filter) => {
       filter.settings.angleDeg = value
     })
   }, [])
 
   const handleChangeComplete = useCallback(() => {
-    editorActions.rerenderCanvas()
+    executeOperation(editorOps.rerenderCanvas)
   }, [])
 
   return (

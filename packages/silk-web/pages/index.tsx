@@ -30,7 +30,6 @@ import { Silk, SilkEntity, SilkSerializer, SilkHelper } from 'silk-core'
 import { useSpring, animated } from 'react-spring'
 import { Moon, Sun } from '@styled-icons/remix-fill'
 import { DragDrop, File, Menu } from '@styled-icons/remix-line'
-import { LysContext, useLysSlice, useLysSliceRoot } from '@fleur/lys'
 import { useGesture } from 'react-use-gesture'
 import {
   createGlobalStyle,
@@ -38,6 +37,7 @@ import {
   ThemeProvider,
   useTheme,
 } from 'styled-components'
+import { useFleurContext, useStore } from '@fleur/react'
 import { extname } from 'path'
 import { DebugView } from '../containers/DebugView'
 import { EditorSlice } from '../domains/Editor'
@@ -59,12 +59,25 @@ import i18nConfig from '../next-i18next.config'
 import { mediaNarrow, narrow } from '../utils/responsive'
 import { getStaticPropsWithFleur } from '../lib/fleur'
 import useMeasure from 'use-measure'
+import { editorOps, EditorSelector, EditorStore } from '../domains/EditorStable'
 
 function IndexContent({}) {
   const { t } = useTranslation('app')
 
-  const [editorState, editorActions] = useLysSlice(EditorSlice)
-  const { currentDocument, activeLayer } = editorState
+  const { executeOperation } = useFleurContext()
+  const {
+    currentDocument,
+    activeLayer,
+    currentTool,
+    currentTheme,
+    renderSetting,
+  } = useStore((get) => ({
+    currentDocument: EditorSelector.currentDocument(get),
+    activeLayer: EditorSelector.activeLayer(get),
+    currentTool: get(EditorStore).state.currentTool,
+    currentTheme: get(EditorStore).state.currentTheme,
+    renderSetting: get(EditorStore).state.renderSetting,
+  }))
   const isNarrowMedia = useMedia(`(max-width: ${narrow})`, false)
 
   const engine = useRef<Silk | null>(null)
@@ -93,7 +106,7 @@ function IndexContent({}) {
         const { image } = await loadImageFromBlob(file)
         const layer = await SilkHelper.imageToLayer(image)
 
-        editorActions.updateDocument((document) => {
+        executeOperation(editorOps.updateDocument, (document) => {
           document.addLayer(layer, {
             aboveLayerId: lastLayerId,
           })
@@ -115,7 +128,7 @@ function IndexContent({}) {
 
   const handleChangeDisableFilters = useCallback(
     ({ currentTarget }: ChangeEvent<HTMLInputElement>) => {
-      editorActions.setRenderSetting({
+      executeOperation(editorOps.setRenderSetting, {
         disableAllFilters: currentTarget.checked,
       })
     },
@@ -162,25 +175,29 @@ function IndexContent({}) {
     [currentDocument, engine]
   )
 
-  const handleClickDarkTheme = useCallback(
-    () => editorActions.setTheme('dark'),
-    []
-  )
+  const handleClickDarkTheme = useCallback(() => {
+    executeOperation(editorOps.setTheme, 'dark')
+  }, [])
 
-  const handleClickLightTheme = useCallback(
-    () => editorActions.setTheme('light'),
-    []
-  )
+  const handleClickLightTheme = useCallback(() => {
+    executeOperation(editorOps.setTheme, 'light')
+  }, [])
 
   const dragState = useDrop({ onFiles: handleOnDrop })
   const tapBind = useTap(handleTapEditArea)
 
   useGlobalMouseTrap(
     [
-      { key: 'v', handler: () => editorActions.setTool('cursor') },
-      { key: 'b', handler: () => editorActions.setTool('draw') },
-      { key: 'e', handler: () => editorActions.setTool('erase') },
-      { key: 'p', handler: () => editorActions.setTool('shape-pen') },
+      {
+        key: 'v',
+        handler: () => executeOperation(editorOps.setTool, 'cursor'),
+      },
+      { key: 'b', handler: () => executeOperation(editorOps.setTool, 'draw') },
+      { key: 'e', handler: () => executeOperation(editorOps.setTool, 'erase') },
+      {
+        key: 'p',
+        handler: () => executeOperation(editorOps.setTool, 'shape-pen'),
+      },
       {
         key: 'tab',
         handler: (e) => {
@@ -216,7 +233,7 @@ function IndexContent({}) {
     ;(window as any).engine = engine.current = await Silk.create({
       canvas: canvasRef.current!,
     })
-    editorActions.setEngine(engine.current)
+    executeOperation(editorOps.setEngine, engine.current)
 
     if (
       process.env.NODE_ENV === 'development' &&
@@ -254,12 +271,12 @@ function IndexContent({}) {
       document.layers.push(vector)
       document.layers.push(text)
       document.layers.push(filter)
-      editorActions.setActiveLayer(vector.id)
+      executeOperation(editorOps.setActiveLayer, vector.id)
 
       engine.current.on('rerender', rerender)
       engine.current.rerender()
 
-      editorActions.setFill({
+      executeOperation(editorOps.setFill, {
         type: 'linear-gradient',
         colorPoints: [
           { color: { r: 0, g: 255, b: 255, a: 1 }, position: 0 },
@@ -380,10 +397,10 @@ function IndexContent({}) {
           style={{
             // prettier-ignore
             cursor:
-              editorState.currentTool === 'cursor' ? 'default' :
-              editorState.currentTool === 'draw' ? 'url(cursors/pencil.svg), auto' :
-              editorState.currentTool === 'erase' ? 'url(cursors/eraser.svg), auto' :
-              editorState.currentTool === 'shape-pen' ? 'url(cursors/pencil-line.svg), auto':
+              currentTool === 'cursor' ? 'default' :
+              currentTool === 'draw' ? 'url(cursors/pencil.svg), auto' :
+              currentTool === 'erase' ? 'url(cursors/eraser.svg), auto' :
+              currentTool === 'shape-pen' ? 'url(cursors/pencil-line.svg), auto':
               'default',
           }}
         >
@@ -528,7 +545,7 @@ function IndexContent({}) {
                     <input
                       css="margin-right: 4px"
                       type="checkbox"
-                      checked={editorState.renderSetting.disableAllFilters}
+                      checked={renderSetting.disableAllFilters}
                       onChange={handleChangeDisableFilters}
                     />
                     作業中のフィルター効果をオフ
@@ -557,11 +574,11 @@ function IndexContent({}) {
                       `}
                       style={{
                         color:
-                          editorState.currentTheme === 'dark'
+                          currentTheme === 'dark'
                             ? theme.exactColors.black40
                             : undefined,
                         backgroundColor:
-                          editorState.currentTheme === 'dark'
+                          currentTheme === 'dark'
                             ? theme.exactColors.white40
                             : undefined,
                       }}
@@ -580,11 +597,11 @@ function IndexContent({}) {
                       `}
                       style={{
                         color:
-                          editorState.currentTheme === 'light'
+                          currentTheme === 'light'
                             ? theme.exactColors.white40
                             : undefined,
                         backgroundColor:
-                          editorState.currentTheme === 'light'
+                          currentTheme === 'light'
                             ? theme.exactColors.black40
                             : undefined,
                       }}
@@ -668,7 +685,14 @@ const TouchActionStyle = createGlobalStyle`
 const HomeContent = () => {
   const theme = useTheme()
 
-  const [editorState, editorActions] = useLysSlice(EditorSlice)
+  const { executeOperation } = useFleurContext()
+  const { currentTheme } = useStore((get) => ({
+    currentDocument: EditorSelector.currentDocument(get),
+    activeLayer: EditorSelector.activeLayer(get),
+    currentTool: get(EditorStore).state.currentTool,
+    currentTheme: get(EditorStore).state.currentTheme,
+    renderSetting: get(EditorStore).state.renderSetting,
+  }))
 
   const handleClickItem = useCallback(
     async ({ currentTarget: { dataset } }: MouseEvent<HTMLDivElement>) => {
@@ -680,8 +704,8 @@ const HomeContent = () => {
       doc.addLayer(layer)
       doc.activeLayerId = layer.id
 
-      await editorActions.setDocument(doc)
-      editorActions.setEditorPage('app')
+      executeOperation(editorOps.setDocument, doc)
+      // editorActions.setEditorPage('app')
     },
     []
   )
@@ -694,8 +718,8 @@ const HomeContent = () => {
         new Uint8Array(await file.arrayBuffer())
       )
 
-      editorActions.setDocument(doc)
-      editorActions.setEditorPage('app')
+      executeOperation(editorOps.setDocument, doc)
+      executeOperation(editorOps.setEditorPage, 'app')
     } else if (/^image\//.test(file.type)) {
       const { image, url } = await loadImageFromBlob(file)
       const layer = await SilkHelper.imageToLayer(image)
@@ -708,8 +732,8 @@ const HomeContent = () => {
       })
       doc.addLayer(layer)
 
-      editorActions.setDocument(doc)
-      editorActions.setEditorPage('app')
+      executeOperation(editorOps.setDocument, doc)
+      executeOperation(editorOps.setEditorPage, 'app')
     }
   }, [])
 
@@ -724,11 +748,11 @@ const HomeContent = () => {
   }, [handleFileSelected])
 
   const handleClickDarkTheme = useCallback(
-    () => editorActions.setTheme('dark'),
+    () => executeOperation(editorOps.setTheme, 'dark'),
     []
   )
   const handleClickLightTheme = useCallback(
-    () => editorActions.setTheme('light'),
+    () => executeOperation(editorOps.setTheme, 'light'),
     []
   )
 
@@ -906,11 +930,11 @@ const HomeContent = () => {
                 `}
                 style={{
                   color:
-                    editorState.currentTheme === 'dark'
+                    currentTheme === 'dark'
                       ? theme.exactColors.black40
                       : undefined,
                   backgroundColor:
-                    editorState.currentTheme === 'dark'
+                    currentTheme === 'dark'
                       ? theme.exactColors.white40
                       : undefined,
                 }}
@@ -929,11 +953,11 @@ const HomeContent = () => {
                 `}
                 style={{
                   color:
-                    editorState.currentTheme === 'light'
+                    currentTheme === 'light'
                       ? theme.exactColors.white40
                       : undefined,
                   backgroundColor:
-                    editorState.currentTheme === 'light'
+                    currentTheme === 'light'
                       ? theme.exactColors.black40
                       : undefined,
                 }}
@@ -954,26 +978,27 @@ const HomeContent = () => {
 }
 
 const PageSwitch = () => {
-  const [editorState, editorActions] = useLysSliceRoot(EditorSlice)
   const isNarrowMedia = useMedia(`(max-width: ${narrow})`, false)
 
+  const { executeOperation } = useFleurContext()
+  const { editorPage, currentTheme } = useStore((get) => ({
+    editorPage: get(EditorStore).state.editorPage,
+    currentTheme: get(EditorStore).state.currentTheme,
+  }))
+
   useEffect(() => {
-    editorActions.setEditorMode(isNarrowMedia ? 'sp' : 'pc')
+    executeOperation(editorOps.setEditorMode, isNarrowMedia ? 'sp' : 'pc')
   }, [])
 
   return (
-    <ThemeProvider
-      theme={editorState.currentTheme === 'dark' ? theme : lightTheme}
-    >
+    <ThemeProvider theme={currentTheme === 'dark' ? theme : lightTheme}>
       <Head>
         <meta
           name="viewport"
           content="viewport-fit=cover, width=device-width, initial-scale=1"
         />
       </Head>
-      <>
-        {editorState.editorPage === 'home' ? <HomeContent /> : <IndexContent />}
-      </>
+      <>{editorPage === 'home' ? <HomeContent /> : <IndexContent />}</>
     </ThemeProvider>
   )
 }

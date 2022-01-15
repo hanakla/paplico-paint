@@ -1,11 +1,11 @@
 import { MouseEvent, useCallback, useRef, useState } from 'react'
+import { useFleurContext, useStore } from '@fleur/react'
 import { ChromePicker, ColorChangeHandler, CustomPicker } from 'react-color'
 import { Hue, Saturation } from 'react-color/lib/components/common'
 import { rgba, readableColor, rgb } from 'polished'
 import { usePopper } from 'react-popper'
 import { SilkBrushes, SilkEntity } from 'silk-core'
 import { useTranslation } from 'next-i18next'
-import { useLysSlice } from '@fleur/lys'
 import { useClickAway, useMedia, useToggle, useUpdate } from 'react-use'
 import { Brush, Close, Eraser, Pencil, Stack } from '@styled-icons/remix-line'
 import { Cursor } from '@styled-icons/remix-fill'
@@ -19,13 +19,31 @@ import { EditorSlice } from '../../domains/Editor'
 import { useDrag } from 'react-use-gesture'
 import { DOMUtils } from '../../utils/dom'
 import { SelectBox } from '../../components/SelectBox'
+import {
+  editorOps,
+  EditorSelector,
+  EditorStore,
+} from '../../domains/EditorStable'
 
 export function MainActions() {
   const engine = useSilkEngine()
-  const [editorState, editorActions] = useLysSlice(EditorSlice)
-  const { currentVectorBrush, currentVectorFill, activeLayer } = editorState
   const theme = useTheme()
   const isNarrowMedia = useMedia(`(max-width: ${narrow})`)
+
+  const { executeOperation } = useFleurContext()
+  const {
+    currentVectorBrush,
+    currentVectorFill,
+    currentTool,
+    activeLayer,
+    activeObject,
+  } = useStore((get) => ({
+    currentVectorBrush: EditorSelector.currentVectorBrush(get),
+    currentVectorFill: EditorSelector.currentVectorFill(get),
+    currentTool: get(EditorStore).state.currentTool,
+    activeLayer: EditorSelector.activeLayer(get),
+    activeObject: EditorSelector.activeObject(get),
+  }))
 
   const [color, setColor] = useState({ r: 0, g: 0, b: 0 })
   const [openPicker, togglePicker] = useToggle(false)
@@ -56,24 +74,24 @@ export function MainActions() {
   )
 
   const handleChangeToCursorMode = useCallback(() => {
-    editorActions.setTool('cursor')
+    executeOperation(editorOps.setTool, 'cursor')
   }, [])
 
   const handleChangeToShapePenMode = useCallback(() => {
-    editorActions.setTool('shape-pen')
+    executeOperation(editorOps.setTool, 'shape-pen')
   }, [])
 
   const handleChangeToPencilMode = useCallback(() => {
-    if (editorState.currentTool === 'draw') {
+    if (currentTool === 'draw') {
       toggleBrush(true)
       return
     }
 
-    editorActions.setTool('draw')
-  }, [editorState])
+    executeOperation(editorOps.setTool, 'draw')
+  }, [currentTool])
 
   const handleChangeToEraceMode = useCallback(() => {
-    editorActions.setTool('erase')
+    executeOperation(editorOps.setTool, 'erase')
   }, [engine])
 
   const handleChangeBrush = useCallback(
@@ -398,10 +416,10 @@ export function MainActions() {
               data-ignore-click
               {...vectorColorPopper.attributes.popper}
             >
-              {editorState.activeObject && (
+              {activeObject && (
                 <VectorColorPicker
                   mode={vectorColorTarget}
-                  object={editorState.activeObject}
+                  object={activeObject}
                 />
               )}
             </div>
@@ -431,7 +449,7 @@ export function MainActions() {
           css="padding:4px; border-radius: 60px 0 0 60px; transition: background-color .2s ease-in-out;"
           style={{
             backgroundColor:
-              editorState.currentTool === 'cursor'
+              currentTool === 'cursor'
                 ? theme.exactColors.blackFade30
                 : 'transparent',
           }}
@@ -445,7 +463,7 @@ export function MainActions() {
             css="padding:4px; border-radius: 0; transition: background-color .2s ease-in-out;"
             style={{
               backgroundColor:
-                editorState.currentTool === 'shape-pen'
+                currentTool === 'shape-pen'
                   ? theme.exactColors.blackFade30
                   : 'transparent',
             }}
@@ -460,7 +478,7 @@ export function MainActions() {
           css="padding:4px; border-radius: 0; transition: background-color .2s ease-in-out;"
           style={{
             backgroundColor:
-              editorState.currentTool === 'draw'
+              currentTool === 'draw'
                 ? theme.exactColors.blackFade30
                 : 'transparent',
           }}
@@ -474,7 +492,7 @@ export function MainActions() {
             css="padding: 4px; border-radius: 0 60px 60px 0; transition: background-color .2s ease-in-out;"
             style={{
               backgroundColor:
-                editorState.currentTool === 'erase'
+                currentTool === 'erase'
                   ? theme.exactColors.blackFade30
                   : 'transparent',
             }}
@@ -625,7 +643,12 @@ const VectorColorPicker = ({
   // onChangeComplete: ColorChangeHandler
 }) => {
   const { t } = useTranslation('app')
-  const [editorState, editorActions] = useLysSlice(EditorSlice)
+
+  const { executeOperation } = useFleurContext()
+  const { currentVectorBrush, defaultVectorBrush } = useStore((get) => ({
+    currentVectorBrush: EditorSelector.currentVectorBrush(get),
+    defaultVectorBrush: EditorSelector.defaultVectorBrush(get),
+  }))
 
   const handleChangeFillMode = useCallback(() => {
     handleChangeFillMode
@@ -633,17 +656,16 @@ const VectorColorPicker = ({
 
   const handleChangeStrokeColor: ColorChangeHandler = useCallback(
     ({ rgb: { r, g, b } }) => {
-      editorActions.updateActiveObject((obj) => {
+      executeOperation(editorOps.updateActiveObject, (obj) => {
         obj.brush = obj.brush
           ? { ...obj.brush, color: { r, g, b } }
           : {
-              ...(editorState.currentVectorBrush ??
-                editorState.defaultVectorBrush),
+              ...(currentVectorBrush ?? defaultVectorBrush),
               color: { r, g, b },
             }
       })
     },
-    [editorState]
+    [currentVectorBrush, defaultVectorBrush]
   )
 
   return (

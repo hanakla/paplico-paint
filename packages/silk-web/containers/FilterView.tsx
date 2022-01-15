@@ -1,4 +1,3 @@
-import { useLysSlice } from '@fleur/lys'
 import { Add, ArrowDownS } from '@styled-icons/remix-line'
 import { Eye, EyeClose } from '@styled-icons/remix-fill'
 import arrayMove from 'array-move'
@@ -22,18 +21,22 @@ import {
   ContextMenuItem,
 } from '../components/ContextMenu'
 import { Portal } from '../components/Portal'
-import { EditorSlice } from '../domains/Editor'
 import { useMouseTrap } from '../hooks/useMouseTrap'
 import { useSilkEngine } from '../hooks/useSilkEngine'
 import { DOMUtils } from '../utils/dom'
 import { centering } from '../utils/mixins'
 import { FilterSettings } from './FilterSettings'
+import { useFleurContext, useStore } from '@fleur/react'
+import { editorOps, EditorSelector, EditorStore } from '../domains/EditorStable'
 
 export const FilterView = () => {
   const { t } = useTranslation('app')
   const engine = useSilkEngine()
-  const [editorState, editorActions] = useLysSlice(EditorSlice)
-  const { activeLayer } = editorState
+
+  const { executeOperation } = useFleurContext()
+  const { activeLayer } = useStore((get) => ({
+    activeLayer: EditorSelector.activeLayer(get),
+  }))
 
   const [listOpened, toggleListOpened] = useToggle(false)
   const addFilterListRef = useRef<HTMLDivElement | null>(null)
@@ -61,24 +64,27 @@ export const FilterView = () => {
       const filter = engine?.getFilterInstance(filterId)
       if (!filter) return
 
-      editorActions.updateLayer(activeLayer.id, (layer) => {
+      executeOperation(editorOps.updateLayer, activeLayer.id, (layer) => {
         layer.filters.unshift(
           SilkEntity.Filter.create({ filterId, settings: filter.initialConfig })
         )
       })
 
-      editorActions.rerenderCanvas()
+      executeOperation(editorOps.rerenderCanvas)
     },
     [activeLayer, toggleListOpened]
   )
 
-  const handleFilterSortEnd: SortEndHandler = useCallback((sort) => {
-    if (!editorState.activeLayer) return
+  const handleFilterSortEnd: SortEndHandler = useCallback(
+    (sort) => {
+      if (!activeLayer) return
 
-    editorActions.updateLayer(editorState.activeLayer.id, (layer) => {
-      arrayMove.mutate(layer.filters, sort.oldIndex, sort.newIndex)
-    })
-  }, [])
+      executeOperation(editorOps.updateLayer, activeLayer.id, (layer) => {
+        arrayMove.mutate(layer.filters, sort.oldIndex, sort.newIndex)
+      })
+    },
+    [activeLayer]
+  )
 
   useClickAway(addFilterListPopRef, () => toggleListOpened(false))
 
@@ -174,7 +180,7 @@ const SortableFilterList = SortableContainer(function FilterList({
   layer: SilkEntity.LayerTypes
   filters: SilkEntity.Filter[]
 }) {
-  const [, editorActions] = useLysSlice(EditorSlice)
+  const { executeOperation } = useFleurContext()
 
   const rootRef = useRef<HTMLDivElement | null>(null)
 
@@ -184,7 +190,7 @@ const SortableFilterList = SortableContainer(function FilterList({
       {
         key: ['del', 'backspace'],
         handler: () => {
-          editorActions.deleteSelectedFilters()
+          executeOperation(editorOps.deleteSelectedFilters)
         },
       },
     ],
@@ -222,16 +228,21 @@ const SortableFilterItem = SortableElement(function FilterItem({
 }) {
   const { t } = useTranslation('app')
   const theme = useTheme()
-  const [editorState, editorActions] = useLysSlice(EditorSlice)
 
-  const active = editorState.selectedFilterIds[filter.id]
+  const { executeOperation } = useFleurContext()
+  const { activeLayer, selectedFilterIds } = useStore((get) => ({
+    activeLayer: EditorSelector.activeLayer(get),
+    selectedFilterIds: get(EditorStore).state.selectedFilterIds,
+  }))
+
+  const active = selectedFilterIds[filter.id]
   const [propsOpened, togglePropsOpened] = useToggle(false)
 
   const handleClick = useCallback(
     (e: MouseEvent<HTMLDivElement>) => {
       if (DOMUtils.closestOrSelf(e.target, '[data-ignore-click]')) return
 
-      editorActions.setSelectedFilterIds({ [filter.id]: true })
+      executeOperation(editorOps.setSelectedFilterIds, { [filter.id]: true })
     },
     [filter]
   )
@@ -242,32 +253,32 @@ const SortableFilterItem = SortableElement(function FilterItem({
   }, [])
 
   const handleToggleVisibility = useCallback(() => {
-    if (!editorState.activeLayer) return
+    if (!activeLayer) return
 
-    editorActions.updateLayer(editorState.activeLayer.id, (layer) => {
+    executeOperation(editorOps.updateLayer, activeLayer.id, (layer) => {
       const targetFilter = layer.filters.find((f) => f.id === filter.id)
       if (!targetFilter) return
 
       targetFilter.visible = !targetFilter.visible
     })
 
-    editorActions.rerenderCanvas()
-  }, [filter])
+    executeOperation(editorOps.rerenderCanvas)
+  }, [activeLayer, filter])
 
   const handleClickRemove: ContextMenuCallback = useCallback(
     (_) => {
-      if (!editorState.activeLayer) return
+      if (!activeLayer) return
 
-      editorActions.updateLayer(editorState.activeLayer.id, (layer) => {
+      executeOperation(editorOps.updateLayer, activeLayer.id, (layer) => {
         const idx = layer.filters.findIndex((f) => f.id === filter.id)
         if (idx === -1) return
 
         layer.filters.splice(idx, 1)
       })
 
-      editorActions.rerenderCanvas()
+      executeOperation(editorOps.rerenderCanvas)
     },
-    [filter]
+    [activeLayer, filter]
   )
 
   return (

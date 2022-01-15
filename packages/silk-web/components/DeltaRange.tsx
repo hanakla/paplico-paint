@@ -42,9 +42,15 @@ export const DeltaRange = ({
     [value, max, min, step]
   )
 
+  const handleMouseDown = useCallback(() => {
+    if (baseValue.current == null) {
+      baseValue.current = value
+    }
+  }, [value])
+
   const handleMouseUp = useCallback(
     ({ currentTarget }: MouseEvent<HTMLInputElement>) => {
-      const base = baseValue.current
+      const base = baseValue.current!
       const current = currentTarget.valueAsNumber
       const delta = current - 50
 
@@ -91,6 +97,7 @@ export const DeltaRange = ({
       defaultValue={inputValue.get()}
       className={className}
       onChange={handleChange}
+      onMouseDown={handleMouseDown}
       onMouseUp={handleMouseUp}
     />
   )

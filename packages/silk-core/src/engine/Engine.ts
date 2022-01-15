@@ -17,6 +17,7 @@ import { BloomFilter } from '../Filters/Bloom'
 import WebGLContext from './WebGLContext'
 import { GaussBlurFilter } from '../Filters/GaussBlur'
 import { ChromaticAberrationFilter } from '../Filters/ChromaticAberration'
+// import { hnklMultiplyMix_func } from './Shaders'
 
 type EngineEvents = {
   rerender: void
@@ -39,6 +40,7 @@ export class SilkEngine {
   protected thumbnailCtx: CanvasRenderingContext2D
   protected gl: WebGLContext
   protected atomicBufferCtx: AtomicResource<CanvasRenderingContext2D>
+  protected atomicRender: AtomicResource<any>
   protected atomicRerender: AtomicResource<any>
 
   protected mitt: Emitter<EngineEvents>
@@ -74,7 +76,7 @@ export class SilkEngine {
   protected vectorLayerLastRenderTimes = new WeakMap<VectorLayer, number>()
 
   public on: Emitter<EngineEvents>['on']
-  public off: Emitter<EngineEvents>['on']
+  public off: Emitter<EngineEvents>['off']
 
   public static async create({ canvas }: { canvas: HTMLCanvasElement }) {
     const silk = new SilkEngine({ canvas })
@@ -89,7 +91,7 @@ export class SilkEngine {
     return silk
   }
 
-  constructor({ canvas }: { canvas: HTMLCanvasElement }) {
+  protected constructor({ canvas }: { canvas: HTMLCanvasElement }) {
     this.mitt = mitt()
     this.canvas = canvas
     this.canvasHandler = new CanvasHandler(canvas)
@@ -97,6 +99,7 @@ export class SilkEngine {
     const bufferCtx = document.createElement('canvas').getContext('2d')!
     this.__dbg_bufferCtx = bufferCtx
     this.atomicBufferCtx = new AtomicResource(bufferCtx)
+    this.atomicRender = new AtomicResource({})
     this.atomicRerender = new AtomicResource({})
 
     this.gl = new WebGLContext(1, 1)
@@ -147,7 +150,7 @@ export class SilkEngine {
   }: Partial<_RenderSetting> = {}) {
     if (!this.document) return
 
-    const renderLock = await this.atomicRerender.enjure()
+    const renderLock = await this.atomicRender.enjure()
     const { document } = this
 
     this.gl.setSize(document.width, document.height)
@@ -191,6 +194,9 @@ export class SilkEngine {
             ] as const
           }
           case 'filter': {
+            return [layer.id, layer, null] as const
+          }
+          case 'text': {
             return [layer.id, layer, null] as const
           }
         }
@@ -251,11 +257,9 @@ export class SilkEngine {
             this.canvasHandler.stroking &&
             layer.id === this._activeLayer?.id
           ) {
-            this.canvasHandler.context.drawImage(
-              this.strokingPreviewCtx.canvas,
-              0,
-              0
-            )
+            destCtx.globalCompositeOperation = layer.compositeMode
+            destCtx.globalAlpha = Math.max(0, Math.min(layer.opacity / 100, 1))
+            destCtx.drawImage(this.strokingPreviewCtx.canvas, 0, 0)
 
             continue
           } else if (layer.layerType === 'filter') {
@@ -348,7 +352,7 @@ export class SilkEngine {
     } finally {
       this.atomicBufferCtx.release(bufferCtx)
       this.canvasHandler.context.restore()
-      this.atomicRerender.release(renderLock)
+      this.atomicRender.release(renderLock)
     }
 
     return {
@@ -367,8 +371,18 @@ export class SilkEngine {
     }
   }
 
-  public async rerender() {
+  public async rerender({ lazy = true }: { lazy?: boolean } = {}) {
+    if (lazy && this.atomicRerender.isLocked) {
+      const skip = await new Promise((r) =>
+        setTimeout(() => r(this.atomicRerender.isLocked), 30)
+      )
+      if (skip) return
+    }
+
+    const token = await this.atomicRerender.enjure()
     this.render({ ...this.renderSetting, updateThumbnail: true })
+    this.atomicRerender.release(token)
+
     this.mitt.emit('rerender')
   }
 
@@ -437,6 +451,13 @@ export class SilkEngine {
     await this.blushPromise
   }
 
+  public getBrushInstance(id: string) {
+    const Class = this.brushRegister.get(id)
+    if (!Class) return null
+
+    return this.brushInstances.get(Class) ?? null
+  }
+
   public async registerFilter(Filter: FilterClass) {
     this.filterRegister.set(Filter.id, Filter)
 
@@ -453,7 +474,7 @@ export class SilkEngine {
     const Class = this.filterRegister.get(id)
     if (!Class) return null
 
-    return this.filterInstances.get(Class)
+    return this.filterInstances.get(Class) ?? null
   }
 
   public get currentBrush() {
@@ -484,6 +505,14 @@ export class SilkEngine {
       this.document.layers.find((layer) => layer.id === id) ?? null
 
     this.mitt.emit('activeLayerChanged')
+  }
+
+  public applyStrokeTemporary(stroke: Stroke) {
+    this.handleTemporayStroke(stroke)
+  }
+
+  public commitStroke(stroke: Stroke) {
+    this.handleCanvasStroke(stroke)
   }
 
   private async renderVectorLayer(layer: VectorLayer) {
@@ -523,9 +552,6 @@ export class SilkEngine {
           },
           { startOffset: 1 }
         )
-        // for (const point of object.path.points) {
-
-        // }
 
         if (object.path.closed) bufferCtx.closePath()
 
@@ -635,7 +661,7 @@ export class SilkEngine {
         this._pencilMode === 'draw' ? 'source-over' : 'destination-out'
       strokingPreviewCtx.drawImage(strokeCanvasCtx.canvas, 0, 0)
 
-      this.rerender()
+      this.rerender({ lazy: false })
     } else if (this.activeLayer?.layerType === 'vector') {
     }
   }
@@ -697,8 +723,8 @@ export class SilkEngine {
         )
       })
 
-      const rerenderToken = await this.atomicRerender.enjure()
-      this.atomicRerender.release(rerenderToken)
+      const rerenderToken = await this.atomicRender.enjure()
+      this.atomicRender.release(rerenderToken)
       this.rerender()
     } else if (activeLayer?.layerType === 'vector') {
       activeLayer.objects.unshift(

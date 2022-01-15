@@ -235,21 +235,22 @@ export default class WebGLContext {
     return { type: '4i', value }
   }
 
-  public uni1ui(...value: [number]): Uniform {
-    return { type: '1ui', value }
-  }
+  // WebGL2
+  // public uni1ui(...value: [number]): Uniform {
+  //   return { type: '1ui', value }
+  // }
 
-  public uni2ui(...value: [number, number]): Uniform {
-    return { type: '2ui', value }
-  }
+  // public uni2ui(...value: [number, number]): Uniform {
+  //   return { type: '2ui', value }
+  // }
 
-  public uni3ui(...value: [number, number, number]): Uniform {
-    return { type: '3ui', value }
-  }
+  // public uni3ui(...value: [number, number, number]): Uniform {
+  //   return { type: '3ui', value }
+  // }
 
-  public uni4ui(...value: [number, number, number, number]): Uniform {
-    return { type: '4ui', value }
-  }
+  // public uni4ui(...value: [number, number, number, number]): Uniform {
+  //   return { type: '4ui', value }
+  // }
 
   public uni1f(...value: [number]): Uniform {
     return { type: '1f', value }
@@ -387,6 +388,10 @@ export default class WebGLContext {
           )
           break
         }
+<<<<<<< Updated upstream
+=======
+        // WebGL2
+>>>>>>> Stashed changes
         // case '1ui': {
         //   gl.uniform1ui(loc, uni.value[0])
         //   break
@@ -463,6 +468,7 @@ export default class WebGLContext {
           gl.uniform4fv(loc, uni.value)
           break
         }
+        // WebGL2
         // case '1uiv': {
         //   gl.uniform1uiv(loc, uni.value)
         //   break
@@ -483,6 +489,7 @@ export default class WebGLContext {
           gl.uniformMatrix2fv(loc, false, uni.value)
           break
         }
+        // WebGL2
         // case 'matrix3x2fv': {
         //   gl.uniformMatrix3x2fv(loc, false, uni.value)
         //   break
@@ -499,6 +506,8 @@ export default class WebGLContext {
         //   gl.uniformMatrix3fv(loc, false, uni.value)
         //   break
         // }
+
+        // WebGL2
         // case 'matrix4x3fv': {
         //   gl.uniformMatrix4x3fv(loc, false, uni.value)
         //   break

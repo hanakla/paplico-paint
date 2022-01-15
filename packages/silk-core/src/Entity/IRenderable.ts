@@ -1,7 +1,7 @@
 export type CompositeMode = 'normal' | 'multiply' | 'screen' | 'overlay'
 
 export interface ILayer {
-  layerType: 'raster' | 'vector' | 'filter' | 'group'
+  layerType: 'raster' | 'vector' | 'filter' | 'group' | 'text'
   name: string
   visible: boolean
   lock: boolean

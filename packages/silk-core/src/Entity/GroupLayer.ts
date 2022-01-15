@@ -1,3 +1,4 @@
+import { assign } from '../utils'
 import { CompositeMode, ILayer } from './IRenderable'
 
 export class GroupLayer implements ILayer {
@@ -12,6 +13,21 @@ export class GroupLayer implements ILayer {
   public y: number = 0
 
   public layers: ILayer[] = []
+
+  public static deserialize(obj: any) {
+    return assign(new GroupLayer(), {
+      name: obj.name,
+      visible: obj.visible,
+      lock: obj.lock,
+      compositeMode: obj.compositeMode,
+      opacity: obj.opacity,
+      x: obj.x,
+      y: obj.y,
+      layers: obj.layers.map(),
+    })
+  }
+
+  protected constructor() {}
 
   public get width() {
     return 0

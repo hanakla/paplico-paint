@@ -1,3 +1,7 @@
-import { IInk } from "./IInk";
+import { IInk } from './IInk'
 
-export class PlainInk implements IInk {}
+export class PlainInk implements IInk {
+  color() {
+    return '#000'
+  }
+}

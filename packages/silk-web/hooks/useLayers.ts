@@ -1,8 +1,7 @@
 import { useEffect, useMemo } from 'react'
 import { arrayMove } from 'react-sortable-hoc'
 import { useUpdate } from 'react-use'
-import { SilkHelper } from '../../silk-core/src'
-import { LayerTypes } from '../../silk-core/src/Entity'
+import { SilkHelper, SilkEntity } from 'silk-core'
 import { useSilkEngine } from './useSilkEngine'
 
 export const useLayerControl = () => {
@@ -21,11 +20,11 @@ export const useLayerControl = () => {
       get layers() {
         return engine?.currentDocument?.layers ?? []
       },
-      get activeLayer(): LayerTypes | null {
+      get activeLayer(): SilkEntity.LayerTypes | null {
         return engine?.activeLayer ?? null
       },
       addLayer: (
-        newLayer: LayerTypes,
+        newLayer: SilkEntity.LayerTypes,
         { aboveLayerId }: { aboveLayerId?: string }
       ) => {
         engine?.currentDocument?.addLayer(newLayer, { aboveLayerId })

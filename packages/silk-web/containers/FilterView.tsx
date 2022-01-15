@@ -14,7 +14,7 @@ import {
 import { useClickAway, useToggle } from 'react-use'
 import { useTheme } from 'styled-components'
 import { css } from 'styled-components'
-import { SilkEntity } from '../../silk-core/src'
+import { SilkEntity } from 'silk-core'
 import {
   ContextMenu,
   ContextMenuArea,

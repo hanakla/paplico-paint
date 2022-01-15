@@ -283,7 +283,6 @@ export function MainActions() {
         css={`
           width: 36px;
           height: 36px;
-          overflow: hidden;
         `}
       >
         {activeLayer?.layerType === 'raster' ? (

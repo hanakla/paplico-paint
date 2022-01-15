@@ -58,6 +58,7 @@ import { ControlsOverlay } from '../containers/ControlsOverlay'
 import i18nConfig from '../next-i18next.config'
 import { mediaNarrow, narrow } from '../utils/responsive'
 import { getStaticPropsWithFleur } from '../lib/fleur'
+import useMeasure from 'use-measure'
 
 function IndexContent({}) {
   const { t } = useTranslation('app')
@@ -72,6 +73,7 @@ function IndexContent({}) {
   const editAreaRef = useRef<HTMLDivElement | null>(null)
   const sidebarRef = useRef<HTMLDivElement | null>(null)
 
+  const editorBound = useMeasure(editAreaRef)
   const [position, setPosition] = useState({ x: 0, y: 0 })
   const rerender = useUpdate()
   const [sidebarOpened, sidebarToggle] = useToggle(!isNarrowMedia)
@@ -228,6 +230,10 @@ function IndexContent({}) {
         width: 1000,
         height: 1000,
       })
+      const text = SilkEntity.TextLayer.create({
+        width: 1000,
+        height: 1000,
+      })
       const filter = SilkEntity.FilterLayer.create({})
 
       vector.filters.push(
@@ -246,6 +252,7 @@ function IndexContent({}) {
 
       document.layers.push(layer)
       document.layers.push(vector)
+      document.layers.push(text)
       document.layers.push(filter)
       editorActions.setActiveLayer(vector.id)
 
@@ -380,31 +387,33 @@ function IndexContent({}) {
               'default',
           }}
         >
-          {dragState.over && (
-            <div
-              css={`
-                position: fixed;
-                top: 0;
-                left: 0;
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                width: 100%;
-                height: 100%;
-                z-index: 1;
-                background-color: rgba(0, 0, 0, 0.5);
-              `}
-            >
-              ドロップして画像を追加
-            </div>
-          )}
+          <div
+            css={css`
+              position: fixed;
+              top: 0;
+              left: 0;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              width: 100%;
+              height: 100%;
+              z-index: 1;
+              background-color: rgba(0, 0, 0, 0.5);
+              color: ${({ theme }) => theme.exactColors.white40};
+              pointer-events: none;
+            `}
+            style={{
+              ...(dragState.over ? { opacity: 1 } : { opacity: 0 }),
+            }}
+          >
+            ドロップして画像を追加
+          </div>
           <div
             css="position: absolute;"
             style={{
               transform: `scale(${scale}) rotate(${rotate}deg) translate(${position.x}px, ${position.y}px)`,
             }}
           >
-            <ControlsOverlay scale={scale} />
             <canvas
               css={`
                 background-color: white;
@@ -413,6 +422,54 @@ function IndexContent({}) {
               ref={canvasRef}
             />
           </div>
+
+          <svg
+            css={`
+              position: absolute;
+              top: 0;
+              left: 0;
+              width: 100%;
+              height: 100%;
+              pointer-events: none;
+            `}
+            viewBox={`0 0 ${editorBound.width} ${editorBound.height}`}
+            width={editorBound.width}
+            height={editorBound.height}
+          >
+            {/* <g
+              style={{
+                transform: `scale(${scale}) rotate(${rotate}deg) translate(${
+                  position.x + editorBound.width / 2
+                }px, ${position.y + editorBound.height / 2}px)`,
+              }}
+            > */}
+            {/* <div
+            css={`
+              position: absolute;
+              top: 0;
+              left: 0;
+              width: 100%;
+              height: 100%;
+            `}
+          > */}
+            <ControlsOverlay
+              css={`
+                position: absolute;
+                top: 0;
+                left: 0;
+                pointer-events: none;
+              `}
+              // viewBox={`0 0 ${editorBound.width} ${editorBound.height}`}
+              // width={editorBound.width}
+              // height={editorBound.height}
+              editorBound={editorBound}
+              rotate={rotate}
+              position={position}
+              scale={scale}
+            />
+            {/* </g> */}
+          </svg>
+          {/* </div> */}
           <div
             css={`
               position: absolute;
@@ -570,7 +627,10 @@ function IndexContent({}) {
                           `}
                         >
                           <div onClick={handleClickExportAs} data-type="png">
-                            PNGで保存
+                            PNG(透過)で書き出し
+                          </div>
+                          <div onClick={handleClickExportAs} data-type="png">
+                            レイヤー別PNGで書き出し
                           </div>
                           <div onClick={handleClickExportAs} data-type="jpeg">
                             JPEGで保存

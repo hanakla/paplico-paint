@@ -65,11 +65,13 @@ export class Document {
     }
 
     const index = this.layers.findIndex((layer) => layer.id == aboveLayerId)
+
     if (index === -1) {
       this.layers.push(layer)
     } else {
       this.layers.splice(index, 0, layer)
     }
+
     this.mitt.emit('layersChanged')
   }
 

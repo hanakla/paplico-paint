@@ -1,8 +1,9 @@
-import { CompositeMode } from './Entity/IRenderable'
-import * as SilkEntity from './Entity/index'
+import type { CompositeMode } from './Entity/IRenderable'
+import type * as SilkEntity from './Entity/index'
+import { RasterLayer } from './Entity/RasterLayer'
 
 export async function imageToLayer(img: HTMLImageElement) {
-  const layer = SilkEntity.RasterLayer.create({
+  const layer = RasterLayer.create({
     width: img.width,
     height: img.height,
   })

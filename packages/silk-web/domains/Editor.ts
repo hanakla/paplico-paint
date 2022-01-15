@@ -2,7 +2,7 @@ import { createSlice } from '@fleur/lys'
 import type { Draft } from 'immer'
 import { SliceActionContext } from '@fleur/lys/dist/slice'
 import { debounce } from 'debounce'
-import { Silk, SilkEntity, SilkValue } from '../../silk-core/src'
+import { Silk, SilkEntity, SilkValue } from 'silk-core'
 import { deepClone } from '../utils/clone'
 import { log, trace, warn } from '../utils/log'
 import { assign } from '../utils/assign'
@@ -164,28 +164,39 @@ export const EditorSlice = createSlice(
       updateRasterLayer: (
         { draft },
         layerId: string | null | undefined,
-        proc: (layer: SilkEntity.RasterLayer) => void
+        proc: (layer: SilkEntity.RasterLayer) => void,
+        { skipRerender = false }: { skipRerender?: boolean } = {}
       ) => {
         const layer = findLayer(draft.engine?.currentDocument, layerId)
         if (layer?.layerType !== 'raster') return
 
         layer.update(proc)
+
+        if (!skipRerender) {
+          debouncing((engine) => engine?.rerender(), draft.engine)
+        }
       },
       updateVectorLayer: (
         { draft },
         layerId: string | null | undefined,
-        proc: (layer: SilkEntity.VectorLayer) => void
+        proc: (layer: SilkEntity.VectorLayer) => void,
+        { skipRerender = false }: { skipRerender?: boolean } = {}
       ) => {
         const layer = findLayer(draft.engine?.currentDocument, layerId)
         if (layer?.layerType !== 'vector') return
 
         layer.update(proc)
+
+        if (!skipRerender) {
+          debouncing((engine) => engine?.rerender(), draft.engine)
+        }
       },
       updateFilter: (
         { draft },
         layerId: string | null,
         filterId: string | null,
-        proc: (filter: SilkEntity.Filter) => void
+        proc: (filter: SilkEntity.Filter) => void,
+        { skipRerender = false }: { skipRerender?: boolean } = {}
       ) => {
         const layer = findLayer(draft.engine?.currentDocument, layerId)
         if (!layer) return
@@ -194,6 +205,10 @@ export const EditorSlice = createSlice(
         if (!filter) return
 
         proc(filter)
+
+        if (!skipRerender) {
+          debouncing((engine) => engine?.rerender(), draft.engine)
+        }
       },
       updateActiveObject: (
         { draft },
@@ -385,6 +400,5 @@ const debouncing = debounce(
   <T extends (...args: A[]) => void, A>(proc: T, ...args: A[]) => {
     proc(...args)
   },
-  100,
-  true
+  100
 )

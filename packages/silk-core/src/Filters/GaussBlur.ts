@@ -39,7 +39,6 @@ export class GaussBlurFilter implements IFilter {
   }: FilterContext) {
     const rad = Math.round(radius)
 
-    console.log({ rad })
     const programH = gl.createProgram(this.generateShader(rad, true))
     const programV = gl.createProgram(this.generateShader(rad, false))
 

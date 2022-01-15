@@ -10,7 +10,9 @@ export const DOMUtils = {
   },
   closestOrSelf: (target: Element | EventTarget | null, selector: string) => {
     return (
-      target !== null && (target.matches(selector) || target.closest(selector))
+      target !== null &&
+      ((target as Element).matches(selector) ||
+        (target as Element).closest(selector))
     )
   },
   // selectFile: async ({

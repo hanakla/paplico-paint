@@ -12,7 +12,7 @@ export class ExampleBrush implements IBrush {
 
   public async initialize() {
     this.image = new Image()
-    this.image.src = img.src
+    this.image.src = img
 
     await new Promise((resolve) => {
       this.image!.onload = resolve
@@ -24,8 +24,8 @@ export class ExampleBrush implements IBrush {
 
     const { width, height } = this.image
 
-    stroke.eachSplinePoint(([x, y, force]) => {
-      ctx.globalAlpha = force / 2
+    stroke.path.mapPoints(({ x, y, weight }) => {
+      ctx.globalAlpha = weight / 2
       ctx.drawImage(
         this.image!,
         x - width / 2,

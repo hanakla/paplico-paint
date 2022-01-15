@@ -1,5 +1,5 @@
 declare module '@yr/catmull-rom-spline' {
-  declare const _: {
+  const _: {
     points(points: number[][])
   }
 
@@ -7,17 +7,32 @@ declare module '@yr/catmull-rom-spline' {
 }
 
 declare module 'svg-path-bounds' {
-  declare function _(
+  function _(
     path: string
   ): [left: number, top: number, right: number, bottom: number]
   export = _
 }
 
 declare module 'point-at-length' {
-  declare const _: (path: string) => {
+  const _: (path: string) => {
     length(): number
     at(point: number): [x: number, y: number]
   }
 
   export = _
+}
+
+declare module '*.png' {
+  const _: string
+  export default _
+}
+
+declare module '*.frag' {
+  const _: string
+  export default _
+}
+
+declare module '*.glsl' {
+  const _: string
+  export default _
 }

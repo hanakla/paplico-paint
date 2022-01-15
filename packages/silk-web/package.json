@@ -7,10 +7,10 @@
     "start": "next start"
   },
   "dependencies": {
-    "@fleur/fleur": "^3.0.0",
+    "@fleur/fleur": "^3.0.1",
     "@fleur/lys": "^2.0.1",
     "@fleur/next": "^1.0.0",
-    "@fleur/react": "^5.0.0",
+    "@fleur/react": "^5.0.2",
     "@hanakla/arma": "^0.1.10",
     "@popperjs/core": "^2.9.3",
     "@styled-icons/remix-fill": "^10.18.0",

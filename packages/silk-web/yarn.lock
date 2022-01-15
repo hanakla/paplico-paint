@@ -944,10 +944,10 @@
   resolved "https://registry.yarnpkg.com/@emotion/unitless/-/unitless-0.7.5.tgz#77211291c1900a700b8a78cfafda3160d76949ed"
   integrity sha512-OWORNpfjMsSSUBVrRBVGECkhWcULOAJz9ZW8uK9qgxD+87M7jHRcvh/A96XXNhXTLmKcoYSQtBEX7lHMO7YRwg==
 
-"@fleur/fleur@^3.0.0":
-  version "3.0.0"
-  resolved "https://registry.yarnpkg.com/@fleur/fleur/-/fleur-3.0.0.tgz#af70964daf451014189d45cce9c5ddc682a8125f"
-  integrity sha512-MCaeSKt+hBF3tzQz81qWpkjcgyF6qcgu00TfWA6LTBWBoXVQegEdBkU9HQ4sU0mK0XF67ed2yWkw6zWmCQmnjw==
+"@fleur/fleur@^3.0.1":
+  version "3.0.1"
+  resolved "https://registry.yarnpkg.com/@fleur/fleur/-/fleur-3.0.1.tgz#c9df742ab71e009a09cb2faa52dcca4cfc57aaa2"
+  integrity sha512-0hc3XRQn4+IFyIp6J+hqIKqifOHgB0IYRrsAattqd6L9YB/Ar6/2nxpjlFtb5wz1q9VdU8m0ZsdeI2MIeQHXiA==
   dependencies:
     immer "^8.0.1"
     invariant "^2.2.4"
@@ -966,10 +966,10 @@
   dependencies:
     superjson "^1.4.1"
 
-"@fleur/react@^5.0.0":
-  version "5.0.0"
-  resolved "https://registry.yarnpkg.com/@fleur/react/-/react-5.0.0.tgz#e6127a55958a3878c1d07ab510a2dc9d567371a9"
-  integrity sha512-PETkur87HjuiliM0B3tCJEUvDcdYs2h71YJ9+I9ZqE/GLq59rCGFAtFj65HsQ4lt5vESk3Rw4fpolG1vloQhKA==
+"@fleur/react@^5.0.2":
+  version "5.0.2"
+  resolved "https://registry.yarnpkg.com/@fleur/react/-/react-5.0.2.tgz#e45d30448a7bf414cc5ac094b37bb38c7620d0a5"
+  integrity sha512-0JOUKdlceRPWNsO1NHqLudJQPqQWVVDCFJwch1U0pFAvdBJDz870W9NjQEbKM01w0On1JAhvuQe5uVhA+CbmdA==
 
 "@hanakla/arma@^0.1.10":
   version "0.1.10"

@@ -57,6 +57,7 @@ import { MainActions } from '../containers/MainActions/MainActions'
 import { ControlsOverlay } from '../containers/ControlsOverlay'
 import i18nConfig from '../next-i18next.config'
 import { mediaNarrow, narrow } from '../utils/responsive'
+import { getStaticPropsWithFleur } from '../lib/fleur'
 
 function IndexContent({}) {
   const { t } = useTranslation('app')
@@ -921,11 +922,11 @@ export default function Index() {
   return <PageSwitch />
 }
 
-export const getStaticProps: GetStaticProps = async ({ locale }) => {
+export const getStaticProps = getStaticPropsWithFleur(async ({ locale }) => {
   return {
     props: {
       ...(await serverSideTranslations(locale!, ['app'], i18nConfig)),
       // Will be passed to the page component as props
     },
   }
-}
+})

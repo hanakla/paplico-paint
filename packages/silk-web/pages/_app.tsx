@@ -12,6 +12,7 @@ import { ErrorBoundary } from 'react-error-boundary'
 import { useMedia } from '../utils/hooks'
 import { narrow } from '../utils/responsive'
 import { LysContext } from '@fleur/lys'
+import { appWithFleur } from '../lib/fleur'
 
 const fastclick = process.browser ? require('fastclick') : null
 
@@ -75,4 +76,6 @@ const ErrorFallback = () => {
   )
 }
 
-export default appWithTranslation(MyApp)
+export default appWithTranslation(
+  appWithFleur(MyApp, { enableGetIntialProps: false })
+)

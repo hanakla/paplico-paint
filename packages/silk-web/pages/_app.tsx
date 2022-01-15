@@ -11,7 +11,6 @@ import { lightTheme, theme } from '../utils/theme'
 import { ErrorBoundary } from 'react-error-boundary'
 import { useMedia } from '../utils/hooks'
 import { narrow } from '../utils/responsive'
-import { LysContext } from '@fleur/lys'
 import { appWithFleur } from '../lib/fleur'
 
 const fastclick = process.browser ? require('fastclick') : null
@@ -29,9 +28,7 @@ function MyApp({ Component, pageProps }: AppProps) {
       <GlobalStyle isNarrow={isNarrow} />
 
       <ErrorBoundary FallbackComponent={ErrorFallback}>
-        <LysContext>
-          <Component {...pageProps} />
-        </LysContext>
+        <Component {...pageProps} />
       </ErrorBoundary>
     </>
   )

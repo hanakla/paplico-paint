@@ -948,13 +948,6 @@
     immer "^9.0.12"
     invariant "^2.2.4"
 
-"@fleur/lys@^2.0.1":
-  version "2.0.1"
-  resolved "https://registry.yarnpkg.com/@fleur/lys/-/lys-2.0.1.tgz#b647b2d00ab147b7d3e2d0b208d117c4d9aa2316"
-  integrity sha512-5/TVs31sP5K+ZXGy+briAMzownqsIdl8MPOBSsV2TS4iZvMjBpL8K/twzHlUZMKwG042G2xAnHeUz4XgM1BPYA==
-  dependencies:
-    immer "^7.0.14"
-
 "@fleur/next@^1.0.0":
   version "1.0.0"
   resolved "https://registry.yarnpkg.com/@fleur/next/-/next-1.0.0.tgz#695ab9e3446116878ea43c33d8b0d564eafb92bc"
@@ -2723,11 +2716,6 @@ image-size@1.0.0:
   integrity sha512-JLJ6OwBfO1KcA+TvJT+v8gbE6iWbj24LyDNFgFEN0lzegn6cC6a/p3NIDaepMsJjQjlUWqIC7wJv8lBFxPNjcw==
   dependencies:
     queue "6.0.2"
-
-immer@^7.0.14:
-  version "7.0.15"
-  resolved "https://registry.yarnpkg.com/immer/-/immer-7.0.15.tgz#dc3bc6db87401659d2e737c67a21b227c484a4ad"
-  integrity sha512-yM7jo9+hvYgvdCQdqvhCNRRio0SCXc8xDPzA25SvKWa7b1WVPjLwQs1VYU5JPXjcJPTqAa5NP5dqpORGYBQ2AA==
 
 immer@^8.0.0, immer@^8.0.1:
   version "8.0.4"

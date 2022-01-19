@@ -1,17 +1,14 @@
-import { rgba } from 'polished'
 import {
+  useContext,
+  useCallback,
+  useState,
+  useMemo,
+  useRef,
+  Ref,
   createContext,
-  MouseEvent,
-  MutableRefObject,
   ReactNode,
-  RefObject,
   useEffect,
 } from 'react'
-import { useContext } from 'react'
-import { useCallback } from 'react'
-import { useState } from 'react'
-import { useMemo } from 'react'
-import { useRef } from 'react'
 import { useClickAway, useToggle } from 'react-use'
 import { css } from 'styled-components'
 import { Portal } from './Portal'

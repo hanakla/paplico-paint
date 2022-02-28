@@ -34,6 +34,14 @@ interface State {
   currentTheme: 'dark' | 'light'
 }
 
+const debouncing = debounce(
+  <T extends (...args: A) => void, A extends Array<any>>(proc: T) => {
+    // console.log(proc, args)
+    return (...args: A) => proc(...args)
+  },
+  100
+)
+
 const [EditorStore, editorOps] = minOps('Editor', {
   ops: {
     setEngine: async ({ state }, engine: Silk) => {
@@ -127,9 +135,9 @@ const [EditorStore, editorOps] = minOps('Editor', {
       trace('Selected filters changed', Object.keys(nextSelections))
       state.selectedFilterIds = nextSelections
     },
-    rerenderCanvas: ({ state }) => {
+    rerenderCanvas: debouncing(({ state }) => {
       state.engine?.rerender()
-    },
+    }) as any,
     updateDocument: (
       { state },
       proc: (document: SilkEntity.Document) => void,
@@ -254,7 +262,8 @@ const [EditorStore, editorOps] = minOps('Editor', {
       currentDocument.layers.splice(idx, 1)
 
       // ActiveLayerがなくなると画面がアになるので……
-      const nextActiveLayer = currentDocument.layers[idx - 1]
+      const nextActiveLayer =
+        currentDocument.layers[idx - 1] ?? currentDocument.layers.slice(-1)
 
       if (layerId === state.activeLayerId) {
         state.engine.setActiveLayer(nextActiveLayer.id)
@@ -394,9 +403,6 @@ const findLayerIndex = (
   return index
 }
 
-const debouncing = debounce(
-  <T extends (...args: A[]) => void, A>(proc: T, ...args: A[]) => {
-    proc(...args)
-  },
-  100
-)
+// const debouned = debounce((f: () => void) => {
+//   f()
+// }, 100)

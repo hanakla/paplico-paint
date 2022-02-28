@@ -144,8 +144,7 @@ const VectorLayerControl = ({ scale }: { scale: number }) => {
 
   const rootRef = useRef<SVGSVGElement | null>(null)
 
-  if (!activeLayer) throw new Error('')
-  if (activeLayer.layerType !== 'vector') throw new Error('')
+  if (!activeLayer || activeLayer.layerType !== 'vector') throw new Error('')
 
   const [isHoverOnPath, toggleIsHoverOnPath] = useToggle(false)
   const [hoverObjectId, setHoverObjectId] = useState<string | null>(null)

@@ -1032,20 +1032,13 @@
   resolved "https://registry.yarnpkg.com/@emotion/unitless/-/unitless-0.7.5.tgz#77211291c1900a700b8a78cfafda3160d76949ed"
   integrity sha512-OWORNpfjMsSSUBVrRBVGECkhWcULOAJz9ZW8uK9qgxD+87M7jHRcvh/A96XXNhXTLmKcoYSQtBEX7lHMO7YRwg==
 
-"@fleur/fleur@^3.0.1":
-  version "3.0.1"
-  resolved "https://registry.yarnpkg.com/@fleur/fleur/-/fleur-3.0.1.tgz#c9df742ab71e009a09cb2faa52dcca4cfc57aaa2"
-  integrity sha512-0hc3XRQn4+IFyIp6J+hqIKqifOHgB0IYRrsAattqd6L9YB/Ar6/2nxpjlFtb5wz1q9VdU8m0ZsdeI2MIeQHXiA==
+"@fleur/fleur@3.1.0-beta.2":
+  version "3.1.0-beta.2"
+  resolved "https://registry.yarnpkg.com/@fleur/fleur/-/fleur-3.1.0-beta.2.tgz#cddb460638cf185d91e88774c80c17f165195b3c"
+  integrity sha512-/kuJAfX4QhTMqULajaX5bO7T1Vxl+WM8UVoq6eD3+rXt9baj9M4dfwRcvvhyEhrJ4ttltDhvaxp4J1tMWa4pEQ==
   dependencies:
-    immer "^8.0.1"
+    immer "^9.0.12"
     invariant "^2.2.4"
-
-"@fleur/lys@^2.0.1":
-  version "2.0.1"
-  resolved "https://registry.yarnpkg.com/@fleur/lys/-/lys-2.0.1.tgz#b647b2d00ab147b7d3e2d0b208d117c4d9aa2316"
-  integrity sha512-5/TVs31sP5K+ZXGy+briAMzownqsIdl8MPOBSsV2TS4iZvMjBpL8K/twzHlUZMKwG042G2xAnHeUz4XgM1BPYA==
-  dependencies:
-    immer "^7.0.14"
 
 "@fleur/next@^1.0.0":
   version "1.0.0"
@@ -4457,15 +4450,15 @@ image-size@1.0.0:
   dependencies:
     queue "6.0.2"
 
-immer@^7.0.14:
-  version "7.0.15"
-  resolved "https://registry.yarnpkg.com/immer/-/immer-7.0.15.tgz#dc3bc6db87401659d2e737c67a21b227c484a4ad"
-  integrity sha512-yM7jo9+hvYgvdCQdqvhCNRRio0SCXc8xDPzA25SvKWa7b1WVPjLwQs1VYU5JPXjcJPTqAa5NP5dqpORGYBQ2AA==
-
 immer@^8.0.0, immer@^8.0.1:
   version "8.0.4"
   resolved "https://registry.yarnpkg.com/immer/-/immer-8.0.4.tgz#3a21605a4e2dded852fb2afd208ad50969737b7a"
   integrity sha512-jMfL18P+/6P6epANRvRk6q8t+3gGhqsJ9EuJ25AXE+9bNTYtssvzeYbEd0mXRYWCmmXSIbnlpz6vd6iJlmGGGQ==
+
+immer@^9.0.12:
+  version "9.0.12"
+  resolved "https://registry.yarnpkg.com/immer/-/immer-9.0.12.tgz#2d33ddf3ee1d247deab9d707ca472c8c942a0f20"
+  integrity sha512-lk7UNmSbAukB5B6dh9fnh5D0bJTOFKxVg2cyJWTYrWRfhLrLMBquONcUs3aFq507hNoIZEDDh8lb8UtOizSMhA==
 
 import-cwd@^2.0.0:
   version "2.1.0"

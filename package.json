@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "workspaces": [
-    "./packages/*"
+    "./pkgs/*"
   ],
   "scripts": {
     "dev": "wsrun -p silk-web -c dev",

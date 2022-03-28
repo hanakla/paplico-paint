@@ -8,6 +8,7 @@ import {
   createContext,
   ReactNode,
   useEffect,
+  MouseEvent,
 } from 'react'
 import { useClickAway, useToggle } from 'react-use'
 import { css } from 'styled-components'

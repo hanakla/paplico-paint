@@ -17,13 +17,16 @@ const config = {
   typescript: {
     ignoreBuildErrors: true,
   },
-  webpack: (config) => {
+  webpack: (config, context) => {
     config.resolve.alias = {
       ...config.resolve.alias,
       'silk-core': 'silk-core/src/index.ts',
       'silk-ui': 'silk-ui/src/index.ts',
     }
-    config.plugins.push(new ForkTsCheckerWebpackPlugin())
+
+    if (context.dev) {
+      config.plugins.push(new ForkTsCheckerWebpackPlugin())
+    }
 
     return config
   },

@@ -7,8 +7,8 @@
   ],
   "scripts": {
     "dev": "wsrun -p silk-web -c dev",
-    "build": "cd packages/silk-web; yarn build",
-    "start": "cd packages/silk-web; yarn start"
+    "build": "cd pkgs/silk-web; yarn build",
+    "start": "cd pkgs/silk-web; yarn start"
   },
   "devDependencies": {
     "wsrun": "^5.2.4"

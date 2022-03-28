@@ -5,7 +5,7 @@
 ## Motivation
 
 ベジエでイケイケな絵を書きたい。  
-ラスター系とベクター系が一緒に使えるアプリが欲しい。  
+ラスター系とベクター系が一緒に使えるアプリが欲しい。
 
 そういう伝わりづらい個人的な欲求で作っている。
 
@@ -21,7 +21,7 @@ Do you understand????
 
 ## Application Structure
 
-- [`packages/silk-core`](packages/silk-core) is an package of drawing engine / native UI events handler / drawing state manager.
+- [`pkgs/silk-core`](pkgs/silk-core) is an package of drawing engine / native UI events handler / drawing state manager.
   - Made with TypeScript / HTML5 Canvas / DOM
-- [`packages/silk-web`](packages/silk-web) is Frontend implementation of silk-core.
+- [`pkgs/silk-web`](pkgs/silk-web) is Frontend implementation of silk-core.
   - Made with Next.js

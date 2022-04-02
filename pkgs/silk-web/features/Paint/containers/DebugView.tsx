@@ -1,8 +1,8 @@
 import { useEffect, useRef } from 'react'
 import { useMedia } from 'react-use'
 import styled from 'styled-components'
-import { useSilkEngine } from '../hooks/useSilkEngine'
-import { narrow } from '../utils/responsive'
+import { useSilkEngine } from '🙌/hooks/useSilkEngine'
+import { narrow } from '🙌/utils/responsive'
 
 export const DebugView = ({ className }: { className?: string }) => {
   const engine = useSilkEngine()

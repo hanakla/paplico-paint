@@ -1,6 +1,7 @@
 const ForkTsCheckerWebpackPlugin = require('fork-ts-checker-webpack-plugin')
 const withPWA = require('next-pwa')
 const runtimeCaching = require('next-pwa/cache')
+const path = require('path')
 const withTranspileModules = require('next-transpile-modules')([
   'silk-core',
   'silk-ui',
@@ -22,11 +23,12 @@ const config = {
       ...config.resolve.alias,
       'silk-core': 'silk-core/src/index.ts',
       'silk-ui': 'silk-ui/src/index.ts',
+      '🙌': path.join(__dirname, './'),
     }
 
-    if (context.dev) {
-      config.plugins.push(new ForkTsCheckerWebpackPlugin())
-    }
+    // if (context.dev) {
+    //   config.plugins.push(new ForkTsCheckerWebpackPlugin())
+    // }
 
     return config
   },

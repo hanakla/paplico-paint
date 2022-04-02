@@ -1,4 +1,4 @@
-import type {} from '../../utils/styled-theme'
+import type {} from '🙌/utils/styled-theme'
 
 import {
   Add,
@@ -28,26 +28,22 @@ import {
 } from 'react-sortable-hoc'
 import { css, useTheme } from 'styled-components'
 import { Silk, SilkEntity } from 'silk-core'
-import { Portal } from '../../components/Portal'
-import { useLayerControl } from '../../hooks/useLayers'
-import { centering, rangeThumb, silkScroll } from '../../utils/mixins'
-import { useSilkEngine } from '../../hooks/useSilkEngine'
+import { Portal } from '🙌/components/Portal'
+import { useLayerControl } from '🙌/hooks/useLayers'
+import { centering, rangeThumb, silkScroll } from '🙌/utils/mixins'
+import { useSilkEngine } from '🙌/hooks/useSilkEngine'
 import { useClickAway, useToggle, useUpdate } from 'react-use'
 import { usePopper } from 'react-popper'
-import { SelectBox } from '../../components/SelectBox'
-import { FakeInput } from '../../components/FakeInput'
+import { SelectBox } from '🙌/components/SelectBox'
+import { FakeInput } from '🙌/components/FakeInput'
 import {
   ActionSheet,
   ActionSheetItemGroup,
   ActionSheetItem,
-} from '../../components/ActionSheet'
+} from '🙌/components/ActionSheet'
 import { FilterSettings } from '../FilterSettings'
-import { DOMUtils } from '../../utils/dom'
-import {
-  editorOps,
-  EditorSelector,
-  EditorStore,
-} from '../../domains/EditorStable'
+import { DOMUtils } from '🙌/utils/dom'
+import { editorOps, EditorSelector, EditorStore } from '🙌/domains/EditorStable'
 import { useFleurContext, useStore } from '@fleur/react'
 
 export const LayerFloatMenu = () => {

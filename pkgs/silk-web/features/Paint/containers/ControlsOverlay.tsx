@@ -5,15 +5,15 @@ import { useDrag, useHover } from 'react-use-gesture'
 import { createEditor, Descendant } from 'slate'
 import { Slate, Editable, withReact } from 'slate-react'
 import { SilkEntity } from 'silk-core'
-import { useSilkEngine } from '../hooks/useSilkEngine'
-import { deepClone } from '../utils/clone'
-import { assign } from '../utils/assign'
-import { useMouseTrap } from '../hooks/useMouseTrap'
+import { useSilkEngine } from '🙌/hooks/useSilkEngine'
+import { deepClone } from '🙌/utils/clone'
+import { assign } from '🙌/utils/assign'
+import { useMouseTrap } from '🙌/hooks/useMouseTrap'
 import { rgba } from 'polished'
-import { any } from '../utils/anyOf'
-import { SilkWebMath } from '../utils/SilkWebMath'
+import { any } from '🙌/utils/anyOf'
+import { SilkWebMath } from '🙌/utils/SilkWebMath'
 import { DOMRectReadOnly } from 'use-measure'
-import { editorOps, EditorSelector, EditorStore } from '../domains/EditorStable'
+import { editorOps, EditorSelector, EditorStore } from '🙌/domains/EditorStable'
 
 export const ControlsOverlay = ({
   editorBound,
@@ -505,7 +505,7 @@ const GradientControl = ({
             ({ color: { r, g, b, a }, position }) => (
               <stop
                 offset={`${position * 100}%`}
-                stop-color={rgba(r, g, b, a)}
+                stopColor={rgba(r, g, b, a)}
               />
             )
           )}

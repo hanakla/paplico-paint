@@ -19,15 +19,15 @@ import {
   ContextMenuArea,
   ContextMenuCallback,
   ContextMenuItem,
-} from '../components/ContextMenu'
-import { Portal } from '../components/Portal'
-import { useMouseTrap } from '../hooks/useMouseTrap'
-import { useSilkEngine } from '../hooks/useSilkEngine'
-import { DOMUtils } from '../utils/dom'
-import { centering } from '../utils/mixins'
+} from '🙌/components/ContextMenu'
+import { Portal } from '🙌/components/Portal'
+import { useMouseTrap } from '🙌/hooks/useMouseTrap'
+import { useSilkEngine } from '🙌/hooks/useSilkEngine'
+import { DOMUtils } from '🙌/utils/dom'
+import { centering } from '🙌/utils/mixins'
 import { FilterSettings } from './FilterSettings'
 import { useFleurContext, useStore } from '@fleur/react'
-import { editorOps, EditorSelector, EditorStore } from '../domains/EditorStable'
+import { editorOps, EditorSelector, EditorStore } from '🙌/domains/EditorStable'
 
 export const FilterView = () => {
   const { t } = useTranslation('app')

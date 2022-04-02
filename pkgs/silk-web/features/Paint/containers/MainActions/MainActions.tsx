@@ -10,20 +10,15 @@ import { useClickAway, useMedia, useToggle, useUpdate } from 'react-use'
 import { Brush, Close, Eraser, Pencil, Stack } from '@styled-icons/remix-line'
 import { Cursor } from '@styled-icons/remix-fill'
 import { css, useTheme } from 'styled-components'
-import { useSilkEngine } from '../../hooks/useSilkEngine'
-import { Portal } from '../../components/Portal'
-import { narrow } from '../../utils/responsive'
-import { FloatMenu } from '../../components/FloatMenu'
+import { useSilkEngine } from '🙌/hooks/useSilkEngine'
+import { Portal } from '🙌/components/Portal'
+import { narrow } from '🙌/utils/responsive'
+import { FloatMenu } from '🙌/components/FloatMenu'
 import { LayerFloatMenu } from './LayerFloatMenu'
-import { EditorSlice } from '../../domains/Editor'
 import { useDrag } from 'react-use-gesture'
-import { DOMUtils } from '../../utils/dom'
-import { SelectBox } from '../../components/SelectBox'
-import {
-  editorOps,
-  EditorSelector,
-  EditorStore,
-} from '../../domains/EditorStable'
+import { DOMUtils } from '🙌/utils/dom'
+import { SelectBox } from '🙌/components/SelectBox'
+import { editorOps, EditorSelector, EditorStore } from '🙌/domains/EditorStable'
 
 export function MainActions() {
   const engine = useSilkEngine()

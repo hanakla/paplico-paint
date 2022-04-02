@@ -43,6 +43,24 @@ const debouncing = debounce(
 )
 
 const [EditorStore, editorOps] = minOps('Editor', {
+  initialState: (): State => ({
+    engine: null,
+    _currentDocument: null,
+    editorMode: 'sp',
+    editorPage: 'home',
+    currentTheme: 'light',
+    renderSetting: { disableAllFilters: false, updateThumbnail: true },
+    currentTool: 'cursor',
+    currentFill: null,
+    currentStroke: null,
+    activeLayerId: null,
+    activeObjectId: null,
+    activeObjectPointIndices: [],
+    selectedFilterIds: {},
+    vectorStroking: null,
+    vectorFocusing: null,
+    clipboard: null,
+  }),
   ops: {
     setEngine: async ({ state }, engine: Silk) => {
       state.engine = engine as any
@@ -305,24 +323,6 @@ const [EditorStore, editorOps] = minOps('Editor', {
       state.engine?.rerender()
     },
   },
-  initialState: (): State => ({
-    engine: null,
-    _currentDocument: null,
-    editorMode: 'sp',
-    editorPage: 'app',
-    currentTheme: 'light',
-    renderSetting: { disableAllFilters: false, updateThumbnail: true },
-    currentTool: 'cursor',
-    currentFill: null,
-    currentStroke: null,
-    activeLayerId: null,
-    activeObjectId: null,
-    activeObjectPointIndices: [],
-    selectedFilterIds: {},
-    vectorStroking: null,
-    vectorFocusing: null,
-    clipboard: null,
-  }),
 })
 
 export { EditorStore, editorOps }

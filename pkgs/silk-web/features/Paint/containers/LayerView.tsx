@@ -6,31 +6,31 @@ import { rgba } from 'polished'
 import { usePopper } from 'react-popper'
 import { Add } from '@styled-icons/remix-fill'
 import { css } from 'styled-components'
-import { Portal } from '../components/Portal'
+import { Portal } from '🙌/components/Portal'
 import {
   SortableContainer,
   SortableElement,
   SortEndHandler,
 } from 'react-sortable-hoc'
-import { centering, rangeThumb, silkScroll } from '../utils/mixins'
+import { centering, rangeThumb, silkScroll } from '🙌/utils/mixins'
 import { useTranslation } from 'next-i18next'
 import { ArrowDownS, Stack } from '@styled-icons/remix-line'
 import { Eye, EyeClose } from '@styled-icons/remix-fill'
-import { useLayerControl } from '../hooks/useLayers'
+import { useLayerControl } from '🙌/hooks/useLayers'
 import {
   ContextMenu,
   ContextMenuArea,
   ContextMenuItem,
-} from '../components/ContextMenu'
-import { combineRef } from '../utils/react'
-import { SelectBox } from '../components/SelectBox'
+} from '🙌/components/ContextMenu'
+import { combineRef } from '🙌/utils/react'
+import { SelectBox } from '🙌/components/SelectBox'
 
-import { FakeInput } from '../components/FakeInput'
-import { DOMUtils } from '../utils/dom'
-import { useMouseTrap } from '../hooks/useMouseTrap'
+import { FakeInput } from '🙌/components/FakeInput'
+import { DOMUtils } from '🙌/utils/dom'
+import { useMouseTrap } from '🙌/hooks/useMouseTrap'
 import { useTheme } from 'styled-components'
 import { useFleurContext, useStore } from '@fleur/react'
-import { editorOps, EditorSelector, EditorStore } from '../domains/EditorStable'
+import { editorOps, EditorSelector, EditorStore } from '🙌/domains/EditorStable'
 
 export function LayerView() {
   const { t } = useTranslation('app')

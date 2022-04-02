@@ -3,11 +3,11 @@ import { useTranslation } from 'next-i18next'
 import { useCallback } from 'react'
 import { ReactNode } from 'react'
 import { SilkEntity } from 'silk-core'
-import { DeltaRange } from '../components/DeltaRange'
-import { EditorSlice } from '../domains/Editor'
-import { editorOps } from '../domains/EditorStable'
-import { centering } from '../utils/mixins'
-import { roundString } from '../utils/StringUtils'
+import { DeltaRange } from '🙌/components/DeltaRange'
+import { EditorSlice } from '🙌/domains/Editor'
+import { editorOps } from '🙌/domains/EditorStable'
+import { centering } from '🙌/utils/mixins'
+import { roundString } from '🙌/utils/StringUtils'
 
 type Props = { layer: SilkEntity.LayerTypes; filter: SilkEntity.Filter }
 

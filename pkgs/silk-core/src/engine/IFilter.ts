@@ -16,6 +16,6 @@ export interface FilterClass<T extends IFilter = IFilter> {
 export interface IFilter {
   get id(): string
   get initialConfig(): Record<string, any>
-  initialize(): Promise<void>
+  initialize(context: { gl: WebGLContext }): Promise<void>
   render(ctx: FilterContext): void
 }

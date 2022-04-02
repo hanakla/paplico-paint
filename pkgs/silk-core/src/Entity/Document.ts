@@ -1,15 +1,15 @@
 import { LayerTypes } from './index'
-import mitt, { Emitter } from 'mitt'
 import { assign } from '../utils'
 import { RasterLayer } from './RasterLayer'
 import { VectorLayer } from './VectorLayer'
 import { FilterLayer } from './FilterLayer'
+import { Emitter } from '../engine/Engine3_Emitter'
 
 type DocumentEvents = {
   layersChanged: void
 }
 
-export class Document {
+export class Document extends Emitter<DocumentEvents> {
   public static create({ width, height }: { width: number; height: number }) {
     const document = new Document()
     assign(document, { width, height })
@@ -46,15 +46,6 @@ export class Document {
   public layers: LayerTypes[] = []
   public activeLayerId: string | null = null
 
-  protected mitt: Emitter<DocumentEvents> = mitt()
-  public on: Emitter<DocumentEvents>['on']
-  public off: Emitter<DocumentEvents>['off']
-
-  constructor() {
-    this.on = this.mitt.on.bind(this.mitt)
-    this.off = this.mitt.off.bind(this.mitt)
-  }
-
   public addLayer(
     layer: LayerTypes,
     { aboveLayerId }: { aboveLayerId?: string | null } = {}
@@ -72,12 +63,12 @@ export class Document {
       this.layers.splice(index, 0, layer)
     }
 
-    this.mitt.emit('layersChanged')
+    this.emit('layersChanged')
   }
 
   public sortLayer(process: (layers: LayerTypes[]) => LayerTypes[]) {
     this.layers = process(this.layers)
-    this.mitt.emit('layersChanged')
+    this.emit('layersChanged')
   }
 
   public serialize() {

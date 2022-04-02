@@ -22,7 +22,6 @@ import {
 } from '🙌/components/ContextMenu'
 import { Portal } from '🙌/components/Portal'
 import { useMouseTrap } from '🙌/hooks/useMouseTrap'
-import { useSilkEngine } from '🙌/hooks/useSilkEngine'
 import { DOMUtils } from '🙌/utils/dom'
 import { centering } from '🙌/utils/mixins'
 import { FilterSettings } from './FilterSettings'
@@ -31,11 +30,11 @@ import { editorOps, EditorSelector, EditorStore } from '🙌/domains/EditorStabl
 
 export const FilterView = () => {
   const { t } = useTranslation('app')
-  const engine = useSilkEngine()
 
-  const { executeOperation } = useFleurContext()
-  const { activeLayer } = useStore((get) => ({
+  const { executeOperation, getStore } = useFleurContext()
+  const { activeLayer, registeredFilters } = useStore((get) => ({
     activeLayer: EditorSelector.activeLayer(get),
+    registeredFilters: EditorSelector.getAvailableFilters(get),
   }))
 
   const [listOpened, toggleListOpened] = useToggle(false)
@@ -61,7 +60,7 @@ export const FilterView = () => {
       if (!activeLayer) return
 
       const filterId = currentTarget.dataset.filterId!
-      const filter = engine?.getFilterInstance(filterId)
+      const filter = EditorSelector.getFilterInstance(getStore, filterId)
       if (!filter) return
 
       executeOperation(editorOps.updateLayer, activeLayer.id, (layer) => {
@@ -146,7 +145,7 @@ export const FilterView = () => {
               }}
               {...addLayerListPopper.attributes.popper}
             >
-              {engine?.getFilters().map((filter) => (
+              {registeredFilters.map((filter) => (
                 <li
                   key={filter.id}
                   onClick={handleClickAddFilter}

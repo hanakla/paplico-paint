@@ -68,7 +68,7 @@ export class CanvasHandler {
       this._stroking = false
 
       currentStroke.path = currentStroke.splinedPath
-      this.mitt.emit('stroke', currentStroke)
+      this.mitt.emit('strokeComplete', currentStroke)
     })
 
     this.canvas.addEventListener('touchstart', (e) => {
@@ -130,7 +130,7 @@ export class CanvasHandler {
       this.currentStroke = null
 
       currentStroke.path = currentStroke.splinedPath
-      this.mitt.emit('stroke', currentStroke)
+      this.mitt.emit('strokeComplete', currentStroke)
     })
   }
 

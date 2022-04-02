@@ -10,7 +10,6 @@ import { useClickAway, useMedia, useToggle, useUpdate } from 'react-use'
 import { Brush, Close, Eraser, Pencil, Stack } from '@styled-icons/remix-line'
 import { Cursor } from '@styled-icons/remix-fill'
 import { css, useTheme } from 'styled-components'
-import { useSilkEngine } from '🙌/hooks/useSilkEngine'
 import { Portal } from '🙌/components/Portal'
 import { narrow } from '🙌/utils/responsive'
 import { FloatMenu } from '🙌/components/FloatMenu'
@@ -21,9 +20,8 @@ import { SelectBox } from '🙌/components/SelectBox'
 import { editorOps, EditorSelector, EditorStore } from '🙌/domains/EditorStable'
 
 export function MainActions() {
-  const engine = useSilkEngine()
   const theme = useTheme()
-  const isNarrowMedia = useMedia(`(max-width: ${narrow})`)
+  // const isNarrowMedia = useMedia(`(max-width: ${narrow})`)
 
   const { executeOperation } = useFleurContext()
   const {
@@ -56,17 +54,14 @@ export function MainActions() {
     setColor(color.rgb)
   }, [])
 
-  const handleChangeCompleteColor: ColorChangeHandler = useCallback(
-    (color) => {
-      setColor(color.rgb)
+  const handleChangeCompleteColor: ColorChangeHandler = useCallback((color) => {
+    setColor(color.rgb)
 
-      engine!.brushSetting = {
-        ...engine!.brushSetting,
-        color: color.rgb,
-      }
-    },
-    [engine]
-  )
+    // engine!.brushSetting = {
+    //   ...engine!.brushSetting,
+    //   color: color.rgb,
+    // }
+  }, [])
 
   const handleChangeToCursorMode = useCallback(() => {
     executeOperation(editorOps.setTool, 'cursor')
@@ -87,17 +82,13 @@ export function MainActions() {
 
   const handleChangeToEraceMode = useCallback(() => {
     executeOperation(editorOps.setTool, 'erase')
-  }, [engine])
+  }, [])
 
-  const handleChangeBrush = useCallback(
-    (id: keyof typeof SilkBrushes) => {
-      if (!engine) return
-
-      engine.setBrush(SilkBrushes[id])
-      rerender()
-    },
-    [engine]
-  )
+  const handleChangeBrush = useCallback((id: keyof typeof SilkBrushes) => {
+    // if (!engine) return
+    // engine.setBrush(SilkBrushes[id])
+    // rerender()
+  }, [])
 
   const handleClickColor = useCallback((e: MouseEvent<HTMLDivElement>) => {
     if (colorPickerPopRef.current!.contains(e.target as HTMLElement)) return
@@ -146,13 +137,21 @@ export function MainActions() {
   //   layerPopper.forceUpdate?.()
   // })
 
-  useClickAway(colorPickerPopRef, () => togglePicker(false))
-  useClickAway(vectorColorPickerPopRef, () => toggleVectorColorOpened(false))
+  useClickAway(colorPickerPopRef, (e) => {
+    if ((e.target as HTMLElement).dataset.isPaintCanvas != null) return
+    togglePicker(false)
+  })
+  useClickAway(vectorColorPickerPopRef, (e) => {
+    if ((e.target as HTMLElement).dataset.isPaintCanvas != null) return
+    toggleVectorColorOpened(false)
+  })
   useClickAway(brushPopRef, (e) => {
+    if ((e.target as HTMLElement).dataset.isPaintCanvas != null) return
     if (DOMUtils.childrenOrSelf(e.target, brushRef.current)) return
     toggleBrush(false)
   })
   useClickAway(layerPopRef, (e) => {
+    if ((e.target as HTMLElement).dataset.isPaintCanvas != null) return
     if (DOMUtils.childrenOrSelf(e.target, layerRef.current)) return
 
     toggleLayers(false)
@@ -160,8 +159,6 @@ export function MainActions() {
   // useClickAway(vectorColorPickerPopRef, () => toggleVectorColorOpened(false))
 
   const bindWeightDrag = useDrag(({ delta, first, last, event }) => {
-    if (!engine) return
-
     if (first) {
       ;(event.currentTarget as HTMLDivElement).requestPointerLock?.()
     }
@@ -173,19 +170,12 @@ export function MainActions() {
     const changed = delta[0] * 0.2
     setWeight((weight) => {
       const next = Math.max(0, weight + changed)
-
-      engine.brushSetting = {
-        ...engine.brushSetting,
-        weight: next,
-      }
-
+      executeOperation(editorOps.setBrushSetting, { weight: next })
       return next
     })
   })
 
   const bindBrushOpacityDrag = useDrag(({ delta, first, last, event }) => {
-    if (!engine) return
-
     if (first) {
       ;(event.currentTarget as HTMLDivElement).requestPointerLock?.()
     }
@@ -197,12 +187,7 @@ export function MainActions() {
     const changed = delta[0] * 0.003
     setBrushOpacity((opacity) => {
       const next = Math.min(Math.max(0, opacity + changed), 1)
-
-      engine.brushSetting = {
-        ...engine.brushSetting,
-        opacity: next,
-      }
-
+      executeOperation(editorOps.setBrushSetting, { opacity: next })
       return next
     })
   })
@@ -597,7 +582,9 @@ const BrushItem = ({
   onSelect: (id: keyof typeof SilkBrushes) => void
 }) => {
   const theme = useTheme()
-  const engine = useSilkEngine()
+  const { currentBrush } = useStore((get) => ({
+    currentBrush: EditorSelector.currentBrush(get),
+  }))
 
   const handleClick = useCallback(() => {
     onSelect(id)
@@ -612,7 +599,7 @@ const BrushItem = ({
       `}
       style={{
         backgroundColor:
-          engine?.currentBrush?.id === SilkBrushes[id].id
+          currentBrush?.id === SilkBrushes[id].id
             ? theme.exactColors.blueFade50
             : 'transparent',
       }}

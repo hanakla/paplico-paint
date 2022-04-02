@@ -1,8 +1,8 @@
 import { useContext } from 'react'
-import { Silk } from 'silk-core'
+import { Silk3 } from 'silk-core'
 import { EngineContext } from '../lib/EngineContext'
 
-export const useSilkEngine = (): Silk | null => {
+export const useSilkEngine = (): Silk3 | null => {
   const engine = useContext(EngineContext)
 
   return engine

@@ -1,10 +1,19 @@
+import mitt from 'next/dist/shared/lib/mitt'
 import { useEffect, useRef } from 'react'
 import { useMedia } from 'react-use'
 import styled from 'styled-components'
 import { useSilkEngine } from '🙌/hooks/useSilkEngine'
 import { narrow } from '🙌/utils/responsive'
 
+// const DebugContext = new class {
+//   public mitt = mitt()
+
+//   public
+// }
+
 export const DebugView = ({ className }: { className?: string }) => {
+  return null
+
   const engine = useSilkEngine()
   const isNarrow = useMedia(`(max-width: ${narrow})`)
 

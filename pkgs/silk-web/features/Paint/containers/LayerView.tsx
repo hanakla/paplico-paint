@@ -1,4 +1,4 @@
-import { ChangeEvent, MouseEvent, useCallback, useRef } from 'react'
+import { ChangeEvent, MouseEvent, useCallback, useEffect, useRef } from 'react'
 import { SilkEntity, SilkHelper } from 'silk-core'
 import { useClickAway, useToggle } from 'react-use'
 import { loadImageFromBlob, selectFile } from '@hanakla/arma'
@@ -34,7 +34,6 @@ import { editorOps, EditorSelector, EditorStore } from '🙌/domains/EditorStabl
 
 export function LayerView() {
   const { t } = useTranslation('app')
-  const theme = useTheme()
   const layerControls = useLayerControl()
 
   const { executeOperation } = useFleurContext()
@@ -342,7 +341,7 @@ const SortableLayerItem = SortableElement(function LayerItem({
     useStore((get) => ({
       activeLayer: EditorSelector.activeLayer(get),
       currentDocument: EditorSelector.currentDocument(get),
-      thumbnailUrlOfLayer: EditorSelector.thumbnailUrlOfLayer(get),
+      thumbnailUrlOfLayer: EditorSelector.thumbnailUrlOfLayer(get, ''),
       activeObjectId: get(EditorStore).state.activeObjectId,
     }))
 

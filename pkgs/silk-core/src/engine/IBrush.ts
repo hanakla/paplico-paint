@@ -1,6 +1,7 @@
 import { CurrentBrushSetting } from './CurrentBrushSetting'
 import { IInk } from './Inks/IInk'
 import { Stroke } from './Stroke'
+import WebGLContext from './WebGLContext'
 
 export type BrushContext = {
   context: CanvasRenderingContext2D
@@ -17,6 +18,6 @@ export interface BrushClass {
 export interface IBrush {
   id: string
 
-  initialize(): Promise<void>
+  initialize(context: { gl: WebGLContext }): Promise<void>
   render(brushContext: BrushContext): void
 }

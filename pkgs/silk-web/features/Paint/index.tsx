@@ -4,12 +4,12 @@ import {
   loadImageFromBlob,
   match,
   useAsyncEffect,
+  useFunk,
 } from '@hanakla/arma'
 import {
   ChangeEvent,
   MouseEvent,
   TouchEvent,
-  useCallback,
   useEffect,
   useRef,
   useState,
@@ -17,7 +17,15 @@ import {
 import { useClickAway, useDrop, useToggle, useUpdate } from 'react-use'
 import { useGesture } from 'react-use-gesture'
 
-import { Silk, SilkEntity, SilkHelper, SilkSerializer } from 'silk-core'
+import {
+  CanvasHandler,
+  RenderStrategies,
+  Session,
+  Silk3,
+  SilkEntity,
+  SilkHelper,
+  SilkSerializer,
+} from 'silk-core'
 import { createGlobalStyle, css } from 'styled-components'
 import useMeasure from 'use-measure'
 import { Moon, Sun } from '@styled-icons/remix-fill'
@@ -40,11 +48,12 @@ import { rgba } from 'polished'
 import { theme } from '🙌/utils/theme'
 import { Button } from '🙌/components/Button'
 import { narrow } from '🙌/utils/responsive'
+import { isEventIgnoringTarget } from './helpers'
 
 export function PaintPage({}) {
   const { t } = useTranslation('app')
 
-  const { executeOperation } = useFleurContext()
+  const { executeOperation, getStore } = useFleurContext()
   const {
     currentDocument,
     activeLayer,
@@ -60,7 +69,10 @@ export function PaintPage({}) {
   }))
   const isNarrowMedia = useMedia(`(max-width: ${narrow})`, false)
 
-  const engine = useRef<Silk | null>(null)
+  const engine = useRef<Silk3 | null>(null)
+  const session = useRef<Session | null>(null)
+  const canvasHandler = useRef<CanvasHandler | null>(null)
+
   const rootRef = useRef<HTMLDivElement | null>(null)
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
   const editAreaRef = useRef<HTMLDivElement | null>(null)
@@ -76,46 +88,41 @@ export function PaintPage({}) {
   //   width: isNarrowMedia === false || sidebarOpened ? 200 : 32,
   // })
 
-  const handleOnDrop = useCallback(
-    async (files: File[]) => {
-      if (!currentDocument) return
+  const handleOnDrop = useFunk(async (files: File[]) => {
+    if (!currentDocument) return
 
-      let lastLayerId: string | null = activeLayer?.id ?? null
+    let lastLayerId: string | null = activeLayer?.id ?? null
 
-      for (const file of files) {
-        const { image } = await loadImageFromBlob(file)
-        const layer = await SilkHelper.imageToLayer(image)
+    for (const file of files) {
+      const { image } = await loadImageFromBlob(file)
+      const layer = await SilkHelper.imageToLayer(image)
 
-        executeOperation(editorOps.updateDocument, (document) => {
-          document.addLayer(layer, {
-            aboveLayerId: lastLayerId,
-          })
+      executeOperation(editorOps.updateDocument, (document) => {
+        document.addLayer(layer, {
+          aboveLayerId: lastLayerId,
         })
+      })
 
-        lastLayerId = layer.id
-      }
-    },
-    [currentDocument, activeLayer]
-  )
+      lastLayerId = layer.id
+    }
+  })
 
-  const handleTapEditArea = useCallback(
+  const handleTapEditArea = useFunk(
     ({ touches }: TouchEvent<HTMLDivElement>) => {
       if (touches.length === 2) console.log('undo')
       if (touches.length === 3) console.log('redo')
-    },
-    []
+    }
   )
 
-  const handleChangeDisableFilters = useCallback(
+  const handleChangeDisableFilters = useFunk(
     ({ currentTarget }: ChangeEvent<HTMLInputElement>) => {
       executeOperation(editorOps.setRenderSetting, {
         disableAllFilters: currentTarget.checked,
       })
-    },
-    []
+    }
   )
 
-  const handleClickExport = useCallback(() => {
+  const handleClickExport = useFunk(() => {
     if (!currentDocument) return
 
     const bin = SilkSerializer.exportDocument(
@@ -126,45 +133,46 @@ export function PaintPage({}) {
     letDownload(url, 'test.silk')
 
     setTimeout(() => URL.revokeObjectURL(url), 10000)
-  }, [currentDocument])
+  })
 
-  const handleClickExportAs = useCallback(
-    async (e: MouseEvent<HTMLDivElement>) => {
-      const { currentTarget } = e
-      e.stopPropagation()
+  const handleClickExportAs = useFunk(async (e: MouseEvent<HTMLDivElement>) => {
+    const { currentTarget } = e
+    e.stopPropagation()
 
-      if (!currentDocument || !engine.current) return
+    if (!currentDocument || !engine.current) return
 
-      const type = currentTarget.dataset.type!
-      const mime = match(type)
-        .when('png', 'image/png')
-        .when('jpeg', 'image/jpeg')
-        ._(new Error(`Unexpected type ${type}`))
+    const type = currentTarget.dataset.type!
+    const mime = match(type)
+      .when('png', 'image/png')
+      .when('jpeg', 'image/jpeg')
+      ._(new Error(`Unexpected type ${type}`))
 
-      const blob = await (await engine.current.render())!.export(mime, 1.0)
-      const url = URL.createObjectURL(blob)
-      letDownload(
-        url,
-        !currentDocument.title
-          ? `${t('untitled')}.${type}`
-          : `${currentDocument.title}.${type}`
-      )
+    const exporter = await engine.current.renderAndExport(currentDocument)
+    const blob = await exporter.export(mime, 1.0)
 
-      setTimeout(() => URL.revokeObjectURL(url), 10000)
-    },
-    [currentDocument, engine]
-  )
+    console.log(blob)
+    const url = URL.createObjectURL(blob)
 
-  const handleClickDarkTheme = useCallback(() => {
+    letDownload(
+      url,
+      !currentDocument.title
+        ? `${t('untitled')}.${type}`
+        : `${currentDocument.title}.${type}`
+    )
+
+    setTimeout(() => URL.revokeObjectURL(url), 10000)
+  })
+
+  const handleClickDarkTheme = useFunk(() => {
     executeOperation(editorOps.setTheme, 'dark')
-  }, [])
+  })
 
-  const handleClickLightTheme = useCallback(() => {
+  const handleClickLightTheme = useFunk(() => {
     executeOperation(editorOps.setTheme, 'light')
-  }, [])
+  })
 
   const dragState = useDrop({ onFiles: handleOnDrop })
-  const tapBind = useTap(handleTapEditArea)
+  // const tapBind = useTap(handleTapEditArea)
 
   useGlobalMouseTrap(
     [
@@ -204,23 +212,40 @@ export function PaintPage({}) {
     { domTarget: editAreaRef, eventOptions: { passive: false } }
   )
 
-  useClickAway(sidebarRef, () => {
+  useClickAway(sidebarRef, (e) => {
     if (!isNarrowMedia) return
+    if (isEventIgnoringTarget(e.target)) return
+
     sidebarToggle(false)
   })
 
+  // Initialize Silk
   useAsyncEffect(async () => {
-    ;(window as any).engine = engine.current = await Silk.create({
+    ;(window as any).engine = engine.current = await Silk3.create({
       canvas: canvasRef.current!,
     })
-    executeOperation(editorOps.setEngine, engine.current)
 
-    if (
-      process.env.NODE_ENV === 'development' &&
-      engine.current.currentDocument == null
-    ) {
+    engine.current.on('rerender', rerender)
+
+    const session = ((window as any)._session = engine.current?.createSession(
+      getStore(EditorStore).state._currentDocument!
+    ))
+
+    const strategy = new RenderStrategies.DifferenceRender()
+    session.setRenderStrategy(strategy)
+
+    executeOperation(editorOps.initEngine, {
+      engine: engine.current,
+      session,
+      strategy,
+    })
+
+    canvasHandler.current = new CanvasHandler(canvasRef.current!)
+    canvasHandler.current.connect(session, strategy, engine.current)
+
+    if (process.env.NODE_ENV === 'development' && session.document == null) {
       const document = SilkEntity.Document.create({ width: 1000, height: 1000 })
-      await engine.current.setDocument(document)
+      session.setDocument(document)
 
       const layer = SilkEntity.RasterLayer.create({ width: 1000, height: 1000 })
       const vector = SilkEntity.VectorLayer.create({
@@ -236,12 +261,13 @@ export function PaintPage({}) {
       vector.filters.push(
         SilkEntity.Filter.create({
           filterId: '@silk-core/gauss-blur',
-          settings: engine.current.getFilterInstance('@silk-core/gauss-blur')!
-            .initialConfig,
+          settings: engine.current.toolRegistry.getFilterInstance(
+            '@silk-core/gauss-blur'
+          )!.initialConfig,
         }),
         SilkEntity.Filter.create({
           filterId: '@silk-core/chromatic-aberration',
-          settings: engine.current.getFilterInstance(
+          settings: engine.current.toolRegistry.getFilterInstance(
             '@silk-core/chromatic-aberration'
           )!.initialConfig,
         })
@@ -252,9 +278,6 @@ export function PaintPage({}) {
       document.layers.push(text)
       document.layers.push(filter)
       executeOperation(editorOps.setActiveLayer, vector.id)
-
-      engine.current.on('rerender', rerender)
-      engine.current.rerender()
 
       executeOperation(editorOps.setFill, {
         type: 'linear-gradient',
@@ -276,10 +299,6 @@ export function PaintPage({}) {
       e.preventDefault()
     })
 
-    // window.addEventListener('mousewheel', e => {
-    //   // e.preventDefault()
-    //   e.stopPropagation()
-    // }, {passive: false})
     rerender()
 
     return () => {}
@@ -302,12 +321,12 @@ export function PaintPage({}) {
   }, [])
 
   useEffect(() => {
-    if (!engine.current) return
-    engine.current.canvasScale = scale
-  }, [scale, engine.current])
+    if (!session.current) return
+    canvasHandler.current!.scale = scale
+  }, [scale])
 
   return (
-    <EngineContextProvider value={engine.current}>
+    <EngineContextProvider value={engine.current!}>
       <TouchActionStyle />
 
       <div
@@ -416,6 +435,7 @@ export function PaintPage({}) {
                 background-color: white;
                 box-shadow: 0 0 16px rgba(0, 0, 0, 0.1);
               `}
+              data-is-paint-canvas="yup"
               ref={canvasRef}
             />
           </div>

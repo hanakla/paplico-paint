@@ -5,7 +5,6 @@ import { useDrag, useHover } from 'react-use-gesture'
 import { createEditor, Descendant } from 'slate'
 import { Slate, Editable, withReact } from 'slate-react'
 import { SilkEntity } from 'silk-core'
-import { useSilkEngine } from '🙌/hooks/useSilkEngine'
 import { deepClone } from '🙌/utils/clone'
 import { assign } from '🙌/utils/assign'
 import { useMouseTrap } from '🙌/hooks/useMouseTrap'
@@ -14,6 +13,8 @@ import { any } from '🙌/utils/anyOf'
 import { SilkWebMath } from '🙌/utils/SilkWebMath'
 import { DOMRectReadOnly } from 'use-measure'
 import { editorOps, EditorSelector, EditorStore } from '🙌/domains/EditorStable'
+import { useFunk } from '@hanakla/arma'
+import { isEventIgnoringTarget } from '../helpers'
 
 export const ControlsOverlay = ({
   editorBound,
@@ -28,13 +29,15 @@ export const ControlsOverlay = ({
   scale: number
   className?: string
 }) => {
-  const engine = useSilkEngine()
-  const { activeLayer, currentDocument } = useStore((get) => ({
-    activeLayer: EditorSelector.activeLayer(get),
-    currentDocument: EditorSelector.currentDocument(get),
-  }))
+  const { activeLayer, currentLayerBBox, currentDocument } = useStore(
+    (get) => ({
+      activeLayer: EditorSelector.activeLayer(get),
+      currentLayerBBox: EditorSelector.currentLayerBBox(get),
+      currentDocument: EditorSelector.currentDocument(get),
+    })
+  )
 
-  const bbox = engine?.currentLayerBBox ?? { width: 0, height: 0 }
+  const bbox = currentLayerBBox ?? { width: 0, height: 0 }
 
   if (!currentDocument) return null
 
@@ -74,29 +77,25 @@ export const ControlsOverlay = ({
             stroke="#0ff"
           />
         )} */}
-        {activeLayer?.layerType === 'raster' && (
-          <RasterLayerControl scale={scale} />
-        )}
+        {activeLayer?.layerType === 'raster' && <RasterLayerControl />}
         {activeLayer?.layerType === 'vector' && (
           <VectorLayerControl scale={scale} />
         )}
-        {activeLayer?.layerType === 'text' && (
-          <TextLayerControl scale={scale} />
-        )}
+        {activeLayer?.layerType === 'text' && <TextLayerControl />}
       </g>
     </svg>
   )
 }
 
 const RasterLayerControl = () => {
-  const engine = useSilkEngine()
-  const { currentDocument } = useStore((get) => ({
+  const { session, currentDocument } = useStore((get) => ({
+    session: EditorSelector.currentSession(get),
     currentDocument: EditorSelector.currentDocument(get),
   }))
 
-  const bbox = engine?.currentLayerBBox ?? null
+  const bbox = session?.currentLayerBBox ?? null
 
-  if (!currentDocument) return null
+  if (!bbox || !currentDocument) return null
 
   return (
     <>
@@ -115,8 +114,6 @@ const RasterLayerControl = () => {
 }
 
 const VectorLayerControl = ({ scale }: { scale: number }) => {
-  const engine = useSilkEngine()
-
   const { executeOperation } = useFleurContext()
   const {
     activeLayer,
@@ -149,19 +146,18 @@ const VectorLayerControl = ({ scale }: { scale: number }) => {
   const [isHoverOnPath, toggleIsHoverOnPath] = useToggle(false)
   const [hoverObjectId, setHoverObjectId] = useState<string | null>(null)
 
-  const handleHoverChangePath = useCallback(
+  const handleHoverChangePath = useFunk(
     ({ hovering, objectId }: { hovering: boolean; objectId: string }) => {
       toggleIsHoverOnPath(hovering)
       setHoverObjectId(objectId)
-    },
-    []
+    }
   )
 
-  const handleClickPath = useCallback((objectId: string) => {
+  const handleClickPath = useFunk((objectId: string) => {
     executeOperation(editorOps.setActiveObject, objectId)
-  }, [])
+  })
 
-  const handleDoubleClickPath = useCallback(
+  const handleDoubleClickPath = useFunk(
     (
       objectId: string,
       segmentIndex: number,
@@ -181,18 +177,16 @@ const VectorLayerControl = ({ scale }: { scale: number }) => {
           out: { x: x - 2, y: y + 2 },
         })
       })
-    },
-    [activeLayer]
+    }
   )
 
-  const handleClickObjectFill = useCallback(
+  const handleClickObjectFill = useFunk(
     ({ currentTarget }: MouseEvent<SVGPathElement>) => {
       executeOperation(
         editorOps.setActiveObject,
         currentTarget.dataset.objectId! ?? null
       )
-    },
-    []
+    }
   )
 
   const bindRootDrag = useDrag(
@@ -361,10 +355,11 @@ const VectorLayerControl = ({ scale }: { scale: number }) => {
 
   const bindObjectHover = useHover(({ hovering, event: { currentTarget } }) => {
     toggleIsHoverOnPath(hovering)
-    setHoverObjectId((currentTarget as SVGPathElement)!.dataset.objectId)
+    setHoverObjectId((currentTarget as SVGPathElement)!.dataset.objectId!)
   })
 
-  useClickAway(rootRef as any, () => {
+  useClickAway(rootRef as any, (e) => {
+    if (isEventIgnoringTarget(e)) return
     executeOperation(editorOps.setVectorStroking, null)
     executeOperation(editorOps.setSelectedObjectPoints, [])
   })
@@ -398,7 +393,6 @@ const VectorLayerControl = ({ scale }: { scale: number }) => {
     [activeObjectPointIndices, activeObjectId, activeLayer]
   )
 
-  if (!engine) return null
   if (!currentDocument) return null
 
   const zoom = 1 / scale
@@ -575,7 +569,6 @@ const renderPathSegment = ({
 }) => {
   const POINT_SIZE = 8
 
-  const engine = useSilkEngine()
   const { executeOperation } = useFleurContext()
   const {
     activeLayer,
@@ -924,7 +917,7 @@ const renderPathSegment = ({
 }
 
 const TextLayerControl = ({}) => {
-  const engine = useSilkEngine()
+  const currentLayerBBox = useStore((get) => EditorSelector.currentLayerBBox)
   const editor = useMemo(() => withReact(createEditor()), [])
   // Add the initial value when setting up our state.
   const [value, setValue] = useState<Descendant[]>([
@@ -934,7 +927,7 @@ const TextLayerControl = ({}) => {
     },
   ])
 
-  const bbox = engine?.currentLayerBBox ?? null
+  const bbox = currentLayerBBox ?? null
 
   return (
     <div

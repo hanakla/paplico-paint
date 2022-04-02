@@ -1,6 +1,15 @@
 import { minOps, selector } from '@fleur/fleur'
 import { debounce } from 'debounce'
-import { Silk, SilkEntity, SilkValue } from 'silk-core'
+import {
+  Session,
+  Silk3,
+  SilkEntity,
+  SilkValue,
+  RenderStrategies,
+  IRenderStrategy,
+} from 'silk-core'
+
+import { BrushSetting } from '🙌/../silk-core/dist/Value'
 import { assign } from '../utils/assign'
 import { deepClone } from '../utils/clone'
 import { log, trace, warn } from '../utils/log'
@@ -16,11 +25,14 @@ type VectorStroking = {
 }
 
 interface State {
-  engine: Silk | null
+  engine: Silk3 | null
+  session: Session | null
+  renderStrategy: RenderStrategies.DifferenceRender | null
+
   editorMode: EditorMode
   editorPage: EditorPage
   renderSetting: Silk.RenderSetting
-  _currentDocument: SilkEntity.Document | null
+  currentDocument: SilkEntity.Document | null
   currentTool: Tool
   currentFill: SilkValue.FillSetting | null
   currentStroke: SilkValue.BrushSetting | null
@@ -42,10 +54,13 @@ const debouncing = debounce(
   100
 )
 
-const [EditorStore, editorOps] = minOps('Editor', {
+export const [EditorStore, editorOps] = minOps('Editor', {
   initialState: (): State => ({
     engine: null,
-    _currentDocument: null,
+    session: null,
+    renderStrategy: null,
+
+    currentDocument: null,
     editorMode: 'sp',
     editorPage: 'home',
     currentTheme: 'light',
@@ -62,292 +77,390 @@ const [EditorStore, editorOps] = minOps('Editor', {
     clipboard: null,
   }),
   ops: {
-    setEngine: async ({ state }, engine: Silk) => {
-      state.engine = engine as any
+    // #region Engine & Session
+    initEngine: (
+      x,
+      {
+        engine,
+        session,
+        strategy,
+      }: {
+        engine: Silk3
+        session: Session
+        strategy: IRenderStrategy
+      }
+    ) => {
+      session.pencilMode = 'none'
+      session.renderSetting = x.state.renderSetting
 
-      engine.pencilMode = 'none'
-      engine.renderSetting = { ...state.renderSetting }
       engine.on('rerender', () => {
         trace('Canvas rerendered')
       })
 
-      if (state._currentDocument) {
-        await engine.setDocument(state._currentDocument as any)
-        engine.setActiveLayer(state._currentDocument.activeLayerId)
-      }
-    },
-    setDocument: async ({ state }, document: SilkEntity.Document) => {
-      state._currentDocument = document
+      session.on('activeLayerChanged', (s) => {
+        if (x.getState().activeLayerId === s.activeLayerId) return
 
-      if (state.engine) {
-        await state.engine.setDocument(document)
-        state.activeLayerId = document.activeLayerId
+        x.commit({
+          activeLayerId: s.activeLayerId,
+          activeObjectId: null,
+          activeObjectPointIndices: [],
+        })
+      })
+
+      session.on('renderSettingChanged', (s) => {
+        const { currentDocument, renderStrategy } = x.getState()
+        if (!currentDocument || !renderStrategy) return
+
+        engine.render(
+          currentDocument as unknown as SilkEntity.Document,
+          renderStrategy
+        )
+      })
+
+      x.commit({
+        engine,
+        session,
+        renderStrategy: strategy as RenderStrategies.DifferenceRender,
+      })
+    },
+    async setDocument(x, document: SilkEntity.Document) {
+      x.commit({ currentDocument: document })
+
+      if (x.state.session) {
+        x.commit((draft) => {
+          draft.session!.setDocument(document)
+          draft.activeLayerId = document.activeLayerId
+        })
       }
     },
-    setTheme: ({ state }, theme: 'dark' | 'light') => {
-      state.currentTheme = theme
+    setRenderSetting: (x, setting: Partial<Silk3.RenderSetting>) => {
+      if (!x.state.engine || !x.state.session) return
+
+      x.commit((d) => {
+        d.session?.setRenderSetting(setting)
+      })
+
+      x.executeOperation(editorOps.rerenderCanvas)
+    },
+    setTool: (x, tool: Tool) => {
+      x.commit((d) => {
+        d.currentTool = tool
+
+        if (tool === 'draw' || tool === 'erase') {
+          d.session!.pencilMode = tool
+        } else {
+          d.session!.pencilMode = 'none'
+        }
+      })
+    },
+    rerenderCanvas: (x) => {
+      if (
+        !x.state.engine ||
+        !x.state.currentDocument ||
+        !x.state.renderStrategy
+      )
+        return
+
+      x.state.engine.render(
+        x.state.currentDocument as unknown as SilkEntity.Document,
+        x.state.renderStrategy
+      )
+    },
+    // #endregion Engine & Session
+
+    // #region UI
+    setTheme: (x, theme: 'dark' | 'light') => {
+      x.commit({ currentTheme: theme })
     },
     setEditorMode: ({ state }, mode: EditorMode) => {},
-    setEditorPage: ({ state }, page: EditorPage) => {
-      state.editorPage = page
+    setEditorPage: (x, page: EditorPage) => {
+      x.commit({ editorPage: page })
     },
-    setRenderSetting: ({ state }, setting: Partial<Silk.RenderSetting>) => {
-      if (!state.engine) return
+    // #endregion
 
-      state.engine.renderSetting = state.renderSetting = assign(
-        state.engine.renderSetting,
-        setting
-      )
+    // #region Paint tools and Session
+    setFill: (x, fill: SilkValue.FillSetting | null) => {
+      x.commit({ currentFill: fill })
+    },
+    setStroke: (x, stroke: SilkValue.BrushSetting | null) => {
+      x.commit({ currentStroke: stroke })
+    },
+    setBrushSetting(x, setting: Partial<BrushSetting>) {
+      x.commit((draft) => {
+        draft.session!.brushSetting = assign(
+          draft.session!.brushSetting,
+          setting
+        )
+      })
+    },
 
-      state.engine?.rerender()
-    },
-    setTool: ({ state }, tool: Tool) => {
-      state.currentTool = tool
+    setActiveLayer: (x, layerId: string) => {
+      if (layerId === x.state.session?.activeLayerId) return
 
-      if (tool === 'draw' || tool === 'erase') {
-        state.engine!.pencilMode = tool
-      } else {
-        state.engine!.pencilMode = 'none'
-      }
+      x.commit((draft) => {
+        if (draft.session) draft.session.activeLayerId = layerId
+        draft.activeLayerId = layerId
+        draft.activeObjectId = null
+        draft.activeObjectPointIndices = []
+        draft.selectedFilterIds = {}
+      })
     },
-    setFill: ({ state }, fill: SilkValue.FillSetting | null) => {
-      state.currentFill = fill
-    },
-    setStroke: ({ state }, stroke: SilkValue.BrushSetting | null) => {
-      state.currentStroke = stroke
-    },
-    setActiveLayer: ({ state }, layerId: string) => {
-      if (layerId === state.engine?.activeLayer?.id) return
-
-      state.engine?.setActiveLayer(layerId)
-      state.activeLayerId = layerId
-      state.activeObjectId = null
-      state.activeObjectPointIndices = []
-      state.selectedFilterIds = {}
-    },
-    setActiveObject: ({ state }, objectId: string | null) => {
-      if (state.activeObjectId !== objectId) {
+    setActiveObject: (x, objectId: string | null) => {
+      if (x.state.activeObjectId !== objectId) {
         trace('activeObject changed', { objectId })
-        state.activeObjectPointIndices = []
+        x.commit({ activeObjectPointIndices: [] })
       }
 
-      state.activeObjectId = objectId ?? null
+      x.commit({ activeObjectId: objectId ?? null })
     },
-    setSelectedObjectPoints: ({ state }, indices: number[]) => {
-      state.activeObjectPointIndices = indices
+    setSelectedObjectPoints: (x, indices: number[]) => {
+      x.commit({ activeObjectPointIndices: indices })
     },
-    setVectorStroking: ({ state }, vectorStroking: VectorStroking | null) => {
+    setVectorStroking: (x, vectorStroking: VectorStroking | null) => {
       trace('vectorStroking changed', vectorStroking)
-      state.vectorStroking = vectorStroking
+      x.commit({ vectorStroking })
     },
-    setVectorFocusing: ({ state }, objectId: string | null) => {
-      if (state.vectorFocusing?.objectId !== objectId)
+    setVectorFocusing: (x, objectId: string | null) => {
+      if (x.state.vectorFocusing?.objectId !== objectId)
         log('vectorFocusing changed', { objectId })
 
-      state.vectorFocusing = objectId ? { objectId } : null
+      x.commit({ vectorFocusing: objectId ? { objectId } : null })
     },
-    setSelectedFilterIds: (
-      { state },
-      nextSelections: { [id: string]: true }
-    ) => {
+    setSelectedFilterIds: (x, nextSelections: { [id: string]: true }) => {
       trace('Selected filters changed', Object.keys(nextSelections))
-      state.selectedFilterIds = nextSelections
+      x.commit({ selectedFilterIds: nextSelections })
     },
-    rerenderCanvas: debouncing(({ state }) => {
-      state.engine?.rerender()
-    }) as any,
+    // #endregion
+
+    // #region Document controls
     updateDocument: (
-      { state },
+      x,
       proc: (document: SilkEntity.Document) => void,
       { skipRerender = false }: { skipRerender?: boolean } = {}
     ) => {
-      if (!state._currentDocument) return
-      proc(state._currentDocument as SilkEntity.Document)
+      if (!x.state.currentDocument) return
 
-      if (!skipRerender) {
-        debouncing((engine) => engine?.rerender(), state.engine)
-      }
+      x.commit((draft) => proc(draft.currentDocument as SilkEntity.Document))
+
+      !skipRerender && x.executeOperation(editorOps.rerenderCanvas)
     },
     updateLayer: (
-      { state },
+      x,
       layerId: string | null | undefined,
       proc: (layer: SilkEntity.LayerTypes) => void,
       { skipRerender = false }: { skipRerender?: boolean } = {}
     ) => {
-      findLayer(state.engine?.currentDocument, layerId)?.update(proc)
+      layerId && x.state.renderStrategy!.markUpdatedLayerId(layerId)
 
-      if (!skipRerender) {
-        debouncing((engine) => engine?.rerender(), state.engine)
-      }
+      x.commit((d) => {
+        findLayer(d.currentDocument, layerId)?.update(proc)
+        layerId && d.renderStrategy!.markUpdatedLayerId(layerId)
+      })
+
+      !skipRerender && x.executeOperation(editorOps.rerenderCanvas)
     },
     updateRasterLayer: (
-      { state },
+      x,
       layerId: string | null | undefined,
       proc: (layer: SilkEntity.RasterLayer) => void,
       { skipRerender = false }: { skipRerender?: boolean } = {}
     ) => {
-      const layer = findLayer(state.engine?.currentDocument, layerId)
-      if (layer?.layerType !== 'raster') return
+      if (!x.state.currentDocument) return
 
-      layer.update(proc)
+      x.commit((d) => {
+        const layer = findLayer(
+          x.state.currentDocument as unknown as SilkEntity.Document,
+          layerId
+        )
+        if (layer?.layerType !== 'raster') return
 
-      if (!skipRerender) {
-        debouncing((engine) => engine?.rerender(), state.engine)
-      }
+        layer.update(proc)
+        layerId && d.renderStrategy!.markUpdatedLayerId(layerId)
+      })
+
+      !skipRerender && x.executeOperation(editorOps.rerenderCanvas)
     },
     updateVectorLayer: (
-      { state },
+      x,
       layerId: string | null | undefined,
       proc: (layer: SilkEntity.VectorLayer) => void,
       { skipRerender = false }: { skipRerender?: boolean } = {}
     ) => {
-      const layer = findLayer(state.engine?.currentDocument, layerId)
-      if (layer?.layerType !== 'vector') return
+      x.commit((d) => {
+        const layer = findLayer(d.currentDocument, layerId)
+        if (layer?.layerType !== 'vector') return
 
-      layer.update(proc)
+        layer.update(proc)
 
-      if (!skipRerender) {
-        debouncing((engine) => engine?.rerender(), state.engine)
-      }
+        layerId && d.renderStrategy!.markUpdatedLayerId(layerId)
+      })
+
+      !skipRerender && x.executeOperation(editorOps.rerenderCanvas)
     },
     updateFilter: (
-      { state },
+      x,
       layerId: string | null,
       filterId: string | null,
       proc: (filter: SilkEntity.Filter) => void,
       { skipRerender = false }: { skipRerender?: boolean } = {}
     ) => {
-      const layer = findLayer(state.engine?.currentDocument, layerId)
-      if (!layer) return
+      x.commit((d) => {
+        const layer = findLayer(d.session?.document, layerId)
+        if (!layer) return
 
-      const filter = layer.filters.find((filter) => filter.id === filterId)
-      if (!filter) return
+        const filter = layer.filters.find((filter) => filter.id === filterId)
+        if (!filter) return
 
-      proc(filter)
+        proc(filter)
 
-      if (!skipRerender) {
-        debouncing((engine) => engine?.rerender(), state.engine)
-      }
+        layerId && d.renderStrategy!.markUpdatedLayerId(layerId)
+      })
+
+      !skipRerender && x.executeOperation(editorOps.rerenderCanvas)
     },
     updateActiveObject: (
-      { state },
-      proc: (object: SilkEntity.VectorObject) => void
+      x,
+      proc: (object: SilkEntity.VectorObject) => void,
+      { skipRerender = false }: { skipRerender?: boolean } = {}
     ) => {
-      if (state.engine?.activeLayer?.layerType !== 'vector') return
+      x.commit((d) => {
+        if (d.session?.activeLayer?.layerType !== 'vector') return
 
-      const { activeLayer } = state.engine
-      const object = activeLayer.objects.find(
-        (obj) => obj.id === state.activeObjectId
-      )
+        const layerId = d.session?.activeLayerId
+        layerId && d.renderStrategy!.markUpdatedLayerId(layerId)
 
-      if (object) proc(object as SilkEntity.VectorObject)
+        const { activeLayer } = d.session
+        const object = activeLayer.objects.find(
+          (obj) => obj.id === d.activeObjectId
+        )
+
+        if (object) proc(object as SilkEntity.VectorObject)
+      })
+
+      !skipRerender && x.executeOperation(editorOps.rerenderCanvas)
     },
     addLayer: (
-      { state },
+      x,
       newLayer: SilkEntity.LayerTypes,
       { aboveLayerId }: { aboveLayerId?: string | null }
     ) => {
-      state.engine?.currentDocument?.addLayer(newLayer, { aboveLayerId })
-      state.engine?.setActiveLayer(newLayer.id)
-      state.engine?.rerender()
+      x.commit((d) => {
+        d.session!.document?.addLayer(newLayer, { aboveLayerId })
+        d.session!.activeLayerId = newLayer.id
+        d.engine!.render(d.currentDocument!, d.session?.renderStrategy!)
+
+        d.renderStrategy?.markUpdatedLayerId(newLayer.id)
+      })
     },
     addPoint: (
-      { state },
+      x,
       objectOrId: SilkEntity.VectorObject | string,
       segmentIndex: number,
       point: SilkEntity.Path.PathPoint
     ) => {
-      if (state.engine?.activeLayer?.layerType !== 'vector') return
-      const { activeLayer } = state.engine
+      x.commit((d) => {
+        if (!d.engine || d.session?.activeLayer?.layerType !== 'vector') return
 
-      const object =
-        typeof objectOrId === 'string'
-          ? activeLayer?.objects.find((obj) => obj.id === state.activeObjectId)
-          : objectOrId
+        const { activeLayer } = d.session
+        const object =
+          typeof objectOrId === 'string'
+            ? activeLayer?.objects.find((obj) => obj.id === d.activeObjectId)
+            : objectOrId
+        if (!object) throw new Error(`Object(id: ${objectOrId}) not found`)
+        object.path.points.splice(segmentIndex, 0, point)
 
-      if (!object) throw new Error(`Object(id: ${objectOrId}) not found`)
-      object.path.points.splice(segmentIndex, 0, point)
-    },
-    deleteLayer: ({ state }, layerId: string | null | undefined) => {
-      if (!state.engine?.currentDocument) return
-
-      const { currentDocument } = state.engine
-      if (currentDocument.layers.length === 1) return
-
-      const idx = findLayerIndex(currentDocument, layerId)
-      if (idx === -1) return
-
-      currentDocument.layers.splice(idx, 1)
-
-      // ActiveLayerがなくなると画面がアになるので……
-      const nextActiveLayer =
-        currentDocument.layers[idx - 1] ?? currentDocument.layers.slice(-1)
-
-      if (layerId === state.activeLayerId) {
-        state.engine.setActiveLayer(nextActiveLayer.id)
-        state.activeLayerId = nextActiveLayer.id
-      }
-    },
-    deleteSelectedFilters: ({ state }) => {
-      findLayer(state.engine?.currentDocument, state.activeLayerId)?.update(
-        (layer) => {
-          for (const filterId of Object.keys(state.selectedFilterIds)) {
-            const idx = layer.filters.findIndex((f) => f.id === filterId)
-            if (idx === -1) continue
-
-            layer.filters.splice(idx, 1)
-          }
-        }
-      )
-    },
-    deleteSelectedObjectPoints: ({ state }) => {
-      const layer = state.engine?.activeLayer
-      if (!layer || layer.layerType !== 'vector') return
-
-      const obj = layer.objects.find((obj) => obj.id === state.activeObjectId)
-      if (!obj) return
-
-      const points: Array<SilkEntity.Path.PathPoint | null> = [
-        ...obj.path.points,
-      ]
-      state.activeObjectPointIndices.forEach((idx) => {
-        points[idx] = null
+        d.renderStrategy?.markUpdatedLayerId(d.session.activeLayerId!)
       })
 
-      obj.path.points = points.filter(
-        (v): v is SilkEntity.Path.PathPoint => v != null
-      )
-
-      state.activeObjectPointIndices = []
-
-      state.engine?.rerender()
+      x.executeOperation(editorOps.rerenderCanvas)
     },
+    deleteLayer: (x, layerId: string | null | undefined) => {
+      x.commit((d) => {
+        if (!d.session?.document) return
+
+        const { document } = d.session
+        if (document.layers.length === 1) return
+
+        const idx = findLayerIndex(document, layerId)
+        if (idx === -1) return
+
+        document.layers.splice(idx, 1)
+
+        // ActiveLayerがなくなると画面がアになるので……
+        const nextActiveLayer =
+          document.layers[idx - 1] ?? document.layers.slice(-1)
+        if (layerId === d.activeLayerId) {
+          d.session.activeLayerId = nextActiveLayer.id
+          d.activeLayerId = nextActiveLayer.id
+        }
+      })
+
+      x.executeOperation(editorOps.rerenderCanvas)
+    },
+    deleteSelectedFilters: (x) => {
+      x.commit((d) => {
+        findLayer(d.currentDocument, d.activeLayerId)?.update((layer) => {
+          for (const filterId of Object.keys(d.selectedFilterIds)) {
+            const idx = layer.filters.findIndex((f) => f.id === filterId)
+            if (idx === -1) continue
+            layer.filters.splice(idx, 1)
+          }
+        })
+      })
+
+      x.executeOperation(editorOps.rerenderCanvas)
+    },
+    deleteSelectedObjectPoints: (x) => {
+      x.commit((d) => {
+        const layer = d.session?.activeLayer
+        if (!layer || layer.layerType !== 'vector') return
+
+        const obj = layer.objects.find((obj) => obj.id === d.activeObjectId)
+        if (!obj) return
+
+        const points: Array<SilkEntity.Path.PathPoint | null> = [
+          ...obj.path.points,
+        ]
+
+        d.activeObjectPointIndices.forEach((idx) => {
+          points[idx] = null
+        })
+
+        obj.path.points = points.filter(
+          (v): v is SilkEntity.Path.PathPoint => v != null
+        )
+
+        d.activeObjectPointIndices = []
+      })
+
+      x.executeOperation(editorOps.rerenderCanvas)
+    },
+    // #endregion
   },
 })
 
-export { EditorStore, editorOps }
-
 export const EditorSelector = {
   currentBrush: selector(
-    (get) => get(EditorStore).engine?.currentBrush ?? null
+    (get) => get(EditorStore).session?.currentBursh ?? null
   ),
   currentVectorBrush: selector((get) => {
-    const { engine, activeObjectId } = get(EditorStore)
+    const { session, activeObjectId } = get(EditorStore)
 
-    if (engine?.activeLayer?.layerType !== 'vector') return engine?.brushSetting
+    if (session?.activeLayer?.layerType !== 'vector')
+      return session?.brushSetting
 
-    const object = engine?.activeLayer?.objects.find(
+    const object = session?.activeLayer?.objects.find(
       (obj) => obj.id === activeObjectId
     )
 
-    if (!object) return engine?.brushSetting ?? null
+    if (!object) return session?.brushSetting ?? null
     return deepClone(object.brush)
   }),
   currentVectorFill: selector((get) => {
-    const { engine, currentFill, activeObjectId } = get(EditorStore)
-    if (engine?.activeLayer?.layerType !== 'vector') return currentFill
+    const { session, currentFill, activeObjectId } = get(EditorStore)
+    if (session?.activeLayer?.layerType !== 'vector') return currentFill
 
-    const object = engine?.activeLayer?.objects.find(
+    const object = session?.activeLayer?.objects.find(
       (obj) => obj.id === activeObjectId
     )
 
@@ -362,20 +475,36 @@ export const EditorSelector = {
       weight: 1,
     })
   ),
-  currentDocument: selector((get) => get(EditorStore).engine?.currentDocument),
-  activeLayer: selector((get) => get(EditorStore).engine?.activeLayer),
+  currentSession: selector((get) => get(EditorStore).session),
+  currentDocument: selector((get) => get(EditorStore).session?.document),
+  activeLayer: selector((get) => get(EditorStore).session?.activeLayer),
   activeObject: selector((get): SilkEntity.VectorObject | null => {
-    const { engine, activeObjectId } = get(EditorStore)
+    const { session, activeObjectId } = get(EditorStore)
 
-    if (engine?.activeLayer?.layerType !== 'vector') return null
-    return engine?.activeLayer?.objects.find(
+    if (session?.activeLayer?.layerType !== 'vector') return null
+    return session?.activeLayer?.objects.find(
       (obj) => obj.id === activeObjectId
     ) as any
   }),
   thumbnailUrlOfLayer: selector((get, layerId: string) => {
     const { engine } = get(EditorStore)
-    return (layerId: string) => engine?.previews.get(layerId)
+    return (layerId: string) => engine?.previews?.get(layerId)
   }),
+
+  // #region Session proxies
+  brushSetting: selector((get) => get(EditorStore).session?.brushSetting),
+  currentLayerBBox: selector(
+    (get) => get(EditorStore).session?.currentLayerBBox
+  ),
+  // #endregion
+
+  // Engine proxies
+  getAvailableFilters: selector(
+    (get) => get(EditorStore).engine?.toolRegistry.registeredFilters ?? []
+  ),
+  getFilterInstance: selector((get, id) =>
+    get(EditorStore).engine?.toolRegistry.getFilterInstance(id)
+  ),
 }
 
 const findLayer = (
@@ -406,3 +535,5 @@ const findLayerIndex = (
 // const debouned = debounce((f: () => void) => {
 //   f()
 // }, 100)
+
+console.log(debouncing((x: any) => {}) as any)

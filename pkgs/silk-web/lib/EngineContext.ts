@@ -1,5 +1,5 @@
-import {createContext} from 'react'
-import {Silk} from 'silk-core'
+import { createContext } from 'react'
+import { Silk3 } from 'silk-core'
 
-export const EngineContext = createContext<Silk | null>(null)
+export const EngineContext = createContext<Silk3 | null>(null)
 export const EngineContextProvider = EngineContext.Provider

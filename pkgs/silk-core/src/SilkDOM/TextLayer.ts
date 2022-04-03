@@ -1,9 +1,12 @@
-import { ILayer } from './IRenderable'
+import { ILayer, LayerEvents } from './IRenderable'
 import { v4 } from 'uuid'
 import { Filter } from './Filter'
 import { assign, deepClone } from '../utils'
+import { Emitter } from '../Engine3_Emitter'
 
-export class TextLayer implements ILayer {
+type Events = LayerEvents<TextLayer>
+
+export class TextLayer extends Emitter<Events> implements ILayer {
   public readonly layerType = 'text'
 
   public readonly id: string = `textlayer-${v4()}`
@@ -35,8 +38,9 @@ export class TextLayer implements ILayer {
     })
   }
 
-  public update(proc: (layer: TextLayer) => void) {
+  public update(proc: (layer: this) => void) {
     proc(this)
+    this.emit('updated', this)
   }
 
   public serialize() {

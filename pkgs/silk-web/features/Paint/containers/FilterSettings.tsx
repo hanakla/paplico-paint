@@ -1,6 +1,6 @@
 import { useFleurContext } from '@fleur/react'
+import { useFunk } from '@hanakla/arma'
 import { useTranslation } from 'next-i18next'
-import { useCallback } from 'react'
 import { ReactNode } from 'react'
 import { SilkEntity } from 'silk-core'
 import { DeltaRange } from '🙌/components/DeltaRange'
@@ -31,11 +31,11 @@ export const FilterSettings = ({ layer, filter }: Props) => {
 const BloomSetting = ({ layer, filter }: Props) => {
   const { executeOperation } = useFleurContext()
 
-  // const handleChange = useCallback(() => {
+  // const handleChange = useFunk(() => {
   //   editorActions.updateFilter(layer.id, filter.id, (filter) => {})
   // }, [layer, filter])
 
-  const handleChangeComplete = useCallback(() => {
+  const handleChangeComplete = useFunk(() => {
     executeOperation(editorOps.rerenderCanvas)
   }, [])
 
@@ -51,19 +51,19 @@ const BloomSetting = ({ layer, filter }: Props) => {
 const GaussBlur = ({ layer, filter }: Props) => {
   const { executeOperation } = useFleurContext()
 
-  const handleChangeRadius = useCallback((value: number) => {
+  const handleChangeRadius = useFunk((value: number) => {
     executeOperation(editorOps.updateFilter, layer.id, filter.id, (filter) => {
       filter.settings.radius = value
     })
   }, [])
 
-  const handleChangePower = useCallback((value: number) => {
+  const handleChangePower = useFunk((value: number) => {
     executeOperation(editorOps.updateFilter, layer.id, filter.id, (filter) => {
       filter.settings.power = value
     })
   }, [])
 
-  const handleChangeComplete = useCallback(() => {
+  const handleChangeComplete = useFunk(() => {
     executeOperation(editorOps.rerenderCanvas)
   }, [])
 
@@ -111,19 +111,19 @@ const GaussBlur = ({ layer, filter }: Props) => {
 const ChromaticAberration = ({ layer, filter }: Props) => {
   const { executeOperation } = useFleurContext()
 
-  const handleChangeDistance = useCallback((value: number) => {
+  const handleChangeDistance = useFunk((value: number) => {
     executeOperation(editorOps.updateFilter, layer.id, filter.id, (filter) => {
       filter.settings.distance = value
     })
   }, [])
 
-  const handleChangeAngleDeg = useCallback((value: number) => {
+  const handleChangeAngleDeg = useFunk((value: number) => {
     executeOperation(editorOps.updateFilter, layer.id, filter.id, (filter) => {
       filter.settings.angleDeg = value
     })
   }, [])
 
-  const handleChangeComplete = useCallback(() => {
+  const handleChangeComplete = useFunk(() => {
     executeOperation(editorOps.rerenderCanvas)
   }, [])
 

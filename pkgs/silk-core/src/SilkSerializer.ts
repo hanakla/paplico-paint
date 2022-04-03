@@ -1,4 +1,4 @@
-import { Document } from './Entity'
+import { Document } from './SilkDOM'
 import msgpack from 'msgpack5'
 
 const packer = msgpack()

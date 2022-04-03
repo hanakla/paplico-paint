@@ -1,7 +1,7 @@
-import { ChangeEvent, MouseEvent, useCallback, useEffect, useRef } from 'react'
+import { ChangeEvent, MouseEvent, useEffect, useRef } from 'react'
 import { SilkEntity, SilkHelper } from 'silk-core'
-import { useClickAway, useToggle } from 'react-use'
-import { loadImageFromBlob, selectFile } from '@hanakla/arma'
+import { useClickAway, useToggle, useUpdate } from 'react-use'
+import { loadImageFromBlob, selectFile, useFunk } from '@hanakla/arma'
 import { rgba } from 'polished'
 import { usePopper } from 'react-popper'
 import { Add } from '@styled-icons/remix-fill'
@@ -31,21 +31,26 @@ import { useMouseTrap } from '🙌/hooks/useMouseTrap'
 import { useTheme } from 'styled-components'
 import { useFleurContext, useStore } from '@fleur/react'
 import { editorOps, EditorSelector, EditorStore } from '🙌/domains/EditorStable'
+import { isEventIgnoringTarget } from '../helpers'
 
 export function LayerView() {
   const { t } = useTranslation('app')
   const layerControls = useLayerControl()
 
   const { executeOperation } = useFleurContext()
-  const { activeLayer, currentDocument } = useStore((get) => ({
+  const { activeLayer, currentDocument, layers } = useStore((get) => ({
     activeLayer: EditorSelector.activeLayer(get),
+    layers: EditorSelector.layers(get),
     currentDocument: EditorSelector.currentDocument(get),
   }))
 
   const [layerTypeOpened, toggleLayerTypeOpened] = useToggle(false)
   const layerTypeOpenerRef = useRef<HTMLDivElement | null>(null)
   const layerTypeDropdownRef = useRef<HTMLUListElement | null>(null)
-  useClickAway(layerTypeDropdownRef, () => toggleLayerTypeOpened(false))
+  useClickAway(layerTypeDropdownRef, (e) => {
+    if (isEventIgnoringTarget(e.target)) return
+    toggleLayerTypeOpened(false)
+  })
 
   const layerTypePopper = usePopper(
     layerTypeOpenerRef.current,
@@ -56,7 +61,7 @@ export function LayerView() {
     }
   )
 
-  const handleClickAddLayerItem = useCallback(
+  const handleClickAddLayerItem = useFunk(
     async ({ currentTarget }: MouseEvent<HTMLLIElement>) => {
       if (!currentDocument) return
 
@@ -94,11 +99,10 @@ export function LayerView() {
 
       executeOperation(editorOps.addLayer, layer, { aboveLayerId: lastLayerId })
       toggleLayerTypeOpened(false)
-    },
-    [currentDocument, activeLayer]
+    }
   )
 
-  const handleChangeFile = useCallback(
+  const handleChangeFile = useFunk(
     async ({ currentTarget }: ChangeEvent<HTMLInputElement>) => {
       const [file] = Array.from(currentTarget.files!)
       if (!file) return
@@ -109,18 +113,14 @@ export function LayerView() {
       executeOperation(editorOps.addLayer, layer, { aboveLayerId: lastLayerId })
 
       currentTarget.value = ''
-    },
-    [activeLayer]
+    }
   )
 
-  const handleLayerSortEnd: SortEndHandler = useCallback(
-    (sort) => {
-      layerControls.moveLayer(sort.oldIndex, sort.newIndex)
-    },
-    [layerControls]
-  )
+  const handleLayerSortEnd: SortEndHandler = useFunk((sort) => {
+    layerControls.moveLayer(sort.oldIndex, sort.newIndex)
+  })
 
-  const handleChangeLayerName = useCallback(
+  const handleChangeLayerName = useFunk(
     ({ currentTarget }: ChangeEvent<HTMLInputElement>) => {
       executeOperation(
         editorOps.updateLayer,
@@ -130,30 +130,25 @@ export function LayerView() {
         },
         { skipRerender: false }
       )
-    },
-    [activeLayer]
+    }
   )
 
-  const handleChangeCompositeMode = useCallback(
-    (value: string) => {
-      executeOperation(
-        editorOps.updateLayer,
-        activeLayer?.id,
-        (layer) => (layer.compositeMode = value as any)
-      )
-    },
-    [activeLayer]
-  )
+  const handleChangeCompositeMode = useFunk((value: string) => {
+    executeOperation(
+      editorOps.updateLayer,
+      activeLayer?.id,
+      (layer) => (layer.compositeMode = value as any)
+    )
+  })
 
-  const handleChangeOpacity = useCallback(
+  const handleChangeOpacity = useFunk(
     ({ currentTarget }: ChangeEvent<HTMLInputElement>) => {
       if (!activeLayer) return
 
       executeOperation(editorOps.updateLayer, activeLayer.id, (layer) => {
         layer.opacity = currentTarget.valueAsNumber
       })
-    },
-    [activeLayer]
+    }
   )
 
   return (
@@ -316,9 +311,9 @@ export function LayerView() {
         </div>
       )}
 
-      {currentDocument?.layers && (
+      {layers && (
         <SortableLayerList
-          layers={[...currentDocument.layers].reverse()}
+          layers={[...layers].reverse()}
           onSortEnd={handleLayerSortEnd}
           distance={2}
           lockAxis={'y'}
@@ -335,6 +330,7 @@ const SortableLayerItem = SortableElement(function LayerItem({
 }) {
   const { t } = useTranslation('app')
   const theme = useTheme()
+  const rerender = useUpdate()
 
   const { executeOperation } = useFleurContext()
   const { activeLayer, currentDocument, thumbnailUrlOfLayer, activeObjectId } =
@@ -349,33 +345,29 @@ const SortableLayerItem = SortableElement(function LayerItem({
 
   const rootRef = useRef<HTMLDivElement | null>(null)
 
-  const handleToggleVisibility = useCallback(() => {
+  const handleToggleVisibility = useFunk(() => {
     executeOperation(
       editorOps.updateLayer,
       layer.id,
       (layer) => (layer.visible = !layer.visible)
     )
-  }, [layer])
+  })
 
-  const handleChangeActiveLayer = useCallback(
-    (e: MouseEvent<HTMLDivElement>) => {
-      if (DOMUtils.closestOrSelf(e.target, '[data-ignore-click]')) return
-      executeOperation(editorOps.setActiveLayer, layer.id)
-    },
-    [layer]
-  )
+  const handleChangeActiveLayer = useFunk((e: MouseEvent<HTMLDivElement>) => {
+    if (DOMUtils.closestOrSelf(e.target, '[data-ignore-click]')) return
+    executeOperation(editorOps.setActiveLayer, layer.id)
+  })
 
-  const handleClickObject = useCallback(
+  const handleClickObject = useFunk(
     ({ currentTarget }: MouseEvent<HTMLDivElement>) => {
       executeOperation(
         editorOps.setActiveObject,
         currentTarget.dataset.objectId ?? null
       )
-    },
-    []
+    }
   )
 
-  const handleClickDeleteObject = useCallback((_, data) => {
+  const handleClickDeleteObject = useFunk((_, data) => {
     if (layer.layerType !== 'vector') return
 
     const idx = layer.objects.findIndex((obj) => obj.id === data.objectId)
@@ -384,15 +376,14 @@ const SortableLayerItem = SortableElement(function LayerItem({
     layer.update((layer) => {
       layer.objects.splice(idx, 1)
     })
-  }, [])
+  })
 
-  const handleChangeLayerName = useCallback(
+  const handleChangeLayerName = useFunk(
     ({ currentTarget }: ChangeEvent<HTMLInputElement>) => {
       executeOperation(editorOps.updateLayer, layer.id, (layer) => {
         layer.name = currentTarget.value
       })
-    },
-    [layer]
+    }
   )
 
   useMouseTrap(
@@ -407,6 +398,11 @@ const SortableLayerItem = SortableElement(function LayerItem({
     ],
     [layer]
   )
+
+  useEffect(() => {
+    layer.on('updated', rerender)
+    return () => layer.off('updated', rerender)
+  }, [layer.id])
 
   return (
     <ContextMenuArea>

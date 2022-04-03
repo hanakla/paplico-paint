@@ -12,14 +12,7 @@ import {
 import { Magic as MagicFill } from '@styled-icons/remix-fill'
 import { useTranslation } from 'next-i18next'
 import { rgba } from 'polished'
-import {
-  ChangeEvent,
-  MouseEvent,
-  useCallback,
-  useEffect,
-  useRef,
-  useState,
-} from 'react'
+import { ChangeEvent, MouseEvent, useEffect, useRef, useState } from 'react'
 import {
   SortableContainer,
   SortableElement,
@@ -28,6 +21,9 @@ import {
 } from 'react-sortable-hoc'
 import { css, useTheme } from 'styled-components'
 import { Silk, SilkEntity } from 'silk-core'
+import { useFleurContext, useStore } from '@fleur/react'
+import { useFunk } from '@hanakla/arma'
+
 import { Portal } from '🙌/components/Portal'
 import { useLayerControl } from '🙌/hooks/useLayers'
 import { centering, rangeThumb, silkScroll } from '🙌/utils/mixins'
@@ -43,7 +39,7 @@ import {
 import { FilterSettings } from '../FilterSettings'
 import { DOMUtils } from '🙌/utils/dom'
 import { editorOps, EditorSelector, EditorStore } from '🙌/domains/EditorStable'
-import { useFleurContext, useStore } from '@fleur/react'
+import { isEventIgnoringTarget } from '../../helpers'
 
 export const LayerFloatMenu = () => {
   const { t } = useTranslation('app')
@@ -56,36 +52,29 @@ export const LayerFloatMenu = () => {
   }))
   const [addLayerSheetOpened, toggleAddLayerSheetOpened] = useToggle(false)
 
-  const handleChangeCompositeMode = useCallback(
-    (mode: string) => {
-      executeOperation(editorOps.updateLayer, activeLayer?.id, (layer) => {
-        layer.compositeMode = mode as any
-      })
-    },
-    [activeLayer]
-  )
+  const handleChangeCompositeMode = useFunk((mode: string) => {
+    executeOperation(editorOps.updateLayer, activeLayer?.id, (layer) => {
+      layer.compositeMode = mode as any
+    })
+  })
 
-  const handleChangeOpacity = useCallback(
+  const handleChangeOpacity = useFunk(
     ({ currentTarget }: ChangeEvent<HTMLInputElement>) => {
       executeOperation(editorOps.updateLayer, activeLayer?.id, (layer) => {
         layer.opacity = currentTarget.valueAsNumber
       })
-    },
-    [activeLayer]
+    }
   )
 
-  const handleLayerSortEnd: SortEndHandler = useCallback(
-    (sort) => {
-      layerControl.moveLayer(sort.oldIndex, sort.newIndex)
-    },
-    [layerControl]
-  )
+  const handleLayerSortEnd: SortEndHandler = useFunk((sort) => {
+    layerControl.moveLayer(sort.oldIndex, sort.newIndex)
+  })
 
-  const handleClickAddLayer = useCallback(() => {
+  const handleClickAddLayer = useFunk(() => {
     toggleAddLayerSheetOpened(true)
-  }, [])
+  })
 
-  const handleClickAddLayerItem = useCallback(
+  const handleClickAddLayerItem = useFunk(
     ({ currentTarget }: MouseEvent<HTMLDivElement>) => {
       if (!currentDocument) return
 
@@ -119,16 +108,17 @@ export const LayerFloatMenu = () => {
     [currentDocument, activeLayer]
   )
 
-  const handleClickRemoveLayer = useCallback(() => {
+  const handleClickRemoveLayer = useFunk(() => {
     executeOperation(editorOps.deleteLayer, activeLayer?.id)
-  }, [])
+  })
 
   const addLayerSheetRef = useRef<HTMLDivElement | null>(null)
-  const handleCloseAddLayerSheet = useCallback(() => {
+  const handleCloseAddLayerSheet = useFunk(() => {
     toggleAddLayerSheetOpened(false)
-  }, [])
+  })
 
-  useClickAway(addLayerSheetRef, () => {
+  useClickAway(addLayerSheetRef, (e) => {
+    if (isEventIgnoringTarget(e.target)) return
     toggleAddLayerSheetOpened(false)
   })
 
@@ -373,33 +363,28 @@ const SortableLayerItem = SortableElement(
     const [actionSheetOpened, setActionSheetOpen] = useToggle(false)
     const actionSheetRef = useRef<HTMLDivElement | null>(null)
 
-    const handleClick = useCallback(
-      (e: MouseEvent<HTMLDivElement>) => {
-        if (DOMUtils.closestOrSelf(e.target, '[data-ignore-click]')) return
-        executeOperation(editorOps.setActiveLayer, layer.id)
-      },
-      [layer]
-    )
+    const handleClick = useFunk((e: MouseEvent<HTMLDivElement>) => {
+      if (DOMUtils.closestOrSelf(e.target, '[data-ignore-click]')) return
+      executeOperation(editorOps.setActiveLayer, layer.id)
+    })
 
-    const handleClickToggleVisible = useCallback(
-      (e: MouseEvent) => {
-        executeOperation(editorOps.updateLayer, layer.id, (layer) => {
-          layer.visible = !layer.visible
-        })
-      },
-      [layer]
-    )
+    const handleClickToggleVisible = useFunk((e: MouseEvent) => {
+      executeOperation(editorOps.updateLayer, layer.id, (layer) => {
+        layer.visible = !layer.visible
+      })
+    })
 
-    const handleClickLayerConfig = useCallback((e: MouseEvent) => {
+    const handleClickLayerConfig = useFunk((e: MouseEvent) => {
       e.stopPropagation()
       setActionSheetOpen()
-    }, [])
+    })
 
-    const handleSheetClose = useCallback(() => {
+    const handleSheetClose = useFunk(() => {
       setActionSheetOpen(false)
-    }, [])
+    })
 
-    useClickAway(actionSheetRef, () => {
+    useClickAway(actionSheetRef, (e) => {
+      if (isEventIgnoringTarget(e.target)) return
       setActionSheetOpen(false)
     })
 
@@ -628,7 +613,7 @@ const SortableFilterItem = SortableElement(
     }))
     const active = selectedFilterIds[filter.id]
 
-    const handleClick = useCallback(
+    const handleClick = useFunk(
       (e: MouseEvent<HTMLDivElement>) => {
         if (DOMUtils.closestOrSelf(e.target, '[data-ignore-click]')) return
 
@@ -637,7 +622,7 @@ const SortableFilterItem = SortableElement(
       [filter]
     )
 
-    const handleToggleVisibility = useCallback(() => {
+    const handleToggleVisibility = useFunk(() => {
       if (!activeLayer) return
 
       executeOperation(editorOps.updateLayer, layer.id, (layer) => {

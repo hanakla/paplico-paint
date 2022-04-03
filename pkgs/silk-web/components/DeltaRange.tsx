@@ -1,8 +1,9 @@
-import { useCallback, ChangeEvent, useEffect, MouseEvent, useMemo } from 'react'
+import { ChangeEvent, useEffect, MouseEvent, useMemo } from 'react'
 import { rgba } from 'polished'
-import { rangeThumb } from '../utils/mixins'
-import { SpringValue, useSpring } from 'react-spring'
+import { SpringValue } from 'react-spring'
 import { useRef } from 'react'
+import { useFunk } from '@hanakla/arma'
+import { rangeThumb } from '../utils/mixins'
 
 export const DeltaRange = ({
   value,
@@ -30,7 +31,7 @@ export const DeltaRange = ({
     []
   )
 
-  const handleChange = useCallback(
+  const handleChange = useFunk(
     ({ currentTarget }: ChangeEvent<HTMLInputElement>) => {
       if (baseValue.current == null) {
         baseValue.current = value
@@ -38,17 +39,16 @@ export const DeltaRange = ({
 
       const delta = currentTarget.valueAsNumber - 50
       onChange(Math.min(max, Math.max(baseValue.current + delta * step, min)))
-    },
-    [value, max, min, step]
+    }
   )
 
-  const handleMouseDown = useCallback(() => {
+  const handleMouseDown = useFunk(() => {
     if (baseValue.current == null) {
       baseValue.current = value
     }
-  }, [value])
+  })
 
-  const handleMouseUp = useCallback(
+  const handleMouseUp = useFunk(
     ({ currentTarget }: MouseEvent<HTMLInputElement>) => {
       const base = baseValue.current!
       const current = currentTarget.valueAsNumber
@@ -59,8 +59,7 @@ export const DeltaRange = ({
 
       onChange(Math.min(max, Math.max(base + delta * step, min)))
       onChangeComplete?.()
-    },
-    [value, max, min, step]
+    }
   )
 
   useEffect(

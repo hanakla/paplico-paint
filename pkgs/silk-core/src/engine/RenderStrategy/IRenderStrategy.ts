@@ -1,5 +1,5 @@
 import { SilkEngine3 } from 'engine/Engine3'
-import { Document } from '../../Entity'
+import { Document } from '../../SilkDOM'
 
 export interface IRenderStrategy {
   render(

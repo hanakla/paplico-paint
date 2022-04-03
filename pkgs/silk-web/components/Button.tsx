@@ -2,7 +2,6 @@ import { More } from '@styled-icons/remix-fill'
 import {
   ButtonHTMLAttributes,
   MouseEvent,
-  useCallback,
   DetailedHTMLProps,
   forwardRef,
   HTMLAttributes,
@@ -15,6 +14,8 @@ import { css } from 'styled-components'
 import { darken, rgba } from 'polished'
 import { combineRef } from '../utils/react'
 import { Portal } from './Portal'
+import { useFunk } from '@hanakla/arma'
+import { isEventIgnoringTarget } from '🙌/features/Paint/helpers'
 
 type Props = {
   kind: 'normal' | 'primary'
@@ -36,12 +37,13 @@ export const Button = forwardRef<HTMLButtonElement, Props>(
     })
     const [openPopup, togglePopup] = useToggle(false)
 
-    const handleOpenPopup = useCallback((e: MouseEvent) => {
+    const handleOpenPopup = useFunk((e: MouseEvent) => {
       e.stopPropagation()
       togglePopup()
-    }, [])
+    })
 
-    useClickAway(popperRef, () => {
+    useClickAway(popperRef, (e) => {
+      if (isEventIgnoringTarget(e.target)) return
       togglePopup(false)
     })
 

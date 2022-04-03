@@ -1,4 +1,4 @@
-import { MouseEvent, useCallback, useRef, useState } from 'react'
+import { MouseEvent, useRef, useState } from 'react'
 import { useFleurContext, useStore } from '@fleur/react'
 import { ChromePicker, ColorChangeHandler, CustomPicker } from 'react-color'
 import { Hue, Saturation } from 'react-color/lib/components/common'
@@ -18,6 +18,8 @@ import { useDrag } from 'react-use-gesture'
 import { DOMUtils } from '🙌/utils/dom'
 import { SelectBox } from '🙌/components/SelectBox'
 import { editorOps, EditorSelector, EditorStore } from '🙌/domains/EditorStable'
+import { useFunk } from '@hanakla/arma'
+import { isEventIgnoringTarget } from '../../helpers'
 
 export function MainActions() {
   const theme = useTheme()
@@ -50,65 +52,65 @@ export function MainActions() {
   const [brushOpacity, setBrushOpacity] = useState(1)
   const rerender = useUpdate()
 
-  const handleChangeColor: ColorChangeHandler = useCallback((color) => {
+  const handleChangeColor: ColorChangeHandler = useFunk((color) => {
     setColor(color.rgb)
-  }, [])
+  })
 
-  const handleChangeCompleteColor: ColorChangeHandler = useCallback((color) => {
+  const handleChangeCompleteColor: ColorChangeHandler = useFunk((color) => {
     setColor(color.rgb)
 
     // engine!.brushSetting = {
     //   ...engine!.brushSetting,
     //   color: color.rgb,
     // }
-  }, [])
+  })
 
-  const handleChangeToCursorMode = useCallback(() => {
+  const handleChangeToCursorMode = useFunk(() => {
     executeOperation(editorOps.setTool, 'cursor')
-  }, [])
+  })
 
-  const handleChangeToShapePenMode = useCallback(() => {
+  const handleChangeToShapePenMode = useFunk(() => {
     executeOperation(editorOps.setTool, 'shape-pen')
-  }, [])
+  })
 
-  const handleChangeToPencilMode = useCallback(() => {
+  const handleChangeToPencilMode = useFunk(() => {
     if (currentTool === 'draw') {
       toggleBrush(true)
       return
     }
 
     executeOperation(editorOps.setTool, 'draw')
-  }, [currentTool])
+  })
 
-  const handleChangeToEraceMode = useCallback(() => {
+  const handleChangeToEraceMode = useFunk(() => {
     executeOperation(editorOps.setTool, 'erase')
-  }, [])
+  })
 
-  const handleChangeBrush = useCallback((id: keyof typeof SilkBrushes) => {
+  const handleChangeBrush = useFunk((id: keyof typeof SilkBrushes) => {
     // if (!engine) return
     // engine.setBrush(SilkBrushes[id])
     // rerender()
-  }, [])
+  })
 
-  const handleClickColor = useCallback((e: MouseEvent<HTMLDivElement>) => {
+  const handleClickColor = useFunk((e: MouseEvent<HTMLDivElement>) => {
     if (colorPickerPopRef.current!.contains(e.target as HTMLElement)) return
     togglePicker()
-  }, [])
+  })
 
-  const handleClickLayerIcon = useCallback((e: MouseEvent<HTMLDivElement>) => {
+  const handleClickLayerIcon = useFunk((e: MouseEvent<HTMLDivElement>) => {
     if (layerPopRef.current!.contains(e.target as HTMLElement)) return
     toggleLayers()
-  }, [])
+  })
 
-  const handleClickVectorStrokeColor = useCallback(() => {
+  const handleClickVectorStrokeColor = useFunk(() => {
     setVectorColorTarget('stroke')
     toggleVectorColorOpened(true)
-  }, [])
+  })
 
-  const handleClickVectorFillColor = useCallback(() => {
+  const handleClickVectorFillColor = useFunk(() => {
     setVectorColorTarget('fill')
     toggleVectorColorOpened(true)
-  }, [])
+  })
 
   const brushRef = useRef<HTMLDivElement | null>(null)
   const brushPopRef = useRef<HTMLDivElement | null>(null)
@@ -138,20 +140,20 @@ export function MainActions() {
   // })
 
   useClickAway(colorPickerPopRef, (e) => {
-    if ((e.target as HTMLElement).dataset.isPaintCanvas != null) return
+    if (isEventIgnoringTarget(e.target)) return
     togglePicker(false)
   })
   useClickAway(vectorColorPickerPopRef, (e) => {
-    if ((e.target as HTMLElement).dataset.isPaintCanvas != null) return
+    if (isEventIgnoringTarget(e.target)) return
     toggleVectorColorOpened(false)
   })
   useClickAway(brushPopRef, (e) => {
-    if ((e.target as HTMLElement).dataset.isPaintCanvas != null) return
+    if (isEventIgnoringTarget(e.target)) return
     if (DOMUtils.childrenOrSelf(e.target, brushRef.current)) return
     toggleBrush(false)
   })
   useClickAway(layerPopRef, (e) => {
-    if ((e.target as HTMLElement).dataset.isPaintCanvas != null) return
+    if (isEventIgnoringTarget(e.target)) return
     if (DOMUtils.childrenOrSelf(e.target, layerRef.current)) return
 
     toggleLayers(false)
@@ -586,7 +588,7 @@ const BrushItem = ({
     currentBrush: EditorSelector.currentBrush(get),
   }))
 
-  const handleClick = useCallback(() => {
+  const handleClick = useFunk(() => {
     onSelect(id)
   }, [onSelect])
 
@@ -632,11 +634,11 @@ const VectorColorPicker = ({
     defaultVectorBrush: EditorSelector.defaultVectorBrush(get),
   }))
 
-  const handleChangeFillMode = useCallback(() => {
+  const handleChangeFillMode = useFunk(() => {
     handleChangeFillMode
-  }, [])
+  })
 
-  const handleChangeStrokeColor: ColorChangeHandler = useCallback(
+  const handleChangeStrokeColor: ColorChangeHandler = useFunk(
     ({ rgb: { r, g, b } }) => {
       executeOperation(editorOps.updateActiveObject, (obj) => {
         obj.brush = obj.brush
@@ -646,8 +648,7 @@ const VectorColorPicker = ({
               color: { r, g, b },
             }
       })
-    },
-    [currentVectorBrush, defaultVectorBrush]
+    }
   )
 
   return (

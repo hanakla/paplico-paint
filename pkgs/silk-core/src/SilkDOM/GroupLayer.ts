@@ -1,7 +1,10 @@
+import { Emitter } from '../Engine3_Emitter'
 import { assign } from '../utils'
-import { CompositeMode, ILayer } from './IRenderable'
+import { CompositeMode, ILayer, LayerEvents } from './IRenderable'
 
-export class GroupLayer implements ILayer {
+type Events = LayerEvents<GroupLayer>
+
+export class GroupLayer extends Emitter<Events> implements ILayer {
   public readonly layerType = 'group'
 
   public name: string = ''
@@ -27,7 +30,9 @@ export class GroupLayer implements ILayer {
     })
   }
 
-  protected constructor() {}
+  protected constructor() {
+    super()
+  }
 
   public get width() {
     return 0
@@ -35,6 +40,11 @@ export class GroupLayer implements ILayer {
 
   public get height() {
     return 0
+  }
+
+  public update(proc: (layer: this) => void) {
+    proc(this)
+    this.emit('updated', this)
   }
 
   public serialize() {

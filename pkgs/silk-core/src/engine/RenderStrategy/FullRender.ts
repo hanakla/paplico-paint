@@ -1,4 +1,4 @@
-import { Document } from '../../Entity'
+import { Document } from '../../SilkDOM'
 import { IRenderStrategy } from './IRenderStrategy'
 import { SilkEngine3 } from '../Engine3'
 import { assign, deepClone } from '../../utils'

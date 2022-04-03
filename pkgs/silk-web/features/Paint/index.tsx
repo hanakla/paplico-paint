@@ -225,16 +225,13 @@ export function PaintPage({}) {
       canvas: canvasRef.current!,
     })
 
-    engine.current.on('rerender', rerender)
-
-    const session = ((window as any)._session = engine.current?.createSession(
-      getStore(EditorStore).state._currentDocument!
-    ))
+    const session = ((window as any)._session =
+      engine.current?.createSession(null))
 
     const strategy = new RenderStrategies.DifferenceRender()
     session.setRenderStrategy(strategy)
 
-    executeOperation(editorOps.initEngine, {
+    await executeOperation(editorOps.initEngine, {
       engine: engine.current,
       session,
       strategy,
@@ -243,9 +240,13 @@ export function PaintPage({}) {
     canvasHandler.current = new CanvasHandler(canvasRef.current!)
     canvasHandler.current.connect(session, strategy, engine.current)
 
-    if (process.env.NODE_ENV === 'development' && session.document == null) {
+    if (process.env.NODE_ENV !== 'development') {
+    } else {
+      await executeOperation(editorOps.setDocument, null)
+
       const document = SilkEntity.Document.create({ width: 1000, height: 1000 })
-      session.setDocument(document)
+      // session.setDocument(document)
+      await executeOperation(editorOps.setDocument, document)
 
       const layer = SilkEntity.RasterLayer.create({ width: 1000, height: 1000 })
       const vector = SilkEntity.VectorLayer.create({
@@ -277,9 +278,10 @@ export function PaintPage({}) {
       document.layers.push(vector)
       document.layers.push(text)
       document.layers.push(filter)
-      executeOperation(editorOps.setActiveLayer, vector.id)
 
-      executeOperation(editorOps.setFill, {
+      await executeOperation(editorOps.setActiveLayer, vector.id)
+
+      await executeOperation(editorOps.setFill, {
         type: 'linear-gradient',
         colorPoints: [
           { color: { r: 0, g: 255, b: 255, a: 1 }, position: 0 },

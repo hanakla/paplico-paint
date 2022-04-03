@@ -8,7 +8,9 @@ export { Session } from './engine/Engine3_Sessions'
 export { CanvasHandler } from './engine/Engine3_CanvasHandler'
 
 export * as SilkBrushes from './Brushes/index'
-export * as SilkEntity from './Entity/index'
+/** @deprecated */
+export * as SilkEntity from './SilkDOM/index'
+export * as SilkDOM from './SilkDOM/index'
 export * as SilkHelper from './SilkHelpers'
 export * as SilkMath from './SilkMath'
 export * as SilkValue from './Value/index'

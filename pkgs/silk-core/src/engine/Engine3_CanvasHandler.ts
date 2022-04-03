@@ -1,12 +1,13 @@
 import { SilkEngine3 } from './Engine3'
-import { Emitter } from './Engine3_Emitter'
+import { Emitter } from '../Engine3_Emitter'
 import { Session } from './Engine3_Sessions'
 import { DifferenceRender } from './RenderStrategy/DifferenceRender'
 import { Stroke } from './Stroke'
 import { assign } from '../utils'
-import { VectorObject } from '../Entity'
+import { LayerTypes, RasterLayer, VectorLayer, VectorObject } from '../SilkDOM'
 
 type Events = {
+  strokeStart: Stroke
   tmpStroke: Stroke
   strokeComplete: Stroke
   canvasUpdated: void
@@ -36,7 +37,6 @@ export class CanvasHandler extends Emitter<Events> {
     this.canvas = canvas
     this.strokeCtx = document.createElement('canvas').getContext('2d')!
     this.compositeSourceCtx = document.createElement('canvas').getContext('2d')!
-    document.body.appendChild(this.compositeSourceCtx.canvas)
 
     this.canvas.addEventListener('mousedown', this.#handleMouseDown)
     this.canvas.addEventListener('mousemove', this.#handleMouseMove)
@@ -64,20 +64,42 @@ export class CanvasHandler extends Emitter<Events> {
     strategy: DifferenceRender = new DifferenceRender(),
     engine: SilkEngine3
   ) {
-    this.on('tmpStroke', async (stroke) => {
-      const { activeLayer } = session
-      if (!session.document || !activeLayer) return
+    const isDrawableLayer = (
+      layer: LayerTypes | null
+    ): layer is RasterLayer | VectorLayer =>
+      layer?.layerType === 'raster' || layer?.layerType === 'vector'
 
-      assign(this.strokeCtx.canvas, {
-        width: activeLayer.width,
-        height: activeLayer.height,
-      })
+    this.on('strokeStart', async () => {
+      const { activeLayer } = session
+      if (
+        session.pencilMode === 'none' ||
+        !session.document ||
+        !isDrawableLayer(activeLayer)
+      )
+        return
+
+      const size = session.document.getLayerSize(activeLayer)
+      assign(this.strokeCtx.canvas, size)
+      this.strokeCtx.clearRect(0, 0, size.width, size.height)
 
       strategy.setLayerOverride({
         layerId: activeLayer.id,
         canvas: this.strokeCtx.canvas,
       })
       strategy.markUpdatedLayerId(activeLayer.id)
+    })
+
+    this.on('tmpStroke', async (stroke) => {
+      const { activeLayer } = session
+      if (
+        session.pencilMode === 'none' ||
+        !session.document ||
+        !isDrawableLayer(activeLayer)
+      )
+        return
+
+      const size = session.document.getLayerSize(activeLayer)
+      this.strokeCtx.clearRect(0, 0, size.width, size.height)
 
       await engine.renderStroke(session, stroke, this.strokeCtx)
       await engine.render(session.document, strategy)
@@ -85,17 +107,17 @@ export class CanvasHandler extends Emitter<Events> {
 
     this.on('strokeComplete', async (stroke) => {
       const { activeLayer } = session
-      if (!session.document || !activeLayer) return
+      if (
+        session.pencilMode === 'none' ||
+        !session.document ||
+        !isDrawableLayer(activeLayer)
+      )
+        return
 
-      assign(this.strokeCtx.canvas, {
-        width: session.document.width,
-        height: session.document.height,
-      })
-
-      assign(this.compositeSourceCtx.canvas, {
-        width: session.document.width,
-        height: session.document.height,
-      })
+      const size = session.document.getLayerSize(activeLayer)
+      assign(this.strokeCtx.canvas, size)
+      assign(this.compositeSourceCtx.canvas, size)
+      this.strokeCtx.clearRect(0, 0, size.width, size.height)
 
       await engine.renderStroke(session, stroke, this.strokeCtx)
 
@@ -151,6 +173,8 @@ export class CanvasHandler extends Emitter<Events> {
       points.push([e.offsetX, e.offsetY, 1])
     })
 
+    this.emit('strokeStart', this.currentStroke)
+
     this._stroking = true
   }
 
@@ -198,6 +222,8 @@ export class CanvasHandler extends Emitter<Events> {
     this.currentStroke.updatePoints((points) => {
       points.push([x, y, e.touches[0].force])
     })
+
+    this.emit('strokeStart', this.currentStroke)
   }
 
   #handleTouchMove = (e: TouchEvent) => {

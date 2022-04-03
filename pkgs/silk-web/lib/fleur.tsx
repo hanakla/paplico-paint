@@ -1,4 +1,4 @@
-import { AppContext as FleurAppContext } from '@fleur/fleur'
+import { AppContext as FleurAppContext, withReduxDevTools } from '@fleur/fleur'
 import {
   bindFleurContext,
   deserializeContext,
@@ -8,7 +8,7 @@ import {
   NextJsOps,
   serializeContext,
 } from '@fleur/next'
-import { FleurContext } from '@fleur/react'
+import { FleurContext, useFleurContext } from '@fleur/react'
 import { GetServerSidePropsResult, GetStaticPropsResult } from 'next'
 import { AppInitialProps, AppProps, AppContext } from 'next/app'
 import { useMemo } from 'react'
@@ -66,6 +66,10 @@ export function appWithFleur<P>(
     )
 
     useFleurRehydration(fleurContext, __FLEUR_STATE__)
+
+    useEffect(() => {
+      ;(window as any).context = fleurContext
+    })
 
     return (
       <FleurContext value={fleurContext}>

@@ -1,10 +1,10 @@
 import type {} from '../utils/styled-theme'
 
-import React, { MouseEvent, useCallback, useEffect } from 'react'
+import React, { MouseEvent, useEffect } from 'react'
 import { useDropArea } from 'react-use'
 import { GetStaticProps } from 'next'
 import { serverSideTranslations } from 'next-i18next/serverSideTranslations'
-import { loadImageFromBlob, selectFile } from '@hanakla/arma'
+import { loadImageFromBlob, selectFile, useFunk } from '@hanakla/arma'
 import { SilkEntity, SilkSerializer, SilkHelper } from 'silk-core'
 import { Moon, Sun } from '@styled-icons/remix-fill'
 import { DragDrop, File, Menu } from '@styled-icons/remix-line'
@@ -45,7 +45,7 @@ const HomeContent = () => {
     renderSetting: get(EditorStore).state.renderSetting,
   }))
 
-  const handleClickItem = useCallback(
+  const handleClickItem = useFunk(
     async ({ currentTarget: { dataset } }: MouseEvent<HTMLDivElement>) => {
       const width = parseInt(dataset.width!)
       const height = parseInt(dataset.height!)
@@ -57,11 +57,10 @@ const HomeContent = () => {
 
       executeOperation(editorOps.setDocument, doc)
       executeOperation(editorOps.setEditorPage, 'app')
-    },
-    []
+    }
   )
 
-  const handleFileSelected = useCallback(async (file: File) => {
+  const handleFileSelected = useFunk(async (file: File) => {
     const ext = extname(file.name)
 
     if (ext === '.silk') {
@@ -86,9 +85,9 @@ const HomeContent = () => {
       executeOperation(editorOps.setDocument, doc)
       executeOperation(editorOps.setEditorPage, 'app')
     }
-  }, [])
+  })
 
-  const handleClickDropArea = useCallback(async () => {
+  const handleClickDropArea = useFunk(async () => {
     const [file] = await selectFile({
       extensions: ['.silk', '.png', '.jpg'],
       multiple: false,
@@ -98,11 +97,11 @@ const HomeContent = () => {
     handleFileSelected(file)
   }, [handleFileSelected])
 
-  const handleClickDarkTheme = useCallback(
+  const handleClickDarkTheme = useFunk(
     () => executeOperation(editorOps.setTheme, 'dark'),
     []
   )
-  const handleClickLightTheme = useCallback(
+  const handleClickLightTheme = useFunk(
     () => executeOperation(editorOps.setTheme, 'light'),
     []
   )

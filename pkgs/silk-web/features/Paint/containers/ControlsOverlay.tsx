@@ -1,5 +1,5 @@
 import { useFleurContext, useStore } from '@fleur/react'
-import { MouseEvent, useCallback, useMemo, useRef, useState } from 'react'
+import { MouseEvent, useMemo, useRef, useState } from 'react'
 import { useClickAway, useToggle } from 'react-use'
 import { useDrag, useHover } from 'react-use-gesture'
 import { createEditor, Descendant } from 'slate'
@@ -32,7 +32,7 @@ export const ControlsOverlay = ({
   const { activeLayer, currentLayerBBox, currentDocument } = useStore(
     (get) => ({
       activeLayer: EditorSelector.activeLayer(get),
-      currentLayerBBox: EditorSelector.currentLayerBBox(get),
+      currentLayerBBox: EditorSelector.activeLayerBBox(get),
       currentDocument: EditorSelector.currentDocument(get),
     })
   )
@@ -359,7 +359,7 @@ const VectorLayerControl = ({ scale }: { scale: number }) => {
   })
 
   useClickAway(rootRef as any, (e) => {
-    if (isEventIgnoringTarget(e)) return
+    if (isEventIgnoringTarget(e.target)) return
     executeOperation(editorOps.setVectorStroking, null)
     executeOperation(editorOps.setSelectedObjectPoints, [])
   })
@@ -397,34 +397,13 @@ const VectorLayerControl = ({ scale }: { scale: number }) => {
 
   const zoom = 1 / scale
 
-  const segments = ((activeLayer.objects as SilkEntity.VectorObject[]) ?? [])
-    .map((object) =>
-      (object.path as SilkEntity.Path).mapPoints(
-        (point, prevPoint, idx, points) =>
-          renderPathSegment({
-            prevPoint: prevPoint,
-            object: object,
-            path: object.path,
-            point: point,
-            pointIndex: idx,
-            scale: scale,
-            isActive: activeObjectId === object.id,
-            isFirstSegment: idx === 0,
-            isLastSegment: idx === points.length - 1,
-            hovering: isHoverOnPath && object.id === hoverObjectId,
-            onClick: handleClickPath,
-            onDoubleClick: handleDoubleClickPath,
-            onHoverStateChange: handleHoverChangePath,
-            renderPoint: idx !== points.length - 1 || !object.path.closed,
-          })
-      )
-    )
-    .flat(1)
-
   // MEMO: これ見て https://codepen.io/osublake/pen/ggYxvp
   return (
     <svg
       ref={rootRef}
+      css={`
+        outline: none;
+      `}
       width={currentDocument.width}
       height={currentDocument.height}
       viewBox={`0 0 ${currentDocument.width} ${currentDocument.height}`}
@@ -458,20 +437,17 @@ const VectorLayerControl = ({ scale }: { scale: number }) => {
             </g>
           )
       )}
-      {segments.map(({ paths, inControl, outControl, object }) => (
-        <>
-          <g style={{ transform: `translate(${object.x}px, ${object.y}px)` }}>
-            {paths}
-            {inControl}
-            {outControl}
-          </g>
-        </>
-      ))}
-      {segments.map(({ point, object }) => (
-        <g style={{ transform: `translate(${object.x}px, ${object.y}px)` }}>
-          {point}
-        </g>
-      ))}
+
+      <PathSegments
+        objects={activeLayer.objects}
+        scale={scale}
+        isHoverOnPath={isHoverOnPath}
+        hoverObjectId={hoverObjectId}
+        onClickPath={handleClickPath}
+        onDoubleClickPath={handleDoubleClickPath}
+        onHoverStateChange={handleHoverChangePath}
+      />
+
       {activeObject?.fill?.type === 'linear-gradient' && (
         <GradientControl object={activeObject} scale={scale} />
       )}
@@ -533,34 +509,21 @@ const GradientControl = ({
   )
 }
 
-const renderPathSegment = ({
-  object,
-  prevPoint,
-  point,
-  pointIndex,
-  isActive,
-  isFirstSegment,
-  isLastSegment,
-  hovering,
+const PathSegments = ({
+  objects,
   scale,
-  renderPoint,
-  onClick,
-  onDoubleClick,
+  isHoverOnPath,
+  hoverObjectId,
+  onClickPath,
+  onDoubleClickPath,
   onHoverStateChange,
 }: {
-  object: SilkEntity.VectorObject
-  path: SilkEntity.Path
-  prevPoint: SilkEntity.Path.PathPoint | undefined
-  point: SilkEntity.Path.PathPoint
-  pointIndex: number
-  isActive: boolean
-  isFirstSegment: boolean
-  isLastSegment: boolean
-  hovering: boolean
+  objects: SilkEntity.VectorObject[]
   scale: number
-  renderPoint: boolean
-  onClick: (objectId: string) => void
-  onDoubleClick: (
+  isHoverOnPath: boolean
+  hoverObjectId: string | null
+  onClickPath: (objectId: string) => void
+  onDoubleClickPath: (
     objectId: string,
     segmentIndex: number,
     point: { x: number; y: number }
@@ -575,8 +538,6 @@ const renderPathSegment = ({
     activeObject,
     currentTool,
     vectorStroking,
-    currentStroke,
-    currentFill,
     activeObjectPointIndices,
   } = useStore((get) => ({
     activeLayer: EditorSelector.activeLayer(get),
@@ -594,6 +555,10 @@ const renderPathSegment = ({
   const bindDragStartInAnchor = useDrag(({ delta, event }) => {
     event.stopPropagation()
 
+    const { dataset } = event.currentTarget as SVGCircleElement
+    const object = objects.find((obj) => obj.id === dataset.objectId!)!
+    const pointIndex = +dataset.pointIndex!
+
     executeOperation(editorOps.updateVectorLayer, activeLayer?.id, (layer) => {
       const path = layer.objects.find((obj) => obj.id === object.id)?.path
       const point = path?.points[pointIndex]
@@ -607,6 +572,10 @@ const renderPathSegment = ({
   const bindDragOutAnchor = useDrag(({ delta, event }) => {
     event.stopPropagation()
 
+    const { dataset } = event.currentTarget as SVGCircleElement
+    const object = objects.find((obj) => obj.id === dataset.objectId!)!
+    const pointIndex = +dataset.pointIndex!
+
     executeOperation(editorOps.updateVectorLayer, activeLayer?.id, (layer) => {
       const path = layer.objects.find((obj) => obj.id === object.id)?.path
       const point = path?.points[pointIndex]
@@ -619,6 +588,10 @@ const renderPathSegment = ({
 
   const bindDragPoint = useDrag(({ delta, event }) => {
     event.stopPropagation()
+
+    const { dataset } = event.currentTarget as SVGElement
+    const pointIndex = +dataset.pointIndex!
+    const object = objects.find((obj) => obj.id === dataset.objectId)!
 
     executeOperation(editorOps.updateVectorLayer, activeLayer?.id, (layer) => {
       const point = layer.objects.find((obj) => obj.id === object.id)?.path
@@ -643,281 +616,576 @@ const renderPathSegment = ({
     })
   })
 
-  const handleClickPoint = useCallback(
-    (e: MouseEvent<SVGRectElement>) => {
-      e.stopPropagation()
+  const handleClickPoint = useFunk((e: MouseEvent<SVGRectElement>) => {
+    e.stopPropagation()
 
-      if (vectorStroking && (isLastSegment || isFirstSegment)) {
-        if (!activeLayer || !activeObject) return
-        if (vectorStroking.objectId !== object.id) return
-        if (!vectorStroking.isTail && !vectorStroking.isHead) return
+    const { dataset } = e.currentTarget
+    const object = objects.find((obj) => obj.id === dataset.objectId!)!
+    const pointIndex = +dataset.pointIndex!
+    const isFirstSegment = dataset.isFirstSegment != null
+    const isLastSegment = dataset.isLastSegment != null
 
-        executeOperation(
-          editorOps.updateVectorLayer,
-          activeLayer.id,
-          (layer) => {
-            const object = layer.objects.find(
-              (obj) => obj.id === vectorStroking.objectId
-            )
+    if (vectorStroking && (isLastSegment || isFirstSegment)) {
+      if (!activeLayer || !activeObject) return
+      if (vectorStroking.objectId !== object.id) return
+      if (!vectorStroking.isTail && !vectorStroking.isHead) return
 
-            if (!object) return
-
-            object.path.closed = true
-          }
+      executeOperation(editorOps.updateVectorLayer, activeLayer.id, (layer) => {
+        const object = layer.objects.find(
+          (obj) => obj.id === vectorStroking.objectId
         )
-        return
-      }
 
-      if (
-        currentTool === 'shape-pen' &&
-        activeObject &&
-        (isLastSegment || isFirstSegment)
-      ) {
-        executeOperation(editorOps.setVectorStroking, {
-          objectId: object.id,
-          selectedPointIndex: pointIndex,
-          isHead: isFirstSegment,
-          isTail: isLastSegment,
-        })
-        return
-      }
+        if (!object) return
 
-      const nextIndices = e.shiftKey
-        ? [...activeObjectPointIndices, pointIndex]
-        : [pointIndex]
+        object.path.closed = true
+      })
 
-      executeOperation(editorOps.setSelectedObjectPoints, nextIndices)
-    },
-    [
-      pointIndex,
-      vectorStroking,
-      currentTool,
-      activeLayer,
-      activeObject,
-      activeObjectPointIndices,
-    ]
-  )
+      return
+    }
 
-  const handleClickPath = useCallback(
-    (e: MouseEvent<SVGPathElement>) => {
-      e.stopPropagation()
+    if (
+      currentTool === 'shape-pen' &&
+      activeObject &&
+      (isLastSegment || isFirstSegment)
+    ) {
+      executeOperation(editorOps.setVectorStroking, {
+        objectId: object.id,
+        selectedPointIndex: pointIndex,
+        isHead: isFirstSegment,
+        isTail: isLastSegment,
+      })
+      return
+    }
 
-      if (currentTool === 'shape-pen') {
-        if (!prevPoint) return
+    const nextIndices = e.shiftKey
+      ? [...activeObjectPointIndices, pointIndex]
+      : [pointIndex]
 
-        const svg = (e.target as SVGPathElement).ownerSVGElement!
-        const pt = assign(svg.createSVGPoint(), {
-          x: e.clientX,
-          y: e.clientY,
-        }).matrixTransform(svg.getScreenCTM()!.inverse())
+    executeOperation(editorOps.setSelectedObjectPoints, nextIndices)
+  })
 
-        const angle = SilkWebMath.angleOfPoints(prevPoint, point)
-        const reverseAngle = SilkWebMath.degToRad(
-          SilkWebMath.deg(SilkWebMath.radToDeg(angle) + 180)
-        )
-        const distance = SilkWebMath.distanceOfPoint(prevPoint, point)
+  const handleClickPath = useFunk((e: MouseEvent<SVGPathElement>) => {
+    e.stopPropagation()
 
-        executeOperation(editorOps.addPoint, object, pointIndex, {
-          x: pt.x,
-          y: pt.y,
-          in: SilkWebMath.pointByAngleAndDistance({
-            angle: reverseAngle,
-            distance: distance / 2,
-            base: pt,
-          }),
-          out: SilkWebMath.pointByAngleAndDistance({
-            angle: angle,
-            distance: distance / 2,
-            base: pt,
-          }),
-        })
+    const { dataset } = e.currentTarget
+    const object = objects.find((obj) => obj.id === dataset.objectId!)!
+    const pointIndex = +dataset.pointIndex!
+    const point = object.path.points[pointIndex]
+    const prevPoint = object.path.points[pointIndex - 1]
 
-        return
-      }
+    if (currentTool === 'shape-pen') {
+      if (!prevPoint) return
 
-      onClick(object.id)
-    },
-    [object, prevPoint, point, pointIndex]
-  )
-
-  const handleDoubleClickPath = useCallback(
-    ({ nativeEvent: e }: MouseEvent<SVGPathElement>) => {
-      e.stopPropagation()
-
-      // SEE: https://stackoverflow.com/a/42711775
       const svg = (e.target as SVGPathElement).ownerSVGElement!
       const pt = assign(svg.createSVGPoint(), {
         x: e.clientX,
         y: e.clientY,
+      }).matrixTransform(svg.getScreenCTM()!.inverse())
+
+      const angle = SilkWebMath.angleOfPoints(prevPoint, point)
+      const reverseAngle = SilkWebMath.degToRad(
+        SilkWebMath.deg(SilkWebMath.radToDeg(angle) + 180)
+      )
+      const distance = SilkWebMath.distanceOfPoint(prevPoint, point)
+
+      executeOperation(editorOps.addPoint, object, pointIndex, {
+        x: pt.x,
+        y: pt.y,
+        in: SilkWebMath.pointByAngleAndDistance({
+          angle: reverseAngle,
+          distance: distance / 2,
+          base: pt,
+        }),
+        out: SilkWebMath.pointByAngleAndDistance({
+          angle: angle,
+          distance: distance / 2,
+          base: pt,
+        }),
       })
 
-      const cursorPt = pt.matrixTransform(svg.getScreenCTM()!.inverse())
-      onDoubleClick(object.id, pointIndex, { x: cursorPt.x, y: cursorPt.y })
-    },
-    [object, pointIndex]
+      return
+    }
+
+    onClickPath(object.id)
+  })
+
+  const handleDoubleClickPath = useFunk((e: MouseEvent<SVGPathElement>) => {
+    e.stopPropagation()
+
+    const { dataset } = e.currentTarget
+    const object = objects.find((obj) => obj.id === dataset.objectId!)!
+    const pointIndex = +dataset.pointIndex!
+
+    // SEE: https://stackoverflow.com/a/42711775
+    const svg = (e.target as SVGPathElement).ownerSVGElement!
+    const pt = assign(svg.createSVGPoint(), {
+      x: e.clientX,
+      y: e.clientY,
+    })
+
+    const cursorPt = pt.matrixTransform(svg.getScreenCTM()!.inverse())
+    onDoubleClickPath(object.id, pointIndex, { x: cursorPt.x, y: cursorPt.y })
+  })
+
+  const handleDoubleClickInPoint = useFunk(
+    (e: MouseEvent<SVGCircleElement>) => {
+      const { dataset } = e.currentTarget
+      const pointIndex = +dataset.pointIndex!
+
+      executeOperation(editorOps.updateActiveObject, (object) => {
+        object.path.points[pointIndex].in = null
+      })
+    }
   )
 
-  const handleDoubleClickInPoint = useCallback(() => {
-    executeOperation(editorOps.updateActiveObject, (object) => {
-      object.path.points[pointIndex].in = null
-    })
-  }, [pointIndex])
+  const handleDoubleClickOutPoint = useFunk(
+    (e: MouseEvent<SVGCircleElement>) => {
+      const { dataset } = e.currentTarget
+      const pointIndex = +dataset.pointIndex!
 
-  const handleDoubleClickOutPoint = useCallback(() => {
-    executeOperation(editorOps.updateActiveObject, (object) => {
-      object.path.points[pointIndex].out = null
-    })
-  }, [pointIndex])
+      executeOperation(editorOps.updateActiveObject, (object) => {
+        object.path.points[pointIndex].out = null
+      })
+    }
+  )
 
   const pathHoverBind = useHover((e) => {
+    const { dataset } = e.event.currentTarget as any as SVGPathElement
+    const object = objects.find((obj) => obj.id === dataset.objectId!)!
+
     onHoverStateChange({ hovering: e.hovering, objectId: object.id })
   })
 
   const zoom = Math.max(1 / scale, 1)
 
-  const segmentPath = prevPoint
-    ? `
-      M${prevPoint.x},${prevPoint.y}
-      C${prevPoint.out?.x ?? prevPoint.x},${prevPoint.out?.y ?? prevPoint.y} ${
-        point.in?.x ?? point.x
-      },${point.in?.y ?? point.y} ${point.x},${point.y}
-    `
-    : ''
+  const segments = useMemo(() => {
+    return objects
+      .map((object) => {
+        return object.path.mapPoints((point, prevPoint, pointIdx, points) => {
+          // prettier-ignore
+          const segmentPath = prevPoint
+            ? `
+              M${prevPoint.x},${prevPoint.y}
+              C${prevPoint.out?.x ?? prevPoint.x},
+                ${prevPoint.out?.y ?? prevPoint.y} ${point.in?.x ?? point.x},
+                ${point.in?.y ?? point.y} ${point.x},
+                ${point.y}
+              `
+            : ''
 
-  return {
-    object,
+          const isActive = activeObject?.id === object.id
+          const isPointSelected = activeObjectPointIndices.includes(pointIdx)
+          const isFirstSegment = pointIdx === 0
+          const isLastSegment = pointIdx === points.length - 1
+          const hovering = isHoverOnPath && object.id === hoverObjectId
+          const renderPoint =
+            pointIdx !== points.length - 1 || !object.path.closed
 
-    paths: (
-      <>
-        <path
-          css={`
-            stroke: transparent;
-            stroke-width: 2;
-            fill: none;
-            pointer-events: none;
-          `}
-          style={{
-            ...(hovering || isActive ? { stroke: '#4e7fff' } : {}),
-          }}
-          d={segmentPath}
-          data-object-id={object.id}
-        />
-
-        <path
-          // 当たり判定ブチ上げくん
-          css={`
-            stroke: transparent;
-            fill: none;
-            pointer-events: visiblePainted;
-            stroke: transparent;
-          `}
-          style={{
-            strokeWidth: POINT_SIZE * zoom,
-          }}
-          d={segmentPath}
-          data-object-id={object.id}
-          onClick={handleClickPath}
-          onDoubleClick={handleDoubleClickPath}
-          {...pathHoverBind()}
-        />
-      </>
-    ),
-
-    inControl: (
-      <>
-        {isActive && !(object.path.closed && isLastSegment) && (
-          <>
-            {/* handle from previous to current */}
-            {point.in && (
+          return {
+            object,
+            paths: (
               <>
-                <polyline
+                <path
                   css={`
-                    stroke: #4e7fff;
+                    stroke: transparent;
+                    stroke-width: 2;
+                    fill: none;
                     pointer-events: none;
                   `}
-                  style={{ strokeWidth: 0.5 * zoom }}
-                  points={`${point.in.x},${point.in.y} ${point.x},${point.y}`}
+                  style={{
+                    ...(hovering || isActive ? { stroke: '#4e7fff' } : {}),
+                  }}
+                  d={segmentPath}
+                  data-object-id={object.id}
                 />
-                <circle
+
+                <path
+                  // 当たり判定ブチ上げくん
                   css={`
-                    fill: #4e7fff;
-                    stroke: rgba(0, 0, 0, 0.2);
+                    stroke: transparent;
+                    fill: none;
                     pointer-events: visiblePainted;
+                    stroke: transparent;
                   `}
-                  cx={point.in.x}
-                  cy={point.in.y}
-                  r={POINT_SIZE * zoom}
-                  onDoubleClick={handleDoubleClickInPoint}
-                  {...bindDragStartInAnchor()}
+                  style={{
+                    strokeWidth: POINT_SIZE * zoom,
+                  }}
+                  d={segmentPath}
+                  data-object-id={object.id}
+                  data-point-index={pointIdx}
+                  onClick={handleClickPath}
+                  onDoubleClick={handleDoubleClickPath}
+                  {...pathHoverBind()}
                 />
               </>
-            )}
-          </>
-        )}
-      </>
-    ),
+            ),
 
-    outControl: (
-      <>
-        {/* handle current to previous  */}
-        {point.out && (
-          <>
-            <polyline
-              css={`
-                stroke: #4e7fff;
-                pointer-events: none;
-              `}
-              style={{ strokeWidth: 0.5 * zoom }}
-              points={`${point.x},${point.y} ${point.out.x},${point.out.y}`}
-            />
-            <circle
-              css={`
-                fill: #4e7fff;
-                stroke: rgba(0, 0, 0, 0.2);
-                stroke-width: 0.5;
-                pointer-events: visiblePainted;
-              `}
-              cx={point.out.x}
-              cy={point.out.y}
-              r={POINT_SIZE * zoom}
-              onDoubleClick={handleDoubleClickOutPoint}
-              {...bindDragOutAnchor()}
-            />
-          </>
-        )}
-      </>
-    ),
-    point:
-      !renderPoint || !isActive ? null : (
+            inControl: (
+              <>
+                {isActive &&
+                  isPointSelected &&
+                  !(object.path.closed && isLastSegment) && (
+                    <>
+                      {/* handle from previous to current */}
+                      {point.in && (
+                        <>
+                          <polyline
+                            css={`
+                              stroke: #4e7fff;
+                              pointer-events: none;
+                            `}
+                            style={{ strokeWidth: 0.5 * zoom }}
+                            points={`${point.in.x},${point.in.y} ${point.x},${point.y}`}
+                          />
+                          <circle
+                            css={`
+                              fill: #4e7fff;
+                              stroke: rgba(0, 0, 0, 0.2);
+                              pointer-events: visiblePainted;
+                            `}
+                            cx={point.in.x}
+                            cy={point.in.y}
+                            r={POINT_SIZE * zoom}
+                            data-object-id={object.id}
+                            data-point-index={pointIdx}
+                            onDoubleClick={handleDoubleClickInPoint}
+                            {...bindDragStartInAnchor()}
+                          />
+                        </>
+                      )}
+                    </>
+                  )}
+              </>
+            ),
+
+            outControl: (
+              <>
+                {/* handle current to previous  */}
+                {isPointSelected && point.out && (
+                  <>
+                    <polyline
+                      css={`
+                        stroke: #4e7fff;
+                        pointer-events: none;
+                      `}
+                      style={{ strokeWidth: 0.5 * zoom }}
+                      points={`${point.x},${point.y} ${point.out.x},${point.out.y}`}
+                    />
+                    <circle
+                      css={`
+                        fill: #4e7fff;
+                        stroke: rgba(0, 0, 0, 0.2);
+                        stroke-width: 0.5;
+                        pointer-events: visiblePainted;
+                      `}
+                      cx={point.out.x}
+                      cy={point.out.y}
+                      r={POINT_SIZE * zoom}
+                      data-object-id={object.id}
+                      data-point-index={pointIdx}
+                      onDoubleClick={handleDoubleClickOutPoint}
+                      {...bindDragOutAnchor()}
+                    />
+                  </>
+                )}
+              </>
+            ),
+            point:
+              !renderPoint || !isActive ? null : (
+                <>
+                  <rect
+                    css={`
+                      z-index: 1;
+                      pointer-events: visiblePainted;
+                    `}
+                    x={point.x}
+                    y={point.y}
+                    width={POINT_SIZE * zoom}
+                    height={POINT_SIZE * zoom}
+                    transform={`translate(${(-POINT_SIZE * zoom) / 2}, ${
+                      (-POINT_SIZE * zoom) / 2
+                    })`}
+                    style={{
+                      strokeWidth: 1 * zoom,
+                      ...(activeObjectPointIndices.includes(pointIdx)
+                        ? { fill: '#4e7fff', stroke: 'rgba(0, 0, 0, 0.2)' }
+                        : { fill: '#fff', stroke: '#4e7fff' }),
+                    }}
+                    data-object-id={object.id}
+                    data-point-index={pointIdx}
+                    data-is-first-segment={isFirstSegment ? true : null}
+                    data-is-last-segment={isLastSegment ? true : null}
+                    onClick={handleClickPoint}
+                    {...bindDragPoint()}
+                  />
+                </>
+              ),
+          }
+        })
+      })
+      .flat(1)
+  }, [activeObject?.id, objects, objects.length])
+
+  return (
+    <>
+      {segments.map(({ paths, inControl, outControl, object }) => (
         <>
-          <rect
-            css={`
-              z-index: 1;
-              pointer-events: visiblePainted;
-            `}
-            x={point.x}
-            y={point.y}
-            width={POINT_SIZE * zoom}
-            height={POINT_SIZE * zoom}
-            transform={`translate(${(-POINT_SIZE * zoom) / 2}, ${
-              (-POINT_SIZE * zoom) / 2
-            })`}
-            style={{
-              strokeWidth: 1 * zoom,
-              ...(activeObjectPointIndices.includes(pointIndex)
-                ? { fill: '#4e7fff', stroke: 'rgba(0, 0, 0, 0.2)' }
-                : { fill: '#fff', stroke: '#4e7fff' }),
-            }}
-            onClick={handleClickPoint}
-            {...bindDragPoint()}
-          />
+          <g style={{ transform: `translate(${object.x}px, ${object.y}px)` }}>
+            {paths}
+            {inControl}
+            {outControl}
+          </g>
         </>
-      ),
-  }
+      ))}
+      {segments.map(({ point, object }) => (
+        <g style={{ transform: `translate(${object.x}px, ${object.y}px)` }}>
+          {point}
+        </g>
+      ))}
+    </>
+  )
 }
 
+// const _PathSegments = ({
+//   object,
+//   prevPoint,
+//   point,
+//   pointIndex,
+//   isActive,
+//   isFirstSegment,
+//   isLastSegment,
+//   hovering,
+//   scale,
+//   renderPoint,
+//   onClick,
+//   onDoubleClick,
+//   onHoverStateChange,
+// }: {
+//   object: SilkEntity.VectorObject
+//   path: SilkEntity.Path
+//   prevPoint: SilkEntity.Path.PathPoint | undefined
+//   point: SilkEntity.Path.PathPoint
+//   pointIndex: number
+//   isActive: boolean
+//   isFirstSegment: boolean
+//   isLastSegment: boolean
+//   hovering: boolean
+//   scale: number
+//   renderPoint: boolean
+//   onClick: (objectId: string) => void
+//   onDoubleClick: (
+//     objectId: string,
+//     segmentIndex: number,
+//     point: { x: number; y: number }
+//   ) => void
+//   onHoverStateChange: (e: { hovering: boolean; objectId: string }) => void
+// }) => {
+//   const POINT_SIZE = 8
+
+//   const { executeOperation } = useFleurContext()
+//   const {
+//     activeLayer,
+//     activeObject,
+//     currentTool,
+//     vectorStroking,
+//     activeObjectPointIndices,
+//   } = useStore((get) => ({
+//     activeLayer: EditorSelector.activeLayer(get),
+//     activeObject: EditorSelector.activeObject(get),
+//     currentTool: get(EditorStore).state.currentTool,
+//     vectorStroking: get(EditorStore).state.vectorStroking,
+//     currentStroke: get(EditorStore).state.currentStroke,
+//     currentFill: get(EditorStore).state.currentFill,
+//     activeObjectPointIndices: get(EditorStore).state.activeObjectPointIndices,
+//   }))
+
+//   if (activeLayer?.layerType !== 'vector')
+//     throw new Error('Invalid layerType in PathSegment component')
+
+//   const bindDragStartInAnchor = useDrag(({ delta, event }) => {
+//     event.stopPropagation()
+
+//     executeOperation(editorOps.updateVectorLayer, activeLayer?.id, (layer) => {
+//       const path = layer.objects.find((obj) => obj.id === object.id)?.path
+//       const point = path?.points[pointIndex]
+//       if (!point?.in) return
+
+//       point.in.x += delta[0] * (1 / scale)
+//       point.in.y += delta[1] * (1 / scale)
+//     })
+//   })
+
+//   const bindDragOutAnchor = useDrag(({ delta, event }) => {
+//     event.stopPropagation()
+
+//     executeOperation(editorOps.updateVectorLayer, activeLayer?.id, (layer) => {
+//       const path = layer.objects.find((obj) => obj.id === object.id)?.path
+//       const point = path?.points[pointIndex]
+//       if (!point?.out) return
+
+//       point.out.x += delta[0] * (1 / scale)
+//       point.out.y += delta[1] * (1 / scale)
+//     })
+//   })
+
+//   const bindDragPoint = useDrag(({ delta, event }) => {
+//     event.stopPropagation()
+
+//     executeOperation(editorOps.updateVectorLayer, activeLayer?.id, (layer) => {
+//       const point = layer.objects.find((obj) => obj.id === object.id)?.path
+//         .points[pointIndex]
+//       if (!point) return
+
+//       const deltaX = delta[0] * (1 / scale)
+//       const deltaY = delta[1] * (1 / scale)
+
+//       point.x += deltaX
+//       point.y += deltaY
+
+//       if (point.in) {
+//         point.in.x += deltaX
+//         point.in.y += deltaY
+//       }
+
+//       if (point.out) {
+//         point.out.x += deltaX
+//         point.out.y += deltaY
+//       }
+//     })
+//   })
+
+//   const handleClickPoint = useFunk((e: MouseEvent<SVGRectElement>) => {
+//     e.stopPropagation()
+
+//     if (vectorStroking && (isLastSegment || isFirstSegment)) {
+//       if (!activeLayer || !activeObject) return
+//       if (vectorStroking.objectId !== object.id) return
+//       if (!vectorStroking.isTail && !vectorStroking.isHead) return
+
+//       executeOperation(editorOps.updateVectorLayer, activeLayer.id, (layer) => {
+//         const object = layer.objects.find(
+//           (obj) => obj.id === vectorStroking.objectId
+//         )
+
+//         if (!object) return
+
+//         object.path.closed = true
+//       })
+//       return
+//     }
+
+//     if (
+//       currentTool === 'shape-pen' &&
+//       activeObject &&
+//       (isLastSegment || isFirstSegment)
+//     ) {
+//       executeOperation(editorOps.setVectorStroking, {
+//         objectId: object.id,
+//         selectedPointIndex: pointIndex,
+//         isHead: isFirstSegment,
+//         isTail: isLastSegment,
+//       })
+//       return
+//     }
+
+//     const nextIndices = e.shiftKey
+//       ? [...activeObjectPointIndices, pointIndex]
+//       : [pointIndex]
+
+//     executeOperation(editorOps.setSelectedObjectPoints, nextIndices)
+//   })
+
+//   const handleClickPath = useFunk((e: MouseEvent<SVGPathElement>) => {
+//     e.stopPropagation()
+
+//     if (currentTool === 'shape-pen') {
+//       if (!prevPoint) return
+
+//       const svg = (e.target as SVGPathElement).ownerSVGElement!
+//       const pt = assign(svg.createSVGPoint(), {
+//         x: e.clientX,
+//         y: e.clientY,
+//       }).matrixTransform(svg.getScreenCTM()!.inverse())
+
+//       const angle = SilkWebMath.angleOfPoints(prevPoint, point)
+//       const reverseAngle = SilkWebMath.degToRad(
+//         SilkWebMath.deg(SilkWebMath.radToDeg(angle) + 180)
+//       )
+//       const distance = SilkWebMath.distanceOfPoint(prevPoint, point)
+
+//       executeOperation(editorOps.addPoint, object, pointIndex, {
+//         x: pt.x,
+//         y: pt.y,
+//         in: SilkWebMath.pointByAngleAndDistance({
+//           angle: reverseAngle,
+//           distance: distance / 2,
+//           base: pt,
+//         }),
+//         out: SilkWebMath.pointByAngleAndDistance({
+//           angle: angle,
+//           distance: distance / 2,
+//           base: pt,
+//         }),
+//       })
+
+//       return
+//     }
+
+//     onClick(object.id)
+//   })
+
+//   const handleDoubleClickPath = useFunk(
+//     ({ nativeEvent: e }: MouseEvent<SVGPathElement>) => {
+//       e.stopPropagation()
+
+//       // SEE: https://stackoverflow.com/a/42711775
+//       const svg = (e.target as SVGPathElement).ownerSVGElement!
+//       const pt = assign(svg.createSVGPoint(), {
+//         x: e.clientX,
+//         y: e.clientY,
+//       })
+
+//       const cursorPt = pt.matrixTransform(svg.getScreenCTM()!.inverse())
+//       onDoubleClick(object.id, pointIndex, { x: cursorPt.x, y: cursorPt.y })
+//     }
+//   )
+
+//   const handleDoubleClickInPoint = useFunk(() => {
+//     executeOperation(editorOps.updateActiveObject, (object) => {
+//       object.path.points[pointIndex].in = null
+//     })
+//   })
+
+//   const handleDoubleClickOutPoint = useFunk(() => {
+//     executeOperation(editorOps.updateActiveObject, (object) => {
+//       object.path.points[pointIndex].out = null
+//     })
+//   })
+
+//   const pathHoverBind = useHover((e) => {
+//     onHoverStateChange({ hovering: e.hovering, objectId: object.id })
+//   })
+
+//   const zoom = Math.max(1 / scale, 1)
+
+//   const segmentPath = prevPoint
+//     ? `
+//       M${prevPoint.x},${prevPoint.y}
+//       C${prevPoint.out?.x ?? prevPoint.x},${prevPoint.out?.y ?? prevPoint.y} ${
+//         point.in?.x ?? point.x
+//       },${point.in?.y ?? point.y} ${point.x},${point.y}
+//     `
+//     : ''
+
+//   // const segments =
+
+//   // return (
+
+//   // )
+// }
+
 const TextLayerControl = ({}) => {
-  const currentLayerBBox = useStore((get) => EditorSelector.currentLayerBBox)
+  const currentLayerBBox = useStore((get) => EditorSelector.activeLayerBBox)
   const editor = useMemo(() => withReact(createEditor()), [])
   // Add the initial value when setting up our state.
   const [value, setValue] = useState<Descendant[]>([

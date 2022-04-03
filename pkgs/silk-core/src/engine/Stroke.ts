@@ -1,4 +1,4 @@
-import { Path } from '../Entity/Path'
+import { Path } from '../SilkDOM/Path'
 import spline from '@yr/catmull-rom-spline'
 import point from 'point-at-length'
 

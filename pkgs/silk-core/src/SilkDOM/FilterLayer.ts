@@ -1,9 +1,13 @@
-import { ILayer } from './IRenderable'
 import { v4 } from 'uuid'
+
+import { ILayer, LayerEvents } from './IRenderable'
 import { assign } from '../utils'
 import { Filter } from './Filter'
+import { Emitter } from '../Engine3_Emitter'
 
-export class FilterLayer implements ILayer {
+type Events = LayerEvents<FilterLayer>
+
+export class FilterLayer extends Emitter<Events> implements ILayer {
   public readonly layerType = 'filter'
 
   public readonly id: string = `filterlayer-${v4()}`
@@ -49,15 +53,18 @@ export class FilterLayer implements ILayer {
     })
   }
 
-  protected constructor() {}
+  protected constructor() {
+    super()
+  }
 
   public get lastUpdatedAt() {
     return this._lastUpdatedAt
   }
 
-  public update(proc: (layer: FilterLayer) => void) {
+  public update(proc: (layer: this) => void) {
     proc(this)
     this._lastUpdatedAt = Date.now()
+    this.emit('updated', this)
   }
 
   public serialize() {

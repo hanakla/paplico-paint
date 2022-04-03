@@ -1,6 +1,6 @@
+import { useFunk } from '@hanakla/arma'
 import {
   useContext,
-  useCallback,
   useState,
   useMemo,
   useRef,
@@ -12,6 +12,7 @@ import {
 } from 'react'
 import { useClickAway, useToggle } from 'react-use'
 import { css } from 'styled-components'
+import { isEventIgnoringTarget } from '🙌/features/Paint/helpers'
 import { Portal } from './Portal'
 
 const ContextMenuContext = createContext<{
@@ -68,7 +69,8 @@ export const ContextMenu: React.FC = ({ children }) => {
   const { opened, position, close } = useContext(ContextMenuContext)!
   const rootRef = useRef<HTMLDivElement | null>(null)
 
-  useClickAway(rootRef, () => {
+  useClickAway(rootRef, (e) => {
+    if (isEventIgnoringTarget(e.target)) return
     close()
   })
 
@@ -118,7 +120,7 @@ export const ContextMenuItem = ({
 }) => {
   const { close } = useContext(ContextMenuContext)!
 
-  const handleClick = useCallback(
+  const handleClick = useFunk(
     (e: MouseEvent<HTMLDivElement>) => {
       onClick?.(e, data)
       close()

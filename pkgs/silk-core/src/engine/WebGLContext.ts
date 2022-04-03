@@ -58,6 +58,14 @@ const handleShadeCompilationError = (
   }
 }
 
+export declare namespace WebGLContext {
+  export type ProgramSet = {
+    vs: WebGLShader
+    fs: WebGLShader
+    program: WebGLProgram
+  }
+}
+
 export default class WebGLContext {
   private gl: WebGLRenderingContext
   private vertexBuffer: WebGLBuffer
@@ -84,7 +92,7 @@ export default class WebGLContext {
   public createProgram(
     fragmentShaderSource: string,
     vertexShaderSource: string = DEFAULT_VERTEX_SHADER
-  ): WebGLProgram {
+  ): WebGLContext.ProgramSet {
     const program = this.gl.createProgram()!
 
     const vertShader = this.gl.createShader(this.gl.VERTEX_SHADER)!
@@ -106,15 +114,21 @@ export default class WebGLContext {
       throw new Error(`Failed to compile shader: ${error}`)
     }
 
-    return program
+    return { vs: vertShader, fs: fragShader, program }
   }
 
-  public deleteProgram(program: WebGLProgram) {
-    this.gl.deleteProgram(program)
+  public detachShader(program: WebGLProgram, shader: WebGLShader) {
+    this.gl.detachShader(program, shader)
+  }
+
+  public deleteProgram(program: WebGLContext.ProgramSet) {
+    this.gl.detachShader(program.program, program.vs)
+    this.gl.detachShader(program.program, program.fs)
+    this.gl.deleteProgram(program.program)
   }
 
   public applyProgram(
-    program: WebGLProgram,
+    program: WebGLContext.ProgramSet,
     uniforms: { [uniformName: string]: Uniform },
     source: TexImageSource,
     dest: HTMLCanvasElement | OffscreenCanvas
@@ -132,9 +146,9 @@ export default class WebGLContext {
       gl.STATIC_DRAW
     )
 
-    gl.useProgram(program)
+    gl.useProgram(program.program)
 
-    const positionAttrib = gl.getAttribLocation(program, 'position')
+    const positionAttrib = gl.getAttribLocation(program.program, 'position')
     gl.enableVertexAttribArray(positionAttrib)
     gl.vertexAttribPointer(positionAttrib, 2, gl.FLOAT, false, 0, 0)
 
@@ -145,7 +159,7 @@ export default class WebGLContext {
       gl.STATIC_DRAW
     )
 
-    const coordAttrib = gl.getAttribLocation(program, 'coord')
+    const coordAttrib = gl.getAttribLocation(program.program, 'coord')
     gl.enableVertexAttribArray(coordAttrib)
     gl.vertexAttribPointer(coordAttrib, 2, gl.FLOAT, false, 0, 0)
 
@@ -159,7 +173,7 @@ export default class WebGLContext {
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE)
 
     // Attach source uniform
-    const sourceLoc = gl.getUniformLocation(program, 'source')
+    const sourceLoc = gl.getUniformLocation(program.program, 'source')
     gl.uniform1i(sourceLoc, 0)
 
     const texUniforms = Object.entries(uniforms)
@@ -194,19 +208,20 @@ export default class WebGLContext {
       gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE)
       gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE)
 
-      const loc = gl.getUniformLocation(program, uniName)
+      const loc = gl.getUniformLocation(program.program, uniName)
       gl.uniform1i(loc, idx + 1)
 
       return tex
     })
 
     // Attach uniforms
-    this.attachUniforms(gl, program, uniforms)
+    this.attachUniforms(gl, program.program, uniforms)
 
     gl.drawArrays(gl.TRIANGLE_FAN, 0, 4)
     gl.flush()
 
-    gl.deleteProgram(program)
+    // this.deleteProgram(program)
+
     textures.forEach((tex) => tex && gl.deleteTexture(tex))
 
     const destCtx = dest.getContext('2d')!

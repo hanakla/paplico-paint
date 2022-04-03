@@ -3,7 +3,7 @@ import { Eye, EyeClose } from '@styled-icons/remix-fill'
 import arrayMove from 'array-move'
 import { useTranslation } from 'next-i18next'
 import { rgba } from 'polished'
-import { MouseEvent, useCallback, useRef } from 'react'
+import { MouseEvent, useRef } from 'react'
 import { usePopper } from 'react-popper'
 import {
   SortableContainer,
@@ -27,6 +27,8 @@ import { centering } from '🙌/utils/mixins'
 import { FilterSettings } from './FilterSettings'
 import { useFleurContext, useStore } from '@fleur/react'
 import { editorOps, EditorSelector, EditorStore } from '🙌/domains/EditorStable'
+import { useFunk } from '@hanakla/arma'
+import { isEventIgnoringTarget } from '../helpers'
 
 export const FilterView = () => {
   const { t } = useTranslation('app')
@@ -49,11 +51,11 @@ export const FilterView = () => {
     }
   )
 
-  const handleClickOpenFilter = useCallback((e: MouseEvent<HTMLDivElement>) => {
+  const handleClickOpenFilter = useFunk((e: MouseEvent<HTMLDivElement>) => {
     toggleListOpened()
-  }, [])
+  })
 
-  const handleClickAddFilter = useCallback(
+  const handleClickAddFilter = useFunk(
     ({ currentTarget }: MouseEvent<HTMLLIElement>) => {
       toggleListOpened(false)
 
@@ -70,22 +72,21 @@ export const FilterView = () => {
       })
 
       executeOperation(editorOps.rerenderCanvas)
-    },
-    [activeLayer, toggleListOpened]
+    }
   )
 
-  const handleFilterSortEnd: SortEndHandler = useCallback(
-    (sort) => {
-      if (!activeLayer) return
+  const handleFilterSortEnd: SortEndHandler = useFunk((sort) => {
+    if (!activeLayer) return
 
-      executeOperation(editorOps.updateLayer, activeLayer.id, (layer) => {
-        arrayMove.mutate(layer.filters, sort.oldIndex, sort.newIndex)
-      })
-    },
-    [activeLayer]
-  )
+    executeOperation(editorOps.updateLayer, activeLayer.id, (layer) => {
+      arrayMove.mutate(layer.filters, sort.oldIndex, sort.newIndex)
+    })
+  })
 
-  useClickAway(addFilterListPopRef, () => toggleListOpened(false))
+  useClickAway(addFilterListPopRef, (e) => {
+    if (isEventIgnoringTarget(e.target)) return
+    toggleListOpened(false)
+  })
 
   return (
     <div
@@ -237,7 +238,7 @@ const SortableFilterItem = SortableElement(function FilterItem({
   const active = selectedFilterIds[filter.id]
   const [propsOpened, togglePropsOpened] = useToggle(false)
 
-  const handleClick = useCallback(
+  const handleClick = useFunk(
     (e: MouseEvent<HTMLDivElement>) => {
       if (DOMUtils.closestOrSelf(e.target, '[data-ignore-click]')) return
 
@@ -246,12 +247,12 @@ const SortableFilterItem = SortableElement(function FilterItem({
     [filter]
   )
 
-  const handleDoubleClick = useCallback((e: MouseEvent<HTMLDivElement>) => {
+  const handleDoubleClick = useFunk((e: MouseEvent<HTMLDivElement>) => {
     if (DOMUtils.closestOrSelf(e.target, '[data-ignore-click]')) return
     togglePropsOpened()
   }, [])
 
-  const handleToggleVisibility = useCallback(() => {
+  const handleToggleVisibility = useFunk(() => {
     if (!activeLayer) return
 
     executeOperation(editorOps.updateLayer, activeLayer.id, (layer) => {
@@ -264,7 +265,7 @@ const SortableFilterItem = SortableElement(function FilterItem({
     executeOperation(editorOps.rerenderCanvas)
   }, [activeLayer, filter])
 
-  const handleClickRemove: ContextMenuCallback = useCallback(
+  const handleClickRemove: ContextMenuCallback = useFunk(
     (_) => {
       if (!activeLayer) return
 

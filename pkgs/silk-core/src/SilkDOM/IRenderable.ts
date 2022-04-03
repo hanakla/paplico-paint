@@ -1,6 +1,12 @@
+import { Emitter } from 'Engine3_Emitter'
+
 export type CompositeMode = 'normal' | 'multiply' | 'screen' | 'overlay'
 
-export interface ILayer {
+export type LayerEvents<T extends ILayer> = {
+  updated: T
+}
+
+export interface ILayer extends Emitter<LayerEvents<any>> {
   layerType: 'raster' | 'vector' | 'filter' | 'group' | 'text'
   name: string
   visible: boolean
@@ -13,6 +19,8 @@ export interface ILayer {
   height: number
   x: number
   y: number
+
+  update(proc: (layer: this) => void): void
 
   serialize(): any
 }

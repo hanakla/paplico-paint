@@ -1,7 +1,7 @@
 import { Close, Polaroid } from '@styled-icons/remix-fill'
 import { rgba } from 'polished'
-import { forwardRef, useCallback, ReactNode } from 'react'
-import { styleWhen } from '@hanakla/arma'
+import { forwardRef, ReactNode } from 'react'
+import { styleWhen, useFunk } from '@hanakla/arma'
 import { animated, useSpring } from 'react-spring'
 import { css, useTheme } from 'styled-components'
 
@@ -19,6 +19,7 @@ export const ActionSheet = forwardRef<HTMLDivElement, Props>(
       config: {
         duration: 150,
       },
+      opacity: opened ? 1 : 0,
       transform: opened
         ? 'translateX(-50%) translateY(0%)'
         : 'translateX(-50%) translateY(100%)',
@@ -31,9 +32,9 @@ export const ActionSheet = forwardRef<HTMLDivElement, Props>(
       opacity: opened ? 1 : 0,
     })
 
-    const handleClickClose = useCallback(() => {
+    const handleClickClose = useFunk(() => {
       onClose()
-    }, [onClose])
+    })
 
     return (
       <div>

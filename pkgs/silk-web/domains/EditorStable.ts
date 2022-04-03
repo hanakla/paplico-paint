@@ -31,7 +31,7 @@ interface State {
 
   editorMode: EditorMode
   editorPage: EditorPage
-  renderSetting: Silk.RenderSetting
+  renderSetting: Silk3.RenderSetting
   currentDocument: SilkEntity.Document | null
   currentTool: Tool
   currentFill: SilkValue.FillSetting | null
@@ -117,19 +117,25 @@ export const [EditorStore, editorOps] = minOps('Editor', {
         )
       })
 
-      x.commit({
-        engine,
-        session,
-        renderStrategy: strategy as RenderStrategies.DifferenceRender,
+      x.commit((d) => {
+        d.engine = engine
+        d.session = session
+        d.renderStrategy = strategy as RenderStrategies.DifferenceRender
+
+        session.document ??= d.currentDocument
       })
     },
-    async setDocument(x, document: SilkEntity.Document) {
+    async setDocument(x, document: SilkEntity.Document | null) {
+      document?.on('layersChanged', () => {
+        x.commit({})
+      })
+
       x.commit({ currentDocument: document })
 
       if (x.state.session) {
         x.commit((draft) => {
           draft.session!.setDocument(document)
-          draft.activeLayerId = document.activeLayerId
+          draft.activeLayerId = document?.activeLayerId ?? null
         })
       }
     },
@@ -440,6 +446,27 @@ export const [EditorStore, editorOps] = minOps('Editor', {
 })
 
 export const EditorSelector = {
+  defaultVectorBrush: selector(
+    (): Session.CurrentBrushSetting => ({
+      brushId: '@silk-paint/brush',
+      color: { r: 26, g: 26, b: 26 },
+      opacity: 1,
+      weight: 1,
+    })
+  ),
+
+  thumbnailUrlOfLayer: selector((get, layerId: string) => {
+    const { engine } = get(EditorStore)
+    return (layerId: string) => engine?.previews?.get(layerId)
+  }),
+
+  // #region Document
+  layers: selector((get) => [
+    ...(get(EditorStore).currentDocument?.layers ?? []),
+  ]),
+  // #endregion
+
+  // #region Session proxies
   currentBrush: selector(
     (get) => get(EditorStore).session?.currentBursh ?? null
   ),
@@ -467,14 +494,8 @@ export const EditorSelector = {
     if (!object) return currentFill
     return currentFill
   }),
-  defaultVectorBrush: selector(
-    (): Silk.CurrentBrushSetting => ({
-      brushId: '@silk-paint/brush',
-      color: { r: 26, g: 26, b: 26 },
-      opacity: 1,
-      weight: 1,
-    })
-  ),
+  brushSetting: selector((get) => get(EditorStore).session?.brushSetting),
+
   currentSession: selector((get) => get(EditorStore).session),
   currentDocument: selector((get) => get(EditorStore).session?.document),
   activeLayer: selector((get) => get(EditorStore).session?.activeLayer),
@@ -486,25 +507,19 @@ export const EditorSelector = {
       (obj) => obj.id === activeObjectId
     ) as any
   }),
-  thumbnailUrlOfLayer: selector((get, layerId: string) => {
-    const { engine } = get(EditorStore)
-    return (layerId: string) => engine?.previews?.get(layerId)
-  }),
-
-  // #region Session proxies
-  brushSetting: selector((get) => get(EditorStore).session?.brushSetting),
-  currentLayerBBox: selector(
+  activeLayerBBox: selector(
     (get) => get(EditorStore).session?.currentLayerBBox
   ),
   // #endregion
 
-  // Engine proxies
+  // #region Engine proxies
   getAvailableFilters: selector(
     (get) => get(EditorStore).engine?.toolRegistry.registeredFilters ?? []
   ),
   getFilterInstance: selector((get, id) =>
     get(EditorStore).engine?.toolRegistry.getFilterInstance(id)
   ),
+  // #endregion
 }
 
 const findLayer = (

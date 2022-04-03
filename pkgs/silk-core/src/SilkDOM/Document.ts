@@ -3,7 +3,7 @@ import { assign } from '../utils'
 import { RasterLayer } from './RasterLayer'
 import { VectorLayer } from './VectorLayer'
 import { FilterLayer } from './FilterLayer'
-import { Emitter } from '../engine/Engine3_Emitter'
+import { Emitter } from '../Engine3_Emitter'
 
 type DocumentEvents = {
   layersChanged: void
@@ -69,6 +69,16 @@ export class Document extends Emitter<DocumentEvents> {
   public sortLayer(process: (layers: LayerTypes[]) => LayerTypes[]) {
     this.layers = process(this.layers)
     this.emit('layersChanged')
+  }
+
+  public getLayerSize(layer: LayerTypes) {
+    if (layer.layerType === 'raster') {
+      return { width: layer.width, height: layer.height }
+    } else if (layer.layerType === 'vector') {
+      return { width: this.width, height: this.height }
+    }
+
+    return { width: 0, height: 0 }
   }
 
   public serialize() {

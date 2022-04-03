@@ -1,5 +1,5 @@
 import { SilkEngine3 } from 'engine/Engine3'
-import { Document, LayerTypes } from 'Entity'
+import { Document, LayerTypes } from 'SilkDOM'
 import { assign, deepClone } from '../../utils'
 import { IRenderStrategy } from './IRenderStrategy'
 
@@ -7,18 +7,17 @@ export class DifferenceRender implements IRenderStrategy {
   private bufferCtx: CanvasRenderingContext2D
   private bitmapCache: WeakMap<LayerTypes, Uint8ClampedArray> = new WeakMap()
   // private layerLastUpdateTimes = new WeakMap<LayerTypes, number>()
-  private needsUpdateLayerIds: string[] = []
+  private needsUpdateLayerIds: { [layerId: string]: true | undefined } = {}
   private overrides: { layerId: string; canvas: HTMLCanvasElement } | null =
     null
 
   constructor() {
     this.bufferCtx = document.createElement('canvas').getContext('2d')!
     this.bufferCtx.canvas.style.setProperty('background', 'rgba(255,0,0,.5)')
-    document.body.appendChild(this.bufferCtx.canvas)
   }
 
   public markUpdatedLayerId(layerId: string) {
-    this.needsUpdateLayerIds.push(layerId)
+    this.needsUpdateLayerIds[layerId] = true
   }
 
   public setLayerOverride(
@@ -46,20 +45,22 @@ export class DifferenceRender implements IRenderStrategy {
         // Needs rerender
         switch (layer.layerType) {
           case 'vector': {
-            const bitmap =
-              this.bitmapCache.get(layer) ??
-              (await engine.renderVectorLayer(document, layer))
+            let bitmap = this.needsUpdateLayerIds[layer.id]
+              ? null
+              : this.bitmapCache.get(layer)
+
+            bitmap ??= await engine.renderVectorLayer(document, layer)
 
             return {
               layer,
-              needsUpdate: this.needsUpdateLayerIds.includes(layer.id),
+              needsUpdate: !!this.needsUpdateLayerIds[layer.id],
               image: new ImageData(bitmap, document.width, document.height),
             } as const
           }
           case 'raster': {
             return {
               layer,
-              needsUpdate: this.needsUpdateLayerIds.includes(layer.id),
+              needsUpdate: !!this.needsUpdateLayerIds[layer.id],
               image: new ImageData(layer.bitmap, layer.width, layer.height),
             } as const
           }
@@ -142,7 +143,7 @@ export class DifferenceRender implements IRenderStrategy {
       // destCtx.clearRect(0, 0, document.width, document.height)
       // destCtx.drawImage(destCtx.canvas, 0, 0)
 
-      this.needsUpdateLayerIds = []
+      this.needsUpdateLayerIds = {}
     } catch (e) {
       throw e
     }

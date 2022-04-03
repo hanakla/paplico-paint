@@ -1,11 +1,14 @@
-import { ILayer } from './IRenderable'
+import { ILayer, LayerEvents } from './IRenderable'
 import { v4 } from 'uuid'
 import { Path } from './Path'
 import { VectorObject } from './VectorObject'
 import { Filter } from './Filter'
 import { assign } from '../utils'
+import { Emitter } from '../Engine3_Emitter'
 
-export class VectorLayer implements ILayer {
+type Events = LayerEvents<VectorLayer>
+
+export class VectorLayer extends Emitter<Events> implements ILayer {
   public readonly layerType = 'vector'
 
   public readonly id: string = `vectorlayer-${v4()}`
@@ -84,15 +87,18 @@ export class VectorLayer implements ILayer {
     })
   }
 
-  protected constructor() {}
+  protected constructor() {
+    super()
+  }
 
   public get lastUpdatedAt() {
     return this._lastUpdatedAt
   }
 
-  public update(proc: (layer: VectorLayer) => void) {
+  public update(proc: (layer: this) => void) {
     proc(this)
     this._lastUpdatedAt = Date.now()
+    this.emit('updated', this)
   }
 
   public serialize() {

@@ -1,5 +1,6 @@
 import { assign } from '../utils'
 import { FilterContext, IFilter } from '../engine/IFilter'
+import { WebGLContext } from 'engine/WebGLContext'
 
 const SAMPLE_COUNT = 40
 
@@ -30,6 +31,9 @@ export class GaussBlurFilter implements IFilter {
 
   public async initialize() {}
 
+  private programHCache: { [rad: string]: WebGLContext.ProgramSet } = {}
+  private programVCache: { [rad: string]: WebGLContext.ProgramSet } = {}
+
   public render({
     source,
     dest,
@@ -39,8 +43,13 @@ export class GaussBlurFilter implements IFilter {
   }: FilterContext) {
     const rad = Math.round(radius)
 
-    const programH = gl.createProgram(this.generateShader(rad, true))
-    const programV = gl.createProgram(this.generateShader(rad, false))
+    const programH = (this.programHCache[rad] =
+      this.programHCache[rad] ??
+      gl.createProgram(this.generateShader(rad, true)))
+
+    const programV = (this.programVCache[rad] =
+      this.programVCache[rad] ??
+      gl.createProgram(this.generateShader(rad, false)))
 
     const buffer = assign(document.createElement('canvas')!, {
       width: size.width,

@@ -1,7 +1,8 @@
+import { useFunk } from '@hanakla/arma'
 import { Placement } from '@popperjs/core'
 import { ArrowDownS, Check } from '@styled-icons/remix-line'
 import { rgba } from 'polished'
-import { useMemo, MouseEvent, useCallback, useRef, useEffect } from 'react'
+import { useMemo, MouseEvent, useRef, useEffect } from 'react'
 import { usePopper } from 'react-popper'
 import { useToggle } from 'react-use'
 import { css } from 'styled-components'
@@ -30,15 +31,12 @@ export const SelectBox = ({
     placement,
   })
 
-  const handleItemClick = useCallback(
-    (e: MouseEvent<HTMLDivElement>) => {
-      e.stopPropagation()
+  const handleItemClick = useFunk((e: MouseEvent<HTMLDivElement>) => {
+    e.stopPropagation()
 
-      toggleListOpened(false)
-      onChange(e.currentTarget.dataset.value!)
-    },
-    [toggleListOpened, onChange]
-  )
+    toggleListOpened(false)
+    onChange(e.currentTarget.dataset.value!)
+  })
 
   const currentItem = useMemo(
     () => items.find((item) => item.value === value),

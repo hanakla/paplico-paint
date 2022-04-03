@@ -1,9 +1,14 @@
-import { ILayer } from './IRenderable'
+import { CompositeMode, ILayer } from './IRenderable'
 import { v4 } from 'uuid'
 import { assign, fakeRejectedPromise } from '../utils'
 import { Filter } from './Filter'
+import { Emitter } from '../Engine3_Emitter'
 
-export class RasterLayer implements ILayer {
+type Events = {
+  updated: ILayer
+}
+
+export class RasterLayer extends Emitter<Events> implements ILayer {
   public readonly layerType = 'raster'
 
   public readonly id: string = `rasterlayer-${v4()}`
@@ -17,6 +22,7 @@ export class RasterLayer implements ILayer {
   public height: number = 0
   public x: number = 0
   public y: number = 0
+
   public filters: Filter[] = []
 
   public readonly bitmap: Uint8ClampedArray = null as any
@@ -69,7 +75,66 @@ export class RasterLayer implements ILayer {
     return layer
   }
 
-  protected constructor() {}
+  protected constructor() {
+    super()
+  }
+
+  // #region getter and setters
+
+  // prettier-ignore
+  // public get id() { return this.#id }
+
+  // // prettier-ignore
+  // public get name() { return this.#name }
+  // // prettier-ignore
+  // public set name(val: string) { this.#name = val }
+
+  // // prettier-ignore
+  // public get visible() { return this.#visible }
+  // // prettier-ignore
+  // public set visible(val: boolean) { this.#visible = val }
+
+  // // prettier-ignore
+  // public get lock() { return this.#lock }
+  // // prettier-ignore
+  // public set lock(val: boolean) { this.#lock = val }
+
+  // // prettier-ignore
+  // public get compositeMode() { return this.#compositeMode }
+  // // prettier-ignore
+  // public set compositeMode(val: CompositeMode) { this.#compositeMode = val }
+
+  // // prettier-ignore
+  // public get opacity() { return this.#opacity }
+  // // prettier-ignore
+  // public set opacity(val: number) { this.#opacity = val }
+
+  // // prettier-ignore
+  // public get width() { return this.#width }
+  // // prettier-ignore
+  // public set width(val: number) { this.#width = val }
+
+  // // prettier-ignore
+  // public get height() { return this.#height }
+  // // prettier-ignore
+  // public set height(val: number) { this.#height = val }
+
+  // // prettier-ignore
+  // public get x() { return this.#x }
+  // // prettier-ignore
+  // public set x(val: number) { this.#x = val }
+
+  // // prettier-ignore
+  // public get y() { return this.#y }
+  // // prettier-ignore
+  // public set y(val: number) { this.#y = val }
+
+  // // prettier-ignore
+  // public get filters() { return this.#filters }
+  // prettier-ignore
+  // public set filters(val: D) { this.#filters = val }
+
+  // #endregion
 
   public get imageBitmap(): Promise<ImageBitmap> {
     return this._imageBitmapPromise
@@ -79,9 +144,10 @@ export class RasterLayer implements ILayer {
     return this._lastUpdatedAt
   }
 
-  public update(proc: (layer: RasterLayer) => void) {
+  public update(proc: (layer: this) => void) {
     proc(this)
     this._lastUpdatedAt = Date.now()
+    this.emit('updated', this)
   }
 
   public async updateBitmap(
@@ -92,6 +158,8 @@ export class RasterLayer implements ILayer {
     this._imageBitmapPromise = createImageBitmap(
       new ImageData(this.bitmap, this.width, this.height)
     )
+
+    this.emit('updated', this)
   }
 
   public serialize() {

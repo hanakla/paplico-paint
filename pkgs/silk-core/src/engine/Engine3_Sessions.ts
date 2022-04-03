@@ -1,9 +1,9 @@
 import { nanoid } from 'nanoid'
 
-import { Document, LayerTypes } from '../Entity'
+import { Document, LayerTypes } from '../SilkDOM'
 import { Brush } from '../Brushes'
 import { CurrentBrushSetting } from './CurrentBrushSetting'
-import { Emitter } from './Engine3_Emitter'
+import { Emitter } from '../Engine3_Emitter'
 import { RandomInk } from './Inks/RandomInk'
 import { IInk } from './Inks/IInk'
 import { IBrush } from './IBrush'
@@ -49,7 +49,7 @@ export class Session extends Emitter<Events> {
     super()
   }
 
-  public setDocument(document: Document) {
+  public setDocument(document: Document | null) {
     this.document = document
     this.mitt.emit('documentChanged', this)
   }

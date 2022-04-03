@@ -1,4 +1,5 @@
-import { TouchEvent, useCallback, useRef } from 'react'
+import { useFunk } from '@hanakla/arma'
+import { TouchEvent, useRef } from 'react'
 
 export const useTap = <T extends HTMLElement>(
   callback: (e: TouchEvent<T>) => void,
@@ -8,17 +9,14 @@ export const useTap = <T extends HTMLElement>(
 
   const lastTap = useRef(Date.now())
 
-  const onTouchStart = useCallback(() => {
+  const onTouchStart = useFunk(() => {
     lastTap.current = Date.now()
-  }, [])
+  })
 
-  const onTouchEnd = useCallback(
-    (e: TouchEvent<HTMLElement>) => {
-      if (Date.now() - lastTap.current > threshold) return
-      callback(e)
-    },
-    [callback, threshold]
-  )
+  const onTouchEnd = useFunk((e: TouchEvent<HTMLElement>) => {
+    if (Date.now() - lastTap.current > threshold) return
+    callback(e)
+  })
 
   return { onTouchStart, onTouchEnd }
 }

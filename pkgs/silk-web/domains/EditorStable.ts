@@ -29,6 +29,8 @@ interface State {
   session: Session | null
   renderStrategy: RenderStrategies.DifferenceRender | null
 
+  currentFileHandler: FileSystemFileHandle | null
+
   editorMode: EditorMode
   editorPage: EditorPage
   renderSetting: Silk3.RenderSetting
@@ -59,6 +61,8 @@ export const [EditorStore, editorOps] = minOps('Editor', {
     engine: null,
     session: null,
     renderStrategy: null,
+
+    currentFileHandler: null,
 
     currentDocument: null,
     editorMode: 'sp',
@@ -130,14 +134,17 @@ export const [EditorStore, editorOps] = minOps('Editor', {
         x.commit({})
       })
 
-      x.commit({ currentDocument: document })
+      x.commit({ currentDocument: document, currentFileHandler: null })
 
       if (x.state.session) {
-        x.commit((draft) => {
-          draft.session!.setDocument(document)
-          draft.activeLayerId = document?.activeLayerId ?? null
+        x.commit((d) => {
+          d.session!.setDocument(document)
+          d.activeLayerId = document?.activeLayerId ?? null
         })
       }
+    },
+    setCurrentFileHandler: (x, handler: FileSystemFileHandle) => {
+      x.commit({ currentFileHandler: handler })
     },
     setRenderSetting: (x, setting: Partial<Silk3.RenderSetting>) => {
       if (!x.state.engine || !x.state.session) return
@@ -193,10 +200,7 @@ export const [EditorStore, editorOps] = minOps('Editor', {
     },
     setBrushSetting(x, setting: Partial<BrushSetting>) {
       x.commit((draft) => {
-        draft.session!.brushSetting = assign(
-          draft.session!.brushSetting,
-          setting
-        )
+        draft.session!.setBrushSetting(setting)
       })
     },
 

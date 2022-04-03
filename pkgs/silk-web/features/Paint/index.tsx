@@ -16,6 +16,7 @@ import {
 } from 'react'
 import { useClickAway, useDrop, useToggle, useUpdate } from 'react-use'
 import { useGesture } from 'react-use-gesture'
+import { autoPlacement, shift, useFloating } from '@floating-ui/react-dom'
 
 import {
   CanvasHandler,
@@ -36,8 +37,10 @@ import { Sidebar } from '🙌/components/Sidebar'
 import { FilterView } from './containers/FilterView'
 import { LayerView } from './containers/LayerView'
 import { editorOps, EditorSelector, EditorStore } from '🙌/domains/EditorStable'
-import { useGlobalMouseTrap } from '🙌/hooks/useMouseTrap'
-import { useTap } from '🙌/hooks/useTap'
+import {
+  useFunkyGlobalMouseTrap,
+  useGlobalMouseTrap,
+} from '🙌/hooks/useMouseTrap'
 import { EngineContextProvider } from '🙌/lib/EngineContext'
 import { useMedia } from '🙌/utils/hooks'
 import { ControlsOverlay } from './containers/ControlsOverlay'
@@ -49,6 +52,7 @@ import { theme } from '🙌/utils/theme'
 import { Button } from '🙌/components/Button'
 import { narrow } from '🙌/utils/responsive'
 import { isEventIgnoringTarget } from './helpers'
+import { Tooltip } from '🙌/components/Tooltip'
 
 export function PaintPage({}) {
   const { t } = useTranslation('app')
@@ -78,12 +82,21 @@ export function PaintPage({}) {
   const editAreaRef = useRef<HTMLDivElement | null>(null)
   const sidebarRef = useRef<HTMLDivElement | null>(null)
 
+  const saveFloat = useFloating({
+    placement: 'top',
+    middleware: [shift(), autoPlacement({ allowedPlacements: ['top-start'] })],
+  })
+
   const editorBound = useMeasure(editAreaRef)
   const [position, setPosition] = useState({ x: 0, y: 0 })
   const rerender = useUpdate()
   const [sidebarOpened, sidebarToggle] = useToggle(!isNarrowMedia)
   const [scale, setScale] = useState(0.5)
   const [rotate, setRotate] = useState(0)
+  const [saveMessage, setSaveMessage] = useState<{
+    time: number
+    message: string
+  } | null>(null)
   // const sidebarStyles = useSpring({
   //   width: isNarrowMedia === false || sidebarOpened ? 200 : 32,
   // })
@@ -122,7 +135,7 @@ export function PaintPage({}) {
     }
   )
 
-  const handleClickExport = useFunk(() => {
+  const handleClickExport = useFunk(async () => {
     if (!currentDocument) return
 
     const bin = SilkSerializer.exportDocument(
@@ -130,8 +143,29 @@ export function PaintPage({}) {
     )!
     const blob = new Blob([bin], { type: 'application/octet-stream' })
     const url = URL.createObjectURL(blob)
-    letDownload(url, 'test.silk')
 
+    if (typeof window.showSaveFilePicker === 'undefined') {
+      letDownload(url, 'test.silk')
+    } else {
+      const handler =
+        getStore(EditorStore).state.currentFileHandler ??
+        (await window.showSaveFilePicker({
+          types: [
+            {
+              description: 'Silk project',
+              accept: { 'application/octet-stream': '.silk' },
+            },
+          ],
+        }))
+
+      await (
+        await handler.createWritable({ keepExistingData: false })
+      ).write(blob)
+
+      executeOperation(editorOps.setCurrentFileHandler, handler)
+    }
+
+    setSaveMessage({ time: 3000, message: t('exports.saved') })
     setTimeout(() => URL.revokeObjectURL(url), 10000)
   })
 
@@ -148,9 +182,8 @@ export function PaintPage({}) {
       ._(new Error(`Unexpected type ${type}`))
 
     const exporter = await engine.current.renderAndExport(currentDocument)
-    const blob = await exporter.export(mime, 1.0)
 
-    console.log(blob)
+    const blob = await exporter.export(mime, 1.0)
     const url = URL.createObjectURL(blob)
 
     letDownload(
@@ -160,6 +193,7 @@ export function PaintPage({}) {
         : `${currentDocument.title}.${type}`
     )
 
+    setSaveMessage({ time: 3000, message: t('exports.exported') })
     setTimeout(() => URL.revokeObjectURL(url), 10000)
   })
 
@@ -173,6 +207,10 @@ export function PaintPage({}) {
 
   const dragState = useDrop({ onFiles: handleOnDrop })
   // const tapBind = useTap(handleTapEditArea)
+
+  useFunkyGlobalMouseTrap(['ctrl+s', 'command+s'], () => {
+    getStore(EditorStore)
+  })
 
   useGlobalMouseTrap(
     [
@@ -326,6 +364,14 @@ export function PaintPage({}) {
     if (!session.current) return
     canvasHandler.current!.scale = scale
   }, [scale])
+
+  useEffect(() => {
+    if (saveMessage == null) return
+
+    setTimeout(() => {
+      setSaveMessage(null)
+    }, saveMessage.time)
+  }, [saveMessage])
 
   return (
     <EngineContextProvider value={engine.current!}>
@@ -555,7 +601,7 @@ export function PaintPage({}) {
                 </div>
 
                 <div
-                  css={`
+                  css={css`
                     display: flex;
                     padding: 8px;
                     margin-top: auto;
@@ -619,9 +665,31 @@ export function PaintPage({}) {
 
                   <div
                     css={`
+                      position: relative;
                       margin-left: auto;
                     `}
+                    ref={saveFloat.reference}
                   >
+                    <Tooltip
+                      ref={saveFloat.floating}
+                      style={{
+                        position: saveFloat.strategy,
+                        top: saveFloat.y?.toString() ?? '',
+                        left: saveFloat.x?.toString() ?? '',
+                        transition: 'all .2s ease-in-out',
+                        pointerEvents: 'none',
+                        opacity: 0,
+                        transform: 'translateY(0%)',
+                        ...(saveMessage
+                          ? {
+                              opacity: 1,
+                              transform: 'translateY(calc(-100% - 8px))',
+                            }
+                          : {}),
+                      }}
+                    >
+                      {saveMessage?.message}
+                    </Tooltip>
                     <Button
                       css={`
                         position: relative;

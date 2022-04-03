@@ -9,6 +9,10 @@ addFromImage: Add from Image file
 export: Export
 untitled: Untitled
 
+exports:
+  saved: File was saved!
+  exported: Image was exported!
+
 vectorColorPicker:
   noFill: Fill none
   modes:

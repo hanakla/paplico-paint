@@ -371,6 +371,7 @@ export class SilkEngine3 {
       opacity,
     }: {
       mode: CompositeMode
+      /** 0 to 100 */
       opacity: number
     }
   ) {

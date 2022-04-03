@@ -95,15 +95,13 @@ const HomeContent = () => {
     if (!file) return
 
     handleFileSelected(file)
-  }, [handleFileSelected])
+  })
 
-  const handleClickDarkTheme = useFunk(
-    () => executeOperation(editorOps.setTheme, 'dark'),
-    []
+  const handleClickDarkTheme = useFunk(() =>
+    executeOperation(editorOps.setTheme, 'dark')
   )
-  const handleClickLightTheme = useFunk(
-    () => executeOperation(editorOps.setTheme, 'light'),
-    []
+  const handleClickLightTheme = useFunk(() =>
+    executeOperation(editorOps.setTheme, 'light')
   )
 
   const [bindDrop, dropState] = useDropArea({

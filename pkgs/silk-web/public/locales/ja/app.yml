@@ -9,6 +9,10 @@ addFromImage: 画像ファイルから追加
 export: 保存する
 untitled: タイトル未設定
 
+exports:
+  saved: 保存しました！
+  exported: 書き出しました！
+
 vectorColorPicker:
   noFill: 塗りなし
   modes:

@@ -47,6 +47,7 @@ export class Session extends Emitter<Events> {
 
   constructor(public document: Document | null = null) {
     super()
+    this.on('*', (e) => console.log('session: ', e))
   }
 
   public setDocument(document: Document | null) {
@@ -61,6 +62,11 @@ export class Session extends Emitter<Events> {
   public setRenderSetting(setting: Partial<SilkEngine3.RenderSetting>) {
     assign(this.renderSetting, setting)
     this.emit('renderSettingChanged', this)
+  }
+
+  public setBrushSetting(setting: Partial<CurrentBrushSetting>) {
+    assign(this.brushSetting, setting)
+    this.emit('brushSettingChanged', this)
   }
 
   public get activeLayer() {

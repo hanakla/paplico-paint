@@ -58,11 +58,7 @@ export function MainActions() {
 
   const handleChangeCompleteColor: ColorChangeHandler = useFunk((color) => {
     setColor(color.rgb)
-
-    // engine!.brushSetting = {
-    //   ...engine!.brushSetting,
-    //   color: color.rgb,
-    // }
+    executeOperation(editorOps.setBrushSetting, { color })
   })
 
   const handleChangeToCursorMode = useFunk(() => {

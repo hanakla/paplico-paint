@@ -104,8 +104,7 @@ export const LayerFloatMenu = () => {
         aboveLayerId: activeLayer?.id ?? null,
       })
       toggleAddLayerSheetOpened(false)
-    },
-    [currentDocument, activeLayer]
+    }
   )
 
   const handleClickRemoveLayer = useFunk(() => {

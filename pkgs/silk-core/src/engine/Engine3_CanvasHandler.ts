@@ -38,13 +38,19 @@ export class CanvasHandler extends Emitter<Events> {
     this.strokeCtx = document.createElement('canvas').getContext('2d')!
     this.compositeSourceCtx = document.createElement('canvas').getContext('2d')!
 
-    this.canvas.addEventListener('mousedown', this.#handleMouseDown)
-    this.canvas.addEventListener('mousemove', this.#handleMouseMove)
-    this.canvas.addEventListener('mouseup', this.#handleMouseUp)
+    // this.canvas.addEventListener('mousedown', this.#handleMouseDown)
+    // this.canvas.addEventListener('mousemove', this.#handleMouseMove)
+    // this.canvas.addEventListener('mouseup', this.#handleMouseUp)
 
-    this.canvas.addEventListener('touchstart', this.#handleTouchStart)
-    this.canvas.addEventListener('touchmove', this.#handleTouchMove)
-    this.canvas.addEventListener('touchend', this.#handleTouchEnd)
+    // this.canvas.addEventListener('touchstart', this.#handleTouchStart)
+    // this.canvas.addEventListener('touchmove', this.#handleTouchMove)
+    // this.canvas.addEventListener('touchend', this.#handleTouchEnd)
+
+    this.canvas.addEventListener('pointerdown', this.#handleMouseDown)
+    this.canvas.addEventListener('pointermove', this.#handleMouseMove)
+    this.canvas.addEventListener('pointerup', this.#handleMouseUp)
+
+    window.addEventListener('pointerup', this.#handleMouseUp)
   }
 
   public get stroking() {

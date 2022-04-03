@@ -1211,10 +1211,30 @@
   resolved "https://registry.yarnpkg.com/@fleur/react/-/react-5.0.2.tgz#e45d30448a7bf414cc5ac094b37bb38c7620d0a5"
   integrity sha512-0JOUKdlceRPWNsO1NHqLudJQPqQWVVDCFJwch1U0pFAvdBJDz870W9NjQEbKM01w0On1JAhvuQe5uVhA+CbmdA==
 
-"@hanakla/arma@^0.3.1":
-  version "0.3.1"
-  resolved "https://registry.yarnpkg.com/@hanakla/arma/-/arma-0.3.1.tgz#ff6a71b9c295154476f54dbe896f91c8e06d006f"
-  integrity sha512-9s9mnDfY3VFTOrdAhiSx45EsrxOt8TRO6hPDQb+PhAF7tuVRqdrg6WtibzzRS64OB7eG4a/oTHu1P7DVyH005A==
+"@floating-ui/core@^0.6.1":
+  version "0.6.1"
+  resolved "https://registry.yarnpkg.com/@floating-ui/core/-/core-0.6.1.tgz#aed861a1b6dbebadf14a9dd829ba67f4f3ae795c"
+  integrity sha512-Y30eVMcZva8o84c0HcXAtDO4BEzPJMvF6+B7x7urL2xbAqVsGJhojOyHLaoQHQYjb6OkqRq5kO+zeySycQwKqg==
+
+"@floating-ui/dom@^0.4.2":
+  version "0.4.2"
+  resolved "https://registry.yarnpkg.com/@floating-ui/dom/-/dom-0.4.2.tgz#5c34a19f23a0d72af564e45e5af8000b45318e60"
+  integrity sha512-2/4vOhMAujkMmGqGX1Gut84phe5MNfk1kGeM+RSTJCpeR0SWR2/RR+/f1r1msOvTQa28wn7HEhxGe71CjYY/vw==
+  dependencies:
+    "@floating-ui/core" "^0.6.1"
+
+"@floating-ui/react-dom@^0.6.1":
+  version "0.6.1"
+  resolved "https://registry.yarnpkg.com/@floating-ui/react-dom/-/react-dom-0.6.1.tgz#ca3d3d05ef00f50e3d0b64c18703e692a48b5c31"
+  integrity sha512-XQbdgj1uWAViEua9PkfzgqOWjYP3dZy21pYpUYB7i5WOf1ZBAqTgCkyipjpJdxP8qGftjnhrTROLGs+DNGYnJg==
+  dependencies:
+    "@floating-ui/dom" "^0.4.2"
+    use-isomorphic-layout-effect "^1.1.1"
+
+"@hanakla/arma@^0.3.2":
+  version "0.3.2"
+  resolved "https://registry.yarnpkg.com/@hanakla/arma/-/arma-0.3.2.tgz#a2cd0bb5eac0245afb0e0dcaa0b7486309b67e5b"
+  integrity sha512-ZIBRVAS/shabCAdJjC/rYkUD4WNw52964WHZlgpO21H5PSRNjQhLL0lY6PGB0BeEpF7B0sMAelVxqhtlUiDm+g==
   dependencies:
     "@hanakla/rescue" "^1.0.3"
     immer "^8.0.0"
@@ -1674,6 +1694,11 @@
     "@types/webpack-sources" "*"
     anymatch "^3.0.0"
     source-map "^0.6.0"
+
+"@types/wicg-file-system-access@^2020.9.5":
+  version "2020.9.5"
+  resolved "https://registry.yarnpkg.com/@types/wicg-file-system-access/-/wicg-file-system-access-2020.9.5.tgz#4a0c8f3d1ed101525f329e86c978f7735404474f"
+  integrity sha512-UYK244awtmcUYQfs7FR8710MJcefL2WvkyHMjA8yJzxd1mo0Gfn88sRZ1Bls7hiUhA2w7ne1gpJ9T5g3G0wOyA==
 
 "@xobotyi/scrollbar-width@^1.9.5":
   version "1.9.5"
@@ -3133,7 +3158,7 @@ react-color@^2.19.3:
     reactcss "^1.2.0"
     tinycolor2 "^1.4.1"
 
-react-dom@^18.0.0:
+react-dom@18.0.0, react-dom@^18.0.0:
   version "18.0.0"
   resolved "https://registry.yarnpkg.com/react-dom/-/react-dom-18.0.0.tgz#26b88534f8f1dbb80853e1eabe752f24100d8023"
   integrity sha512-XqX7uzmFo0pUceWFCt7Gff6IyIMzFUn7QMZrbrQfGxtaxXZIcGQzoNpRLE3fQLnS4XzLLPMZX2T9TRcSrasicw==
@@ -3232,7 +3257,7 @@ react-use@^17.2.4:
     ts-easing "^0.2.0"
     tslib "^2.1.0"
 
-react@^18.0.0:
+react@18.0.0, react@^18.0.0:
   version "18.0.0"
   resolved "https://registry.yarnpkg.com/react/-/react-18.0.0.tgz#b468736d1f4a5891f38585ba8e8fb29f91c3cb96"
   integrity sha512-x+VL6wbT4JRVPm7EGxXhZ8w8LTROaxPXOqhlGyVSrv0sB1jkyFGgXxJ8LVoPRLvPR6/CIZGFmfzqUa2NYeMr2A==
@@ -3814,6 +3839,11 @@ uri-js@^4.2.2:
   integrity sha512-7rKUyy33Q1yc98pQ1DAmLtwX109F7TIfWlW1Ydo8Wl1ii1SeHieeh0HHfPeL2fMXK6z0s8ecKs9frCuLJvndBg==
   dependencies:
     punycode "^2.1.0"
+
+use-isomorphic-layout-effect@^1.1.1:
+  version "1.1.2"
+  resolved "https://registry.yarnpkg.com/use-isomorphic-layout-effect/-/use-isomorphic-layout-effect-1.1.2.tgz#497cefb13d863d687b08477d9e5a164ad8c1a6fb"
+  integrity sha512-49L8yCO3iGT/ZF9QttjwLF/ZD9Iwto5LnH5LmEdk/6cFmXddqi2ulF0edxTwjj+7mqvpVVGQWvbXZdn32wRSHA==
 
 use-measure@^0.3.0:
   version "0.3.0"

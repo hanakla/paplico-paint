@@ -220,8 +220,7 @@ export default class WebGLContext {
     gl.drawArrays(gl.TRIANGLE_FAN, 0, 4)
     gl.flush()
 
-    // this.deleteProgram(program)
-
+    this.deleteProgram(program)
     textures.forEach((tex) => tex && gl.deleteTexture(tex))
 
     const destCtx = dest.getContext('2d')!

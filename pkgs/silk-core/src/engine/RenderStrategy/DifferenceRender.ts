@@ -79,6 +79,7 @@ export class DifferenceRender implements IRenderStrategy {
       for (const { layer, image } of layerBitmaps) {
         if (!layer.visible) continue
 
+        assign(bufferCtx.canvas, document.getLayerSize(layer))
         bufferCtx.clearRect(0, 0, document.width, document.height)
 
         // Apply FilterLayer

@@ -10,6 +10,7 @@ export: 保存する
 untitled: タイトル未設定
 
 exports:
+  autoSaved: 自動保存されています
   saved: 保存しました！
   exported: 書き出しました！
 

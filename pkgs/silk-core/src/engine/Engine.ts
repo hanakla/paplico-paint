@@ -119,7 +119,7 @@ export class SilkEngine {
     this.on = this.mitt.on.bind(this.mitt)
     this.off = this.mitt.off.bind(this.mitt)
 
-    this._currentBrush.initialize()
+    this._currentBrush.initialize({ gl: this.gl })
 
     this.canvasHandler.on('tmpStroke', this.handleTemporayStroke)
     this.canvasHandler.on('stroke', this.handleCanvasStroke)
@@ -447,7 +447,7 @@ export class SilkEngine {
 
   public async setBrush(Brush: BrushClass) {
     this._currentBrush = new Brush()
-    this.blushPromise = this._currentBrush.initialize()
+    this.blushPromise = this._currentBrush.initialize({ gl: this.gl })
     await this.blushPromise
   }
 
@@ -462,7 +462,7 @@ export class SilkEngine {
     this.filterRegister.set(Filter.id, Filter)
 
     const filter = new Filter()
-    await filter.initialize()
+    await filter.initialize({ gl: this.gl })
     this.filterInstances.set(Filter, filter)
   }
 

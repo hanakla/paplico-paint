@@ -28,7 +28,7 @@ export const useLayerControl = () => {
         { aboveLayerId }: { aboveLayerId?: string }
       ) => {
         engine?.currentDocument?.addLayer(newLayer, { aboveLayerId })
-        engine?.setActiveLayer(newLayer.id)
+        engine?.setActiveLayer(newLayer.uid)
         // engine?.rerender()
         // rerender()
       },

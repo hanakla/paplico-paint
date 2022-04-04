@@ -1,3 +1,5 @@
+import { v4 } from 'uuid'
+
 import { Emitter } from '../Engine3_Emitter'
 import { assign } from '../utils'
 import { CompositeMode, ILayer, LayerEvents } from './IRenderable'
@@ -7,6 +9,7 @@ type Events = LayerEvents<GroupLayer>
 export class GroupLayer extends Emitter<Events> implements ILayer {
   public readonly layerType = 'group'
 
+  public readonly uid: string = `grouplayer-${v4()}`
   public name: string = ''
   public visible: boolean = true
   public lock: boolean = false
@@ -19,6 +22,7 @@ export class GroupLayer extends Emitter<Events> implements ILayer {
 
   public static deserialize(obj: any) {
     return assign(new GroupLayer(), {
+      uid: obj.uid,
       name: obj.name,
       visible: obj.visible,
       lock: obj.lock,
@@ -49,6 +53,7 @@ export class GroupLayer extends Emitter<Events> implements ILayer {
 
   public serialize() {
     return {
+      uid: this.uid,
       name: this.name,
       visible: this.visible,
       lock: this.lock,

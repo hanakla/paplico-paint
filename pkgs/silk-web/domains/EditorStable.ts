@@ -7,12 +7,16 @@ import {
   SilkValue,
   RenderStrategies,
   IRenderStrategy,
+  SilkSerializer,
 } from 'silk-core'
 
 import { BrushSetting } from '🙌/../silk-core/dist/Value'
+import { connectIdb } from '🙌/infra/indexeddb'
+import { LocalStorage } from '🙌/infra/LocalStorage'
 import { assign } from '../utils/assign'
 import { deepClone } from '../utils/clone'
 import { log, trace, warn } from '../utils/log'
+import { NotifyOps } from './Notify'
 
 type EditorMode = 'pc' | 'sp' | 'tablet'
 type EditorPage = 'home' | 'app'
@@ -66,7 +70,7 @@ export const [EditorStore, editorOps] = minOps('Editor', {
 
     currentDocument: null,
     editorMode: 'sp',
-    editorPage: 'home',
+    editorPage: 'app',
     currentTheme: 'light',
     renderSetting: { disableAllFilters: false, updateThumbnail: true },
     currentTool: 'cursor',
@@ -129,6 +133,11 @@ export const [EditorStore, editorOps] = minOps('Editor', {
         session.document ??= d.currentDocument
       })
     },
+    restorePreferences(x) {
+      x.commit((d) => {
+        d.currentTheme = LocalStorage.get('theme', 'light')
+      })
+    },
     async setDocument(x, document: SilkEntity.Document | null) {
       document?.on('layersChanged', () => {
         x.commit({})
@@ -179,10 +188,40 @@ export const [EditorStore, editorOps] = minOps('Editor', {
         x.state.renderStrategy
       )
     },
+    async autoSave(x, documentUid: string) {
+      if (x.state.currentDocument?.uid !== documentUid) return
+
+      const document = x.state.currentDocument
+      if (!document) return
+
+      const db = await connectIdb()
+      x.finally(() => db.close())
+
+      const bin = new Blob(
+        [
+          SilkSerializer.exportDocument(
+            document as unknown as SilkEntity.Document
+          ).buffer,
+        ],
+        {
+          type: 'application/octet-binary',
+        }
+      )
+
+      const prev = await db.get('projects', documentUid)
+
+      await db.put('projects', {
+        uid: document.uid,
+        bin,
+        hasSavedOnce: prev?.hasSavedOnce ?? false,
+        updatedAt: new Date(),
+      })
+    },
     // #endregion Engine & Session
 
     // #region UI
     setTheme: (x, theme: 'dark' | 'light') => {
+      LocalStorage.set('theme', theme)
       x.commit({ currentTheme: theme })
     },
     setEditorMode: ({ state }, mode: EditorMode) => {},
@@ -191,12 +230,18 @@ export const [EditorStore, editorOps] = minOps('Editor', {
     },
     // #endregion
 
-    // #region Paint tools and Session
+    // #region Paint tools and Tool session
     setFill: (x, fill: SilkValue.FillSetting | null) => {
       x.commit({ currentFill: fill })
     },
     setStroke: (x, stroke: SilkValue.BrushSetting | null) => {
       x.commit({ currentStroke: stroke })
+    },
+    setBrush(x, brushId: string) {
+      x.commit((d) => {
+        d.session!.currentBursh =
+          d.engine?.toolRegistry.getBrushInstance(brushId)!
+      })
     },
     setBrushSetting(x, setting: Partial<BrushSetting>) {
       x.commit((draft) => {
@@ -318,7 +363,7 @@ export const [EditorStore, editorOps] = minOps('Editor', {
         const layer = findLayer(d.session?.document, layerId)
         if (!layer) return
 
-        const filter = layer.filters.find((filter) => filter.id === filterId)
+        const filter = layer.filters.find((filter) => filter.uid === filterId)
         if (!filter) return
 
         proc(filter)
@@ -341,7 +386,7 @@ export const [EditorStore, editorOps] = minOps('Editor', {
 
         const { activeLayer } = d.session
         const object = activeLayer.objects.find(
-          (obj) => obj.id === d.activeObjectId
+          (obj) => obj.uid === d.activeObjectId
         )
 
         if (object) proc(object as SilkEntity.VectorObject)
@@ -356,10 +401,10 @@ export const [EditorStore, editorOps] = minOps('Editor', {
     ) => {
       x.commit((d) => {
         d.session!.document?.addLayer(newLayer, { aboveLayerId })
-        d.session!.activeLayerId = newLayer.id
+        d.session!.activeLayerId = newLayer.uid
         d.engine!.render(d.currentDocument!, d.session?.renderStrategy!)
 
-        d.renderStrategy?.markUpdatedLayerId(newLayer.id)
+        d.renderStrategy?.markUpdatedLayerId(newLayer.uid)
       })
     },
     addPoint: (
@@ -374,7 +419,7 @@ export const [EditorStore, editorOps] = minOps('Editor', {
         const { activeLayer } = d.session
         const object =
           typeof objectOrId === 'string'
-            ? activeLayer?.objects.find((obj) => obj.id === d.activeObjectId)
+            ? activeLayer?.objects.find((obj) => obj.uid === d.activeObjectId)
             : objectOrId
         if (!object) throw new Error(`Object(id: ${objectOrId}) not found`)
         object.path.points.splice(segmentIndex, 0, point)
@@ -400,8 +445,8 @@ export const [EditorStore, editorOps] = minOps('Editor', {
         const nextActiveLayer =
           document.layers[idx - 1] ?? document.layers.slice(-1)
         if (layerId === d.activeLayerId) {
-          d.session.activeLayerId = nextActiveLayer.id
-          d.activeLayerId = nextActiveLayer.id
+          d.session.activeLayerId = nextActiveLayer.uid
+          d.activeLayerId = nextActiveLayer.uid
         }
       })
 
@@ -411,7 +456,7 @@ export const [EditorStore, editorOps] = minOps('Editor', {
       x.commit((d) => {
         findLayer(d.currentDocument, d.activeLayerId)?.update((layer) => {
           for (const filterId of Object.keys(d.selectedFilterIds)) {
-            const idx = layer.filters.findIndex((f) => f.id === filterId)
+            const idx = layer.filters.findIndex((f) => f.uid === filterId)
             if (idx === -1) continue
             layer.filters.splice(idx, 1)
           }
@@ -425,7 +470,7 @@ export const [EditorStore, editorOps] = minOps('Editor', {
         const layer = d.session?.activeLayer
         if (!layer || layer.layerType !== 'vector') return
 
-        const obj = layer.objects.find((obj) => obj.id === d.activeObjectId)
+        const obj = layer.objects.find((obj) => obj.uid === d.activeObjectId)
         if (!obj) return
 
         const points: Array<SilkEntity.Path.PathPoint | null> = [
@@ -451,7 +496,7 @@ export const [EditorStore, editorOps] = minOps('Editor', {
 
 export const EditorSelector = {
   defaultVectorBrush: selector(
-    (): Session.CurrentBrushSetting => ({
+    (): Session.BrushSetting => ({
       brushId: '@silk-paint/brush',
       color: { r: 26, g: 26, b: 26 },
       opacity: 1,
@@ -481,7 +526,7 @@ export const EditorSelector = {
       return session?.brushSetting
 
     const object = session?.activeLayer?.objects.find(
-      (obj) => obj.id === activeObjectId
+      (obj) => obj.uid === activeObjectId
     )
 
     if (!object) return session?.brushSetting ?? null
@@ -492,7 +537,7 @@ export const EditorSelector = {
     if (session?.activeLayer?.layerType !== 'vector') return currentFill
 
     const object = session?.activeLayer?.objects.find(
-      (obj) => obj.id === activeObjectId
+      (obj) => obj.uid === activeObjectId
     )
 
     if (!object) return currentFill
@@ -508,7 +553,7 @@ export const EditorSelector = {
 
     if (session?.activeLayer?.layerType !== 'vector') return null
     return session?.activeLayer?.objects.find(
-      (obj) => obj.id === activeObjectId
+      (obj) => obj.uid === activeObjectId
     ) as any
   }),
   activeLayerBBox: selector(
@@ -542,7 +587,7 @@ const findLayerIndex = (
 ) => {
   if (document == null || layerId === null) return -1
 
-  const index = document.layers.findIndex((layer) => layer.id === layerId)
+  const index = document.layers.findIndex((layer) => layer.uid === layerId)
 
   if (index === -1) {
     warn('Layer not found:', layerId)

@@ -166,17 +166,21 @@ const VectorLayerControl = ({ scale }: { scale: number }) => {
       // Insert point to current path
 
       // SEE: http://polymathprogrammer.com/2007/06/27/reverse-engineering-bezier-curves/
-      executeOperation(editorOps.updateVectorLayer, activeLayer.id, (layer) => {
-        const path = layer.objects.find((obj) => obj.id === objectId)?.path
-        if (!path) return
+      executeOperation(
+        editorOps.updateVectorLayer,
+        activeLayer.uid,
+        (layer) => {
+          const path = layer.objects.find((obj) => obj.uid === objectId)?.path
+          if (!path) return
 
-        path.points.splice(segmentIndex, 0, {
-          x,
-          y,
-          in: { x: x + 2, y: y - 2 },
-          out: { x: x - 2, y: y + 2 },
-        })
-      })
+          path.points.splice(segmentIndex, 0, {
+            x,
+            y,
+            in: { x: x + 2, y: y - 2 },
+            out: { x: x - 2, y: y + 2 },
+          })
+        }
+      )
     }
   )
 
@@ -237,14 +241,14 @@ const VectorLayerControl = ({ scale }: { scale: number }) => {
 
           executeOperation(
             editorOps.updateVectorLayer,
-            (activeLayer.id,
+            (activeLayer.uid,
             (layer) => {
               layer.objects.push(object)
             })
           )
 
-          nextObjectId = object.id
-          executeOperation(editorOps.setActiveObject, object.id)
+          nextObjectId = object.uid
+          executeOperation(editorOps.setActiveObject, object.uid)
           executeOperation(editorOps.setSelectedObjectPoints, [0])
           nextPointIndex = 0
         } else {
@@ -252,15 +256,15 @@ const VectorLayerControl = ({ scale }: { scale: number }) => {
 
           executeOperation(
             editorOps.updateVectorLayer,
-            activeLayer.id,
+            activeLayer.uid,
             (layer) => {
               const object = layer.objects.find(
-                (obj) => obj.id === vectorStroking.objectId
+                (obj) => obj.uid === vectorStroking.objectId
               )
 
               if (!object) return
 
-              nextObjectId = object.id
+              nextObjectId = object.uid
               if (vectorStroking.isHead) {
                 object.path.points.unshift(newPoint)
                 nextPointIndex = 0
@@ -283,10 +287,10 @@ const VectorLayerControl = ({ scale }: { scale: number }) => {
 
         executeOperation(
           editorOps.updateVectorLayer,
-          activeLayer.id,
+          activeLayer.uid,
           (layer) => {
             const object = layer.objects.find(
-              (obj) => obj.id === vectorStroking.objectId
+              (obj) => obj.uid === vectorStroking.objectId
             )
             if (!object) return
 
@@ -342,13 +346,17 @@ const VectorLayerControl = ({ scale }: { scale: number }) => {
     ({ event, delta }) => {
       const objectId = (event.target as SVGPathElement).dataset.objectId
 
-      executeOperation(editorOps.updateVectorLayer, activeLayer.id, (layer) => {
-        const object = layer.objects.find((obj) => obj.id === objectId)
-        if (!object) return
+      executeOperation(
+        editorOps.updateVectorLayer,
+        activeLayer.uid,
+        (layer) => {
+          const object = layer.objects.find((obj) => obj.uid === objectId)
+          if (!object) return
 
-        object.x += delta[0] * (1 / scale)
-        object.y += delta[1] * (1 / scale)
-      })
+          object.x += delta[0] * (1 / scale)
+          object.y += delta[1] * (1 / scale)
+        }
+      )
     },
     { threshold: 2 }
   )
@@ -373,10 +381,10 @@ const VectorLayerControl = ({ scale }: { scale: number }) => {
           if (activeObjectPointIndices.length === 0 && activeObjectId == null) {
             executeOperation(
               editorOps.updateVectorLayer,
-              activeLayer.id,
+              activeLayer.uid,
               (layer) => {
                 const idx = layer.objects.findIndex(
-                  (obj) => obj.id === activeObjectId
+                  (obj) => obj.uid === activeObjectId
                 )
                 if (idx === -1) return
 
@@ -417,7 +425,8 @@ const VectorLayerControl = ({ scale }: { scale: number }) => {
     >
       {activeLayer.objects.map(
         (object) =>
-          (vectorFocusing == null || vectorFocusing?.objectId == object.id) && (
+          (vectorFocusing == null ||
+            vectorFocusing?.objectId == object.uid) && (
             <g style={{ transform: `translate(${object.x}px, ${object.y}px)` }}>
               <path
                 css={`
@@ -430,7 +439,7 @@ const VectorLayerControl = ({ scale }: { scale: number }) => {
                 }}
                 d={object.path.svgPath}
                 onClick={handleClickObjectFill}
-                data-object-id={object.id}
+                data-object-id={object.uid}
                 {...bindObjectHover()}
                 {...bindObjectDrag()}
               />
@@ -556,11 +565,11 @@ const PathSegments = ({
     event.stopPropagation()
 
     const { dataset } = event.currentTarget as SVGCircleElement
-    const object = objects.find((obj) => obj.id === dataset.objectId!)!
+    const object = objects.find((obj) => obj.uid === dataset.objectId!)!
     const pointIndex = +dataset.pointIndex!
 
-    executeOperation(editorOps.updateVectorLayer, activeLayer?.id, (layer) => {
-      const path = layer.objects.find((obj) => obj.id === object.id)?.path
+    executeOperation(editorOps.updateVectorLayer, activeLayer?.uid, (layer) => {
+      const path = layer.objects.find((obj) => obj.uid === object.uid)?.path
       const point = path?.points[pointIndex]
       if (!point?.in) return
 
@@ -573,11 +582,11 @@ const PathSegments = ({
     event.stopPropagation()
 
     const { dataset } = event.currentTarget as SVGCircleElement
-    const object = objects.find((obj) => obj.id === dataset.objectId!)!
+    const object = objects.find((obj) => obj.uid === dataset.objectId!)!
     const pointIndex = +dataset.pointIndex!
 
-    executeOperation(editorOps.updateVectorLayer, activeLayer?.id, (layer) => {
-      const path = layer.objects.find((obj) => obj.id === object.id)?.path
+    executeOperation(editorOps.updateVectorLayer, activeLayer?.uid, (layer) => {
+      const path = layer.objects.find((obj) => obj.uid === object.uid)?.path
       const point = path?.points[pointIndex]
       if (!point?.out) return
 
@@ -591,10 +600,10 @@ const PathSegments = ({
 
     const { dataset } = event.currentTarget as SVGElement
     const pointIndex = +dataset.pointIndex!
-    const object = objects.find((obj) => obj.id === dataset.objectId)!
+    const object = objects.find((obj) => obj.uid === dataset.objectId)!
 
-    executeOperation(editorOps.updateVectorLayer, activeLayer?.id, (layer) => {
-      const point = layer.objects.find((obj) => obj.id === object.id)?.path
+    executeOperation(editorOps.updateVectorLayer, activeLayer?.uid, (layer) => {
+      const point = layer.objects.find((obj) => obj.uid === object.uid)?.path
         .points[pointIndex]
       if (!point) return
 
@@ -620,25 +629,29 @@ const PathSegments = ({
     e.stopPropagation()
 
     const { dataset } = e.currentTarget
-    const object = objects.find((obj) => obj.id === dataset.objectId!)!
+    const object = objects.find((obj) => obj.uid === dataset.objectId!)!
     const pointIndex = +dataset.pointIndex!
     const isFirstSegment = dataset.isFirstSegment != null
     const isLastSegment = dataset.isLastSegment != null
 
     if (vectorStroking && (isLastSegment || isFirstSegment)) {
       if (!activeLayer || !activeObject) return
-      if (vectorStroking.objectId !== object.id) return
+      if (vectorStroking.objectId !== object.uid) return
       if (!vectorStroking.isTail && !vectorStroking.isHead) return
 
-      executeOperation(editorOps.updateVectorLayer, activeLayer.id, (layer) => {
-        const object = layer.objects.find(
-          (obj) => obj.id === vectorStroking.objectId
-        )
+      executeOperation(
+        editorOps.updateVectorLayer,
+        activeLayer.uid,
+        (layer) => {
+          const object = layer.objects.find(
+            (obj) => obj.uid === vectorStroking.objectId
+          )
 
-        if (!object) return
+          if (!object) return
 
-        object.path.closed = true
-      })
+          object.path.closed = true
+        }
+      )
 
       return
     }
@@ -649,7 +662,7 @@ const PathSegments = ({
       (isLastSegment || isFirstSegment)
     ) {
       executeOperation(editorOps.setVectorStroking, {
-        objectId: object.id,
+        objectId: object.uid,
         selectedPointIndex: pointIndex,
         isHead: isFirstSegment,
         isTail: isLastSegment,
@@ -668,7 +681,7 @@ const PathSegments = ({
     e.stopPropagation()
 
     const { dataset } = e.currentTarget
-    const object = objects.find((obj) => obj.id === dataset.objectId!)!
+    const object = objects.find((obj) => obj.uid === dataset.objectId!)!
     const pointIndex = +dataset.pointIndex!
     const point = object.path.points[pointIndex]
     const prevPoint = object.path.points[pointIndex - 1]
@@ -706,14 +719,14 @@ const PathSegments = ({
       return
     }
 
-    onClickPath(object.id)
+    onClickPath(object.uid)
   })
 
   const handleDoubleClickPath = useFunk((e: MouseEvent<SVGPathElement>) => {
     e.stopPropagation()
 
     const { dataset } = e.currentTarget
-    const object = objects.find((obj) => obj.id === dataset.objectId!)!
+    const object = objects.find((obj) => obj.uid === dataset.objectId!)!
     const pointIndex = +dataset.pointIndex!
 
     // SEE: https://stackoverflow.com/a/42711775
@@ -724,7 +737,7 @@ const PathSegments = ({
     })
 
     const cursorPt = pt.matrixTransform(svg.getScreenCTM()!.inverse())
-    onDoubleClickPath(object.id, pointIndex, { x: cursorPt.x, y: cursorPt.y })
+    onDoubleClickPath(object.uid, pointIndex, { x: cursorPt.x, y: cursorPt.y })
   })
 
   const handleDoubleClickInPoint = useFunk(
@@ -751,9 +764,9 @@ const PathSegments = ({
 
   const pathHoverBind = useHover((e) => {
     const { dataset } = e.event.currentTarget as any as SVGPathElement
-    const object = objects.find((obj) => obj.id === dataset.objectId!)!
+    const object = objects.find((obj) => obj.uid === dataset.objectId!)!
 
-    onHoverStateChange({ hovering: e.hovering, objectId: object.id })
+    onHoverStateChange({ hovering: e.hovering, objectId: object.uid })
   })
 
   const zoom = Math.max(1 / scale, 1)
@@ -773,11 +786,11 @@ const PathSegments = ({
               `
             : ''
 
-          const isActive = activeObject?.id === object.id
+          const isActive = activeObject?.uid === object.uid
           const isPointSelected = activeObjectPointIndices.includes(pointIdx)
           const isFirstSegment = pointIdx === 0
           const isLastSegment = pointIdx === points.length - 1
-          const hovering = isHoverOnPath && object.id === hoverObjectId
+          const hovering = isHoverOnPath && object.uid === hoverObjectId
           const renderPoint =
             pointIdx !== points.length - 1 || !object.path.closed
 
@@ -796,7 +809,7 @@ const PathSegments = ({
                     ...(hovering || isActive ? { stroke: '#4e7fff' } : {}),
                   }}
                   d={segmentPath}
-                  data-object-id={object.id}
+                  data-object-id={object.uid}
                 />
 
                 <path
@@ -811,7 +824,7 @@ const PathSegments = ({
                     strokeWidth: POINT_SIZE * zoom,
                   }}
                   d={segmentPath}
-                  data-object-id={object.id}
+                  data-object-id={object.uid}
                   data-point-index={pointIdx}
                   onClick={handleClickPath}
                   onDoubleClick={handleDoubleClickPath}
@@ -846,7 +859,7 @@ const PathSegments = ({
                             cx={point.in.x}
                             cy={point.in.y}
                             r={POINT_SIZE * zoom}
-                            data-object-id={object.id}
+                            data-object-id={object.uid}
                             data-point-index={pointIdx}
                             onDoubleClick={handleDoubleClickInPoint}
                             {...bindDragStartInAnchor()}
@@ -881,7 +894,7 @@ const PathSegments = ({
                       cx={point.out.x}
                       cy={point.out.y}
                       r={POINT_SIZE * zoom}
-                      data-object-id={object.id}
+                      data-object-id={object.uid}
                       data-point-index={pointIdx}
                       onDoubleClick={handleDoubleClickOutPoint}
                       {...bindDragOutAnchor()}
@@ -911,7 +924,7 @@ const PathSegments = ({
                         ? { fill: '#4e7fff', stroke: 'rgba(0, 0, 0, 0.2)' }
                         : { fill: '#fff', stroke: '#4e7fff' }),
                     }}
-                    data-object-id={object.id}
+                    data-object-id={object.uid}
                     data-point-index={pointIdx}
                     data-is-first-segment={isFirstSegment ? true : null}
                     data-is-last-segment={isLastSegment ? true : null}
@@ -924,7 +937,7 @@ const PathSegments = ({
         })
       })
       .flat(1)
-  }, [activeObject?.id, objects, objects.length])
+  }, [activeObject?.uid, objects, objects.length])
 
   return (
     <>
@@ -1006,7 +1019,7 @@ const PathSegments = ({
 //     event.stopPropagation()
 
 //     executeOperation(editorOps.updateVectorLayer, activeLayer?.id, (layer) => {
-//       const path = layer.objects.find((obj) => obj.id === object.id)?.path
+//       const path = layer.objects.find((obj) => obj.uid === object.uid)?.path
 //       const point = path?.points[pointIndex]
 //       if (!point?.in) return
 
@@ -1019,7 +1032,7 @@ const PathSegments = ({
 //     event.stopPropagation()
 
 //     executeOperation(editorOps.updateVectorLayer, activeLayer?.id, (layer) => {
-//       const path = layer.objects.find((obj) => obj.id === object.id)?.path
+//       const path = layer.objects.find((obj) => obj.uid === object.uid)?.path
 //       const point = path?.points[pointIndex]
 //       if (!point?.out) return
 
@@ -1032,7 +1045,7 @@ const PathSegments = ({
 //     event.stopPropagation()
 
 //     executeOperation(editorOps.updateVectorLayer, activeLayer?.id, (layer) => {
-//       const point = layer.objects.find((obj) => obj.id === object.id)?.path
+//       const point = layer.objects.find((obj) => obj.uid === object.uid)?.path
 //         .points[pointIndex]
 //       if (!point) return
 
@@ -1059,12 +1072,12 @@ const PathSegments = ({
 
 //     if (vectorStroking && (isLastSegment || isFirstSegment)) {
 //       if (!activeLayer || !activeObject) return
-//       if (vectorStroking.objectId !== object.id) return
+//       if (vectorStroking.objectId !== object.uid) return
 //       if (!vectorStroking.isTail && !vectorStroking.isHead) return
 
 //       executeOperation(editorOps.updateVectorLayer, activeLayer.id, (layer) => {
 //         const object = layer.objects.find(
-//           (obj) => obj.id === vectorStroking.objectId
+//           (obj) => obj.uid === vectorStroking.objectId
 //         )
 
 //         if (!object) return
@@ -1080,7 +1093,7 @@ const PathSegments = ({
 //       (isLastSegment || isFirstSegment)
 //     ) {
 //       executeOperation(editorOps.setVectorStroking, {
-//         objectId: object.id,
+//         objectId: object.uid,
 //         selectedPointIndex: pointIndex,
 //         isHead: isFirstSegment,
 //         isTail: isLastSegment,
@@ -1131,7 +1144,7 @@ const PathSegments = ({
 //       return
 //     }
 
-//     onClick(object.id)
+//     onClick(object.uid)
 //   })
 
 //   const handleDoubleClickPath = useFunk(
@@ -1146,7 +1159,7 @@ const PathSegments = ({
 //       })
 
 //       const cursorPt = pt.matrixTransform(svg.getScreenCTM()!.inverse())
-//       onDoubleClick(object.id, pointIndex, { x: cursorPt.x, y: cursorPt.y })
+//       onDoubleClick(object.uid, pointIndex, { x: cursorPt.x, y: cursorPt.y })
 //     }
 //   )
 
@@ -1163,7 +1176,7 @@ const PathSegments = ({
 //   })
 
 //   const pathHoverBind = useHover((e) => {
-//     onHoverStateChange({ hovering: e.hovering, objectId: object.id })
+//     onHoverStateChange({ hovering: e.hovering, objectId: object.uid })
 //   })
 
 //   const zoom = Math.max(1 / scale, 1)

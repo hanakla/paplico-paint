@@ -65,7 +65,7 @@ export const FilterView = () => {
       const filter = EditorSelector.getFilterInstance(getStore, filterId)
       if (!filter) return
 
-      executeOperation(editorOps.updateLayer, activeLayer.id, (layer) => {
+      executeOperation(editorOps.updateLayer, activeLayer.uid, (layer) => {
         layer.filters.unshift(
           SilkEntity.Filter.create({ filterId, settings: filter.initialConfig })
         )
@@ -78,7 +78,7 @@ export const FilterView = () => {
   const handleFilterSortEnd: SortEndHandler = useFunk((sort) => {
     if (!activeLayer) return
 
-    executeOperation(editorOps.updateLayer, activeLayer.id, (layer) => {
+    executeOperation(editorOps.updateLayer, activeLayer.uid, (layer) => {
       arrayMove.mutate(layer.filters, sort.oldIndex, sort.newIndex)
     })
   })
@@ -209,7 +209,7 @@ const SortableFilterList = SortableContainer(function FilterList({
     >
       {filters.map((filter, idx) => (
         <SortableFilterItem
-          key={filter.id}
+          key={filter.uid}
           index={idx}
           layer={layer}
           filter={filter}
@@ -235,14 +235,14 @@ const SortableFilterItem = SortableElement(function FilterItem({
     selectedFilterIds: get(EditorStore).state.selectedFilterIds,
   }))
 
-  const active = selectedFilterIds[filter.id]
+  const active = selectedFilterIds[filter.uid]
   const [propsOpened, togglePropsOpened] = useToggle(false)
 
   const handleClick = useFunk(
     (e: MouseEvent<HTMLDivElement>) => {
       if (DOMUtils.closestOrSelf(e.target, '[data-ignore-click]')) return
 
-      executeOperation(editorOps.setSelectedFilterIds, { [filter.id]: true })
+      executeOperation(editorOps.setSelectedFilterIds, { [filter.uid]: true })
     },
     [filter]
   )
@@ -255,8 +255,8 @@ const SortableFilterItem = SortableElement(function FilterItem({
   const handleToggleVisibility = useFunk(() => {
     if (!activeLayer) return
 
-    executeOperation(editorOps.updateLayer, activeLayer.id, (layer) => {
-      const targetFilter = layer.filters.find((f) => f.id === filter.id)
+    executeOperation(editorOps.updateLayer, activeLayer.uid, (layer) => {
+      const targetFilter = layer.filters.find((f) => f.id === filter.uid)
       if (!targetFilter) return
 
       targetFilter.visible = !targetFilter.visible
@@ -269,8 +269,8 @@ const SortableFilterItem = SortableElement(function FilterItem({
     (_) => {
       if (!activeLayer) return
 
-      executeOperation(editorOps.updateLayer, activeLayer.id, (layer) => {
-        const idx = layer.filters.findIndex((f) => f.id === filter.id)
+      executeOperation(editorOps.updateLayer, activeLayer.uid, (layer) => {
+        const idx = layer.filters.findIndex((f) => f.id === filter.uid)
         if (idx === -1) return
 
         layer.filters.splice(idx, 1)

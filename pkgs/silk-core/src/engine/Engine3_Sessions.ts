@@ -1,7 +1,7 @@
 import { nanoid } from 'nanoid'
 
 import { Document, LayerTypes } from '../SilkDOM'
-import { Brush } from '../Brushes'
+import { Brush, ScatterBrush } from '../Brushes'
 import { CurrentBrushSetting } from './CurrentBrushSetting'
 import { Emitter } from '../Engine3_Emitter'
 import { RandomInk } from './Inks/RandomInk'
@@ -24,6 +24,10 @@ type Events = {
 
 type PencilMode = 'none' | 'draw' | 'erase'
 
+export declare namespace Session {
+  export type BrushSetting = CurrentBrushSetting
+}
+
 export class Session extends Emitter<Events> {
   public readonly sid: string = nanoid()
   public renderStrategy: IRenderStrategy = new RenderStrategies.FullRender()
@@ -33,7 +37,7 @@ export class Session extends Emitter<Events> {
     updateThumbnail: true,
   }
 
-  protected _currentBrush: IBrush = new Brush()
+  protected _currentBrush: IBrush | null = null
   protected _currentInk: IInk = new RandomInk()
   protected _activeLayer: LayerTypes | null = null
   protected _brushSetting: CurrentBrushSetting = {
@@ -64,7 +68,7 @@ export class Session extends Emitter<Events> {
     this.emit('renderSettingChanged', this)
   }
 
-  public setBrushSetting(setting: Partial<CurrentBrushSetting>) {
+  public setBrushSetting(setting: Partial<Session.BrushSetting>) {
     assign(this.brushSetting, setting)
     this.emit('brushSettingChanged', this)
   }
@@ -74,12 +78,12 @@ export class Session extends Emitter<Events> {
   }
 
   public get activeLayerId(): string | undefined | null {
-    return this._activeLayer?.id
+    return this._activeLayer?.uid
   }
 
   public set activeLayerId(value: string | undefined | null) {
     this._activeLayer =
-      this.document?.layers.find((layer) => layer.id === value) ?? null
+      this.document?.layers.find((layer) => layer.uid === value) ?? null
 
     this.emit('activeLayerChanged', this)
   }
@@ -88,7 +92,7 @@ export class Session extends Emitter<Events> {
     return this._currentBrush
   }
 
-  public set currentBursh(brush: IBrush) {
+  public set currentBursh(brush: IBrush | null) {
     this._currentBrush = brush
     this.emit('blushChanged', this)
   }

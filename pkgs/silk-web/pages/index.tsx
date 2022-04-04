@@ -8,7 +8,12 @@ import { loadImageFromBlob, selectFile, useFunk } from '@hanakla/arma'
 import { SilkEntity, SilkSerializer, SilkHelper } from 'silk-core'
 import { Moon, Sun } from '@styled-icons/remix-fill'
 import { DragDrop, File, Menu } from '@styled-icons/remix-line'
-import { css, ThemeProvider, useTheme } from 'styled-components'
+import {
+  createGlobalStyle,
+  css,
+  ThemeProvider,
+  useTheme,
+} from 'styled-components'
 import { useFleurContext, useStore } from '@fleur/react'
 import { extname } from 'path'
 import Head from 'next/head'
@@ -53,7 +58,7 @@ const HomeContent = () => {
       const doc = SilkEntity.Document.create({ width, height })
       const layer = SilkEntity.RasterLayer.create({ width, height })
       doc.addLayer(layer)
-      doc.activeLayerId = layer.id
+      doc.activeLayerId = layer.uid
 
       executeOperation(editorOps.setDocument, doc)
       executeOperation(editorOps.setEditorPage, 'app')
@@ -325,6 +330,12 @@ const HomeContent = () => {
   )
 }
 
+const DefaultStyle = createGlobalStyle`
+  html {
+    background-color: #bebebe;
+  }
+`
+
 const PageSwitch = () => {
   const isNarrowMedia = useMedia(`(max-width: ${narrow})`, false)
 
@@ -335,11 +346,13 @@ const PageSwitch = () => {
   }))
 
   useEffect(() => {
+    executeOperation(editorOps.restorePreferences)
     executeOperation(editorOps.setEditorMode, isNarrowMedia ? 'sp' : 'pc')
   }, [])
 
   return (
     <ThemeProvider theme={currentTheme === 'dark' ? theme : lightTheme}>
+      <DefaultStyle />
       <Head>
         <meta
           name="viewport"

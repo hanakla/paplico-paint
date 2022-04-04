@@ -10,7 +10,7 @@ type Events = LayerEvents<FilterLayer>
 export class FilterLayer extends Emitter<Events> implements ILayer {
   public readonly layerType = 'filter'
 
-  public readonly id: string = `filterlayer-${v4()}`
+  public readonly uid: string = `filterlayer-${v4()}`
   public name: string = ''
   public visible: boolean = true
   public lock: boolean = false
@@ -39,7 +39,7 @@ export class FilterLayer extends Emitter<Events> implements ILayer {
 
   public static deserialize(obj: any) {
     return assign(new FilterLayer(), {
-      id: obj.id,
+      uid: obj.uid,
       name: obj.name,
       visible: obj.visible,
       lock: obj.lock,
@@ -70,7 +70,7 @@ export class FilterLayer extends Emitter<Events> implements ILayer {
   public serialize() {
     return {
       layerType: this.layerType,
-      id: this.id,
+      uid: this.uid,
       name: this.name,
       visible: this.visible,
       lock: this.lock,

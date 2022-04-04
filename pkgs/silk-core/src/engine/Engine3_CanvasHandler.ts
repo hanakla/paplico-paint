@@ -30,6 +30,7 @@ export class CanvasHandler extends Emitter<Events> {
 
   protected _scale: number = 1
   protected _stroking: boolean = false
+  #strokingState: { touches: number } | null = null
 
   constructor(canvas: HTMLCanvasElement) {
     super()
@@ -62,6 +63,7 @@ export class CanvasHandler extends Emitter<Events> {
   }
 
   public set scale(scale: number) {
+    console.log({ scale })
     this._scale = scale
   }
 
@@ -89,10 +91,10 @@ export class CanvasHandler extends Emitter<Events> {
       this.strokeCtx.clearRect(0, 0, size.width, size.height)
 
       strategy.setLayerOverride({
-        layerId: activeLayer.id,
+        layerId: activeLayer.uid,
         canvas: this.strokeCtx.canvas,
       })
-      strategy.markUpdatedLayerId(activeLayer.id)
+      strategy.markUpdatedLayerId(activeLayer.uid)
     })
 
     this.on('tmpStroke', async (stroke) => {
@@ -107,7 +109,13 @@ export class CanvasHandler extends Emitter<Events> {
       const size = session.document.getLayerSize(activeLayer)
       this.strokeCtx.clearRect(0, 0, size.width, size.height)
 
-      await engine.renderStroke(session, stroke, this.strokeCtx)
+      await engine.renderStroke(
+        session.currentBursh,
+        session.brushSetting,
+        session.currentInk,
+        stroke,
+        this.strokeCtx
+      )
       await engine.render(session.document, strategy)
     })
 
@@ -125,7 +133,13 @@ export class CanvasHandler extends Emitter<Events> {
       assign(this.compositeSourceCtx.canvas, size)
       this.strokeCtx.clearRect(0, 0, size.width, size.height)
 
-      await engine.renderStroke(session, stroke, this.strokeCtx)
+      await engine.renderStroke(
+        session.currentBursh,
+        session.brushSetting,
+        session.currentInk,
+        stroke,
+        this.strokeCtx
+      )
 
       if (activeLayer.layerType === 'raster') {
         this.compositeSourceCtx.drawImage(await activeLayer.imageBitmap, 0, 0)
@@ -156,7 +170,7 @@ export class CanvasHandler extends Emitter<Events> {
         )
       }
 
-      strategy.markUpdatedLayerId(activeLayer.id)
+      strategy.markUpdatedLayerId(activeLayer.uid)
       strategy.setLayerOverride(null)
       await engine.render(session.document, strategy)
       this.mitt.emit('canvasUpdated')
@@ -164,31 +178,44 @@ export class CanvasHandler extends Emitter<Events> {
   }
 
   public dispose() {
-    this.canvas.removeEventListener('mousedown', this.#handleMouseDown)
-    this.canvas.removeEventListener('mousemove', this.#handleMouseMove)
-    this.canvas.removeEventListener('mouseup', this.#handleMouseUp)
+    this.canvas.removeEventListener('pointerdown', this.#handleMouseDown)
+    this.canvas.removeEventListener('pointermove', this.#handleMouseMove)
+    this.canvas.removeEventListener('pointerup', this.#handleMouseUp)
 
-    this.canvas.removeEventListener('touchstart', this.#handleTouchStart)
-    this.canvas.removeEventListener('touchmove', this.#handleTouchMove)
-    this.canvas.removeEventListener('touchend', this.#handleTouchEnd)
+    // this.canvas.removeEventListener('touchstart', this.#handleTouchStart)
+    // this.canvas.removeEventListener('touchmove', this.#handleTouchMove)
+    // this.canvas.removeEventListener('touchend', this.#handleTouchEnd)
   }
 
-  #handleMouseDown = (e: MouseEvent) => {
+  #handleMouseDown = (e: PointerEvent) => {
     this.currentStroke = new Stroke()
     this.currentStroke.updatePoints((points) => {
-      points.push([e.offsetX, e.offsetY, 1])
+      points.push([
+        e.offsetX,
+        e.offsetY,
+        e.pointerType === 'mouse' ? 1 : e.pressure,
+      ])
     })
 
-    this.emit('strokeStart', this.currentStroke)
-
     this._stroking = true
+    this.#strokingState ??= { touches: 0 }
+    this.#strokingState.touches++
+
+    if (this.#strokingState.touches > 1) {
+      this._stroking = false
+      this.currentStroke = null
+      this.#strokingState = null
+      return
+    }
+
+    this.emit('strokeStart', this.currentStroke)
   }
 
-  #handleMouseMove = (e: MouseEvent) => {
+  #handleMouseMove = (e: PointerEvent) => {
     if (!this.currentStroke) return
 
     this.currentStroke.updatePoints((points) => {
-      points.push([e.offsetX, e.offsetY, 1])
+      points.push([e.offsetX, e.offsetY, e.pressure])
     })
 
     this.currentStroke.path = this.currentStroke.splinedPath
@@ -198,15 +225,20 @@ export class CanvasHandler extends Emitter<Events> {
   #handleMouseUp = () => {
     const { currentStroke } = this
 
-    if (!currentStroke) return
+    if (!currentStroke || !this.#strokingState) return
+
+    this.#strokingState.touches--
     if (currentStroke.points.length <= 1) {
       this.currentStroke = null
       this._stroking = false
       return
     }
 
-    this.currentStroke = null
-    this._stroking = false
+    if (this.#strokingState.touches === 0) {
+      this.#strokingState = null
+      this.currentStroke = null
+      this._stroking = false
+    }
 
     currentStroke.path = currentStroke.splinedPath
     this.mitt.emit('strokeComplete', currentStroke)
@@ -223,12 +255,12 @@ export class CanvasHandler extends Emitter<Events> {
       e.touches[0]
     )
 
-    this._stroking = true
-
+    this.currentStroke = new Stroke()
     this.currentStroke.updatePoints((points) => {
       points.push([x, y, e.touches[0].force])
     })
 
+    this._stroking = true
     this.emit('strokeStart', this.currentStroke)
   }
 

@@ -9,7 +9,7 @@ type Events = LayerEvents<TextLayer>
 export class TextLayer extends Emitter<Events> implements ILayer {
   public readonly layerType = 'text'
 
-  public readonly id: string = `textlayer-${v4()}`
+  public readonly uid: string = `textlayer-${v4()}`
   public name: string = ''
   public visible: boolean = true
   public lock: boolean = false
@@ -46,7 +46,7 @@ export class TextLayer extends Emitter<Events> implements ILayer {
   public serialize() {
     return {
       layerType: this.layerType,
-      id: this.id,
+      uid: this.uid,
       name: this.name,
       visible: this.visible,
       lock: this.lock,

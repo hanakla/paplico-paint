@@ -47,9 +47,11 @@ export function LayerView() {
   const [layerTypeOpened, toggleLayerTypeOpened] = useToggle(false)
   const layerTypeOpenerRef = useRef<HTMLDivElement | null>(null)
   const layerTypeDropdownRef = useRef<HTMLUListElement | null>(null)
+
   useClickAway(layerTypeDropdownRef, (e) => {
     if (isEventIgnoringTarget(e.target)) return
-    toggleLayerTypeOpened(false)
+    // Reduce rerendering
+    if (layerTypeOpened) toggleLayerTypeOpened(false)
   })
 
   const layerTypePopper = usePopper(
@@ -66,7 +68,7 @@ export function LayerView() {
       if (!currentDocument) return
 
       const layerType = currentTarget.dataset.layerType!
-      const lastLayerId = activeLayer?.id
+      const lastLayerId = activeLayer?.uid
       const { width, height } = currentDocument
 
       let layer: SilkEntity.LayerTypes
@@ -107,7 +109,7 @@ export function LayerView() {
       const [file] = Array.from(currentTarget.files!)
       if (!file) return
 
-      const lastLayerId = activeLayer?.id
+      const lastLayerId = activeLayer?.uid
       const { image } = await loadImageFromBlob(file)
       const layer = await SilkHelper.imageToLayer(image)
       executeOperation(editorOps.addLayer, layer, { aboveLayerId: lastLayerId })
@@ -124,7 +126,7 @@ export function LayerView() {
     ({ currentTarget }: ChangeEvent<HTMLInputElement>) => {
       executeOperation(
         editorOps.updateLayer,
-        activeLayer?.id,
+        activeLayer?.uid,
         (layer) => {
           layer.name = currentTarget.value
         },
@@ -136,7 +138,7 @@ export function LayerView() {
   const handleChangeCompositeMode = useFunk((value: string) => {
     executeOperation(
       editorOps.updateLayer,
-      activeLayer?.id,
+      activeLayer?.uid,
       (layer) => (layer.compositeMode = value as any)
     )
   })
@@ -145,7 +147,7 @@ export function LayerView() {
     ({ currentTarget }: ChangeEvent<HTMLInputElement>) => {
       if (!activeLayer) return
 
-      executeOperation(editorOps.updateLayer, activeLayer.id, (layer) => {
+      executeOperation(editorOps.updateLayer, activeLayer.uid, (layer) => {
         layer.opacity = currentTarget.valueAsNumber
       })
     }
@@ -348,14 +350,14 @@ const SortableLayerItem = SortableElement(function LayerItem({
   const handleToggleVisibility = useFunk(() => {
     executeOperation(
       editorOps.updateLayer,
-      layer.id,
+      layer.uid,
       (layer) => (layer.visible = !layer.visible)
     )
   })
 
   const handleChangeActiveLayer = useFunk((e: MouseEvent<HTMLDivElement>) => {
     if (DOMUtils.closestOrSelf(e.target, '[data-ignore-click]')) return
-    executeOperation(editorOps.setActiveLayer, layer.id)
+    executeOperation(editorOps.setActiveLayer, layer.uid)
   })
 
   const handleClickObject = useFunk(
@@ -370,7 +372,7 @@ const SortableLayerItem = SortableElement(function LayerItem({
   const handleClickDeleteObject = useFunk((_, data) => {
     if (layer.layerType !== 'vector') return
 
-    const idx = layer.objects.findIndex((obj) => obj.id === data.objectId)
+    const idx = layer.objects.findIndex((obj) => obj.uid === data.objectId)
     if (idx === -1) return
 
     layer.update((layer) => {
@@ -380,7 +382,7 @@ const SortableLayerItem = SortableElement(function LayerItem({
 
   const handleChangeLayerName = useFunk(
     ({ currentTarget }: ChangeEvent<HTMLInputElement>) => {
-      executeOperation(editorOps.updateLayer, layer.id, (layer) => {
+      executeOperation(editorOps.updateLayer, layer.uid, (layer) => {
         layer.name = currentTarget.value
       })
     }
@@ -392,7 +394,7 @@ const SortableLayerItem = SortableElement(function LayerItem({
       {
         key: ['del', 'backspace'],
         handler: () => {
-          executeOperation(editorOps.deleteLayer, layer.id)
+          executeOperation(editorOps.deleteLayer, layer.uid)
         },
       },
     ],
@@ -400,9 +402,9 @@ const SortableLayerItem = SortableElement(function LayerItem({
   )
 
   useEffect(() => {
-    layer.on('updated', rerender)
-    return () => layer.off('updated', rerender)
-  }, [layer.id])
+    // layer.on('updated', rerender)
+    // return () => layer.off('updated', rerender)
+  }, [layer.uid])
 
   return (
     <ContextMenuArea>
@@ -425,11 +427,11 @@ const SortableLayerItem = SortableElement(function LayerItem({
             `}
             style={{
               backgroundColor:
-                activeLayer?.id === layer.id
+                activeLayer?.uid === layer.uid
                   ? theme.surface.sidebarListActive
                   : '',
               color:
-                activeLayer?.id === layer.id
+                activeLayer?.uid === layer.uid
                   ? theme.text.sidebarListActive
                   : '',
             }}
@@ -504,7 +506,7 @@ const SortableLayerItem = SortableElement(function LayerItem({
                 height: 16px;
                 flex: none;
               `}
-              src={thumbnailUrlOfLayer(layer.id)}
+              src={thumbnailUrlOfLayer(layer.uid)}
             />
             <div
               css={`
@@ -556,11 +558,11 @@ const SortableLayerItem = SortableElement(function LayerItem({
                           `}
                           style={{
                             backgroundColor:
-                              activeObjectId == object.id
+                              activeObjectId == object.uid
                                 ? theme.surface.sidebarListActive
                                 : undefined,
                           }}
-                          data-object-id={object.id}
+                          data-object-id={object.uid}
                           onClick={handleClickObject}
                         >
                           パス
@@ -568,7 +570,7 @@ const SortableLayerItem = SortableElement(function LayerItem({
 
                         <ContextMenu>
                           <ContextMenuItem
-                            data={{ objectId: object.id }}
+                            data={{ objectId: object.uid }}
                             onClick={handleClickDeleteObject}
                           >
                             削除
@@ -604,7 +606,7 @@ const SortableLayerList = SortableContainer(
       `}
     >
       {layers.map((layer, idx) => (
-        <SortableLayerItem key={layer.id} index={idx} layer={layer} />
+        <SortableLayerItem key={layer.uid} index={idx} layer={layer} />
       ))}
     </div>
   )

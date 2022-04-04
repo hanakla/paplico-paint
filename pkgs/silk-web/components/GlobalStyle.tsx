@@ -22,9 +22,10 @@ export const GlobalStyle = createGlobalStyle<{ isNarrow: boolean }>`
     height: 100%;
     font-size: ${({ isNarrow }) => (isNarrow ? '14px' : '12px')};
     line-height: ${({ isNarrow }) => (isNarrow ? '16px' : '14px')};
-    overflow: hidden;
+    /* overflow: hidden; */
     font-family: -apple-system, Roboto, Ubuntu, Cantarell, 'Noto Sans', 'Hiragino Kaku Gothic ProN', Meiryo, sans-serif;
     line-height: 1.2;
+    touch-action: none;
   }
 
   *:not(input) {

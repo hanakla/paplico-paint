@@ -7,7 +7,7 @@ import { FillSetting } from '../Value/FillSetting'
 import { assign, deepClone } from '../utils'
 
 export class VectorObject implements IEntity {
-  public readonly id: string = `vectorobj-${v4()}`
+  public readonly uid: string = `vectorobj-${v4()}`
 
   public x: number = 0
   public y: number = 0
@@ -49,7 +49,7 @@ export class VectorObject implements IEntity {
 
   public static deserialize(obj: any) {
     return assign(new VectorObject(), {
-      id: obj.id,
+      uid: obj.uid,
       x: obj.x,
       y: obj.y,
       path: Path.deserialize(obj.path),
@@ -61,7 +61,7 @@ export class VectorObject implements IEntity {
 
   public serialize() {
     return {
-      id: this.id,
+      uid: this.uid,
       x: this.x,
       y: this.y,
       path: this.path.serialize(),

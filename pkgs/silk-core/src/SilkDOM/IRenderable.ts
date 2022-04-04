@@ -6,7 +6,8 @@ export type LayerEvents<T extends ILayer> = {
   updated: T
 }
 
-export interface ILayer extends Emitter<LayerEvents<any>> {
+export type LayerProperties = {
+  uid: string
   layerType: 'raster' | 'vector' | 'filter' | 'group' | 'text'
   name: string
   visible: boolean
@@ -19,7 +20,9 @@ export interface ILayer extends Emitter<LayerEvents<any>> {
   height: number
   x: number
   y: number
+}
 
+export interface ILayer extends Emitter<LayerEvents<any>>, LayerProperties {
   update(proc: (layer: this) => void): void
 
   serialize(): any

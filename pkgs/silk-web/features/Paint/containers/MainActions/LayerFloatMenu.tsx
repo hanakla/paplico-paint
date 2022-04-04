@@ -53,14 +53,14 @@ export const LayerFloatMenu = () => {
   const [addLayerSheetOpened, toggleAddLayerSheetOpened] = useToggle(false)
 
   const handleChangeCompositeMode = useFunk((mode: string) => {
-    executeOperation(editorOps.updateLayer, activeLayer?.id, (layer) => {
+    executeOperation(editorOps.updateLayer, activeLayer?.uid, (layer) => {
       layer.compositeMode = mode as any
     })
   })
 
   const handleChangeOpacity = useFunk(
     ({ currentTarget }: ChangeEvent<HTMLInputElement>) => {
-      executeOperation(editorOps.updateLayer, activeLayer?.id, (layer) => {
+      executeOperation(editorOps.updateLayer, activeLayer?.uid, (layer) => {
         layer.opacity = currentTarget.valueAsNumber
       })
     }
@@ -101,14 +101,14 @@ export const LayerFloatMenu = () => {
       }
 
       executeOperation(editorOps.addLayer, layer, {
-        aboveLayerId: activeLayer?.id ?? null,
+        aboveLayerId: activeLayer?.uid ?? null,
       })
       toggleAddLayerSheetOpened(false)
     }
   )
 
   const handleClickRemoveLayer = useFunk(() => {
-    executeOperation(editorOps.deleteLayer, activeLayer?.id)
+    executeOperation(editorOps.deleteLayer, activeLayer?.uid)
   })
 
   const addLayerSheetRef = useRef<HTMLDivElement | null>(null)
@@ -117,8 +117,8 @@ export const LayerFloatMenu = () => {
   })
 
   useClickAway(addLayerSheetRef, (e) => {
-    if (isEventIgnoringTarget(e.target)) return
-    toggleAddLayerSheetOpened(false)
+    // Reduce rerendering
+    if (addLayerSheetOpened) toggleAddLayerSheetOpened(false)
   })
 
   return (
@@ -342,7 +342,7 @@ const SortableLayerList = SortableContainer(
         }}
       >
         {layers.map((layer, idx) => (
-          <SortableLayerItem key={layer.id} index={idx} layer={layer} />
+          <SortableLayerItem key={layer.uid} index={idx} layer={layer} />
         ))}
       </div>
     )
@@ -364,11 +364,11 @@ const SortableLayerItem = SortableElement(
 
     const handleClick = useFunk((e: MouseEvent<HTMLDivElement>) => {
       if (DOMUtils.closestOrSelf(e.target, '[data-ignore-click]')) return
-      executeOperation(editorOps.setActiveLayer, layer.id)
+      executeOperation(editorOps.setActiveLayer, layer.uid)
     })
 
     const handleClickToggleVisible = useFunk((e: MouseEvent) => {
-      executeOperation(editorOps.updateLayer, layer.id, (layer) => {
+      executeOperation(editorOps.updateLayer, layer.uid, (layer) => {
         layer.visible = !layer.visible
       })
     })
@@ -383,8 +383,8 @@ const SortableLayerItem = SortableElement(
     })
 
     useClickAway(actionSheetRef, (e) => {
-      if (isEventIgnoringTarget(e.target)) return
-      setActionSheetOpen(false)
+      // Reduce rerendering
+      if (actionSheetOpened) setActionSheetOpen(false)
     })
 
     return (
@@ -430,11 +430,11 @@ const SortableLayerItem = SortableElement(
           `}
           style={{
             border:
-              activeLayer?.id === layer.id
+              activeLayer?.uid === layer.uid
                 ? `2px solid ${theme.colors.blueFade40}`
                 : '2px solid transparent',
           }}
-          src={thumbnailUrlOfLayer(layer.id)}
+          src={thumbnailUrlOfLayer(layer.uid)}
         />
         <div
           css={`
@@ -585,7 +585,7 @@ const SortableFiltersList = SortableContainer(
       <ul className={className}>
         {layer.filters.map((filter, idx) => (
           <SortableFilterItem
-            key={filter.id}
+            key={filter.uid}
             index={idx}
             layer={layer}
             filter={filter}
@@ -610,13 +610,13 @@ const SortableFilterItem = SortableElement(
     const { selectedFilterIds } = useStore((get) => ({
       selectedFilterIds: get(EditorStore).state.selectedFilterIds,
     }))
-    const active = selectedFilterIds[filter.id]
+    const active = selectedFilterIds[filter.uid]
 
     const handleClick = useFunk(
       (e: MouseEvent<HTMLDivElement>) => {
         if (DOMUtils.closestOrSelf(e.target, '[data-ignore-click]')) return
 
-        executeOperation(editorOps.setSelectedFilterIds, { [filter.id]: true })
+        executeOperation(editorOps.setSelectedFilterIds, { [filter.uid]: true })
       },
       [filter]
     )
@@ -624,8 +624,8 @@ const SortableFilterItem = SortableElement(
     const handleToggleVisibility = useFunk(() => {
       if (!activeLayer) return
 
-      executeOperation(editorOps.updateLayer, layer.id, (layer) => {
-        const targetFilter = layer.filters.find((f) => f.id === filter.id)
+      executeOperation(editorOps.updateLayer, layer.uid, (layer) => {
+        const targetFilter = layer.filters.find((f) => f.id === filter.uid)
         if (!targetFilter) return
 
         targetFilter.visible = !targetFilter.visible

@@ -41,9 +41,9 @@ export function MainActions() {
   }))
 
   const [color, setColor] = useState({ r: 0, g: 0, b: 0 })
-  const [openPicker, togglePicker] = useToggle(false)
-  const [openBrush, toggleBrush] = useToggle(false)
-  const [openLayers, toggleLayers] = useToggle(false)
+  const [pickerOpened, togglePicker] = useToggle(false)
+  const [brushOpened, toggleBrush] = useToggle(false)
+  const [layersOpened, toggleLayers] = useToggle(false)
   const [vectorColorOpened, toggleVectorColorOpened] = useToggle(false)
   const [vectorColorTarget, setVectorColorTarget] = useState<'fill' | 'stroke'>(
     'fill'
@@ -58,7 +58,7 @@ export function MainActions() {
 
   const handleChangeCompleteColor: ColorChangeHandler = useFunk((color) => {
     setColor(color.rgb)
-    executeOperation(editorOps.setBrushSetting, { color })
+    executeOperation(editorOps.setBrushSetting, { color: color.rgb })
   })
 
   const handleChangeToCursorMode = useFunk(() => {
@@ -82,10 +82,8 @@ export function MainActions() {
     executeOperation(editorOps.setTool, 'erase')
   })
 
-  const handleChangeBrush = useFunk((id: keyof typeof SilkBrushes) => {
-    // if (!engine) return
-    // engine.setBrush(SilkBrushes[id])
-    // rerender()
+  const handleChangeBrush = useFunk((id: string) => {
+    executeOperation(editorOps.setBrush, id)
   })
 
   const handleClickColor = useFunk((e: MouseEvent<HTMLDivElement>) => {
@@ -136,23 +134,21 @@ export function MainActions() {
   // })
 
   useClickAway(colorPickerPopRef, (e) => {
-    if (isEventIgnoringTarget(e.target)) return
-    togglePicker(false)
+    if (DOMUtils.childrenOrSelf(e.target, colorPickerPopRef.current)) return
+    if (pickerOpened) togglePicker(false)
   })
   useClickAway(vectorColorPickerPopRef, (e) => {
-    if (isEventIgnoringTarget(e.target)) return
-    toggleVectorColorOpened(false)
+    if (DOMUtils.childrenOrSelf(e.target, vectorColorPickerPopRef.current))
+      return
+    if (vectorColorOpened) toggleVectorColorOpened(false)
   })
   useClickAway(brushPopRef, (e) => {
-    if (isEventIgnoringTarget(e.target)) return
     if (DOMUtils.childrenOrSelf(e.target, brushRef.current)) return
-    toggleBrush(false)
+    if (brushOpened) toggleBrush(false)
   })
   useClickAway(layerPopRef, (e) => {
-    if (isEventIgnoringTarget(e.target)) return
     if (DOMUtils.childrenOrSelf(e.target, layerRef.current)) return
-
-    toggleLayers(false)
+    if (layersOpened) toggleLayers(false)
   })
   // useClickAway(vectorColorPickerPopRef, () => toggleVectorColorOpened(false))
 
@@ -298,7 +294,7 @@ export function MainActions() {
             <div
               ref={colorPickerPopRef}
               style={{
-                ...(openPicker
+                ...(pickerOpened
                   ? { opacity: 1, pointerEvents: 'all' }
                   : { opacity: 0, pointerEvents: 'none' }),
               }}
@@ -504,7 +500,7 @@ export function MainActions() {
             data-todo-brush-selector
             style={{
               ...brushPopper.styles.popper,
-              ...(openBrush
+              ...(brushOpened
                 ? { opacity: 1, pointerEvents: 'all' }
                 : { opacity: 0, pointerEvents: 'none' }),
             }}
@@ -513,6 +509,11 @@ export function MainActions() {
               <BrushItem
                 name="普通筆"
                 id="Brush"
+                onSelect={handleChangeBrush}
+              />
+              <BrushItem
+                name="スキャッター"
+                id="ScatterBrush"
                 onSelect={handleChangeBrush}
               />
               <BrushItem
@@ -535,14 +536,14 @@ export function MainActions() {
           transition: background-color 0.2s ease-in-out;
         `}
         style={{
-          backgroundColor: openLayers
+          backgroundColor: layersOpened
             ? theme.surface.brushViewActive
             : 'transparent',
         }}
         onClick={handleClickLayerIcon}
       >
         <>
-          {openLayers ? (
+          {layersOpened ? (
             <Close css="width: 26px;" />
           ) : (
             <Stack css="width: 26px;" />
@@ -556,7 +557,7 @@ export function MainActions() {
           `}
           style={{
             ...layerPopper.styles.popper,
-            ...(openLayers
+            ...(layersOpened
               ? { opacity: 1, pointerEvents: 'all' }
               : { opacity: 0, pointerEvents: 'none' }),
           }}
@@ -585,8 +586,8 @@ const BrushItem = ({
   }))
 
   const handleClick = useFunk(() => {
-    onSelect(id)
-  }, [onSelect])
+    onSelect(SilkBrushes[id].id)
+  })
 
   return (
     <li

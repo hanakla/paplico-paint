@@ -1,8 +1,8 @@
-import { assign, deepClone } from '../utils'
 import { v4 } from 'uuid'
+import { assign, deepClone } from '../utils'
 
 export class Filter {
-  public id: string = `filter-${v4()}`
+  public uid: string = `filter-${v4()}`
   public filterId: string = ''
 
   public visible: boolean = true
@@ -22,7 +22,7 @@ export class Filter {
 
   public static deserialize(obj: any) {
     return assign(new Filter(), {
-      id: obj.id,
+      uid: obj.uid,
       filterId: obj.filterId,
       settings: obj.setttings,
     })
@@ -30,6 +30,7 @@ export class Filter {
 
   public serialize() {
     return {
+      uid: this.uid,
       filterId: this.filterId,
       setttings: deepClone(this.settings),
     }

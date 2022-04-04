@@ -1,15 +1,14 @@
 import { rgba } from 'polished'
 import { forwardRef, ReactNode } from 'react'
-import { CSSProperties } from 'styled-components'
 
 type Props = {
-  style: CSSProperties
   className?: string
   children?: ReactNode
+  // arrowRef?: Ref<HTMLDivElement>
 }
 
 export const Tooltip = forwardRef<HTMLDivElement, Props>(
-  ({ children, className, style }, ref) => {
+  ({ children, className, arrowRef }, ref) => {
     return (
       <div
         ref={ref}
@@ -20,9 +19,11 @@ export const Tooltip = forwardRef<HTMLDivElement, Props>(
           text-align: center;
           color: #fff;
         `}
-        style={style}
+        className={className}
+        role="tooltip"
       >
         {children}
+        <div ref={arrowRef} />
       </div>
     )
   }

@@ -46,7 +46,7 @@ export const ContextMenuArea = ({
   )
 
   useEffect(() => {
-    const handler = (e: MouseEvent) => {
+    const handler = (e: globalThis.MouseEvent) => {
       e.preventDefault()
       e.stopPropagation()
 
@@ -120,13 +120,10 @@ export const ContextMenuItem = ({
 }) => {
   const { close } = useContext(ContextMenuContext)!
 
-  const handleClick = useFunk(
-    (e: MouseEvent<HTMLDivElement>) => {
-      onClick?.(e, data)
-      close()
-    },
-    [data]
-  )
+  const handleClick = useFunk((e: MouseEvent<HTMLDivElement>) => {
+    onClick?.(e, data)
+    close()
+  })
 
   return (
     <div

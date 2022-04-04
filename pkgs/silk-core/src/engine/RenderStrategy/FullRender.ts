@@ -24,14 +24,14 @@ export class FullRender implements IRenderStrategy {
 
     const layerBitmaps = await Promise.all(
       [...document.layers].map(async (layer) => {
-        if (!layer.visible) return [layer.id, layer, null] as const
+        if (!layer.visible) return [layer.uid, layer, null] as const
 
         switch (layer.layerType) {
           case 'vector': {
             const bitmap = await engine.renderVectorLayer(document, layer)
 
             return [
-              layer.id,
+              layer.uid,
               layer,
               new ImageData(bitmap, document.width, document.height),
             ] as const
@@ -39,21 +39,21 @@ export class FullRender implements IRenderStrategy {
           case 'raster': {
             // if (
             //   this.canvasHandler.stroking &&
-            //   layer.id === this._activeLayer?.id
+            //   layer.uid === this._activeLayer?.id
             // )
-            //   return [layer.id, layer, null] as const
+            //   return [layer.uid, layer, null] as const
 
             return [
-              layer.id,
+              layer.uid,
               layer,
               new ImageData(layer.bitmap, layer.width, layer.height),
             ] as const
           }
           case 'filter': {
-            return [layer.id, layer, null] as const
+            return [layer.uid, layer, null] as const
           }
           case 'text': {
-            return [layer.id, layer, null] as const
+            return [layer.uid, layer, null] as const
           }
         }
       })
@@ -70,7 +70,7 @@ export class FullRender implements IRenderStrategy {
         if (image == null) {
           // if (
           //   this.canvasHandler.stroking &&
-          //   layer.id === this._activeLayer?.id
+          //   layer.uid === this._activeLayer?.id
           // ) {
           //   destCtx.globalCompositeOperation = layer.compositeMode
           //   destCtx.globalAlpha = Math.max(0, Math.min(layer.opacity / 100, 1))

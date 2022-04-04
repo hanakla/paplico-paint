@@ -2,7 +2,7 @@ import * as THREE from 'three'
 import mitt, { Emitter } from 'mitt'
 import getBound from 'svg-path-bounds'
 
-import { Brush } from '../Brushes'
+import { Brush, ScatterBrush } from '../Brushes'
 import { Document, LayerTypes, VectorLayer } from '../SilkDOM'
 import { BloomFilter } from '../Filters/Bloom'
 import { ChromaticAberrationFilter } from '../Filters/ChromaticAberration'
@@ -19,6 +19,9 @@ import { Session } from './Engine3_Sessions'
 import { CompositeMode } from 'SilkDOM/IRenderable'
 import { FullRender } from './RenderStrategy/FullRender'
 import { createCanvas } from './Engine3_CanvasFactory'
+import { BrushSetting } from 'Value'
+import { IBrush } from './IBrush'
+import { IInk } from './Inks/IInk'
 
 type EngineEvents = {
   rerender: void
@@ -38,6 +41,7 @@ export class SilkEngine3 {
 
     await Promise.all([
       silk.toolRegistry.registerBrush(Brush),
+      silk.toolRegistry.registerBrush(ScatterBrush),
       silk.toolRegistry.registerFilter(BloomFilter),
       silk.toolRegistry.registerFilter(GaussBlurFilter),
       silk.toolRegistry.registerFilter(ChromaticAberrationFilter),
@@ -57,7 +61,10 @@ export class SilkEngine3 {
   // protected thumbnailCanvas: HTMLCanvasElement
   // protected thumbnailCtx: CanvasRenderingContext2D
   // protected gl: WebGLContext
-  protected atomicRender = new AtomicResource<any>({})
+  protected atomicRender = new AtomicResource({ __render: true })
+  protected atomicStrokeRender = new AtomicResource({
+    __strokeToken: true,
+  })
   protected atomicBufferCtx: AtomicResource<CanvasRenderingContext2D>
   // protected atomicRerender: AtomicResource<any>
 
@@ -85,10 +92,11 @@ export class SilkEngine3 {
   // protected vectorBitmapCache = new WeakMap<VectorLayer, any>()
   // protected vectorLayerLastRenderTimes = new WeakMap<VectorLayer, number>()
 
-  public gl: WebGLContext
-  public renderer: THREE.WebGLRenderer
-  public camera: THREE.OrthographicCamera
-  public scene: THREE.Scene
+  private gl: WebGLContext
+  protected atomicThreeRenderer: AtomicResource<THREE.WebGLRenderer>
+  // private renderer: THREE.WebGLRenderer
+  private camera: THREE.OrthographicCamera
+  // private scene: THREE.Scene
 
   protected sessions: Session[] = []
 
@@ -117,15 +125,20 @@ export class SilkEngine3 {
     this.gl = new WebGLContext(1, 1)
     this.toolRegistry = new ToolRegistry(this)
 
-    // this.renderer = new THREE.WebGLRenderer({
-    //   alpha: true,
-    //   premultipliedAlpha: true,
-    //   antialias: true,
-    //   preserveDrawingBuffer: true,
-    // })
+    const renderer = new THREE.WebGLRenderer({
+      alpha: true,
+      premultipliedAlpha: true,
+      antialias: true,
+      preserveDrawingBuffer: true,
+    })
+    renderer.setClearColor(0x000000, 0)
 
-    // this.camera = new THREE.OrthographicCamera(0, 100, 0, 100, 0.001, 10000)
+    this.atomicThreeRenderer = new AtomicResource(renderer)
+
+    this.camera = new THREE.OrthographicCamera(0, 0, 0, 0, 0, 1000)
     // this.scene = new THREE.Scene()
+
+    document.body.appendChild(renderer.domElement)
   }
 
   public createSession(document: Document) {
@@ -151,6 +164,7 @@ export class SilkEngine3 {
 
   public async render(document: Document, strategy: IRenderStrategy) {
     const lock = await this.atomicRender.enjure()
+    const renderer = await this.atomicThreeRenderer.enjure()
 
     try {
       assign(this.canvasCtx.canvas, {
@@ -158,19 +172,21 @@ export class SilkEngine3 {
         height: document.height,
       })
 
-      // this.renderer.setSize(document.width, document.height)
-      // this.renderer.setClearAlpha(1)
+      renderer.setSize(document.width, document.height)
+      renderer.setClearColor(0x000000, 0)
+      renderer.clear()
 
-      // this.camera.left = -document.width / 2.0
-      // this.camera.right = document.width / 2.0
-      // this.camera.top = document.height / 2.0
-      // this.camera.bottom = -document.height / 2.0
-      // this.camera.updateProjectionMatrix()
+      this.camera.left = -document.width / 2.0
+      this.camera.right = document.width / 2.0
+      this.camera.top = document.height / 2.0
+      this.camera.bottom = -document.height / 2.0
+      this.camera.updateProjectionMatrix()
 
       await strategy.render(this, document, this.canvasCtx)
 
       this.mitt.emit('rerender')
     } finally {
+      this.atomicThreeRenderer.release(renderer)
       this.atomicRender.release(lock)
     }
   }
@@ -210,21 +226,38 @@ export class SilkEngine3 {
   }
 
   public async renderStroke(
-    session: Session,
+    brush: IBrush,
+    brushSetting: BrushSetting,
+    ink: IInk,
     stroke: Stroke,
     destCtx: CanvasRenderingContext2D
   ) {
-    const lock = await this.atomicRender.enjure()
+    const lock = await this.atomicStrokeRender.enjure()
+    const renderer = await this.atomicThreeRenderer.enjure()
+
+    renderer.setSize(destCtx.canvas.width, destCtx.canvas.height)
+    renderer.setClearColor(0x000000, 0)
+    renderer.clear()
+
+    this.camera.left = -destCtx.canvas.width / 2.0
+    this.camera.right = destCtx.canvas.width / 2.0
+    this.camera.top = destCtx.canvas.height / 2.0
+    this.camera.bottom = -destCtx.canvas.height / 2.0
+    this.camera.updateProjectionMatrix()
 
     try {
-      session.currentBursh.render({
-        brushSetting: session.brushSetting,
+      brush.render({
+        brushSetting: brushSetting,
         context: destCtx,
-        ink: session.currentInk,
+        threeRenderer: renderer,
+        threeCamera: this.camera,
+        ink: ink,
         stroke,
+        size: { width: destCtx.canvas.width, height: destCtx.canvas.height },
       })
     } finally {
-      this.atomicRender.release(lock)
+      this.atomicThreeRenderer.release(renderer)
+      this.atomicStrokeRender.release(lock)
     }
   }
 
@@ -316,12 +349,20 @@ export class SilkEngine3 {
 
         const stroke = Stroke.fromPath(object.path)
 
-        brush.render({
-          context: bufferCtx,
+        await this.renderStroke(
+          brush,
+          object.brush,
+          new PlainInk(),
           stroke,
-          ink: new PlainInk(),
-          brushSetting: object.brush,
-        })
+          bufferCtx
+        )
+
+        // brush.render({
+        //   context: bufferCtx,
+        //   stroke,
+        //   ink: new PlainInk(),
+        //   brushSetting: object.brush,
+        // })
       }
 
       bufferCtx.restore()

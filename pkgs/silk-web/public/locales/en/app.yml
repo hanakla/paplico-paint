@@ -10,6 +10,7 @@ export: Export
 untitled: Untitled
 
 exports:
+  autoSaved: File was autosaved!
   saved: File was saved!
   exported: Image was exported!
 

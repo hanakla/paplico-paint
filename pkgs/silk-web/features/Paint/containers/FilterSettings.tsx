@@ -32,7 +32,7 @@ const BloomSetting = ({ layer, filter }: Props) => {
   const { executeOperation } = useFleurContext()
 
   // const handleChange = useFunk(() => {
-  //   editorActions.updateFilter(layer.id, filter.id, (filter) => {})
+  //   editorActions.updateFilter(layer.id, filter.uid, (filter) => {})
   // }, [layer, filter])
 
   const handleChangeComplete = useFunk(() => {
@@ -52,15 +52,25 @@ const GaussBlur = ({ layer, filter }: Props) => {
   const { executeOperation } = useFleurContext()
 
   const handleChangeRadius = useFunk((value: number) => {
-    executeOperation(editorOps.updateFilter, layer.id, filter.id, (filter) => {
-      filter.settings.radius = value
-    })
+    executeOperation(
+      editorOps.updateFilter,
+      layer.uid,
+      filter.uid,
+      (filter) => {
+        filter.settings.radius = value
+      }
+    )
   }, [])
 
   const handleChangePower = useFunk((value: number) => {
-    executeOperation(editorOps.updateFilter, layer.id, filter.id, (filter) => {
-      filter.settings.power = value
-    })
+    executeOperation(
+      editorOps.updateFilter,
+      layer.uid,
+      filter.uid,
+      (filter) => {
+        filter.settings.power = value
+      }
+    )
   }, [])
 
   const handleChangeComplete = useFunk(() => {
@@ -112,15 +122,25 @@ const ChromaticAberration = ({ layer, filter }: Props) => {
   const { executeOperation } = useFleurContext()
 
   const handleChangeDistance = useFunk((value: number) => {
-    executeOperation(editorOps.updateFilter, layer.id, filter.id, (filter) => {
-      filter.settings.distance = value
-    })
+    executeOperation(
+      editorOps.updateFilter,
+      layer.uid,
+      filter.uid,
+      (filter) => {
+        filter.settings.distance = value
+      }
+    )
   }, [])
 
   const handleChangeAngleDeg = useFunk((value: number) => {
-    executeOperation(editorOps.updateFilter, layer.id, filter.id, (filter) => {
-      filter.settings.angleDeg = value
-    })
+    executeOperation(
+      editorOps.updateFilter,
+      layer.uid,
+      filter.uid,
+      (filter) => {
+        filter.settings.angleDeg = value
+      }
+    )
   }, [])
 
   const handleChangeComplete = useFunk(() => {

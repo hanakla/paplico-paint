@@ -1,3 +1,5 @@
+import { v4 } from 'uuid'
+
 import { LayerTypes } from './index'
 import { assign } from '../utils'
 import { RasterLayer } from './RasterLayer'
@@ -39,6 +41,7 @@ export class Document extends Emitter<DocumentEvents> {
     })
   }
 
+  public readonly uid: string = v4()
   public title: string = ''
   public width: number = 0
   public height: number = 0
@@ -55,7 +58,7 @@ export class Document extends Emitter<DocumentEvents> {
       return
     }
 
-    const index = this.layers.findIndex((layer) => layer.id == aboveLayerId)
+    const index = this.layers.findIndex((layer) => layer.uid == aboveLayerId)
 
     if (index === -1) {
       this.layers.push(layer)

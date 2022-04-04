@@ -11,7 +11,7 @@ type Events = {
 export class RasterLayer extends Emitter<Events> implements ILayer {
   public readonly layerType = 'raster'
 
-  public readonly id: string = `rasterlayer-${v4()}`
+  public readonly uid: string = `rasterlayer-${v4()}`
   public name: string = ''
   public visible: boolean = true
   public lock: boolean = false
@@ -54,7 +54,7 @@ export class RasterLayer extends Emitter<Events> implements ILayer {
 
   public static deserialize(obj: any) {
     const layer = assign(new RasterLayer(), {
-      id: obj.id,
+      uid: obj.uid,
       name: obj.name,
       visible: obj.visible,
       lock: obj.lock,
@@ -165,7 +165,7 @@ export class RasterLayer extends Emitter<Events> implements ILayer {
   public serialize() {
     return {
       layerType: this.layerType,
-      id: this.id,
+      uid: this.uid,
       name: this.name,
       visible: this.visible,
       lock: this.lock,

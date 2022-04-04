@@ -39,13 +39,13 @@ export class DifferenceRender implements IRenderStrategy {
         if (!layer.visible)
           return { layer, needsUpdate: false, image: null } as const
 
-        // if (!this.needsUpdateLayers.includes(layer.id))
+        // if (!this.needsUpdateLayers.includes(layer.uid))
         //   return { layer, image: null } as const
 
         // Needs rerender
         switch (layer.layerType) {
           case 'vector': {
-            let bitmap = this.needsUpdateLayerIds[layer.id]
+            let bitmap = this.needsUpdateLayerIds[layer.uid]
               ? null
               : this.bitmapCache.get(layer)
 
@@ -53,14 +53,14 @@ export class DifferenceRender implements IRenderStrategy {
 
             return {
               layer,
-              needsUpdate: !!this.needsUpdateLayerIds[layer.id],
+              needsUpdate: !!this.needsUpdateLayerIds[layer.uid],
               image: new ImageData(bitmap, document.width, document.height),
             } as const
           }
           case 'raster': {
             return {
               layer,
-              needsUpdate: !!this.needsUpdateLayerIds[layer.id],
+              needsUpdate: !!this.needsUpdateLayerIds[layer.uid],
               image: new ImageData(layer.bitmap, layer.width, layer.height),
             } as const
           }
@@ -115,7 +115,7 @@ export class DifferenceRender implements IRenderStrategy {
         // TODO: layer.{x,y} 対応
         bufferCtx.putImageData(image, 0, 0)
 
-        if (this.overrides?.layerId === layer.id) {
+        if (this.overrides?.layerId === layer.uid) {
           bufferCtx.drawImage(this.overrides.canvas, 0, 0)
         }
 

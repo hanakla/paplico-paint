@@ -23,11 +23,12 @@ import {
   RenderStrategies,
   Session,
   Silk3,
+  SilkBrushes,
   SilkEntity,
   SilkHelper,
   SilkSerializer,
 } from 'silk-core'
-import { createGlobalStyle, css } from 'styled-components'
+import { css } from 'styled-components'
 import useMeasure from 'use-measure'
 import { Moon, Sun } from '@styled-icons/remix-fill'
 import { Menu } from '@styled-icons/remix-line'
@@ -53,6 +54,7 @@ import { Button } from '🙌/components/Button'
 import { narrow } from '🙌/utils/responsive'
 import { isEventIgnoringTarget } from './helpers'
 import { Tooltip } from '🙌/components/Tooltip'
+import { NotifyOps, useNotifyConsumer } from '🙌/domains/Notify'
 
 export function PaintPage({}) {
   const { t } = useTranslation('app')
@@ -93,10 +95,7 @@ export function PaintPage({}) {
   const [sidebarOpened, sidebarToggle] = useToggle(!isNarrowMedia)
   const [scale, setScale] = useState(0.5)
   const [rotate, setRotate] = useState(0)
-  const [saveMessage, setSaveMessage] = useState<{
-    time: number
-    message: string
-  } | null>(null)
+  const [saveMessage] = useNotifyConsumer('save', 1)
   // const sidebarStyles = useSpring({
   //   width: isNarrowMedia === false || sidebarOpened ? 200 : 32,
   // })
@@ -104,7 +103,7 @@ export function PaintPage({}) {
   const handleOnDrop = useFunk(async (files: File[]) => {
     if (!currentDocument) return
 
-    let lastLayerId: string | null = activeLayer?.id ?? null
+    let lastLayerId: string | null = activeLayer?.uid ?? null
 
     for (const file of files) {
       const { image } = await loadImageFromBlob(file)
@@ -116,7 +115,7 @@ export function PaintPage({}) {
         })
       })
 
-      lastLayerId = layer.id
+      lastLayerId = layer.uid
     }
   })
 
@@ -165,7 +164,6 @@ export function PaintPage({}) {
       executeOperation(editorOps.setCurrentFileHandler, handler)
     }
 
-    setSaveMessage({ time: 3000, message: t('exports.saved') })
     setTimeout(() => URL.revokeObjectURL(url), 10000)
   })
 
@@ -193,7 +191,11 @@ export function PaintPage({}) {
         : `${currentDocument.title}.${type}`
     )
 
-    setSaveMessage({ time: 3000, message: t('exports.exported') })
+    executeOperation(NotifyOps.create, {
+      area: 'save',
+      timeout: 3000,
+      message: t('exports.exported'),
+    })
     setTimeout(() => URL.revokeObjectURL(url), 10000)
   })
 
@@ -274,6 +276,7 @@ export function PaintPage({}) {
       session,
       strategy,
     })
+    await executeOperation(editorOps.setBrush, SilkBrushes.ScatterBrush.id)
 
     canvasHandler.current = new CanvasHandler(canvasRef.current!)
     canvasHandler.current.connect(session, strategy, engine.current)
@@ -288,13 +291,9 @@ export function PaintPage({}) {
 
       const layer = SilkEntity.RasterLayer.create({ width: 1000, height: 1000 })
       const vector = SilkEntity.VectorLayer.create({
-        width: 1000,
-        height: 1000,
+        visible: false,
       })
-      const text = SilkEntity.TextLayer.create({
-        width: 1000,
-        height: 1000,
-      })
+      const text = SilkEntity.TextLayer.create({})
       const filter = SilkEntity.FilterLayer.create({})
 
       vector.filters.push(
@@ -317,7 +316,7 @@ export function PaintPage({}) {
       document.layers.push(text)
       document.layers.push(filter)
 
-      await executeOperation(editorOps.setActiveLayer, vector.id)
+      await executeOperation(editorOps.setActiveLayer, layer.uid)
 
       await executeOperation(editorOps.setFill, {
         type: 'linear-gradient',
@@ -366,17 +365,27 @@ export function PaintPage({}) {
   }, [scale])
 
   useEffect(() => {
-    if (saveMessage == null) return
+    if (!currentDocument) return
 
-    setTimeout(() => {
-      setSaveMessage(null)
-    }, saveMessage.time)
-  }, [saveMessage])
+    const autoSave = () => {
+      executeOperation(editorOps.autoSave, currentDocument!.uid)
+      executeOperation(NotifyOps.create, {
+        area: 'save',
+        message: t('exports.autoSaved'),
+        timeout: 3000,
+      })
+    }
+
+    const id = window.setInterval(autoSave, 10000)
+    autoSave()
+
+    return () => window.clearInterval(id)
+  }, [currentDocument?.uid])
+
+  console.log({ scale })
 
   return (
     <EngineContextProvider value={engine.current!}>
-      <TouchActionStyle />
-
       <div
         ref={rootRef}
         css={css`
@@ -670,8 +679,7 @@ export function PaintPage({}) {
                     `}
                     ref={saveFloat.reference}
                   >
-                    <Tooltip
-                      ref={saveFloat.floating}
+                    <span
                       style={{
                         position: saveFloat.strategy,
                         top: saveFloat.y?.toString() ?? '',
@@ -688,8 +696,10 @@ export function PaintPage({}) {
                           : {}),
                       }}
                     >
-                      {saveMessage?.message}
-                    </Tooltip>
+                      <Tooltip ref={saveFloat.floating}>
+                        {saveMessage?.message}
+                      </Tooltip>
+                    </span>
                     <Button
                       css={`
                         position: relative;
@@ -737,7 +747,3 @@ export function PaintPage({}) {
     </EngineContextProvider>
   )
 }
-
-const TouchActionStyle = createGlobalStyle`
-  html, body { touch-action: none; }
-`

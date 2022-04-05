@@ -4,7 +4,7 @@ import { debounce } from 'debounce'
 import {
   Session,
   Silk3,
-  SilkEntity,
+  SilkDOM,
   SilkValue,
   RenderStrategies,
   IRenderStrategy,
@@ -14,10 +14,8 @@ import {
 import { BrushSetting } from '🙌/../silk-core/dist/Value'
 import { connectIdb } from '🙌/infra/indexeddb'
 import { LocalStorage } from '🙌/infra/LocalStorage'
-import { assign } from '../utils/assign'
 import { deepClone } from '../utils/clone'
 import { log, trace, warn } from '../utils/log'
-import { NotifyOps } from './Notify'
 
 type EditorMode = 'pc' | 'sp' | 'tablet'
 type EditorPage = 'home' | 'app'
@@ -39,7 +37,7 @@ interface State {
   editorMode: EditorMode
   editorPage: EditorPage
   renderSetting: Silk3.RenderSetting
-  currentDocument: SilkEntity.Document | null
+  currentDocument: SilkDOM.Document | null
   currentTool: Tool
   currentFill: SilkValue.FillSetting | null
   currentStroke: SilkValue.BrushSetting | null
@@ -49,7 +47,7 @@ interface State {
   selectedFilterIds: { [id: string]: true | undefined }
   vectorStroking: VectorStroking | null
   vectorFocusing: { objectId: string } | null
-  clipboard: SilkEntity.VectorObject | null
+  clipboard: SilkDOM.VectorObject | null
   currentTheme: 'dark' | 'light'
 }
 
@@ -121,7 +119,7 @@ export const [EditorStore, editorOps] = minOps('Editor', {
         if (!currentDocument || !renderStrategy) return
 
         engine.render(
-          currentDocument as unknown as SilkEntity.Document,
+          currentDocument as unknown as SilkDOM.Document,
           renderStrategy
         )
       })
@@ -139,7 +137,7 @@ export const [EditorStore, editorOps] = minOps('Editor', {
         d.currentTheme = LocalStorage.get('theme', 'light')
       })
     },
-    async setDocument(x, document: SilkEntity.Document | null) {
+    async setDocument(x, document: SilkDOM.Document | null) {
       document?.on('layersChanged', () => {
         x.commit({})
       })
@@ -184,8 +182,9 @@ export const [EditorStore, editorOps] = minOps('Editor', {
       )
         return
 
+      debugger
       x.state.engine.render(
-        x.state.currentDocument as unknown as SilkEntity.Document,
+        x.state.currentDocument as unknown as SilkDOM.Document,
         x.state.renderStrategy
       )
     },
@@ -200,9 +199,8 @@ export const [EditorStore, editorOps] = minOps('Editor', {
 
       const bin = new Blob(
         [
-          SilkSerializer.exportDocument(
-            document as unknown as SilkEntity.Document
-          ).buffer,
+          SilkSerializer.exportDocument(document as unknown as SilkDOM.Document)
+            .buffer,
         ],
         {
           type: 'application/octet-binary',
@@ -291,19 +289,19 @@ export const [EditorStore, editorOps] = minOps('Editor', {
     // #region Document controls
     updateDocument: (
       x,
-      proc: (document: SilkEntity.Document) => void,
+      proc: (document: SilkDOM.Document) => void,
       { skipRerender = false }: { skipRerender?: boolean } = {}
     ) => {
       if (!x.state.currentDocument) return
 
-      x.commit((draft) => proc(draft.currentDocument as SilkEntity.Document))
+      x.commit((draft) => proc(draft.currentDocument as SilkDOM.Document))
 
       !skipRerender && x.executeOperation(editorOps.rerenderCanvas)
     },
     updateLayer: (
       x,
       layerId: string | null | undefined,
-      proc: (layer: SilkEntity.LayerTypes) => void,
+      proc: (layer: SilkDOM.LayerTypes) => void,
       { skipRerender = false }: { skipRerender?: boolean } = {}
     ) => {
       layerId && x.state.renderStrategy!.markUpdatedLayerId(layerId)
@@ -318,14 +316,14 @@ export const [EditorStore, editorOps] = minOps('Editor', {
     updateRasterLayer: (
       x,
       layerId: string | null | undefined,
-      proc: (layer: SilkEntity.RasterLayer) => void,
+      proc: (layer: SilkDOM.RasterLayer) => void,
       { skipRerender = false }: { skipRerender?: boolean } = {}
     ) => {
       if (!x.state.currentDocument) return
 
       x.commit((d) => {
         const layer = findLayer(
-          x.state.currentDocument as unknown as SilkEntity.Document,
+          x.state.currentDocument as unknown as SilkDOM.Document,
           layerId
         )
         if (layer?.layerType !== 'raster') return
@@ -339,7 +337,7 @@ export const [EditorStore, editorOps] = minOps('Editor', {
     updateVectorLayer: (
       x,
       layerId: string | null | undefined,
-      proc: (layer: SilkEntity.VectorLayer) => void,
+      proc: (layer: SilkDOM.VectorLayer) => void,
       { skipRerender = false }: { skipRerender?: boolean } = {}
     ) => {
       x.commit((d) => {
@@ -357,7 +355,7 @@ export const [EditorStore, editorOps] = minOps('Editor', {
       x,
       layerId: string | null,
       filterId: string | null,
-      proc: (filter: SilkEntity.Filter) => void,
+      proc: (filter: SilkDOM.Filter) => void,
       { skipRerender = false }: { skipRerender?: boolean } = {}
     ) => {
       x.commit((d) => {
@@ -376,7 +374,7 @@ export const [EditorStore, editorOps] = minOps('Editor', {
     },
     updateActiveObject: (
       x,
-      proc: (object: SilkEntity.VectorObject) => void,
+      proc: (object: SilkDOM.VectorObject) => void,
       { skipRerender = false }: { skipRerender?: boolean } = {}
     ) => {
       x.commit((d) => {
@@ -390,14 +388,14 @@ export const [EditorStore, editorOps] = minOps('Editor', {
           (obj) => obj.uid === d.activeObjectId
         )
 
-        if (object) proc(object as SilkEntity.VectorObject)
+        if (object) proc(object as SilkDOM.VectorObject)
       })
 
       !skipRerender && x.executeOperation(editorOps.rerenderCanvas)
     },
     addLayer: (
       x,
-      newLayer: SilkEntity.LayerTypes,
+      newLayer: SilkDOM.LayerTypes,
       { aboveLayerId }: { aboveLayerId?: string | null }
     ) => {
       x.commit((d) => {
@@ -417,9 +415,9 @@ export const [EditorStore, editorOps] = minOps('Editor', {
     },
     addPoint: (
       x,
-      objectOrId: SilkEntity.VectorObject | string,
+      objectOrId: SilkDOM.VectorObject | string,
       segmentIndex: number,
-      point: SilkEntity.Path.PathPoint
+      point: SilkDOM.Path.PathPoint
     ) => {
       x.commit((d) => {
         if (!d.engine || d.session?.activeLayer?.layerType !== 'vector') return
@@ -481,7 +479,7 @@ export const [EditorStore, editorOps] = minOps('Editor', {
         const obj = layer.objects.find((obj) => obj.uid === d.activeObjectId)
         if (!obj) return
 
-        const points: Array<SilkEntity.Path.PathPoint | null> = [
+        const points: Array<SilkDOM.Path.PathPoint | null> = [
           ...obj.path.points,
         ]
 
@@ -490,7 +488,7 @@ export const [EditorStore, editorOps] = minOps('Editor', {
         })
 
         obj.path.points = points.filter(
-          (v): v is SilkEntity.Path.PathPoint => v != null
+          (v): v is SilkDOM.Path.PathPoint => v != null
         )
 
         d.activeObjectPointIndices = []
@@ -556,7 +554,7 @@ export const EditorSelector = {
   currentSession: selector((get) => get(EditorStore).session),
   currentDocument: selector((get) => get(EditorStore).session?.document),
   activeLayer: selector((get) => get(EditorStore).session?.activeLayer),
-  activeObject: selector((get): SilkEntity.VectorObject | null => {
+  activeObject: selector((get): SilkDOM.VectorObject | null => {
     const { session, activeObjectId } = get(EditorStore)
 
     if (session?.activeLayer?.layerType !== 'vector') return null
@@ -580,7 +578,7 @@ export const EditorSelector = {
 }
 
 const findLayer = (
-  document: SilkEntity.Document | null | undefined,
+  document: SilkDOM.Document | null | undefined,
   layerId: string | null | undefined
 ) => {
   if (document == null || layerId === null) return
@@ -590,7 +588,7 @@ const findLayer = (
 }
 
 const findLayerIndex = (
-  document: SilkEntity.Document | null | undefined,
+  document: SilkDOM.Document | null | undefined,
   layerId: string | null | undefined
 ) => {
   if (document == null || layerId === null) return -1

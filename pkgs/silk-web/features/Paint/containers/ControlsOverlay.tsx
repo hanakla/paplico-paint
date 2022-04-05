@@ -4,7 +4,7 @@ import { useClickAway, useToggle } from 'react-use'
 import { useDrag, useHover } from 'react-use-gesture'
 import { createEditor, Descendant } from 'slate'
 import { Slate, Editable, withReact } from 'slate-react'
-import { SilkEntity } from 'silk-core'
+import { SilkDOM } from 'silk-core'
 import { deepClone } from '🙌/utils/clone'
 import { assign } from '🙌/utils/assign'
 import { useMouseTrap } from '🙌/hooks/useMouseTrap'
@@ -228,10 +228,10 @@ const VectorLayerControl = ({ scale }: { scale: number }) => {
         let nextObjectId: string = ''
         if (vectorStroking == null) {
           // When click clear space, add new VectorObject
-          const object = SilkEntity.VectorObject.create({
+          const object = SilkDOM.VectorObject.create({
             x: 0,
             y: 0,
-            path: SilkEntity.Path.create({
+            path: SilkDOM.Path.create({
               points: [newPoint],
               closed: false,
             }),
@@ -471,7 +471,7 @@ const GradientControl = ({
   object,
   scale,
 }: {
-  object: SilkEntity.VectorObject
+  object: SilkDOM.VectorObject
   scale: number
 }) => {
   const zoom = 1 / scale
@@ -530,7 +530,7 @@ const PathSegments = ({
   onDoubleClickPath,
   onHoverStateChange,
 }: {
-  objects: SilkEntity.VectorObject[]
+  objects: SilkDOM.VectorObject[]
   scale: number
   isHoverOnPath: boolean
   hoverObjectId: string | null
@@ -955,7 +955,7 @@ const PathSegments = ({
       ))}
       {segments.map(({ point, object }) => (
         <g
-          key={`point-${object.id}]`}
+          key={`point-${object.uid}]`}
           style={{ transform: `translate(${object.x}px, ${object.y}px)` }}
         >
           {point}
@@ -980,10 +980,10 @@ const PathSegments = ({
 //   onDoubleClick,
 //   onHoverStateChange,
 // }: {
-//   object: SilkEntity.VectorObject
-//   path: SilkEntity.Path
-//   prevPoint: SilkEntity.Path.PathPoint | undefined
-//   point: SilkEntity.Path.PathPoint
+//   object: SilkDOM.VectorObject
+//   path: SilkDOM.Path
+//   prevPoint: SilkDOM.Path.PathPoint | undefined
+//   point: SilkDOM.Path.PathPoint
 //   pointIndex: number
 //   isActive: boolean
 //   isFirstSegment: boolean
@@ -1240,9 +1240,7 @@ const TextLayerControl = ({}) => {
   )
 }
 
-function assertVectorLayer(
-  layer: any
-): asserts layer is SilkEntity.VectorLayer {
+function assertVectorLayer(layer: any): asserts layer is SilkDOM.VectorLayer {
   if (layer?.layerType !== 'vector')
     throw new Error('Expect VectorLayer but RasterLayer given')
 }

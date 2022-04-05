@@ -9,9 +9,6 @@ export { CanvasHandler } from './engine/Engine3_CanvasHandler'
 
 export * as SilkBrushes from './Brushes/index'
 export * as SilkCanvasFactory from './engine/Engine3_CanvasFactory'
-
-/** @deprecated */
-export * as SilkEntity from './SilkDOM/index'
 export * as SilkDOM from './SilkDOM/index'
 
 export * as SilkHelper from './SilkHelpers'

@@ -18,13 +18,22 @@ class Rejected<T> extends Promise<T> {
 export class AtomicResource<T> {
   private que: DeferredPromise<T>[] = []
   private locked: boolean = false
+  private currentOwner: { stack: string; owner: any } | null = null
 
   constructor(private resource: T) {}
 
-  public enjure(): Promise<T> {
+  public enjure({ owner }: { owner?: any } = {}): Promise<T> {
     if (this.locked) {
       const defer = deferred<T>()
+      defer.promise.then(() => (this.currentOwner = owner))
+
       this.que.push(defer)
+
+      console.warn(
+        'AtomicResource: Enjure enqueued in locked resource, it may cause deadlock.',
+        { resource: this.resource },
+        { request: owner, current: this.currentOwner }
+      )
       return defer.promise
     }
 
@@ -32,6 +41,7 @@ export class AtomicResource<T> {
     // console.groupCollapsed('enjure', this.resource)
     // console.trace()
     // console.groupEnd()
+    this.currentOwner = { owner, stack: new Error().stack! }
     return Promise.resolve(this.resource)
   }
 

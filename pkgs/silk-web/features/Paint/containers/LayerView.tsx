@@ -1,5 +1,5 @@
 import { ChangeEvent, MouseEvent, useEffect, useRef } from 'react'
-import { SilkEntity, SilkHelper } from 'silk-core'
+import { SilkDOM, SilkHelper } from 'silk-core'
 import { useClickAway, useToggle, useUpdate } from 'react-use'
 import { loadImageFromBlob, selectFile, useFunk } from '@hanakla/arma'
 import { rgba } from 'polished'
@@ -73,18 +73,18 @@ export function LayerView() {
       const lastLayerId = activeLayer?.uid
       const { width, height } = currentDocument
 
-      let layer: SilkEntity.LayerTypes
+      let layer: SilkDOM.LayerTypes
       switch (layerType) {
         case 'raster': {
-          layer = SilkEntity.RasterLayer.create({ width, height })
+          layer = SilkDOM.RasterLayer.create({ width, height })
           break
         }
         case 'vector': {
-          layer = SilkEntity.VectorLayer.create({})
+          layer = SilkDOM.VectorLayer.create({})
           break
         }
         case 'filter': {
-          layer = SilkEntity.FilterLayer.create({})
+          layer = SilkDOM.FilterLayer.create({})
           break
         }
         case 'image': {
@@ -321,7 +321,7 @@ export function LayerView() {
 const SortableLayerItem = SortableElement(function LayerItem({
   layer,
 }: {
-  layer: SilkEntity.LayerTypes
+  layer: SilkDOM.LayerTypes
 }) {
   const { t } = useTranslation('app')
   const theme = useTheme()
@@ -587,7 +587,7 @@ const SortableLayerItem = SortableElement(function LayerItem({
 })
 
 const SortableLayerList = SortableContainer(
-  ({ layers }: { layers: SilkEntity.LayerTypes[] }) => (
+  ({ layers }: { layers: SilkDOM.LayerTypes[] }) => (
     <div
       css={css`
         min-height: 40vh;

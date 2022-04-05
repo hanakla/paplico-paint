@@ -13,7 +13,7 @@ import {
 import { useClickAway, useToggle } from 'react-use'
 import { useTheme } from 'styled-components'
 import { css } from 'styled-components'
-import { SilkEntity } from 'silk-core'
+import { SilkDOM } from 'silk-core'
 import {
   ContextMenu,
   ContextMenuArea,
@@ -69,7 +69,7 @@ export const FilterView = () => {
 
       executeOperation(editorOps.updateLayer, activeLayer.uid, (layer) => {
         layer.filters.unshift(
-          SilkEntity.Filter.create({ filterId, settings: filter.initialConfig })
+          SilkDOM.Filter.create({ filterId, settings: filter.initialConfig })
         )
       })
 
@@ -169,8 +169,8 @@ const SortableFilterList = SortableContainer(function FilterList({
   layer,
   filters,
 }: {
-  layer: SilkEntity.LayerTypes
-  filters: SilkEntity.Filter[]
+  layer: SilkDOM.LayerTypes
+  filters: SilkDOM.Filter[]
 }) {
   const { executeOperation } = useFleurContext()
 
@@ -215,8 +215,8 @@ const SortableFilterItem = SortableElement(function FilterItem({
   layer,
   filter,
 }: {
-  layer: SilkEntity.LayerTypes
-  filter: SilkEntity.Filter
+  layer: SilkDOM.LayerTypes
+  filter: SilkDOM.Filter
 }) {
   const { t } = useTranslation('app')
   const theme = useTheme()

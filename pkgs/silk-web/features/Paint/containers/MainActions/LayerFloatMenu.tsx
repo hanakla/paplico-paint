@@ -20,7 +20,7 @@ import {
   SortEndHandler,
 } from 'react-sortable-hoc'
 import { css, useTheme } from 'styled-components'
-import { SilkEntity } from 'silk-core'
+import { SilkDOM } from 'silk-core'
 import { useFleurContext, useStore } from '@fleur/react'
 import { useFunk } from '@hanakla/arma'
 
@@ -86,21 +86,21 @@ export const LayerFloatMenu = () => {
       if (!currentDocument) return
 
       const layerType = currentTarget.dataset
-        .layerType! as SilkEntity.LayerTypes['layerType']
+        .layerType! as SilkDOM.LayerTypes['layerType']
       const { width, height } = currentDocument
 
-      let layer: SilkEntity.LayerTypes
+      let layer: SilkDOM.LayerTypes
       switch (layerType) {
         case 'raster': {
-          layer = SilkEntity.RasterLayer.create({ width, height })
+          layer = SilkDOM.RasterLayer.create({ width, height })
           break
         }
         case 'vector': {
-          layer = SilkEntity.VectorLayer.create({})
+          layer = SilkDOM.VectorLayer.create({})
           break
         }
         case 'filter': {
-          layer = SilkEntity.FilterLayer.create({})
+          layer = SilkDOM.FilterLayer.create({})
           break
         }
         default:
@@ -323,7 +323,7 @@ export const LayerFloatMenu = () => {
 }
 
 const SortableLayerList = SortableContainer(
-  ({ layers }: { layers: SilkEntity.LayerTypes[] }) => {
+  ({ layers }: { layers: SilkDOM.LayerTypes[] }) => {
     const listRef = useRef<HTMLDivElement | null>(null)
 
     const [hasScroll, setHasScroll] = useState(false)
@@ -358,7 +358,7 @@ const SortableLayerList = SortableContainer(
 )
 
 const SortableLayerItem = SortableElement(
-  ({ layer }: { layer: SilkEntity.LayerTypes }) => {
+  ({ layer }: { layer: SilkDOM.LayerTypes }) => {
     const { t } = useTranslation('app')
     const theme = useTheme()
     const { executeOperation } = useFleurContext()
@@ -582,13 +582,7 @@ const LayerSortHandle = SortableHandle(() => (
 ))
 
 const SortableFiltersList = SortableContainer(
-  ({
-    layer,
-    className,
-  }: {
-    layer: SilkEntity.LayerTypes
-    className?: string
-  }) => {
+  ({ layer, className }: { layer: SilkDOM.LayerTypes; className?: string }) => {
     return (
       <ul className={className}>
         {layer.filters.map((filter, idx) => (
@@ -609,8 +603,8 @@ const SortableFilterItem = SortableElement(
     layer,
     filter,
   }: {
-    layer: SilkEntity.LayerTypes
-    filter: SilkEntity.Filter
+    layer: SilkDOM.LayerTypes
+    filter: SilkDOM.Filter
   }) => {
     const { t } = useTranslation('app')
 

@@ -2,14 +2,14 @@ import { useFleurContext } from '@fleur/react'
 import { useFunk } from '@hanakla/arma'
 import { useTranslation } from 'next-i18next'
 import { ReactNode } from 'react'
-import { SilkEntity } from 'silk-core'
+import { SilkDOM } from 'silk-core'
 import { DeltaRange } from '🙌/components/DeltaRange'
 import { EditorSlice } from '🙌/domains/Editor'
 import { editorOps } from '🙌/domains/EditorStable'
 import { centering } from '🙌/utils/mixins'
 import { roundString } from '🙌/utils/StringUtils'
 
-type Props = { layer: SilkEntity.LayerTypes; filter: SilkEntity.Filter }
+type Props = { layer: SilkDOM.LayerTypes; filter: SilkDOM.Filter }
 
 export const FilterSettings = ({ layer, filter }: Props) => {
   switch (filter.filterId) {
@@ -192,7 +192,7 @@ const Column = ({
 }: {
   nameKey: string
   value?: string
-  filter: SilkEntity.Filter
+  filter: SilkDOM.Filter
   children: ReactNode
 }) => {
   const { t } = useTranslation('app')

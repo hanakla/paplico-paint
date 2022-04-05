@@ -46,7 +46,7 @@ export class DifferenceRender implements IRenderStrategy {
     document: Document,
     destCtx: CanvasRenderingContext2D
   ): Promise<void> {
-    const bufferCtx = await this.bufferCtx.enjure()
+    const bufferCtx = await this.bufferCtx.enjure({ owner: this })
 
     assign(bufferCtx.canvas, { width: document.width, height: document.height })
 
@@ -89,51 +89,6 @@ export class DifferenceRender implements IRenderStrategy {
         }
       })
     )
-
-    // Generate thumbnails
-    setTimeout(async () => {
-      const bufferCtx = await this.bufferCtx.enjure()
-      assign(bufferCtx.canvas, {
-        width: 100,
-        height: 100,
-      })
-
-      try {
-        for (const entry of layerBitmaps) {
-          if (
-            entry.layer.layerType !== 'raster' &&
-            entry.layer.layerType !== 'vector'
-          )
-            return
-          if (!entry.image) return
-          if (entry.needsUpdate === false) return
-
-          const { width, height } = document.getLayerSize(entry.layer)
-          assign(this.previewCtx.canvas, { width, height })
-          this.previewCtx.clearRect(0, 0, width, height)
-
-          bufferCtx.clearRect(
-            0,
-            0,
-            bufferCtx.canvas.width,
-            bufferCtx.canvas.height
-          )
-
-          this.previewCtx.putImageData(entry.image, 0, 0)
-          bufferCtx.drawImage(this.previewCtx.canvas, 0, 0, 100, 100)
-
-          const blob = await new Promise<Blob | null>((r) =>
-            bufferCtx.canvas.toBlob(r, 'image/png')
-          )
-
-          if (this.previews[entry.layer.uid])
-            URL.revokeObjectURL(this.previews[entry.layer.uid])
-          this.previews[entry.layer.uid] = URL.createObjectURL(blob!)
-        }
-      } finally {
-        this.bufferCtx.release(bufferCtx)
-      }
-    })
 
     // Composite layers
     try {
@@ -209,8 +164,54 @@ export class DifferenceRender implements IRenderStrategy {
     } catch (e) {
       throw e
     } finally {
+      console.log('completed')
       this.bufferCtx.release(bufferCtx)
     }
+
+    // Generate thumbnails
+    setTimeout(async () => {
+      const bufferCtx = await this.bufferCtx.enjure({ owner: this })
+      assign(bufferCtx.canvas, {
+        width: 100,
+        height: 100,
+      })
+
+      try {
+        for (const entry of layerBitmaps) {
+          if (
+            entry.layer.layerType !== 'raster' &&
+            entry.layer.layerType !== 'vector'
+          )
+            return
+          if (!entry.image) return
+          if (entry.needsUpdate === false) return
+
+          const { width, height } = document.getLayerSize(entry.layer)
+          assign(this.previewCtx.canvas, { width, height })
+          this.previewCtx.clearRect(0, 0, width, height)
+
+          bufferCtx.clearRect(
+            0,
+            0,
+            bufferCtx.canvas.width,
+            bufferCtx.canvas.height
+          )
+
+          this.previewCtx.putImageData(entry.image, 0, 0)
+          bufferCtx.drawImage(this.previewCtx.canvas, 0, 0, 100, 100)
+
+          const blob = await new Promise<Blob | null>((r) =>
+            bufferCtx.canvas.toBlob(r, 'image/png')
+          )
+
+          if (this.previews[entry.layer.uid])
+            URL.revokeObjectURL(this.previews[entry.layer.uid])
+          this.previews[entry.layer.uid] = URL.createObjectURL(blob!)
+        }
+      } finally {
+        this.bufferCtx.release(bufferCtx)
+      }
+    }, 100)
   }
   public dispose() {
     this.bufferCtx = null!

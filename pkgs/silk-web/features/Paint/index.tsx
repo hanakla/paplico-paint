@@ -24,7 +24,7 @@ import {
   Session,
   Silk3,
   SilkBrushes,
-  SilkEntity,
+  SilkDOM,
   SilkHelper,
   SilkSerializer,
 } from 'silk-core'
@@ -138,7 +138,7 @@ export function PaintPage({}) {
     if (!currentDocument) return
 
     const bin = SilkSerializer.exportDocument(
-      currentDocument as SilkEntity.Document
+      currentDocument as SilkDOM.Document
     )!
     const blob = new Blob([bin], { type: 'application/octet-stream' })
     const url = URL.createObjectURL(blob)
@@ -285,25 +285,25 @@ export function PaintPage({}) {
     } else {
       await executeOperation(editorOps.setDocument, null)
 
-      const document = SilkEntity.Document.create({ width: 1000, height: 1000 })
+      const document = SilkDOM.Document.create({ width: 1000, height: 1000 })
       // session.setDocument(document)
       await executeOperation(editorOps.setDocument, document)
 
-      const layer = SilkEntity.RasterLayer.create({ width: 1000, height: 1000 })
-      const vector = SilkEntity.VectorLayer.create({
+      const layer = SilkDOM.RasterLayer.create({ width: 1000, height: 1000 })
+      const vector = SilkDOM.VectorLayer.create({
         visible: false,
       })
-      const text = SilkEntity.TextLayer.create({})
-      const filter = SilkEntity.FilterLayer.create({})
+      const text = SilkDOM.TextLayer.create({})
+      const filter = SilkDOM.FilterLayer.create({})
 
       vector.filters.push(
-        SilkEntity.Filter.create({
+        SilkDOM.Filter.create({
           filterId: '@silk-core/gauss-blur',
           settings: engine.current.toolRegistry.getFilterInstance(
             '@silk-core/gauss-blur'
           )!.initialConfig,
         }),
-        SilkEntity.Filter.create({
+        SilkDOM.Filter.create({
           filterId: '@silk-core/chromatic-aberration',
           settings: engine.current.toolRegistry.getFilterInstance(
             '@silk-core/chromatic-aberration'

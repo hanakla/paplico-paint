@@ -4,7 +4,7 @@ import { ChromePicker, ColorChangeHandler, CustomPicker } from 'react-color'
 import { Hue, Saturation } from 'react-color/lib/components/common'
 import { rgba, readableColor, rgb } from 'polished'
 import { usePopper } from 'react-popper'
-import { SilkBrushes, SilkEntity } from 'silk-core'
+import { SilkBrushes, SilkDOM } from 'silk-core'
 import { useTranslation } from 'next-i18next'
 import { useClickAway, useMedia, useToggle, useUpdate } from 'react-use'
 import { Brush, Close, Eraser, Pencil, Stack } from '@styled-icons/remix-line'
@@ -623,7 +623,7 @@ const VectorColorPicker = ({
 // onChangeComplete,
 
 {
-  object: SilkEntity.VectorObject
+  object: SilkDOM.VectorObject
   mode: 'fill' | 'stroke'
   // color: Color
   // onChange: ColorChangeHandler

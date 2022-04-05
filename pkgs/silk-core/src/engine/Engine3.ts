@@ -163,8 +163,8 @@ export class SilkEngine3 {
   }
 
   public async render(document: Document, strategy: IRenderStrategy) {
-    const lock = await this.atomicRender.enjure()
-    const renderer = await this.atomicThreeRenderer.enjure()
+    const lock = await this.atomicRender.enjure({ owner: this })
+    const renderer = await this.atomicThreeRenderer.enjure({ owner: this })
 
     try {
       assign(this.canvasCtx.canvas, {
@@ -195,7 +195,7 @@ export class SilkEngine3 {
     document: Document,
     strategy: IRenderStrategy = new FullRender()
   ) {
-    const lock = await this.atomicRender.enjure()
+    const lock = await this.atomicRender.enjure({ owner: this })
     const exportCtx = createContext2D()
 
     try {
@@ -233,8 +233,8 @@ export class SilkEngine3 {
     destCtx: CanvasRenderingContext2D
   ) {
     if (stroke.points.length < 2) return
-    const lock = await this.atomicStrokeRender.enjure()
-    const renderer = await this.atomicThreeRenderer.enjure()
+    const lock = await this.atomicStrokeRender.enjure({ owner: this })
+    const renderer = await this.atomicThreeRenderer.enjure({ owner: this })
 
     renderer.setSize(destCtx.canvas.width, destCtx.canvas.height)
     renderer.setClearColor(0x000000, 0)
@@ -267,7 +267,7 @@ export class SilkEngine3 {
 
   public async renderVectorLayer(document: Document, layer: VectorLayer) {
     const { width, height } = document
-    const bufferCtx = await this.atomicBufferCtx.enjure()
+    const bufferCtx = await this.atomicBufferCtx.enjure({ owner: this })
 
     try {
       const bitmap = new Uint8ClampedArray(width * height * 4)

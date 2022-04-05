@@ -5,7 +5,7 @@ import { useDropArea } from 'react-use'
 import { GetStaticProps } from 'next'
 import { serverSideTranslations } from 'next-i18next/serverSideTranslations'
 import { loadImageFromBlob, selectFile, useFunk } from '@hanakla/arma'
-import { SilkEntity, SilkSerializer, SilkHelper } from 'silk-core'
+import { SilkDOM, SilkSerializer, SilkHelper } from 'silk-core'
 import { Moon, Sun } from '@styled-icons/remix-fill'
 import { DragDrop, File, Menu } from '@styled-icons/remix-line'
 import {
@@ -55,8 +55,8 @@ const HomeContent = () => {
       const width = parseInt(dataset.width!)
       const height = parseInt(dataset.height!)
 
-      const doc = SilkEntity.Document.create({ width, height })
-      const layer = SilkEntity.RasterLayer.create({ width, height })
+      const doc = SilkDOM.Document.create({ width, height })
+      const layer = SilkDOM.RasterLayer.create({ width, height })
       doc.addLayer(layer)
       doc.activeLayerId = layer.uid
 
@@ -81,7 +81,7 @@ const HomeContent = () => {
 
       URL.revokeObjectURL(url)
 
-      const doc = SilkEntity.Document.create({
+      const doc = SilkDOM.Document.create({
         width: layer.width,
         height: layer.height,
       })

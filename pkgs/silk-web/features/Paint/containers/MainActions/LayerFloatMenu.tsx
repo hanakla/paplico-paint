@@ -20,7 +20,7 @@ import {
   SortEndHandler,
 } from 'react-sortable-hoc'
 import { css, useTheme } from 'styled-components'
-import { Silk, SilkEntity } from 'silk-core'
+import { SilkEntity } from 'silk-core'
 import { useFleurContext, useStore } from '@fleur/react'
 import { useFunk } from '@hanakla/arma'
 
@@ -40,14 +40,16 @@ import { FilterSettings } from '../FilterSettings'
 import { DOMUtils } from '🙌/utils/dom'
 import { editorOps, EditorSelector, EditorStore } from '🙌/domains/EditorStable'
 import { isEventIgnoringTarget } from '../../helpers'
+import { reversedIndex } from '🙌/utils/array'
 
 export const LayerFloatMenu = () => {
   const { t } = useTranslation('app')
   const layerControl = useLayerControl()
 
   const { executeOperation } = useFleurContext()
-  const { currentDocument, activeLayer } = useStore((get) => ({
+  const { currentDocument, layers, activeLayer } = useStore((get) => ({
     currentDocument: EditorSelector.currentDocument(get),
+    layers: EditorSelector.layers(get),
     activeLayer: EditorSelector.activeLayer(get),
   }))
   const [addLayerSheetOpened, toggleAddLayerSheetOpened] = useToggle(false)
@@ -67,7 +69,12 @@ export const LayerFloatMenu = () => {
   )
 
   const handleLayerSortEnd: SortEndHandler = useFunk((sort) => {
-    layerControl.moveLayer(sort.oldIndex, sort.newIndex)
+    if (!currentDocument?.layers) return
+    executeOperation(
+      editorOps.moveLayer,
+      reversedIndex(layers, sort.oldIndex),
+      reversedIndex(layers, sort.newIndex)
+    )
   })
 
   const handleClickAddLayer = useFunk(() => {
@@ -129,10 +136,11 @@ export const LayerFloatMenu = () => {
     >
       <div>
         <SortableLayerList
-          layers={[...(currentDocument?.layers ?? [])].reverse()}
+          layers={[...layers].reverse()}
           onSortEnd={handleLayerSortEnd}
           distance={1}
           // hideSortableGhost
+
           useDragHandle
           axis="y"
         />

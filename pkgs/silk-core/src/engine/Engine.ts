@@ -53,7 +53,7 @@ export class SilkEngine {
   protected _activeLayer: LayerTypes | null = null
   protected _brushSetting: _CurrentBrushSetting = {
     brushId: Brush.id,
-    weight: 1,
+    size: 1,
     color: { r: 0, g: 0, b: 0 },
     opacity: 1,
   }

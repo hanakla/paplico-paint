@@ -11,7 +11,7 @@ export type BrushContext = {
   stroke: Stroke
   ink: IInk
   brushSetting: CurrentBrushSetting
-  size: { width: number; height: number }
+  destSize: { width: number; height: number }
 }
 
 export interface BrushClass {

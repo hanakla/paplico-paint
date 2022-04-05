@@ -18,7 +18,7 @@ import { IFilter } from './IFilter'
 import { Session } from './Engine3_Sessions'
 import { CompositeMode } from 'SilkDOM/IRenderable'
 import { FullRender } from './RenderStrategy/FullRender'
-import { createCanvas } from './Engine3_CanvasFactory'
+import { createContext2D } from './Engine3_CanvasFactory'
 import { BrushSetting } from 'Value'
 import { IBrush } from './IBrush'
 import { IInk } from './Inks/IInk'
@@ -196,7 +196,7 @@ export class SilkEngine3 {
     strategy: IRenderStrategy = new FullRender()
   ) {
     const lock = await this.atomicRender.enjure()
-    const exportCtx = createCanvas()
+    const exportCtx = createContext2D()
 
     try {
       assign(exportCtx.canvas, {
@@ -232,6 +232,7 @@ export class SilkEngine3 {
     stroke: Stroke,
     destCtx: CanvasRenderingContext2D
   ) {
+    if (stroke.points.length < 2) return
     const lock = await this.atomicStrokeRender.enjure()
     const renderer = await this.atomicThreeRenderer.enjure()
 
@@ -253,7 +254,10 @@ export class SilkEngine3 {
         threeCamera: this.camera,
         ink: ink,
         stroke,
-        size: { width: destCtx.canvas.width, height: destCtx.canvas.height },
+        destSize: {
+          width: destCtx.canvas.width,
+          height: destCtx.canvas.height,
+        },
       })
     } finally {
       this.atomicThreeRenderer.release(renderer)
@@ -265,114 +269,112 @@ export class SilkEngine3 {
     const { width, height } = document
     const bufferCtx = await this.atomicBufferCtx.enjure()
 
-    const bitmap = new Uint8ClampedArray(width * height * 4)
+    try {
+      const bitmap = new Uint8ClampedArray(width * height * 4)
 
-    assign(bufferCtx.canvas, { width, height })
-    bufferCtx.clearRect(0, 0, width, height)
+      assign(bufferCtx.canvas, { width, height })
+      bufferCtx.clearRect(0, 0, width, height)
 
-    for (const object of layer.objects) {
-      bufferCtx.save()
-      bufferCtx.globalCompositeOperation = 'source-over'
-      bufferCtx.translate(object.x, object.y)
+      for (const object of layer.objects) {
+        bufferCtx.save()
+        bufferCtx.globalCompositeOperation = 'source-over'
+        bufferCtx.translate(object.x, object.y)
 
-      if (object.fill) {
-        bufferCtx.beginPath()
-        const start = object.path.points[0]
-        bufferCtx.moveTo(start.x, start.y)
+        if (object.fill) {
+          bufferCtx.beginPath()
+          const start = object.path.points[0]
+          bufferCtx.moveTo(start.x, start.y)
 
-        object.path.mapPoints(
-          (point, prev) => {
-            bufferCtx.bezierCurveTo(
-              prev!.out?.x ?? prev!.x,
-              prev!.out?.y ?? prev!.y,
-              point.in?.x ?? point.x,
-              point.in?.y ?? point.y,
-              point.x,
-              point.y
-            )
-          },
-          { startOffset: 1 }
-        )
+          object.path.mapPoints(
+            (point, prev) => {
+              bufferCtx.bezierCurveTo(
+                prev!.out?.x ?? prev!.x,
+                prev!.out?.y ?? prev!.y,
+                point.in?.x ?? point.x,
+                point.in?.y ?? point.y,
+                point.x,
+                point.y
+              )
+            },
+            { startOffset: 1 }
+          )
 
-        if (object.path.closed) bufferCtx.closePath()
+          if (object.path.closed) bufferCtx.closePath()
 
-        switch (object.fill.type) {
-          case 'fill': {
-            const {
-              color: { r, g, b },
-              opacity,
-            } = object.fill
+          switch (object.fill.type) {
+            case 'fill': {
+              const {
+                color: { r, g, b },
+                opacity,
+              } = object.fill
 
-            bufferCtx.globalAlpha = 1
-            bufferCtx.fillStyle = `rgba(${r}, ${g}, ${b}, ${opacity})`
-            bufferCtx.fill()
-            break
-          }
-          case 'linear-gradient': {
-            const { colorPoints, opacity, start, end } = object.fill
-            // const bbox = getBound(object.path.svgPath)
-            const [left, top, right, bottom] = getBound(object.path.svgPath)
-            // console.log(bbox)
-
-            const width = right - left
-            const height = bottom - top
-            const centerX = left + width / 2
-            const centerY = top + height / 2
-
-            const gradient = bufferCtx.createLinearGradient(
-              centerX + start.x,
-              centerY + start.y,
-              centerX + end.x,
-              centerY + end.y
-            )
-
-            for (const {
-              position,
-              color: { r, g, b, a },
-            } of colorPoints) {
-              gradient.addColorStop(position, `rgba(${r}, ${g}, ${b}, ${a}`)
+              bufferCtx.globalAlpha = 1
+              bufferCtx.fillStyle = `rgba(${r}, ${g}, ${b}, ${opacity})`
+              bufferCtx.fill()
+              break
             }
+            case 'linear-gradient': {
+              const { colorPoints, opacity, start, end } = object.fill
+              // const bbox = getBound(object.path.svgPath)
+              const [left, top, right, bottom] = getBound(object.path.svgPath)
+              // console.log(bbox)
 
-            bufferCtx.globalAlpha = opacity
-            bufferCtx.fillStyle = gradient
-            bufferCtx.fill()
-            break
+              const width = right - left
+              const height = bottom - top
+              const centerX = left + width / 2
+              const centerY = top + height / 2
+
+              const gradient = bufferCtx.createLinearGradient(
+                centerX + start.x,
+                centerY + start.y,
+                centerX + end.x,
+                centerY + end.y
+              )
+
+              for (const {
+                position,
+                color: { r, g, b, a },
+              } of colorPoints) {
+                gradient.addColorStop(position, `rgba(${r}, ${g}, ${b}, ${a}`)
+              }
+
+              bufferCtx.globalAlpha = opacity
+              bufferCtx.fillStyle = gradient
+              bufferCtx.fill()
+              break
+            }
           }
         }
+
+        if (object.brush) {
+          const brush = this.toolRegistry.getBrushInstance(
+            object.brush.brushId
+          )!
+
+          if (brush == null)
+            throw new Error(`Unregistered brush ${object.brush.brushId}`)
+
+          const stroke = Stroke.fromPath(object.path)
+
+          await this.renderStroke(
+            brush,
+            object.brush,
+            new PlainInk(),
+            stroke,
+            bufferCtx
+          )
+        }
+
+        bufferCtx.restore()
       }
 
-      if (object.brush) {
-        const brush = this.toolRegistry.getBrushInstance(object.brush.brushId)!
+      const data = bufferCtx.getImageData(0, 0, width, height).data
+      bitmap.set(data)
 
-        if (brush == null)
-          throw new Error(`Unregistered brush ${object.brush.brushId}`)
-
-        const stroke = Stroke.fromPath(object.path)
-
-        await this.renderStroke(
-          brush,
-          object.brush,
-          new PlainInk(),
-          stroke,
-          bufferCtx
-        )
-
-        // brush.render({
-        //   context: bufferCtx,
-        //   stroke,
-        //   ink: new PlainInk(),
-        //   brushSetting: object.brush,
-        // })
-      }
-
-      bufferCtx.restore()
+      return bitmap
+    } finally {
+      this.atomicBufferCtx.release(bufferCtx)
     }
-
-    const data = bufferCtx.getImageData(0, 0, width, height).data
-    bitmap.set(data)
-
-    this.atomicBufferCtx.release(bufferCtx)
-    return bitmap
   }
 
   public async applyFilter(

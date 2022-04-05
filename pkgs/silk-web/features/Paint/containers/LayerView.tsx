@@ -32,6 +32,8 @@ import { useTheme } from 'styled-components'
 import { useFleurContext, useStore } from '@fleur/react'
 import { editorOps, EditorSelector, EditorStore } from '🙌/domains/EditorStable'
 import { isEventIgnoringTarget } from '../helpers'
+import { reversedIndex } from '🙌/utils/array'
+import { SidebarPane } from '🙌/components/SidebarPane'
 
 export function LayerView() {
   const { t } = useTranslation('app')
@@ -119,7 +121,12 @@ export function LayerView() {
   )
 
   const handleLayerSortEnd: SortEndHandler = useFunk((sort) => {
-    layerControls.moveLayer(sort.oldIndex, sort.newIndex)
+    executeOperation(
+      editorOps.moveLayer,
+      reversedIndex(layers, sort.oldIndex),
+      reversedIndex(layers, sort.newIndex)
+    )
+    // layerControls.moveLayer(sort.oldIndex, sort.newIndex)
   })
 
   const handleChangeLayerName = useFunk(
@@ -154,95 +161,81 @@ export function LayerView() {
   )
 
   return (
-    <div
-      css={`
-        display: flex;
-        flex-flow: column;
-        font-size: 12px;
-      `}
-    >
-      <header
-        css={`
-          display: flex;
-          padding: 6px;
-          position: sticky;
-          top: 0;
-        `}
-      >
-        <Stack css="width: 16px;" />
-        <div css="margin-left: auto">
-          <div css="display:flex; user-select: none;">
-            <div ref={layerTypeOpenerRef} onClick={toggleLayerTypeOpened}>
-              <Add css="width: 16px;" />
+    <SidebarPane
+      heading={
+        <>
+          <Stack css="width: 16px;" />
+          <div css="margin-left: auto">
+            <div css="display:flex; user-select: none;">
+              <div ref={layerTypeOpenerRef} onClick={toggleLayerTypeOpened}>
+                <Add css="width: 16px;" />
+              </div>
             </div>
+
+            <Portal>
+              <ul
+                ref={layerTypeDropdownRef}
+                css={css`
+                  background-color: ${({ theme }) => theme.surface.popupMenu};
+                  box-shadow: 0 0 4px ${rgba('#000', 0.5)};
+                  color: ${({ theme }) => theme.text.white};
+                  z-index: 1;
+
+                  li {
+                    padding: 8px;
+                    user-select: none;
+                  }
+                  li:hover {
+                    background-color: rgba(255, 255, 255, 0.2);
+                  }
+                `}
+                style={{
+                  ...layerTypePopper.styles.popper,
+                  ...(layerTypeOpened
+                    ? { visibility: 'visible', pointerEvents: 'all' }
+                    : { visibility: 'hidden', pointerEvents: 'none' }),
+                }}
+                {...layerTypePopper.attributes.popper}
+              >
+                <li data-layer-type="raster" onClick={handleClickAddLayerItem}>
+                  {t('layerType.raster')}
+                </li>
+                <li data-layer-type="vector" onClick={handleClickAddLayerItem}>
+                  {t('layerType.vector')}
+                </li>
+                <li data-layer-type="filter" onClick={handleClickAddLayerItem}>
+                  {t('layerType.filter')}
+                </li>
+                <li data-layer-type="image" onClick={handleClickAddLayerItem}>
+                  <label>
+                    {t('addFromImage')}
+                    <input
+                      css={`
+                        display: block;
+                        width: 1px;
+                        height: 1px;
+                        opacity: 0;
+                      `}
+                      type="file"
+                      accept="'.png,.jpeg,.jpg"
+                      onChange={handleChangeFile}
+                    />
+                  </label>
+                </li>
+              </ul>
+            </Portal>
           </div>
-
-          <Portal>
-            <ul
-              ref={layerTypeDropdownRef}
-              css={css`
-                background-color: ${({ theme }) => theme.surface.popupMenu};
-                box-shadow: 0 0 4px ${rgba('#000', 0.5)};
-                color: ${({ theme }) => theme.text.white};
-                z-index: 1;
-
-                li {
-                  padding: 8px;
-                  user-select: none;
-                }
-                li:hover {
-                  background-color: rgba(255, 255, 255, 0.2);
-                }
-              `}
-              style={{
-                ...layerTypePopper.styles.popper,
-                ...(layerTypeOpened
-                  ? { visibility: 'visible', pointerEvents: 'all' }
-                  : { visibility: 'hidden', pointerEvents: 'none' }),
-              }}
-              {...layerTypePopper.attributes.popper}
-            >
-              <li data-layer-type="raster" onClick={handleClickAddLayerItem}>
-                {t('layerType.raster')}
-              </li>
-              <li data-layer-type="vector" onClick={handleClickAddLayerItem}>
-                {t('layerType.vector')}
-              </li>
-              <li data-layer-type="filter" onClick={handleClickAddLayerItem}>
-                {t('layerType.filter')}
-              </li>
-              <li data-layer-type="image" onClick={handleClickAddLayerItem}>
-                <label>
-                  {t('addFromImage')}
-                  <input
-                    css={`
-                      display: block;
-                      width: 1px;
-                      height: 1px;
-                      opacity: 0;
-                    `}
-                    type="file"
-                    accept="'.png,.jpeg,.jpg"
-                    onChange={handleChangeFile}
-                  />
-                </label>
-              </li>
-            </ul>
-          </Portal>
-        </div>
-      </header>
-
+        </>
+      }
+    >
       {activeLayer && (
         <div
           css={css`
             display: flex;
             flex-flow: column;
             gap: 8px;
-            margin-top: 4px;
             padding: 8px;
             padding-bottom: 14px;
-            border-top: 1px solid
-              ${({ theme }) => theme.exactColors.blackFade30};
             border-bottom: 1px solid
               ${({ theme }) => theme.exactColors.blackFade30};
           `}
@@ -321,7 +314,7 @@ export function LayerView() {
           lockAxis={'y'}
         />
       )}
-    </div>
+    </SidebarPane>
   )
 }
 
@@ -339,7 +332,7 @@ const SortableLayerItem = SortableElement(function LayerItem({
     useStore((get) => ({
       activeLayer: EditorSelector.activeLayer(get),
       currentDocument: EditorSelector.currentDocument(get),
-      thumbnailUrlOfLayer: EditorSelector.thumbnailUrlOfLayer(get, ''),
+      thumbnailUrlOfLayer: EditorSelector.thumbnailUrlOfLayer(get),
       activeObjectId: get(EditorStore).state.activeObjectId,
     }))
 

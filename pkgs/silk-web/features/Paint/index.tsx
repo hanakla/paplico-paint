@@ -382,8 +382,6 @@ export function PaintPage({}) {
     return () => window.clearInterval(id)
   }, [currentDocument?.uid])
 
-  console.log({ scale })
-
   return (
     <EngineContextProvider value={engine.current!}>
       <div

@@ -1,4 +1,5 @@
 import { minOps, selector } from '@fleur/fleur'
+import arrayMove from 'array-move'
 import { debounce } from 'debounce'
 import {
   Session,
@@ -407,6 +408,13 @@ export const [EditorStore, editorOps] = minOps('Editor', {
         d.renderStrategy?.markUpdatedLayerId(newLayer.uid)
       })
     },
+    moveLayer(x, oldIndex: number, newIndex: number) {
+      x.commit((d) =>
+        d.currentDocument?.sortLayer((layers) => {
+          return arrayMove(layers, oldIndex, newIndex)
+        })
+      )
+    },
     addPoint: (
       x,
       objectOrId: SilkEntity.VectorObject | string,
@@ -500,13 +508,13 @@ export const EditorSelector = {
       brushId: '@silk-paint/brush',
       color: { r: 26, g: 26, b: 26 },
       opacity: 1,
-      weight: 1,
+      size: 1,
     })
   ),
 
-  thumbnailUrlOfLayer: selector((get, layerId: string) => {
-    const { engine } = get(EditorStore)
-    return (layerId: string) => engine?.previews?.get(layerId)
+  thumbnailUrlOfLayer: selector((get) => {
+    const { renderStrategy } = get(EditorStore)
+    return (layerId: string) => renderStrategy?.getPreiewForLayer(layerId)
   }),
 
   // #region Document

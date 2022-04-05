@@ -16,8 +16,8 @@ import { assign } from '../utils'
 type Events = {
   documentChanged: Session
   activeLayerChanged: Session
-  blushChanged: Session
-  blushSettingChanged: Session
+  brushChanged: Session
+  brushSettingChanged: Session
   renderSettingChanged: Session
   disposed: void
 }
@@ -42,7 +42,7 @@ export class Session extends Emitter<Events> {
   protected _activeLayer: LayerTypes | null = null
   protected _brushSetting: CurrentBrushSetting = {
     brushId: Brush.id,
-    weight: 1,
+    size: 1,
     color: { r: 0, g: 0, b: 0 },
     opacity: 1,
   }
@@ -94,7 +94,7 @@ export class Session extends Emitter<Events> {
 
   public set currentBursh(brush: IBrush | null) {
     this._currentBrush = brush
-    this.emit('blushChanged', this)
+    this.emit('brushChanged', this)
   }
 
   public get pencilMode() {
@@ -111,7 +111,7 @@ export class Session extends Emitter<Events> {
 
   public set brushSetting(value: BrushSetting) {
     this._brushSetting = value
-    this.emit('blushSettingChanged', this)
+    this.emit('brushSettingChanged', this)
   }
 
   public get currentInk() {

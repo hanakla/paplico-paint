@@ -1,8 +1,8 @@
-import point from 'point-at-length'
 import bounds from 'svg-path-bounds'
 
 import { assign, deepClone } from '../utils'
 import { mapPoints } from '../SilkHelpers'
+import { cachedPointAtLength } from '../CachedPointAtLength'
 
 class Path {
   public points: Path.PathPoint[] = []
@@ -117,7 +117,7 @@ class Path {
   }
 
   private get pal() {
-    return (this._pal ??= point(this.svgPath))
+    return (this._pal ??= cachedPointAtLength(this.svgPath))
   }
 }
 
@@ -133,12 +133,17 @@ namespace Path {
     // c2y: number
     x: number
     y: number
-    weight?: number
+    /** 0 to 1 */
+    pressure?: number
   }
 }
 
 const pointsToSVGPath = (points: Path.PathPoint[], closed: boolean) => {
   const [start] = points
+
+  if (points.length === 1) {
+    return `M${start.x},${start.y}`
+  }
 
   return [
     `M${start.x},${start.y}`,

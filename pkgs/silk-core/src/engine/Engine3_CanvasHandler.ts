@@ -102,6 +102,7 @@ export class CanvasHandler extends Emitter<Events> {
       if (
         session.pencilMode === 'none' ||
         !session.document ||
+        !session.currentBursh ||
         !isDrawableLayer(activeLayer)
       )
         return
@@ -124,6 +125,7 @@ export class CanvasHandler extends Emitter<Events> {
       if (
         session.pencilMode === 'none' ||
         !session.document ||
+        !session.currentBursh ||
         !isDrawableLayer(activeLayer)
       )
         return
@@ -215,7 +217,9 @@ export class CanvasHandler extends Emitter<Events> {
     if (!this.currentStroke) return
 
     this.currentStroke.updatePoints((points) => {
-      points.push([e.offsetX, e.offsetY, e.pressure])
+      e.getCoalescedEvents().forEach((e) => {
+        points.push([e.offsetX, e.offsetY, e.pressure])
+      })
     })
 
     this.currentStroke.path = this.currentStroke.splinedPath

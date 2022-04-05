@@ -23,7 +23,7 @@ export class VectorObject implements IEntity {
     brush = {
       brushId: '@silk-paint/brush',
       color: { r: 0, g: 0, b: 0 },
-      weight: 1,
+      size: 1,
       opacity: 1,
     },
     fill = {

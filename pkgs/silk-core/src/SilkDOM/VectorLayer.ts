@@ -69,7 +69,7 @@ export class VectorLayer extends Emitter<Events> implements ILayer {
         brushId: '@silk-paint/brush',
         color: { r: 0, g: 0, b: 0 },
         opacity: 1,
-        weight: 1,
+        size: 1,
       }
 
       obj.fill = {

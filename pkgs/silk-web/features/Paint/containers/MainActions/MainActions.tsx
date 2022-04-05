@@ -48,7 +48,7 @@ export function MainActions() {
   const [vectorColorTarget, setVectorColorTarget] = useState<'fill' | 'stroke'>(
     'fill'
   )
-  const [weight, setWeight] = useState(1)
+  const [brushSize, setBrushSize] = useState(1)
   const [brushOpacity, setBrushOpacity] = useState(1)
   const rerender = useUpdate()
 
@@ -58,7 +58,13 @@ export function MainActions() {
 
   const handleChangeCompleteColor: ColorChangeHandler = useFunk((color) => {
     setColor(color.rgb)
-    executeOperation(editorOps.setBrushSetting, { color: color.rgb })
+    executeOperation(editorOps.setBrushSetting, {
+      color: {
+        r: color.rgb.r / 255,
+        g: color.rgb.g / 255,
+        b: color.rgb.b / 255,
+      },
+    })
   })
 
   const handleChangeToCursorMode = useFunk(() => {
@@ -152,7 +158,7 @@ export function MainActions() {
   })
   // useClickAway(vectorColorPickerPopRef, () => toggleVectorColorOpened(false))
 
-  const bindWeightDrag = useDrag(({ delta, first, last, event }) => {
+  const bindBrushSizeDrag = useDrag(({ delta, first, last, event }) => {
     if (first) {
       ;(event.currentTarget as HTMLDivElement).requestPointerLock?.()
     }
@@ -162,9 +168,9 @@ export function MainActions() {
     }
 
     const changed = delta[0] * 0.2
-    setWeight((weight) => {
-      const next = Math.max(0, weight + changed)
-      executeOperation(editorOps.setBrushSetting, { weight: next })
+    setBrushSize((size) => {
+      const next = Math.max(0, size + changed)
+      executeOperation(editorOps.setBrushSetting, { size: next })
       return next
     })
   })
@@ -217,9 +223,9 @@ export function MainActions() {
             border: 1px solid #000;
             border-radius: 64px;
           `}
-          {...bindWeightDrag()}
+          {...bindBrushSizeDrag()}
         >
-          {(Math.round(weight * 10) / 10).toString(10)}
+          {(Math.round(brushSize * 10) / 10).toString(10)}
         </div>
         <div
           css={`

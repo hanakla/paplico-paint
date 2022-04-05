@@ -1,19 +1,34 @@
-import { SilkEngine3 } from 'engine/Engine3'
-import { Document, LayerTypes } from 'SilkDOM'
-import { assign, deepClone } from '../../utils'
+import { SilkEngine3 } from '../Engine3'
+import { createContext2D } from '../Engine3_CanvasFactory'
+import { Document, LayerTypes } from '../../SilkDOM'
+import { assign, AtomicResource, deepClone } from '../../utils'
 import { IRenderStrategy } from './IRenderStrategy'
 
 export class DifferenceRender implements IRenderStrategy {
-  private bufferCtx: CanvasRenderingContext2D
   private bitmapCache: WeakMap<LayerTypes, Uint8ClampedArray> = new WeakMap()
   // private layerLastUpdateTimes = new WeakMap<LayerTypes, number>()
   private needsUpdateLayerIds: { [layerId: string]: true | undefined } = {}
   private overrides: { layerId: string; canvas: HTMLCanvasElement } | null =
     null
 
+  private bufferCtx: AtomicResource<CanvasRenderingContext2D>
+  private previewCtx: CanvasRenderingContext2D
+  private previews: { [layerId: string]: string } = Object.create(null)
+
   constructor() {
-    this.bufferCtx = document.createElement('canvas').getContext('2d')!
-    this.bufferCtx.canvas.style.setProperty('background', 'rgba(255,0,0,.5)')
+    const bufferCtx = createContext2D()
+    this.bufferCtx = new AtomicResource(bufferCtx)
+    // document.body.appendChild(bufferCtx.canvas)
+
+    const previewCtx = createContext2D()
+    assign(previewCtx.canvas, { width: 100, height: 100 })
+    this.previewCtx = previewCtx
+    previewCtx.canvas.id = 'preview-canvas-difference-render'
+    // document.body.appendChild(previewCtx.canvas)
+  }
+
+  public getPreiewForLayer(uid: string) {
+    return this.previews[uid]
   }
 
   public markUpdatedLayerId(layerId: string) {
@@ -26,12 +41,13 @@ export class DifferenceRender implements IRenderStrategy {
     this.overrides = override
   }
 
-  async render(
+  public async render(
     engine: SilkEngine3,
     document: Document,
     destCtx: CanvasRenderingContext2D
   ): Promise<void> {
-    const { bufferCtx } = this
+    const bufferCtx = await this.bufferCtx.enjure()
+
     assign(bufferCtx.canvas, { width: document.width, height: document.height })
 
     const layerBitmaps = await Promise.all(
@@ -73,6 +89,51 @@ export class DifferenceRender implements IRenderStrategy {
         }
       })
     )
+
+    // Generate thumbnails
+    setTimeout(async () => {
+      const bufferCtx = await this.bufferCtx.enjure()
+      assign(bufferCtx.canvas, {
+        width: 100,
+        height: 100,
+      })
+
+      try {
+        for (const entry of layerBitmaps) {
+          if (
+            entry.layer.layerType !== 'raster' &&
+            entry.layer.layerType !== 'vector'
+          )
+            return
+          if (!entry.image) return
+          if (entry.needsUpdate === false) return
+
+          const { width, height } = document.getLayerSize(entry.layer)
+          assign(this.previewCtx.canvas, { width, height })
+          this.previewCtx.clearRect(0, 0, width, height)
+
+          bufferCtx.clearRect(
+            0,
+            0,
+            bufferCtx.canvas.width,
+            bufferCtx.canvas.height
+          )
+
+          this.previewCtx.putImageData(entry.image, 0, 0)
+          bufferCtx.drawImage(this.previewCtx.canvas, 0, 0, 100, 100)
+
+          const blob = await new Promise<Blob | null>((r) =>
+            bufferCtx.canvas.toBlob(r, 'image/png')
+          )
+
+          if (this.previews[entry.layer.uid])
+            URL.revokeObjectURL(this.previews[entry.layer.uid])
+          this.previews[entry.layer.uid] = URL.createObjectURL(blob!)
+        }
+      } finally {
+        this.bufferCtx.release(bufferCtx)
+      }
+    })
 
     // Composite layers
     try {
@@ -147,9 +208,10 @@ export class DifferenceRender implements IRenderStrategy {
       this.needsUpdateLayerIds = {}
     } catch (e) {
       throw e
+    } finally {
+      this.bufferCtx.release(bufferCtx)
     }
   }
-
   public dispose() {
     this.bufferCtx = null!
   }

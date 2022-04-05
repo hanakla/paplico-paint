@@ -1,5 +1,5 @@
 import { useFleurContext, useStore } from '@fleur/react'
-import { MouseEvent, useMemo, useRef, useState } from 'react'
+import { Fragment, MouseEvent, useMemo, useRef, useState } from 'react'
 import { useClickAway, useToggle } from 'react-use'
 import { useDrag, useHover } from 'react-use-gesture'
 import { createEditor, Descendant } from 'slate'
@@ -427,7 +427,10 @@ const VectorLayerControl = ({ scale }: { scale: number }) => {
         (object) =>
           (vectorFocusing == null ||
             vectorFocusing?.objectId == object.uid) && (
-            <g style={{ transform: `translate(${object.x}px, ${object.y}px)` }}>
+            <g
+              key={object.uid}
+              style={{ transform: `translate(${object.x}px, ${object.y}px)` }}
+            >
               <path
                 css={`
                   stroke: none;
@@ -797,7 +800,7 @@ const PathSegments = ({
           return {
             object,
             paths: (
-              <>
+              <Fragment key={`path-${object.uid}`}>
                 <path
                   css={`
                     stroke: transparent;
@@ -830,11 +833,11 @@ const PathSegments = ({
                   onDoubleClick={handleDoubleClickPath}
                   {...pathHoverBind()}
                 />
-              </>
+              </Fragment>
             ),
 
             inControl: (
-              <>
+              <Fragment key={`inControl-${object.uid}`}>
                 {isActive &&
                   isPointSelected &&
                   !(object.path.closed && isLastSegment) && (
@@ -868,11 +871,11 @@ const PathSegments = ({
                       )}
                     </>
                   )}
-              </>
+              </Fragment>
             ),
 
             outControl: (
-              <>
+              <Fragment key={`outControl-${object.uid}`}>
                 {/* handle current to previous  */}
                 {isPointSelected && point.out && (
                   <>
@@ -901,11 +904,11 @@ const PathSegments = ({
                     />
                   </>
                 )}
-              </>
+              </Fragment>
             ),
             point:
               !renderPoint || !isActive ? null : (
-                <>
+                <Fragment key={`point-${object.uid}`}>
                   <rect
                     css={`
                       z-index: 1;
@@ -931,7 +934,7 @@ const PathSegments = ({
                     onClick={handleClickPoint}
                     {...bindDragPoint()}
                   />
-                </>
+                </Fragment>
               ),
           }
         })
@@ -942,16 +945,19 @@ const PathSegments = ({
   return (
     <>
       {segments.map(({ paths, inControl, outControl, object }) => (
-        <>
+        <Fragment key={`segment-${object.uid}`}>
           <g style={{ transform: `translate(${object.x}px, ${object.y}px)` }}>
             {paths}
             {inControl}
             {outControl}
           </g>
-        </>
+        </Fragment>
       ))}
       {segments.map(({ point, object }) => (
-        <g style={{ transform: `translate(${object.x}px, ${object.y}px)` }}>
+        <g
+          key={`point-${object.id}]`}
+          style={{ transform: `translate(${object.x}px, ${object.y}px)` }}
+        >
           {point}
         </g>
       ))}

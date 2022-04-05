@@ -29,13 +29,18 @@ export function mapPoints<T>(
   ) => T,
   { startOffset = 0 }: { startOffset?: number } = {}
 ): T[] {
-  const result: T[] = [] as any
+  // const result: T[] = [] as any
+  return points
+    .slice(startOffset)
+    .map((point, idx) =>
+      proc(point, points[idx + startOffset - 1], idx, points)
+    )
 
-  for (let idx = startOffset, l = points.length; idx < l; idx++) {
-    result.push(proc(points[idx], points[idx - 1], idx, points))
-  }
+  // for (let idx = startOffset, l = points.length; idx < l; idx++) {
+  //   result.push(proc(points[idx], points[idx - 1], idx, points))
+  // }
 
-  return result
+  // return result
 }
 
 export function validCompositeMode(value: string): value is CompositeMode {

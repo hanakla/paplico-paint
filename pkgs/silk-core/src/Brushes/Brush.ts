@@ -14,9 +14,9 @@ export class Brush implements IBrush {
     context: ctx,
     stroke,
     ink,
-    brushSetting: { weight, color, opacity },
+    brushSetting: { size, color, opacity },
   }: BrushContext) {
-    ctx.lineWidth = weight
+    ctx.lineWidth = size
     ctx.strokeStyle = `${rgba(color.r, color.g, color.b, opacity)}`
     ctx.lineCap = 'round'
 

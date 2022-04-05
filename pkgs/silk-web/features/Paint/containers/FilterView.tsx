@@ -29,6 +29,8 @@ import { useFleurContext, useStore } from '@fleur/react'
 import { editorOps, EditorSelector, EditorStore } from '🙌/domains/EditorStable'
 import { useFunk } from '@hanakla/arma'
 import { isEventIgnoringTarget } from '../helpers'
+import { SidebarPane } from '🙌/components/SidebarPane'
+import { reversedIndex } from '🙌/utils/array'
 
 export const FilterView = () => {
   const { t } = useTranslation('app')
@@ -79,7 +81,11 @@ export const FilterView = () => {
     if (!activeLayer) return
 
     executeOperation(editorOps.updateLayer, activeLayer.uid, (layer) => {
-      arrayMove.mutate(layer.filters, sort.oldIndex, sort.newIndex)
+      arrayMove.mutate(
+        layer.filters,
+        reversedIndex(activeLayer.filters, sort.oldIndex),
+        reversedIndex(activeLayer.filters, sort.newIndex)
+      )
     })
   })
 
@@ -89,77 +95,63 @@ export const FilterView = () => {
   })
 
   return (
-    <div
-      css={`
-        display: flex;
-        flex-flow: column;
-        flex: 1;
-      `}
+    <SidebarPane
+      heading={
+        <>
+          {t('layerFilter')}
+
+          <div
+            ref={addFilterListRef}
+            css={`
+              position: relative;
+              margin-left: auto;
+            `}
+            onClick={handleClickOpenFilter}
+          >
+            <Add css="width:16px;" />
+
+            <Portal>
+              <ul
+                ref={addFilterListPopRef}
+                css={css`
+                  position: fixed;
+                  z-index: 1;
+                  width: 184px;
+                  background-color: ${({ theme }) => theme.surface.popupMenu};
+                  color: ${({ theme }) => theme.text.white};
+                  box-shadow: 0 0 4px ${rgba('#000', 0.5)};
+
+                  li {
+                    padding: 8px;
+                    user-select: none;
+                  }
+                  li:hover {
+                    background-color: rgba(255, 255, 255, 0.2);
+                  }
+                `}
+                style={{
+                  ...addLayerListPopper.styles.popper,
+                  ...(listOpened
+                    ? { visibility: 'visible', pointerEvents: 'all' }
+                    : { visibility: 'hidden', pointerEvents: 'none' }),
+                }}
+                {...addLayerListPopper.attributes.popper}
+              >
+                {registeredFilters.map((filter) => (
+                  <li
+                    key={filter.id}
+                    onClick={handleClickAddFilter}
+                    data-filter-id={filter.id}
+                  >
+                    {t(`filters.${filter.id}`)}
+                  </li>
+                ))}
+              </ul>
+            </Portal>
+          </div>
+        </>
+      }
     >
-      <header
-        css={css`
-          ${centering()}
-          display: flex;
-          /* height: 24px; */
-          padding: 6px;
-          border-top: 1px solid ${({ theme }) => theme.exactColors.blackFade30};
-          border-bottom: 1px solid
-            ${({ theme }) => theme.exactColors.blackFade30};
-        `}
-      >
-        {t('layerFilter')}
-
-        <div
-          ref={addFilterListRef}
-          css={`
-            position: relative;
-            margin-left: auto;
-          `}
-          onClick={handleClickOpenFilter}
-        >
-          <Add css="width:16px;" />
-
-          <Portal>
-            <ul
-              ref={addFilterListPopRef}
-              css={css`
-                position: fixed;
-                z-index: 1;
-                width: 184px;
-                background-color: ${({ theme }) => theme.surface.popupMenu};
-                color: ${({ theme }) => theme.text.white};
-                box-shadow: 0 0 4px ${rgba('#000', 0.5)};
-
-                li {
-                  padding: 8px;
-                  user-select: none;
-                }
-                li:hover {
-                  background-color: rgba(255, 255, 255, 0.2);
-                }
-              `}
-              style={{
-                ...addLayerListPopper.styles.popper,
-                ...(listOpened
-                  ? { visibility: 'visible', pointerEvents: 'all' }
-                  : { visibility: 'hidden', pointerEvents: 'none' }),
-              }}
-              {...addLayerListPopper.attributes.popper}
-            >
-              {registeredFilters.map((filter) => (
-                <li
-                  key={filter.id}
-                  onClick={handleClickAddFilter}
-                  data-filter-id={filter.id}
-                >
-                  {t(`filters.${filter.id}`)}
-                </li>
-              ))}
-            </ul>
-          </Portal>
-        </div>
-      </header>
-
       {activeLayer && (
         <SortableFilterList
           layer={activeLayer}
@@ -169,7 +161,7 @@ export const FilterView = () => {
           lockAxis={'y'}
         />
       )}
-    </div>
+    </SidebarPane>
   )
 }
 
@@ -238,48 +230,42 @@ const SortableFilterItem = SortableElement(function FilterItem({
   const active = selectedFilterIds[filter.uid]
   const [propsOpened, togglePropsOpened] = useToggle(false)
 
-  const handleClick = useFunk(
-    (e: MouseEvent<HTMLDivElement>) => {
-      if (DOMUtils.closestOrSelf(e.target, '[data-ignore-click]')) return
+  const handleClick = useFunk((e: MouseEvent<HTMLDivElement>) => {
+    if (DOMUtils.closestOrSelf(e.target, '[data-ignore-click]')) return
 
-      executeOperation(editorOps.setSelectedFilterIds, { [filter.uid]: true })
-    },
-    [filter]
-  )
+    executeOperation(editorOps.setSelectedFilterIds, { [filter.uid]: true })
+  })
 
   const handleDoubleClick = useFunk((e: MouseEvent<HTMLDivElement>) => {
     if (DOMUtils.closestOrSelf(e.target, '[data-ignore-click]')) return
     togglePropsOpened()
-  }, [])
+  })
 
   const handleToggleVisibility = useFunk(() => {
     if (!activeLayer) return
 
     executeOperation(editorOps.updateLayer, activeLayer.uid, (layer) => {
-      const targetFilter = layer.filters.find((f) => f.id === filter.uid)
+      const targetFilter = layer.filters.find((f) => f.uid === filter.uid)
       if (!targetFilter) return
 
       targetFilter.visible = !targetFilter.visible
     })
 
     executeOperation(editorOps.rerenderCanvas)
-  }, [activeLayer, filter])
+  })
 
-  const handleClickRemove: ContextMenuCallback = useFunk(
-    (_) => {
-      if (!activeLayer) return
+  const handleClickRemove: ContextMenuCallback = useFunk((_) => {
+    if (!activeLayer) return
 
-      executeOperation(editorOps.updateLayer, activeLayer.uid, (layer) => {
-        const idx = layer.filters.findIndex((f) => f.id === filter.uid)
-        if (idx === -1) return
+    executeOperation(editorOps.updateLayer, activeLayer.uid, (layer) => {
+      const idx = layer.filters.findIndex((f) => f.uid === filter.uid)
+      if (idx === -1) return
 
-        layer.filters.splice(idx, 1)
-      })
+      layer.filters.splice(idx, 1)
+    })
 
-      executeOperation(editorOps.rerenderCanvas)
-    },
-    [activeLayer, filter]
-  )
+    executeOperation(editorOps.rerenderCanvas)
+  })
 
   return (
     <ContextMenuArea>

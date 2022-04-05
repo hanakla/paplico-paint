@@ -24,7 +24,7 @@ export class ExampleBrush implements IBrush {
 
     const { width, height } = this.image
 
-    stroke.path.mapPoints(({ x, y, weight }) => {
+    stroke.path.mapPoints(({ x, y, pressure: weight }) => {
       ctx.globalAlpha = weight / 2
       ctx.drawImage(
         this.image!,

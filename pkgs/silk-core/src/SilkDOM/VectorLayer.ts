@@ -47,45 +47,6 @@ export class VectorLayer extends Emitter<Events> implements ILayer {
     layer.x = attrs.x ?? layer.x
     layer.y = attrs.y ?? layer.y
 
-    const path = Path.create({
-      points: [
-        { x: 0, y: 0, in: null, out: null },
-        { x: 200, y: 500, in: null, out: null },
-        { x: 600, y: 500, in: null, out: null },
-        {
-          x: 1000,
-          y: 1000,
-          in: null,
-          out: null,
-        },
-      ],
-      closed: true,
-    })
-
-    const obj = VectorObject.create({ x: 0, y: 0, path })
-
-    if (process.env.NODE_ENV === 'development') {
-      obj.brush = {
-        brushId: '@silk-paint/brush',
-        color: { r: 0, g: 0, b: 0 },
-        opacity: 1,
-        size: 1,
-      }
-
-      obj.fill = {
-        type: 'linear-gradient',
-        opacity: 1,
-        start: { x: -100, y: -100 },
-        end: { x: 100, y: 100 },
-        colorPoints: [
-          { color: { r: 0, g: 255, b: 255, a: 1 }, position: 0 },
-          { color: { r: 128, g: 255, b: 200, a: 1 }, position: 1 },
-        ],
-      }
-    }
-
-    layer.objects.push(obj)
-
     return layer
   }
 

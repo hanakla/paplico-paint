@@ -22,6 +22,14 @@ declare module 'point-at-length' {
   export = _
 }
 
+declare module 'fast-random' {
+  const fastRandom: (seed: number) => {
+    nextInt(): number
+    nextFloat(): number
+  }
+  export = fastRandom
+}
+
 declare module '*.png' {
   const _: string
   export default _

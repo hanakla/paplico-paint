@@ -6,31 +6,51 @@ type Props = {
   className?: string
   heading: ReactNode
   children: ReactNode
+  container?: (children: ReactNode) => ReactNode
 }
 
-export const SidebarPane = ({ heading, children, className }: Props) => {
+const defaultContainer = (children: ReactNode) => (
+  <div
+    css={`
+      padding: 4px;
+    `}
+  >
+    {children}
+  </div>
+)
+
+export const SidebarPane = ({
+  heading,
+  children,
+  className,
+  container = defaultContainer,
+}: Props) => {
   return (
     <section
       css={`
         display: flex;
         flex-flow: column;
         flex: 1;
+
+        & + & {
+          border-top: 1px solid ${({ theme }) => theme.exactColors.blackFade30};
+        }
       `}
     >
       <header
         css={css`
-          ${centering()}
           position: relative;
           display: flex;
           padding: 6px;
-          border-top: 1px solid ${({ theme }) => theme.exactColors.blackFade30};
+
           border-bottom: 1px solid
             ${({ theme }) => theme.exactColors.blackFade30};
         `}
       >
         {heading}
       </header>
-      <div>{children}</div>
+
+      {container(children)}
     </section>
   )
 }

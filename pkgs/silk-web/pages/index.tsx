@@ -1,6 +1,8 @@
 import type {} from '../utils/styled-theme'
 
-import React, { MouseEvent, useEffect } from 'react'
+import 'react-contexify/dist/ReactContexify.css'
+import React, { MouseEvent, useEffect, useMemo } from 'react'
+import { dark, light } from '@charcoal-ui/theme'
 import { useDropArea } from 'react-use'
 import { GetStaticProps } from 'next'
 import { serverSideTranslations } from 'next-i18next/serverSideTranslations'
@@ -19,13 +21,13 @@ import { extname } from 'path'
 import Head from 'next/head'
 import { Sidebar } from '../components/Sidebar'
 import { useMedia } from '../utils/hooks'
-import { lightTheme, theme } from '../utils/theme'
+import { lightTheme, darkTheme } from '../utils/theme'
 import { rgba } from 'polished'
 import { centering } from '../utils/mixins'
 import i18nConfig from '../next-i18next.config'
 import { mediaNarrow, narrow } from '../utils/responsive'
 import { getStaticPropsWithFleur } from '../lib/fleur'
-import { editorOps, EditorSelector, EditorStore } from '../domains/EditorStable'
+import { EditorOps, EditorSelector, EditorStore } from '../domains/EditorStable'
 import { PaintPage } from '../features/Paint'
 
 // Index.getInitialProps = async (ctx: FleurishNextPageContext) => {
@@ -60,8 +62,8 @@ const HomeContent = () => {
       doc.addLayer(layer)
       doc.activeLayerId = layer.uid
 
-      executeOperation(editorOps.setDocument, doc)
-      executeOperation(editorOps.setEditorPage, 'app')
+      executeOperation(EditorOps.setDocument, doc)
+      executeOperation(EditorOps.setEditorPage, 'app')
     }
   )
 
@@ -73,8 +75,8 @@ const HomeContent = () => {
         new Uint8Array(await file.arrayBuffer())
       )
 
-      executeOperation(editorOps.setDocument, doc)
-      executeOperation(editorOps.setEditorPage, 'app')
+      executeOperation(EditorOps.setDocument, doc)
+      executeOperation(EditorOps.setEditorPage, 'app')
     } else if (/^image\//.test(file.type)) {
       const { image, url } = await loadImageFromBlob(file)
       const layer = await SilkHelper.imageToLayer(image)
@@ -87,8 +89,8 @@ const HomeContent = () => {
       })
       doc.addLayer(layer)
 
-      executeOperation(editorOps.setDocument, doc)
-      executeOperation(editorOps.setEditorPage, 'app')
+      executeOperation(EditorOps.setDocument, doc)
+      executeOperation(EditorOps.setEditorPage, 'app')
     }
   })
 
@@ -103,10 +105,10 @@ const HomeContent = () => {
   })
 
   const handleClickDarkTheme = useFunk(() =>
-    executeOperation(editorOps.setTheme, 'dark')
+    executeOperation(EditorOps.setTheme, 'dark')
   )
   const handleClickLightTheme = useFunk(() =>
-    executeOperation(editorOps.setTheme, 'light')
+    executeOperation(EditorOps.setTheme, 'light')
   )
 
   const [bindDrop, dropState] = useDropArea({
@@ -346,12 +348,22 @@ const PageSwitch = () => {
   }))
 
   useEffect(() => {
-    executeOperation(editorOps.restorePreferences)
-    executeOperation(editorOps.setEditorMode, isNarrowMedia ? 'sp' : 'pc')
+    executeOperation(EditorOps.restorePreferences)
+    executeOperation(EditorOps.setEditorMode, isNarrowMedia ? 'sp' : 'pc')
   }, [])
 
+  const theme = useMemo(
+    () =>
+      Object.assign(
+        {},
+        currentTheme === 'dark' ? darkTheme : lightTheme,
+        currentTheme === 'dark' ? dark : light
+      ),
+    [currentTheme]
+  )
+
   return (
-    <ThemeProvider theme={currentTheme === 'dark' ? theme : lightTheme}>
+    <ThemeProvider theme={theme}>
       <DefaultStyle />
       <Head>
         <meta

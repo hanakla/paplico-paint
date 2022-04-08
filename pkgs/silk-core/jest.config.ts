@@ -1,9 +1,10 @@
-/** @type {import('@ts-jest/dist/types').InitialOptionsTsJest} */
-const config = {
+import type { Config } from '@jest/types'
+
+const config: Config.InitialOptions = {
   preset: 'ts-jest',
   testEnvironment: 'node',
   testRegex: '.*\\.spec\\.tsx?$',
-  setupFiles: ['jest-canvas-mock'],
+  // setupFiles: ['jest-canvas-mock'],
   globals: {
     'ts-jest': {
       isolatedModules: true,
@@ -11,4 +12,4 @@ const config = {
   },
 }
 
-module.exports = config
+export default config

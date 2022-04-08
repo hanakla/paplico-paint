@@ -1,4 +1,5 @@
 import { Emitter } from 'Engine3_Emitter'
+import { ISilkDOMElement } from './ISilkDOMElement'
 
 export type CompositeMode = 'normal' | 'multiply' | 'screen' | 'overlay'
 
@@ -22,7 +23,10 @@ export type LayerProperties = {
   y: number
 }
 
-export interface ILayer extends Emitter<LayerEvents<any>>, LayerProperties {
+export interface ILayer
+  extends Emitter<LayerEvents<any>>,
+    LayerProperties,
+    ISilkDOMElement {
   update(proc: (layer: this) => void): void
 
   serialize(): any

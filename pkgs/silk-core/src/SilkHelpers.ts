@@ -1,16 +1,17 @@
 import type { CompositeMode } from './SilkDOM/IRenderable'
-import type * as SilkEntity from './SilkDOM/index'
+import type * as SilkDOM from './SilkDOM/index'
 import { RasterLayer } from './SilkDOM/RasterLayer'
+import { createContext2D } from './Engine3_CanvasFactory'
 
 export async function imageToLayer(img: HTMLImageElement) {
   const layer = RasterLayer.create({
     width: img.width,
     height: img.height,
   })
-  const context = Object.assign(document.createElement('canvas'), {
+  const context = Object.assign(createContext2D(), {
     width: img.width,
     height: img.height,
-  }).getContext('2d')!
+  })
 
   context.imageSmoothingEnabled = false
   context.drawImage(img, 0, 0)
@@ -20,12 +21,12 @@ export async function imageToLayer(img: HTMLImageElement) {
 }
 
 export function mapPoints<T>(
-  points: SilkEntity.Path.PathPoint[],
+  points: SilkDOM.Path.PathPoint[],
   proc: (
-    point: SilkEntity.Path.PathPoint,
-    prevPoint: SilkEntity.Path.PathPoint | undefined,
+    point: SilkDOM.Path.PathPoint,
+    prevPoint: SilkDOM.Path.PathPoint | undefined,
     index: number,
-    points: SilkEntity.Path.PathPoint[]
+    points: SilkDOM.Path.PathPoint[]
   ) => T,
   { startOffset = 0 }: { startOffset?: number } = {}
 ): T[] {

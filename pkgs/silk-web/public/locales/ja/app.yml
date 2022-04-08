@@ -24,6 +24,7 @@ layerType:
   filter: フィルターレイヤー
   vector: ベクターレイヤー
   raster: 通常レイヤー
+  text: テキストレイヤー
 
 compositeModes:
   normal: 通常

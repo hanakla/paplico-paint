@@ -1,4 +1,4 @@
-import { MouseEvent, useRef, useState } from 'react'
+import { MouseEvent, useEffect, useRef, useState } from 'react'
 import { useFleurContext, useStore } from '@fleur/react'
 import { ChromePicker, ColorChangeHandler, CustomPicker } from 'react-color'
 import { Hue, Saturation } from 'react-color/lib/components/common'
@@ -6,20 +6,24 @@ import { rgba, readableColor, rgb } from 'polished'
 import { usePopper } from 'react-popper'
 import { SilkBrushes, SilkDOM } from 'silk-core'
 import { useTranslation } from 'next-i18next'
-import { useClickAway, useMedia, useToggle, useUpdate } from 'react-use'
+import { useClickAway, useToggle, useUpdate } from 'react-use'
 import { Brush, Close, Eraser, Pencil, Stack } from '@styled-icons/remix-line'
 import { Cursor } from '@styled-icons/remix-fill'
-import { css, useTheme } from 'styled-components'
+import { useTheme } from 'styled-components'
 import { Portal } from '🙌/components/Portal'
-import { narrow } from '🙌/utils/responsive'
 import { FloatMenu } from '🙌/components/FloatMenu'
 import { LayerFloatMenu } from './LayerFloatMenu'
 import { useDrag } from 'react-use-gesture'
 import { DOMUtils } from '🙌/utils/dom'
 import { SelectBox } from '🙌/components/SelectBox'
-import { editorOps, EditorSelector, EditorStore } from '🙌/domains/EditorStable'
+import { EditorOps, EditorSelector, EditorStore } from '🙌/domains/EditorStable'
 import { useFunk } from '@hanakla/arma'
-import { isEventIgnoringTarget } from '../../helpers'
+import {
+  autoPlacement,
+  offset,
+  shift,
+  useFloating,
+} from '@floating-ui/react-dom'
 
 export function MainActions() {
   const theme = useTheme()
@@ -30,18 +34,28 @@ export function MainActions() {
     currentVectorBrush,
     currentVectorFill,
     currentTool,
+    brushSetting,
     activeLayer,
     activeObject,
   } = useStore((get) => ({
     currentVectorBrush: EditorSelector.currentVectorBrush(get),
     currentVectorFill: EditorSelector.currentVectorFill(get),
     currentTool: get(EditorStore).state.currentTool,
+    brushSetting: EditorSelector.currentBrushSetting(get),
     activeLayer: EditorSelector.activeLayer(get),
     activeObject: EditorSelector.activeObject(get),
   }))
 
-  const [color, setColor] = useState({ r: 0, g: 0, b: 0 })
-  const [pickerOpened, togglePicker] = useToggle(false)
+  const [color, setColor] = useState(
+    brushSetting?.color
+      ? {
+          r: Math.round(brushSetting.color.r * 255),
+          g: Math.round(brushSetting.color.g * 255),
+          b: Math.round(brushSetting.color.b * 255),
+        }
+      : { r: 30, g: 30, b: 30 }
+  )
+  const [pickerOpened, toggleColorPicker] = useToggle(false)
   const [brushOpened, toggleBrush] = useToggle(false)
   const [layersOpened, toggleLayers] = useToggle(false)
   const [vectorColorOpened, toggleVectorColorOpened] = useToggle(false)
@@ -50,7 +64,6 @@ export function MainActions() {
   )
   const [brushSize, setBrushSize] = useState(1)
   const [brushOpacity, setBrushOpacity] = useState(1)
-  const rerender = useUpdate()
 
   const handleChangeColor: ColorChangeHandler = useFunk((color) => {
     setColor(color.rgb)
@@ -58,7 +71,7 @@ export function MainActions() {
 
   const handleChangeCompleteColor: ColorChangeHandler = useFunk((color) => {
     setColor(color.rgb)
-    executeOperation(editorOps.setBrushSetting, {
+    executeOperation(EditorOps.setBrushSetting, {
       color: {
         r: color.rgb.r / 255,
         g: color.rgb.g / 255,
@@ -68,11 +81,16 @@ export function MainActions() {
   })
 
   const handleChangeToCursorMode = useFunk(() => {
-    executeOperation(editorOps.setTool, 'cursor')
+    executeOperation(
+      EditorOps.setTool,
+      currentTool === 'cursor' && activeLayer?.layerType === 'vector'
+        ? 'point-cursor'
+        : 'cursor'
+    )
   })
 
   const handleChangeToShapePenMode = useFunk(() => {
-    executeOperation(editorOps.setTool, 'shape-pen')
+    executeOperation(EditorOps.setTool, 'shape-pen')
   })
 
   const handleChangeToPencilMode = useFunk(() => {
@@ -81,24 +99,24 @@ export function MainActions() {
       return
     }
 
-    executeOperation(editorOps.setTool, 'draw')
+    executeOperation(EditorOps.setTool, 'draw')
   })
 
   const handleChangeToEraceMode = useFunk(() => {
-    executeOperation(editorOps.setTool, 'erase')
+    executeOperation(EditorOps.setTool, 'erase')
   })
 
   const handleChangeBrush = useFunk((id: string) => {
-    executeOperation(editorOps.setBrush, id)
+    executeOperation(EditorOps.setBrushSetting, { brushId: id })
   })
 
   const handleClickColor = useFunk((e: MouseEvent<HTMLDivElement>) => {
     if (colorPickerPopRef.current!.contains(e.target as HTMLElement)) return
-    togglePicker()
+    toggleColorPicker()
   })
 
   const handleClickLayerIcon = useFunk((e: MouseEvent<HTMLDivElement>) => {
-    if (layerPopRef.current!.contains(e.target as HTMLElement)) return
+    // if (layerPopRef.current!.contains(e.target as HTMLElement)) return
     toggleLayers()
   })
 
@@ -126,6 +144,18 @@ export function MainActions() {
     placement: 'top-start',
   })
 
+  const layersArrowRef = useRef<HTMLDivElement | null>(null)
+  const layersFloat = useFloating({
+    strategy: 'absolute',
+    placement: 'top',
+    middleware: [
+      // arrow({ element: layersArrowRef }),
+      offset(12),
+      shift({ padding: 8 }),
+      autoPlacement({ alignment: 'start', allowedPlacements: ['top'] }),
+    ],
+  })
+
   const colorPickerPopRef = useRef<HTMLDivElement | null>(null)
 
   const vectorColorRootRef = useRef<HTMLDivElement | null>(null)
@@ -136,12 +166,12 @@ export function MainActions() {
   })
 
   // useEffect(() => {
-  //   layerPopper.forceUpdate?.()
+  //   layersFloat.update()
   // })
 
   useClickAway(colorPickerPopRef, (e) => {
     if (DOMUtils.childrenOrSelf(e.target, colorPickerPopRef.current)) return
-    if (pickerOpened) togglePicker(false)
+    if (pickerOpened) toggleColorPicker(false)
   })
   useClickAway(vectorColorPickerPopRef, (e) => {
     if (DOMUtils.childrenOrSelf(e.target, vectorColorPickerPopRef.current))
@@ -170,7 +200,7 @@ export function MainActions() {
     const changed = delta[0] * 0.2
     setBrushSize((size) => {
       const next = Math.max(0, size + changed)
-      executeOperation(editorOps.setBrushSetting, { size: next })
+      executeOperation(EditorOps.setBrushSetting, { size: next })
       return next
     })
   })
@@ -187,14 +217,14 @@ export function MainActions() {
     const changed = delta[0] * 0.003
     setBrushOpacity((opacity) => {
       const next = Math.min(Math.max(0, opacity + changed), 1)
-      executeOperation(editorOps.setBrushSetting, { opacity: next })
+      executeOperation(EditorOps.setBrushSetting, { opacity: next })
       return next
     })
   })
 
   return (
     <div
-      css={css`
+      css={`
         display: flex;
         gap: 8px;
         padding: 8px 16px;
@@ -485,7 +515,7 @@ export function MainActions() {
         <Portal>
           <div
             ref={brushPopRef}
-            css={css`
+            css={`
               margin-left: -16px;
               margin-bottom: 16px;
               background-color: ${({ theme }) => theme.surface.floatWhite};
@@ -514,17 +544,20 @@ export function MainActions() {
             <ul>
               <BrushItem
                 name="普通筆"
-                id="Brush"
+                brushId={SilkBrushes.Brush.id}
+                active={brushSetting?.brushId === SilkBrushes.Brush.id}
                 onSelect={handleChangeBrush}
               />
               <BrushItem
                 name="スキャッター"
-                id="ScatterBrush"
+                brushId={SilkBrushes.ScatterBrush.id}
+                active={brushSetting?.brushId === SilkBrushes.ScatterBrush.id}
                 onSelect={handleChangeBrush}
               />
               <BrushItem
                 name="テスト筆"
-                id="ExampleBrush"
+                brushId={SilkBrushes.ExampleBrush.id}
+                active={brushSetting?.brushId === SilkBrushes.ExampleBrush.id}
                 onSelect={handleChangeBrush}
               />
             </ul>
@@ -534,17 +567,19 @@ export function MainActions() {
 
       {/* {isNarrowMedia && ( */}
       <div
-        ref={layerRef}
+        ref={layersFloat.reference}
         css={`
           position: relative;
           padding: 4px;
+          display: flex;
+          justify-content: center;
+          align-items: center;
+          width: 36px;
           border-radius: 60px;
           transition: background-color 0.2s ease-in-out;
         `}
         style={{
-          backgroundColor: layersOpened
-            ? theme.surface.brushViewActive
-            : 'transparent',
+          backgroundColor: layersOpened ? theme.exactColors.blackFade30 : '',
         }}
         onClick={handleClickLayerIcon}
       >
@@ -557,19 +592,38 @@ export function MainActions() {
         </>
 
         <FloatMenu
-          ref={layerPopRef}
+          ref={layersFloat.floating}
           css={`
             width: 300px;
           `}
           style={{
-            ...layerPopper.styles.popper,
             ...(layersOpened
               ? { opacity: 1, pointerEvents: 'all' }
               : { opacity: 0, pointerEvents: 'none' }),
+            position: layersFloat.strategy,
+            top: layersFloat.y ?? '',
+            left: layersFloat.x ?? '',
           }}
-          {...layerPopper.attributes.popper}
         >
           <LayerFloatMenu />
+          <div
+            ref={layersArrowRef}
+            css={`
+              display: inline-block;
+              position: absolute;
+              /* top: 100%;
+             left: 50%;
+             transform: translateX(-50%); */
+              border: 6px solid;
+              border-color: ${({ theme }) => theme.surface.floatWhite}
+                transparent transparent transparent;
+            `}
+            style={{
+              position: 'absolute',
+              top: layersFloat.middlewareData.arrow?.y ?? 0,
+              left: layersFloat.middlewareData.arrow?.x ?? 0,
+            }}
+          />
         </FloatMenu>
       </div>
       {/* )} */}
@@ -579,20 +633,19 @@ export function MainActions() {
 
 const BrushItem = ({
   name,
-  id,
+  brushId,
+  active,
   onSelect,
 }: {
   name: string
-  id: keyof typeof SilkBrushes
-  onSelect: (id: keyof typeof SilkBrushes) => void
+  brushId: string
+  active: boolean
+  onSelect: (id: string) => void
 }) => {
   const theme = useTheme()
-  const { currentBrush } = useStore((get) => ({
-    currentBrush: EditorSelector.currentBrush(get),
-  }))
 
   const handleClick = useFunk(() => {
-    onSelect(SilkBrushes[id].id)
+    onSelect(brushId)
   })
 
   return (
@@ -603,10 +656,7 @@ const BrushItem = ({
         cursor: default;
       `}
       style={{
-        backgroundColor:
-          currentBrush?.id === SilkBrushes[id].id
-            ? theme.exactColors.blueFade50
-            : 'transparent',
+        backgroundColor: active ? theme.exactColors.blueFade50 : 'transparent',
       }}
       onClick={handleClick}
     >
@@ -638,12 +688,12 @@ const VectorColorPicker = ({
   }))
 
   const handleChangeFillMode = useFunk(() => {
-    handleChangeFillMode
+    // handleChangeFillMode
   })
 
   const handleChangeStrokeColor: ColorChangeHandler = useFunk(
     ({ rgb: { r, g, b } }) => {
-      executeOperation(editorOps.updateActiveObject, (obj) => {
+      executeOperation(EditorOps.updateActiveObject, (obj) => {
         obj.brush = obj.brush
           ? { ...obj.brush, color: { r, g, b } }
           : {

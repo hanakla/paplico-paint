@@ -1,6 +1,6 @@
 import { screenMix_func } from '../engine/Shaders'
 import { FilterContext, IFilter } from '../engine/IFilter'
-import WebGLContext from '../engine/WebGLContext'
+import { WebGLContext } from '../engine/WebGLContext'
 
 const FRAGMENT_SHADER = `
   precision mediump float;
@@ -40,7 +40,7 @@ export class ChromaticAberrationFilter implements IFilter {
     return { distance: 10, angleDeg: 0 }
   }
 
-  private program: WebGLProgram | null = null
+  private program: WebGLContext.ProgramSet | null = null
 
   public async initialize({ gl }: { gl: WebGLContext }) {
     this.program = gl.createProgram(FRAGMENT_SHADER)

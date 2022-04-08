@@ -1,12 +1,14 @@
 import { ForwardedRef, MutableRefObject, RefCallback, RefObject } from 'react'
 
-export const combineRef = (
+export const combineRef = <T>(
   ...refs: (MutableRefObject<any> | RefCallback<any> | ForwardedRef<any>)[]
-) => {
-  return (element: any) => {
-    refs.forEach((ref) => {
-      if (!ref) return
-      typeof ref === 'function' ? ref(element) : (ref.current = element)
-    })
+): MutableRefObject<T | null> => {
+  return {
+    set current(el: T | null) {
+      refs.forEach((ref) => {
+        if (!ref) return
+        typeof ref === 'function' ? ref(el) : (ref.current = el)
+      })
+    },
   }
 }

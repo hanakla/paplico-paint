@@ -12,21 +12,21 @@ export class Brush implements IBrush {
 
   public render({
     context: ctx,
-    stroke,
+    path: inputPath,
     ink,
     brushSetting: { size, color, opacity },
   }: BrushContext) {
+    const { points, closed } = inputPath
+    const [start] = points
+
     ctx.lineWidth = size
     ctx.strokeStyle = `${rgba(color.r, color.g, color.b, opacity)}`
     ctx.lineCap = 'round'
 
-    const { points, closed } = stroke.path
-    const [start] = points
-
     ctx.beginPath()
     ctx.moveTo(start.x, start.y)
 
-    stroke.path.mapPoints(
+    inputPath.mapPoints(
       (point, prev) => {
         ctx.bezierCurveTo(
           prev!.out?.x ?? prev!.x,

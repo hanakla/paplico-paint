@@ -1,6 +1,7 @@
 import { SilkEngine3 } from './Engine3'
 import { BrushClass, IBrush } from './IBrush'
 import { FilterClass, IFilter } from './IFilter'
+import { WebGLContext } from './WebGLContext'
 
 export class ToolRegistry {
   protected brushRegister = new Map<string, BrushClass>()
@@ -9,13 +10,13 @@ export class ToolRegistry {
   protected filterRegister = new Map<string, FilterClass>()
   protected filterInstances = new WeakMap<FilterClass, IFilter>()
 
-  constructor(protected engine: SilkEngine3) {}
+  constructor(protected gl: WebGLContext) {}
 
   public async registerBrush(Brush: BrushClass) {
     this.brushRegister.set(Brush.id, Brush)
 
     const brush = new Brush()
-    await brush.initialize({ gl: this.engine.gl })
+    await brush.initialize({ gl: this.gl })
     this.brushInstances.set(Brush, brush)
   }
 
@@ -34,7 +35,7 @@ export class ToolRegistry {
     this.filterRegister.set(Filter.id, Filter)
 
     const filter = new Filter()
-    await filter.initialize({ gl: this.engine.gl })
+    await filter.initialize({ gl: this.gl })
     this.filterInstances.set(Filter, filter)
   }
 

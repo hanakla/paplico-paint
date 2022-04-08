@@ -1,32 +1,34 @@
 import { forwardRef, DetailedHTMLProps, InputHTMLAttributes } from 'react'
 import { css } from 'styled-components'
-import { useMedia } from '../utils/hooks'
-import { narrow } from '../utils/responsive'
+import { media } from '../utils/responsive'
 
 export const FakeInput = forwardRef<
   HTMLInputElement,
   DetailedHTMLProps<InputHTMLAttributes<HTMLInputElement>, HTMLInputElement>
 >((props, ref) => {
-  const isNarrow = useMedia(`(max-width: ${narrow})`, false)
-
   return (
     <input
       ref={ref}
       css={css`
         width: 100%;
         margin-top: -2px;
-        padding: 2px;
+        padding: 4px 2px;
         appearance: none;
         background-color: transparent;
         border: none;
         border-radius: 2px;
         color: inherit;
         outline: none;
-        font-size: ${isNarrow ? '16px' : 'inherit'};
+        font-size: inherit;
+        background-color: ${({ theme }) => theme.colors.whiteFade10};
+
+        ${media.narrow`
+          font-size: 16px;
+        `}
 
         &:focus {
           color: ${({ theme }) => theme.text.inputActive};
-          background-color: ${({ theme }) => theme.surface.inputActive};
+          background-color: ${({ theme }) => theme.colors.whiteFade20};
         }
       `}
       type="text"

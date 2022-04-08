@@ -1,5 +1,6 @@
-import { assign } from '../utils'
+import { setCanvasSize } from '../utils'
 import { FilterContext, IFilter } from '../engine/IFilter'
+import { createContext2D } from '../Engine3_CanvasFactory'
 
 const SAMPLE_COUNT = 40
 
@@ -82,10 +83,9 @@ export class BloomFilter implements IFilter {
     const program1 = gl.createProgram(FRAGMENT_SHADER_1)
     const program2 = gl.createProgram(FRAGMENT_SHADER_2)
     const program3 = gl.createProgram(FRAGMENT_SHADER_ADD)
-    const buffer = assign(document.createElement('canvas')!, {
-      width: size.width,
-      height: size.height,
-    }).getContext('2d')!
+
+    const buffer = createContext2D()
+    setCanvasSize(buffer.canvas, size)
 
     let offsetH = new Array(SAMPLE_COUNT)
     let weightH = new Array(SAMPLE_COUNT)

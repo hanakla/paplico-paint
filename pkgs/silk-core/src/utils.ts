@@ -1,5 +1,4 @@
 import clone from 'clone'
-import deferred, { DeferredPromise } from 'p-defer'
 
 class Rejected<T> extends Promise<T> {
   public error?: Error
@@ -15,65 +14,48 @@ class Rejected<T> extends Promise<T> {
   }
 }
 
-export class AtomicResource<T> {
-  private que: DeferredPromise<T>[] = []
-  private locked: boolean = false
-  private currentOwner: { stack: string; owner: any } | null = null
-
-  constructor(private resource: T) {}
-
-  public enjure({ owner }: { owner?: any } = {}): Promise<T> {
-    if (this.locked) {
-      const defer = deferred<T>()
-      defer.promise.then(() => (this.currentOwner = owner))
-
-      this.que.push(defer)
-
-      console.warn(
-        'AtomicResource: Enjure enqueued in locked resource, it may cause deadlock.',
-        { resource: this.resource },
-        { request: owner, current: this.currentOwner }
-      )
-      return defer.promise
-    }
-
-    this.locked = true
-    // console.groupCollapsed('enjure', this.resource)
-    // console.trace()
-    // console.groupEnd()
-    this.currentOwner = { owner, stack: new Error().stack! }
-    return Promise.resolve(this.resource)
-  }
-
-  public get isLocked() {
-    return this.locked
-  }
-
-  public release(resource: T) {
-    if (resource !== this.resource)
-      throw new Error('Incorrect resource released')
-    if (!this.locked) throw new Error('Unused resource released')
-
-    // console.groupCollapsed('release', this.resource)
-    // console.trace()
-    // console.groupEnd()
-    const next = this.que.splice(0, 1)[0]
-    if (next) {
-      next.resolve(this.resource)
-    } else {
-      this.locked = false
-    }
-  }
-}
-
 export const fakeRejectedPromise = <T>(error: Error) => {
   const p = new Rejected<T>(() => {})
   p.error = error
   return p
 }
 
+export const setCanvasSize: {
+  (
+    canvas: HTMLCanvasElement | OffscreenCanvas,
+    widthOrSize: number | { width: number; height: number },
+    height?: number
+  ): void
+} = (canvas, widthOrSize, height) => {
+  if (typeof widthOrSize === 'object') {
+    const { width, height } = widthOrSize
+    assign(canvas, { width, height })
+  } else {
+    assign(canvas, { width: widthOrSize, height })
+  }
+}
+
 export const assign = <T>(obj: T, patch: Partial<T>) =>
   Object.assign(obj, patch) as T
+
+interface Merger {
+  <T1, T2>(obj1: T1, obj2: T2): T1 & T2
+  <T1, T2, T3>(obj1: T1, obj2: T2, obj3: T3): T1 & T2 & T3
+  <T1, T2, T3, T4>(obj1: T1, obj2: T2, obj3: T3, obj4: T4): T1 & T2 & T3 & T4
+}
+export const mergeToNew: Merger = (...obj: any[]) => {
+  return Object.assign({}, ...obj)
+}
+
+export const pick = <T, K extends readonly (keyof T)[]>(
+  obj: T,
+  keys: K
+): { [KK in ArrayElement<K>]: T[KK] } => {
+  return keys.reduce((a, k) => assign(a, { [k]: obj[k] }), Object.create(null))
+}
+
+type ArrayElement<ArrayType extends readonly unknown[]> =
+  ArrayType extends readonly (infer ElementType)[] ? ElementType : never
 
 // prettier-ignore
 type RemoveReadonly<T> =

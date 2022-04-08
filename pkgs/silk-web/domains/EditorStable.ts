@@ -2,7 +2,7 @@ import { minOps, selector } from '@fleur/fleur'
 import arrayMove from 'array-move'
 import { debounce } from 'debounce'
 import {
-  Session,
+  SilkSession,
   Silk3,
   SilkDOM,
   SilkValue,
@@ -19,7 +19,7 @@ import { log, trace, warn } from '../utils/log'
 
 type EditorMode = 'pc' | 'sp' | 'tablet'
 type EditorPage = 'home' | 'app'
-type Tool = 'cursor' | 'shape-pen' | 'draw' | 'erase'
+type Tool = 'cursor' | 'shape-pen' | 'draw' | 'erase' | 'point-cursor'
 type VectorStroking = {
   objectId: string
   selectedPointIndex: number
@@ -29,7 +29,7 @@ type VectorStroking = {
 
 interface State {
   engine: Silk3 | null
-  session: Session | null
+  session: SilkSession | null
   renderStrategy: RenderStrategies.DifferenceRender | null
 
   currentFileHandler: FileSystemFileHandle | null
@@ -49,6 +49,9 @@ interface State {
   vectorFocusing: { objectId: string } | null
   clipboard: SilkDOM.VectorObject | null
   currentTheme: 'dark' | 'light'
+  vectorLastUpdated: number
+
+  selectedLayerUids: []
 }
 
 const debouncing = debounce(
@@ -59,7 +62,7 @@ const debouncing = debounce(
   100
 )
 
-export const [EditorStore, editorOps] = minOps('Editor', {
+export const [EditorStore, EditorOps] = minOps('Editor', {
   initialState: (): State => ({
     engine: null,
     session: null,
@@ -69,7 +72,7 @@ export const [EditorStore, editorOps] = minOps('Editor', {
 
     currentDocument: null,
     editorMode: 'sp',
-    editorPage: 'app',
+    editorPage: process.env.NODE_ENV === 'development' ? 'app' : 'home',
     currentTheme: 'light',
     renderSetting: { disableAllFilters: false, updateThumbnail: true },
     currentTool: 'cursor',
@@ -82,6 +85,9 @@ export const [EditorStore, editorOps] = minOps('Editor', {
     vectorStroking: null,
     vectorFocusing: null,
     clipboard: null,
+    vectorLastUpdated: 0,
+
+    selectedLayerUids: [],
   }),
   ops: {
     // #region Engine & Session
@@ -93,7 +99,7 @@ export const [EditorStore, editorOps] = minOps('Editor', {
         strategy,
       }: {
         engine: Silk3
-        session: Session
+        session: SilkSession
         strategy: IRenderStrategy
       }
     ) => {
@@ -144,12 +150,14 @@ export const [EditorStore, editorOps] = minOps('Editor', {
 
       x.commit({ currentDocument: document, currentFileHandler: null })
 
-      if (x.state.session) {
-        x.commit((d) => {
-          d.session!.setDocument(document)
-          d.activeLayerId = document?.activeLayerId ?? null
-        })
-      }
+      x.commit((d) => {
+        if (!d.session) return
+
+        d.session!.setDocument(document)
+        d.activeLayerId = document?.activeLayerId ?? null
+        if (document && d.renderStrategy)
+          d.engine?.render(document, d.renderStrategy)
+      })
     },
     setCurrentFileHandler: (x, handler: FileSystemFileHandle) => {
       x.commit({ currentFileHandler: handler })
@@ -161,7 +169,7 @@ export const [EditorStore, editorOps] = minOps('Editor', {
         d.session?.setRenderSetting(setting)
       })
 
-      x.executeOperation(editorOps.rerenderCanvas)
+      x.executeOperation(EditorOps.rerenderCanvas)
     },
     setTool: (x, tool: Tool) => {
       x.commit((d) => {
@@ -182,7 +190,6 @@ export const [EditorStore, editorOps] = minOps('Editor', {
       )
         return
 
-      debugger
       x.state.engine.render(
         x.state.currentDocument as unknown as SilkDOM.Document,
         x.state.renderStrategy
@@ -236,6 +243,7 @@ export const [EditorStore, editorOps] = minOps('Editor', {
     setStroke: (x, stroke: SilkValue.BrushSetting | null) => {
       x.commit({ currentStroke: stroke })
     },
+    /** @deprecated */
     setBrush(x, brushId: string) {
       x.commit((d) => {
         d.session!.currentBursh =
@@ -248,24 +256,37 @@ export const [EditorStore, editorOps] = minOps('Editor', {
       })
     },
 
-    setActiveLayer: (x, layerId: string) => {
+    setActiveLayer: (x, layerId: string, objectUid?: string) => {
       if (layerId === x.state.session?.activeLayerId) return
 
       x.commit((draft) => {
-        if (draft.session) draft.session.activeLayerId = layerId
+        draft.session?.setActiveLayer(layerId)
+
         draft.activeLayerId = layerId
-        draft.activeObjectId = null
+        draft.activeObjectId = objectUid ?? null
         draft.activeObjectPointIndices = []
         draft.selectedFilterIds = {}
       })
     },
-    setActiveObject: (x, objectId: string | null) => {
-      if (x.state.activeObjectId !== objectId) {
-        trace('activeObject changed', { objectId })
-        x.commit({ activeObjectPointIndices: [] })
-      }
+    setActiveObject: (
+      x,
+      objectId: string | null,
+      layerId: string | null = null
+    ) => {
+      x.commit((d) => {
+        if (d.activeObjectId !== objectId) {
+          d.activeObjectPointIndices = []
+        }
 
-      x.commit({ activeObjectId: objectId ?? null })
+        if (layerId != null) {
+          d.session?.setActiveLayer(layerId)
+          d.activeLayerId = layerId
+        }
+
+        d.activeObjectId = objectId
+
+        trace('activeObject changed', { objectId })
+      })
     },
     setSelectedObjectPoints: (x, indices: number[]) => {
       x.commit({ activeObjectPointIndices: indices })
@@ -296,7 +317,7 @@ export const [EditorStore, editorOps] = minOps('Editor', {
 
       x.commit((draft) => proc(draft.currentDocument as SilkDOM.Document))
 
-      !skipRerender && x.executeOperation(editorOps.rerenderCanvas)
+      !skipRerender && x.executeOperation(EditorOps.rerenderCanvas)
     },
     updateLayer: (
       x,
@@ -311,7 +332,7 @@ export const [EditorStore, editorOps] = minOps('Editor', {
         layerId && d.renderStrategy!.markUpdatedLayerId(layerId)
       })
 
-      !skipRerender && x.executeOperation(editorOps.rerenderCanvas)
+      !skipRerender && x.executeOperation(EditorOps.rerenderCanvas)
     },
     updateRasterLayer: (
       x,
@@ -332,7 +353,7 @@ export const [EditorStore, editorOps] = minOps('Editor', {
         layerId && d.renderStrategy!.markUpdatedLayerId(layerId)
       })
 
-      !skipRerender && x.executeOperation(editorOps.rerenderCanvas)
+      !skipRerender && x.executeOperation(EditorOps.rerenderCanvas)
     },
     updateVectorLayer: (
       x,
@@ -347,9 +368,10 @@ export const [EditorStore, editorOps] = minOps('Editor', {
         layer.update(proc)
 
         layerId && d.renderStrategy!.markUpdatedLayerId(layerId)
+        d.vectorLastUpdated = Date.now()
       })
 
-      !skipRerender && x.executeOperation(editorOps.rerenderCanvas)
+      // !skipRerender && x.executeOperation(EditorOps.rerenderCanvas)
     },
     updateFilter: (
       x,
@@ -370,7 +392,7 @@ export const [EditorStore, editorOps] = minOps('Editor', {
         layerId && d.renderStrategy!.markUpdatedLayerId(layerId)
       })
 
-      !skipRerender && x.executeOperation(editorOps.rerenderCanvas)
+      !skipRerender && x.executeOperation(EditorOps.rerenderCanvas)
     },
     updateActiveObject: (
       x,
@@ -378,7 +400,8 @@ export const [EditorStore, editorOps] = minOps('Editor', {
       { skipRerender = false }: { skipRerender?: boolean } = {}
     ) => {
       x.commit((d) => {
-        if (d.session?.activeLayer?.layerType !== 'vector') return
+        if (!d.session) return
+        if (d.session.activeLayer?.layerType !== 'vector') return
 
         const layerId = d.session?.activeLayerId
         layerId && d.renderStrategy!.markUpdatedLayerId(layerId)
@@ -388,10 +411,10 @@ export const [EditorStore, editorOps] = minOps('Editor', {
           (obj) => obj.uid === d.activeObjectId
         )
 
-        if (object) proc(object as SilkDOM.VectorObject)
+        object?.update(proc)
       })
 
-      !skipRerender && x.executeOperation(editorOps.rerenderCanvas)
+      !skipRerender && x.executeOperation(EditorOps.rerenderCanvas)
     },
     addLayer: (
       x,
@@ -433,7 +456,7 @@ export const [EditorStore, editorOps] = minOps('Editor', {
         d.renderStrategy?.markUpdatedLayerId(d.session.activeLayerId!)
       })
 
-      x.executeOperation(editorOps.rerenderCanvas)
+      x.executeOperation(EditorOps.rerenderCanvas)
     },
     deleteLayer: (x, layerId: string | null | undefined) => {
       x.commit((d) => {
@@ -456,7 +479,7 @@ export const [EditorStore, editorOps] = minOps('Editor', {
         }
       })
 
-      x.executeOperation(editorOps.rerenderCanvas)
+      x.executeOperation(EditorOps.rerenderCanvas)
     },
     deleteSelectedFilters: (x) => {
       x.commit((d) => {
@@ -469,7 +492,7 @@ export const [EditorStore, editorOps] = minOps('Editor', {
         })
       })
 
-      x.executeOperation(editorOps.rerenderCanvas)
+      x.executeOperation(EditorOps.rerenderCanvas)
     },
     deleteSelectedObjectPoints: (x) => {
       x.commit((d) => {
@@ -494,7 +517,7 @@ export const [EditorStore, editorOps] = minOps('Editor', {
         d.activeObjectPointIndices = []
       })
 
-      x.executeOperation(editorOps.rerenderCanvas)
+      x.executeOperation(EditorOps.rerenderCanvas)
     },
     // #endregion
   },
@@ -502,7 +525,7 @@ export const [EditorStore, editorOps] = minOps('Editor', {
 
 export const EditorSelector = {
   defaultVectorBrush: selector(
-    (): Session.BrushSetting => ({
+    (): SilkSession.BrushSetting => ({
       brushId: '@silk-paint/brush',
       color: { r: 26, g: 26, b: 26 },
       opacity: 1,
@@ -522,9 +545,9 @@ export const EditorSelector = {
   // #endregion
 
   // #region Session proxies
-  currentBrush: selector(
-    (get) => get(EditorStore).session?.currentBursh ?? null
-  ),
+  currentBrushSetting: selector((get) => ({
+    ...(get(EditorStore).session?.brushSetting ?? null),
+  })),
   currentVectorBrush: selector((get) => {
     const { session, activeObjectId } = get(EditorStore)
 
@@ -549,7 +572,9 @@ export const EditorSelector = {
     if (!object) return currentFill
     return currentFill
   }),
-  brushSetting: selector((get) => get(EditorStore).session?.brushSetting),
+  currentBrushSetting: selector(
+    (get) => get(EditorStore).session?.brushSetting
+  ),
 
   currentSession: selector((get) => get(EditorStore).session),
   currentDocument: selector((get) => get(EditorStore).session?.document),

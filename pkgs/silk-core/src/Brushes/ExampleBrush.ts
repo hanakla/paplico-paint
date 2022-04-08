@@ -19,7 +19,12 @@ export class ExampleBrush implements IBrush {
     })
   }
 
-  public render({ context: ctx, stroke, ink, brushSetting }: BrushContext) {
+  public render({
+    context: ctx,
+    path: stroke,
+    ink,
+    brushSetting,
+  }: BrushContext) {
     if (!this.image) return
 
     const { width, height } = this.image

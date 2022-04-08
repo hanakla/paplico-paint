@@ -17,7 +17,6 @@ import { SilkDOM } from 'silk-core'
 import {
   ContextMenu,
   ContextMenuArea,
-  ContextMenuCallback,
   ContextMenuItem,
 } from '🙌/components/ContextMenu'
 import { Portal } from '🙌/components/Portal'
@@ -26,7 +25,7 @@ import { DOMUtils } from '🙌/utils/dom'
 import { centering } from '🙌/utils/mixins'
 import { FilterSettings } from './FilterSettings'
 import { useFleurContext, useStore } from '@fleur/react'
-import { editorOps, EditorSelector, EditorStore } from '🙌/domains/EditorStable'
+import { EditorOps, EditorSelector, EditorStore } from '🙌/domains/EditorStable'
 import { useFunk } from '@hanakla/arma'
 import { isEventIgnoringTarget } from '../helpers'
 import { SidebarPane } from '🙌/components/SidebarPane'
@@ -67,20 +66,20 @@ export const FilterView = () => {
       const filter = EditorSelector.getFilterInstance(getStore, filterId)
       if (!filter) return
 
-      executeOperation(editorOps.updateLayer, activeLayer.uid, (layer) => {
+      executeOperation(EditorOps.updateLayer, activeLayer.uid, (layer) => {
         layer.filters.unshift(
           SilkDOM.Filter.create({ filterId, settings: filter.initialConfig })
         )
       })
 
-      executeOperation(editorOps.rerenderCanvas)
+      executeOperation(EditorOps.rerenderCanvas)
     }
   )
 
   const handleFilterSortEnd: SortEndHandler = useFunk((sort) => {
     if (!activeLayer) return
 
-    executeOperation(editorOps.updateLayer, activeLayer.uid, (layer) => {
+    executeOperation(EditorOps.updateLayer, activeLayer.uid, (layer) => {
       arrayMove.mutate(
         layer.filters,
         reversedIndex(activeLayer.filters, sort.oldIndex),
@@ -120,6 +119,7 @@ export const FilterView = () => {
                   background-color: ${({ theme }) => theme.surface.popupMenu};
                   color: ${({ theme }) => theme.text.white};
                   box-shadow: 0 0 4px ${rgba('#000', 0.5)};
+                  border-radius: 4px;
 
                   li {
                     padding: 8px;
@@ -182,7 +182,7 @@ const SortableFilterList = SortableContainer(function FilterList({
       {
         key: ['del', 'backspace'],
         handler: () => {
-          executeOperation(editorOps.deleteSelectedFilters)
+          executeOperation(EditorOps.deleteSelectedFilters)
         },
       },
     ],
@@ -233,7 +233,7 @@ const SortableFilterItem = SortableElement(function FilterItem({
   const handleClick = useFunk((e: MouseEvent<HTMLDivElement>) => {
     if (DOMUtils.closestOrSelf(e.target, '[data-ignore-click]')) return
 
-    executeOperation(editorOps.setSelectedFilterIds, { [filter.uid]: true })
+    executeOperation(EditorOps.setSelectedFilterIds, { [filter.uid]: true })
   })
 
   const handleDoubleClick = useFunk((e: MouseEvent<HTMLDivElement>) => {
@@ -244,137 +244,129 @@ const SortableFilterItem = SortableElement(function FilterItem({
   const handleToggleVisibility = useFunk(() => {
     if (!activeLayer) return
 
-    executeOperation(editorOps.updateLayer, activeLayer.uid, (layer) => {
+    executeOperation(EditorOps.updateLayer, activeLayer.uid, (layer) => {
       const targetFilter = layer.filters.find((f) => f.uid === filter.uid)
       if (!targetFilter) return
 
       targetFilter.visible = !targetFilter.visible
     })
 
-    executeOperation(editorOps.rerenderCanvas)
+    executeOperation(EditorOps.rerenderCanvas)
   })
 
   const handleClickRemove: ContextMenuCallback = useFunk((_) => {
     if (!activeLayer) return
 
-    executeOperation(editorOps.updateLayer, activeLayer.uid, (layer) => {
+    executeOperation(EditorOps.updateLayer, activeLayer.uid, (layer) => {
       const idx = layer.filters.findIndex((f) => f.uid === filter.uid)
       if (idx === -1) return
 
       layer.filters.splice(idx, 1)
     })
 
-    executeOperation(editorOps.rerenderCanvas)
+    executeOperation(EditorOps.rerenderCanvas)
   })
 
   return (
-    <ContextMenuArea>
-      {(ref) => (
+    <div
+      css={css`
+        z-index: 1; /* Sortしたときに隠れちゃう(絶望)ので */
+        display: flex;
+        flex-wrap: wrap;
+        background-color: ${({ theme }) => theme.colors.black50};
+        color: ${({ theme }) => theme.text.white};
+      `}
+      onClick={handleClick}
+      onDoubleClick={handleDoubleClick}
+    >
+      <div
+        css={`
+          display: flex;
+          flex: 1;
+          padding: 4px;
+        `}
+        style={{
+          backgroundColor: active ? theme.surface.sidebarListActive : undefined,
+        }}
+      >
         <div
-          ref={ref}
-          css={css`
-            z-index: 1; /* Sortしたときに隠れちゃう(絶望)ので */
-            display: flex;
-            flex-wrap: wrap;
-
-            background-color: ${({ theme }) => theme.colors.black50};
-            color: ${({ theme }) => theme.text.white};
+          css={`
+            ${centering}
+            flex: none;
+            width: 12px;
           `}
-          onClick={handleClick}
-          onDoubleClick={handleDoubleClick}
+          data-ignore-click
         >
-          <div
+          <ArrowDownS
             css={`
-              display: flex;
-              flex: 1;
-              padding: 4px;
+              width: 12px;
             `}
             style={{
-              backgroundColor: active
-                ? theme.surface.sidebarListActive
-                : undefined,
+              transform: propsOpened ? 'rotateZ(180deg)' : 'rotateZ(0)',
             }}
-          >
-            <div
-              css={`
-                ${centering}
-                flex: none;
-                width: 12px;
-              `}
-              data-ignore-click
-            >
-              <ArrowDownS
-                css={`
-                  width: 12px;
-                `}
-                style={{
-                  transform: propsOpened ? 'rotateZ(180deg)' : 'rotateZ(0)',
-                }}
-                onClick={togglePropsOpened}
-              />
-            </div>
-
-            <div
-              css={`
-                ${centering()}
-                padding: 4px;
-              `}
-              style={{
-                ...(filter.visible ? {} : { opacity: 0.5 }),
-              }}
-              onClick={handleToggleVisibility}
-              data-ignore-click
-            >
-              {filter.visible ? (
-                <Eye
-                  css={css`
-                    width: 16px;
-                    vertical-align: bottom;
-                    color: ${({ theme }) => theme.colors.white10};
-                  `}
-                />
-              ) : (
-                <EyeClose
-                  css={`
-                    width: 16px;
-                    vertical-align: bottom;
-                  `}
-                />
-              )}
-            </div>
-
-            <div
-              css={`
-                ${centering()}
-              `}
-            >
-              {t(`filters.${filter.filterId}`)}
-            </div>
-          </div>
-
-          <div
-            css={`
-              flex-basis: 100%;
-            `}
+            onClick={togglePropsOpened}
           />
+        </div>
 
-          {propsOpened && (
-            <div
-              css={`
-                padding: 8px;
-                padding-left: 24px;
+        <div
+          css={`
+            ${centering()}
+            padding: 4px;
+          `}
+          style={{
+            ...(filter.visible ? {} : { opacity: 0.5 }),
+          }}
+          onClick={handleToggleVisibility}
+          data-ignore-click
+        >
+          {filter.visible ? (
+            <Eye
+              css={css`
+                width: 16px;
+                vertical-align: bottom;
+                color: ${({ theme }) => theme.colors.white10};
               `}
-              data-ignore-click
-            >
-              <FilterSettings layer={layer} filter={filter}></FilterSettings>
-            </div>
+            />
+          ) : (
+            <EyeClose
+              css={`
+                width: 16px;
+                vertical-align: bottom;
+              `}
+            />
           )}
+        </div>
 
-          <ContextMenu>
-            <ContextMenuItem onClick={handleClickRemove}>削除</ContextMenuItem>
-          </ContextMenu>
+        <div
+          css={`
+            ${centering()}
+          `}
+        >
+          {t(`filters.${filter.filterId}`)}
+        </div>
+      </div>
+
+      <div
+        css={`
+          flex-basis: 100%;
+        `}
+      />
+
+      {propsOpened && (
+        <div
+          css={`
+            padding: 8px;
+            padding-left: 24px;
+          `}
+          data-ignore-click
+        >
+          <FilterSettings layer={layer} filter={filter}></FilterSettings>
         </div>
       )}
-    </ContextMenuArea>
+
+      <ContextMenu>
+        <ContextMenuItem onClick={handleClickRemove}>削除</ContextMenuItem>
+      </ContextMenu>
+    </div>
   )
 })

@@ -38,7 +38,7 @@ import {
 } from '🙌/components/ActionSheet'
 import { FilterSettings } from '../FilterSettings'
 import { DOMUtils } from '🙌/utils/dom'
-import { editorOps, EditorSelector, EditorStore } from '🙌/domains/EditorStable'
+import { EditorOps, EditorSelector, EditorStore } from '🙌/domains/EditorStable'
 import { isEventIgnoringTarget } from '../../helpers'
 import { reversedIndex } from '🙌/utils/array'
 
@@ -55,14 +55,14 @@ export const LayerFloatMenu = () => {
   const [addLayerSheetOpened, toggleAddLayerSheetOpened] = useToggle(false)
 
   const handleChangeCompositeMode = useFunk((mode: string) => {
-    executeOperation(editorOps.updateLayer, activeLayer?.uid, (layer) => {
+    executeOperation(EditorOps.updateLayer, activeLayer?.uid, (layer) => {
       layer.compositeMode = mode as any
     })
   })
 
   const handleChangeOpacity = useFunk(
     ({ currentTarget }: ChangeEvent<HTMLInputElement>) => {
-      executeOperation(editorOps.updateLayer, activeLayer?.uid, (layer) => {
+      executeOperation(EditorOps.updateLayer, activeLayer?.uid, (layer) => {
         layer.opacity = currentTarget.valueAsNumber
       })
     }
@@ -71,7 +71,7 @@ export const LayerFloatMenu = () => {
   const handleLayerSortEnd: SortEndHandler = useFunk((sort) => {
     if (!currentDocument?.layers) return
     executeOperation(
-      editorOps.moveLayer,
+      EditorOps.moveLayer,
       reversedIndex(layers, sort.oldIndex),
       reversedIndex(layers, sort.newIndex)
     )
@@ -107,7 +107,7 @@ export const LayerFloatMenu = () => {
           throw new Error('なんかおかしなっとるで')
       }
 
-      executeOperation(editorOps.addLayer, layer, {
+      executeOperation(EditorOps.addLayer, layer, {
         aboveLayerId: activeLayer?.uid ?? null,
       })
       toggleAddLayerSheetOpened(false)
@@ -115,7 +115,7 @@ export const LayerFloatMenu = () => {
   )
 
   const handleClickRemoveLayer = useFunk(() => {
-    executeOperation(editorOps.deleteLayer, activeLayer?.uid)
+    executeOperation(EditorOps.deleteLayer, activeLayer?.uid)
   })
 
   const addLayerSheetRef = useRef<HTMLDivElement | null>(null)
@@ -372,11 +372,11 @@ const SortableLayerItem = SortableElement(
 
     const handleClick = useFunk((e: MouseEvent<HTMLDivElement>) => {
       if (DOMUtils.closestOrSelf(e.target, '[data-ignore-click]')) return
-      executeOperation(editorOps.setActiveLayer, layer.uid)
+      executeOperation(EditorOps.setActiveLayer, layer.uid)
     })
 
     const handleClickToggleVisible = useFunk((e: MouseEvent) => {
-      executeOperation(editorOps.updateLayer, layer.uid, (layer) => {
+      executeOperation(EditorOps.updateLayer, layer.uid, (layer) => {
         layer.visible = !layer.visible
       })
     })
@@ -618,7 +618,7 @@ const SortableFilterItem = SortableElement(
       (e: MouseEvent<HTMLDivElement>) => {
         if (DOMUtils.closestOrSelf(e.target, '[data-ignore-click]')) return
 
-        executeOperation(editorOps.setSelectedFilterIds, { [filter.uid]: true })
+        executeOperation(EditorOps.setSelectedFilterIds, { [filter.uid]: true })
       },
       [filter]
     )
@@ -626,14 +626,14 @@ const SortableFilterItem = SortableElement(
     const handleToggleVisibility = useFunk(() => {
       if (!activeLayer) return
 
-      executeOperation(editorOps.updateLayer, layer.uid, (layer) => {
+      executeOperation(EditorOps.updateLayer, layer.uid, (layer) => {
         const targetFilter = layer.filters.find((f) => f.id === filter.uid)
         if (!targetFilter) return
 
         targetFilter.visible = !targetFilter.visible
       })
 
-      executeOperation(editorOps.rerenderCanvas)
+      executeOperation(EditorOps.rerenderCanvas)
     }, [filter])
 
     return (

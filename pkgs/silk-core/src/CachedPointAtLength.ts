@@ -1,16 +1,37 @@
 import point from 'point-at-length'
 
+// This is fork of https://github.com/substack/point-at-length
+// For faster point-at-length searching
 export const cachedPointAtLength = (path: string) => {
   const pal = point(path)
-  const pointAtLengthIndex: number[] = []
+  const points = (pal as any)._path as [number, number][]
+  const lengthIndex: number[] = [] /** array of length */
   const indexOfPoint: number[] = []
-  const length = walk(null, 0, true).length
+
+  const warmResult = walk(null, 0, true)
+  const length = warmResult.length
 
   return {
-    _index: pointAtLengthIndex,
-    at: (point: number) => {
-      const nearIdx = indexOfPoint[binarySearch(pointAtLengthIndex, point)]
-      return walk(point, nearIdx).pos as [number, number]
+    _index: lengthIndex,
+    _points: points,
+    at: (len: number) => {
+      const nearIdx = indexOfPoint[binarySearch(lengthIndex, len)]
+      return walk(len, nearIdx).pos as [number, number]
+    },
+    lengthNearAtNearPoint: (len: number) => {
+      const nearIndex = indexOfPoint[binarySearch(lengthIndex, len)]
+
+      return {
+        index: nearIndex,
+        length: lengthIndex[nearIndex],
+        pos: points[nearIndex] as [x: number, y: number],
+      }
+    },
+    lengthOfPoint: (idx: number) => {
+      return {
+        point: points[idx] as [x: number, y: number],
+        length: lengthIndex[idx],
+      }
     },
     length: () => length,
   }
@@ -29,9 +50,11 @@ export const cachedPointAtLength = (path: string) => {
       if (p[0] === 'M') {
         cur[0] = p[1]
         cur[1] = p[2]
+
+        warm && indexOfPoint.push(i)
+        warm && lengthIndex.push(len)
+
         if (pos === 0) {
-          warm && indexOfPoint.push(i)
-          warm && pointAtLengthIndex.push(len)
           return { length: len, pos: cur }
         }
       } else if (p[0] === 'C') {
@@ -57,8 +80,6 @@ export const cachedPointAtLength = (path: string) => {
               cur[1] * (1 - dv) + prev[1] * dv,
             ]
 
-            warm && indexOfPoint.push(i)
-            warm && pointAtLengthIndex.push(len)
             return { length: len, pos: npos }
           }
           prev[0] = cur[0]
@@ -67,7 +88,7 @@ export const cachedPointAtLength = (path: string) => {
         }
 
         warm && indexOfPoint.push(i)
-        warm && pointAtLengthIndex.push(len)
+        warm && lengthIndex.push(len)
       } else if (p[0] === 'Q') {
         prev[0] = p0[0] = cur[0]
         prev[1] = p0[1] = cur[1]
@@ -91,8 +112,6 @@ export const cachedPointAtLength = (path: string) => {
               cur[1] * (1 - dv) + prev[1] * dv,
             ]
 
-            warm && indexOfPoint.push(i)
-            warm && pointAtLengthIndex.push(len)
             return { length: len, pos: npos }
           }
           prev[0] = cur[0]
@@ -101,7 +120,7 @@ export const cachedPointAtLength = (path: string) => {
         }
 
         warm && indexOfPoint.push(i)
-        warm && pointAtLengthIndex.push(len)
+        warm && lengthIndex.push(len)
       } else if (p[0] === 'L') {
         prev[0] = cur[0]
         prev[1] = cur[1]
@@ -118,8 +137,6 @@ export const cachedPointAtLength = (path: string) => {
             cur[1] * (1 - dv) + prev[1] * dv,
           ]
 
-          warm && indexOfPoint.push(i)
-          warm && pointAtLengthIndex.push(len)
           return { length: len, pos: npos }
         }
         prev[0] = cur[0]
@@ -127,11 +144,11 @@ export const cachedPointAtLength = (path: string) => {
         prev[2] = len
 
         warm && indexOfPoint.push(i)
-        warm && pointAtLengthIndex.push(len)
+        warm && lengthIndex.push(len)
       }
     }
 
-    warm && pointAtLengthIndex.push(len)
+    warm && lengthIndex.push(len)
     return { length: len, pos: cur }
 
     function xof_C(p, t) {
@@ -182,11 +199,13 @@ export const cachedPointAtLength = (path: string) => {
   }
 }
 
+export type CachedPointAtLength = ReturnType<typeof cachedPointAtLength>
+
 // SEE: https://stackoverflow.com/questions/60343999/binary-search-in-typescript-vs-indexof-how-to-get-performance-properly
 function binarySearch(sortedArray: number[], seekElement: number): number {
   let startIndex = 0
   let endIndex: number = sortedArray.length - 1
-  let minNearIdx: number | null = 0
+  let minNearIdx: number = 0
 
   while (startIndex <= endIndex) {
     const mid = startIndex + Math.floor((endIndex - startIndex) / 2)
@@ -194,10 +213,10 @@ function binarySearch(sortedArray: number[], seekElement: number): number {
     if (guess === seekElement) {
       return mid
     } else if (guess > seekElement) {
-      minNearIdx = minNearIdx != 0 ? mid : 0
+      // minNearIdx = minNearIdx != 0 ? mid : 0
       endIndex = mid - 1
     } else {
-      minNearIdx = mid
+      // minNearIdx = mid
       startIndex = mid + 1
     }
   }

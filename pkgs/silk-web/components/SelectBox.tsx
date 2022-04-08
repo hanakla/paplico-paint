@@ -1,7 +1,7 @@
 import { useFunk } from '@hanakla/arma'
 import { Placement } from '@popperjs/core'
 import { ArrowDownS, Check } from '@styled-icons/remix-line'
-import { rgba } from 'polished'
+import { rgba, transparentize } from 'polished'
 import { useMemo, MouseEvent, useRef, useEffect } from 'react'
 import { usePopper } from 'react-popper'
 import { useToggle } from 'react-use'
@@ -56,10 +56,10 @@ export const SelectBox = ({
         display: inline-block;
         min-width: 100px;
         padding: 4px;
-        border: 1px solid #aaa;
+        border: 1px solid ${rgba('#aaa', 0.2)};
         border-radius: 4px;
-        background-color: ${({ theme }) => theme.exactColors.white40};
-        color: ${({ theme }) => theme.exactColors.black50};
+        background-color: ${({ theme }) => theme.color.surface3};
+        /* color: ${({ theme }) => theme.exactColors.black50}; */
 
         &::placeholder {
           color: ${({ theme }) => theme.exactColors.black30};
@@ -93,7 +93,7 @@ export const SelectBox = ({
         ref={listRef}
         css={css`
           width: max-content;
-          background-color: ${({ theme }) => theme.surface.floatWhite};
+          background-color: ${({ theme }) => rgba(theme.color.background2, 1)};
           filter: drop-shadow(0 0 5px ${rgba('#000', 0.5)});
           border-radius: 4px;
           overflow: hidden;
@@ -109,7 +109,7 @@ export const SelectBox = ({
         {items.map((item, idx) => (
           <div
             key={idx}
-            css={css`
+            css={`
               padding: 8px 4px;
               padding-right: 8px;
 

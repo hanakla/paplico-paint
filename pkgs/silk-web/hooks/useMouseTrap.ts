@@ -1,5 +1,6 @@
 import MouseTrap, { ExtendedKeyboardEvent } from 'mousetrap'
 import { DependencyList, RefObject, useEffect, useRef } from 'react'
+import { combineRef } from '🙌/utils/react'
 
 export const useMouseTrap = (
   ref: RefObject<HTMLElement | null>,
@@ -18,6 +19,26 @@ export const useMouseTrap = (
   }, [ref.current, ...deps])
 
   return ref
+}
+
+export const useFunkyMouseTrap = (
+  ref: RefObject<Element | null>,
+  keys: string[],
+  handler: (e: ExtendedKeyboardEvent) => void
+) => {
+  const handlerRef = useRef(handler)
+  handlerRef.current = handler
+
+  useEffect(() => {
+    if (!ref.current) return
+
+    const mt = new MouseTrap(ref.current)
+    mt.bind(keys, (e) => handlerRef.current(e))
+
+    return () => {
+      mt.reset()
+    }
+  }, [ref.current, ...keys])
 }
 
 export const useFunkyGlobalMouseTrap = (

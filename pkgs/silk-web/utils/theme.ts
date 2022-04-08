@@ -1,5 +1,8 @@
 import { rgba, invert, grayscale } from 'polished'
+import createTheme from '@charcoal-ui/styled'
+import styled from 'styled-components'
 
+// Dark
 const baseColors = {
   black10: 'hsl(215, 8%, 45.3%)',
   black20: 'hsl(215, 8%, 39.6%)',
@@ -23,6 +26,8 @@ const baseColors = {
   whiteFade30: 'hsla(0, 0%, 90.2%, 0.36)',
   whiteFade40: 'hsla(0, 0%, 94.5%, 0.42)',
   whiteFade50: 'hsla(0, 0%, 96.1%, 0.56)',
+  whiteFade60: 'hsla(0, 0%, 96.1%, 0.68)',
+  whiteFade70: 'hsla(0, 0%, 96.1%, 0.80)',
   blueFade40: 'hsla(207.9, 91%, 61%, 0.42)',
   blueFade50: 'hsla(207.9, 91%, 61%, 0.56)',
   blue50: 'hsl(207.9, 91%, 61%)',
@@ -47,24 +52,27 @@ const lightColor: typeof baseColors = {
   white40: 'hsl(215, 8%, 20.9%)',
   white50: 'hsl(215, 8%, 10.2%)',
   white60: 'hsl(214.9, 6.5%, 5.4%)',
-  whiteFade10: 'hsla(215, 8%, 45.3%, 0.12)',
+  whiteFade10: 'hsla(0, 0%, 100%, 0.12)',
   whiteFade20: 'hsla(215, 8%, 39.6%, 0.24)',
   whiteFade30: 'hsla(215, 8%, 33.7%, 0.36)',
   whiteFade40: 'hsla(215, 8%, 20.9%, 0.42)',
   whiteFade50: 'hsla(215, 8%, 10.2%, 0.56)',
+  whiteFade60: 'hsla(215, 8%, 10.2%, 0.68)',
+  whiteFade70: 'hsla(215, 8%, 10.2%, 0.80)',
   blueFade40: 'hsla(207.9, 91%, 61%, 0.42)',
   blueFade50: 'hsla(207.9, 91%, 61%, 0.56)',
   blue50: 'hsl(207.9, 91%, 61%)',
   red50: 'hsl(342.9, 82.8%, 63.3%)',
 }
 
-export const theme = {
+// Default
+export const darkTheme = {
   text: {
     default: baseColors.black50,
     white: baseColors.white40,
     sidebarWhite: '#cfcfcf',
     sidebarListActive: baseColors.white40, //Required
-    inputActive: '#333',
+    inputActive: '#ddd',
     inputPlaceholder: '#a9a9a9',
     floatActive: '#67696e',
     mainActionsBlack: '#464b4e',
@@ -128,4 +136,11 @@ export const lightTheme = {
   exactColors: baseColors,
 }
 
-export type ThemeType = typeof theme
+export type ThemeType = typeof darkTheme
+
+export const tm = createTheme(styled)
+
+declare module 'styled-components' {
+  // interface DefaultTheme extends ThemeType {}
+  interface DefaultTheme extends CharcoalTheme {}
+}

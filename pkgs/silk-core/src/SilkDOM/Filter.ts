@@ -1,7 +1,8 @@
 import { v4 } from 'uuid'
 import { assign, deepClone } from '../utils'
+import { ISilkDOMElement } from './ISilkDOMElement'
 
-export class Filter {
+export class Filter implements ISilkDOMElement {
   public uid: string = `filter-${v4()}`
   public filterId: string = ''
 
@@ -26,6 +27,10 @@ export class Filter {
       filterId: obj.filterId,
       settings: obj.setttings,
     })
+  }
+
+  public update(proc: (entity: this) => void) {
+    proc(this)
   }
 
   public serialize() {

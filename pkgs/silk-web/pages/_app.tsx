@@ -2,22 +2,17 @@ import '../lib/polyfill'
 
 import App, { AppProps, AppContext } from 'next/app'
 import { appWithTranslation } from 'next-i18next'
-import { ThemeProvider } from 'styled-components'
 import { useEffect } from 'react'
 import { useRouter } from 'next/router'
 import { Restart } from '@styled-icons/remix-line'
 import { GlobalStyle } from '../components/GlobalStyle'
-import { lightTheme, theme } from '../utils/theme'
 import { ErrorBoundary } from 'react-error-boundary'
-import { useMedia } from '../utils/hooks'
-import { narrow } from '../utils/responsive'
 import { appWithFleur } from '../lib/fleur'
 
 const fastclick = process.browser ? require('fastclick') : null
 
 function MyApp({ Component, pageProps }: AppProps) {
   const router = useRouter()
-  const isNarrow = useMedia(`(max-width: ${narrow})`, false)
 
   useEffect(() => {
     fastclick?.attach(document.body)
@@ -25,7 +20,7 @@ function MyApp({ Component, pageProps }: AppProps) {
 
   return (
     <>
-      <GlobalStyle isNarrow={isNarrow} />
+      <GlobalStyle />
 
       <ErrorBoundary FallbackComponent={ErrorFallback}>
         <Component {...pageProps} />
@@ -42,6 +37,10 @@ MyApp.getInitialProps = async (context: AppContext) => {
 }
 
 const ErrorFallback = () => {
+  useEffect(() => {
+    setTimeout(() => window.location.reload(), 1000)
+  }, [])
+
   return (
     <div
       css={`

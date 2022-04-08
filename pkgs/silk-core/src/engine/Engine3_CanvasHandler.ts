@@ -1,10 +1,13 @@
+import simplify from 'simplify-js'
 import { SilkEngine3 } from './Engine3'
 import { Emitter } from '../Engine3_Emitter'
-import { Session } from './Engine3_Sessions'
+import { SilkSession } from '../Session/Engine3_Sessions'
 import { DifferenceRender } from './RenderStrategy/DifferenceRender'
 import { Stroke } from './Stroke'
-import { assign } from '../utils'
+import { mergeToNew, deepClone, setCanvasSize } from '../utils'
 import { LayerTypes, RasterLayer, VectorLayer, VectorObject } from '../SilkDOM'
+import { createContext2D } from '../Engine3_CanvasFactory'
+import PointerTracker from 'pointer-tracker'
 
 type Events = {
   strokeStart: Stroke
@@ -36,8 +39,8 @@ export class CanvasHandler extends Emitter<Events> {
     super()
 
     this.canvas = canvas
-    this.strokeCtx = document.createElement('canvas').getContext('2d')!
-    this.compositeSourceCtx = document.createElement('canvas').getContext('2d')!
+    this.strokeCtx = createContext2D()
+    this.compositeSourceCtx = createContext2D()
 
     // this.canvas.addEventListener('mousedown', this.#handleMouseDown)
     // this.canvas.addEventListener('mousemove', this.#handleMouseMove)
@@ -68,14 +71,17 @@ export class CanvasHandler extends Emitter<Events> {
   }
 
   public connect(
-    session: Session,
+    session: SilkSession,
     strategy: DifferenceRender = new DifferenceRender(),
     engine: SilkEngine3
   ) {
     const isDrawableLayer = (
       layer: LayerTypes | null
     ): layer is RasterLayer | VectorLayer =>
-      layer?.layerType === 'raster' || layer?.layerType === 'vector'
+      layer?.layerType === 'raster' ||
+      (layer?.layerType === 'vector' &&
+        layer.lock === false &&
+        layer.visible === true)
 
     this.on('strokeStart', async () => {
       const { activeLayer } = session
@@ -87,7 +93,7 @@ export class CanvasHandler extends Emitter<Events> {
         return
 
       const size = session.document.getLayerSize(activeLayer)
-      assign(this.strokeCtx.canvas, size)
+      setCanvasSize(this.strokeCtx.canvas, size)
       this.strokeCtx.clearRect(0, 0, size.width, size.height)
 
       strategy.setLayerOverride({
@@ -102,7 +108,6 @@ export class CanvasHandler extends Emitter<Events> {
       if (
         session.pencilMode === 'none' ||
         !session.document ||
-        !session.currentBursh ||
         !isDrawableLayer(activeLayer)
       )
         return
@@ -110,11 +115,14 @@ export class CanvasHandler extends Emitter<Events> {
       const size = session.document.getLayerSize(activeLayer)
       this.strokeCtx.clearRect(0, 0, size.width, size.height)
 
-      await engine.renderStroke(
-        session.currentBursh,
-        session.brushSetting,
+      await engine.renderPath(
+        mergeToNew(session.brushSetting, {
+          specific: session.getSpecificBrushSetting(
+            session.brushSetting.brushId
+          ),
+        }),
         session.currentInk,
-        stroke,
+        stroke.splinedPath,
         this.strokeCtx
       )
       await engine.render(session.document, strategy)
@@ -125,21 +133,23 @@ export class CanvasHandler extends Emitter<Events> {
       if (
         session.pencilMode === 'none' ||
         !session.document ||
-        !session.currentBursh ||
         !isDrawableLayer(activeLayer)
       )
         return
 
       const size = session.document.getLayerSize(activeLayer)
-      assign(this.strokeCtx.canvas, size)
-      assign(this.compositeSourceCtx.canvas, size)
+      setCanvasSize(this.strokeCtx.canvas, size)
+      setCanvasSize(this.compositeSourceCtx.canvas, size)
       this.strokeCtx.clearRect(0, 0, size.width, size.height)
 
-      await engine.renderStroke(
-        session.currentBursh,
-        session.brushSetting,
+      await engine.renderPath(
+        mergeToNew(session.brushSetting, {
+          specific: session.getSpecificBrushSetting(
+            session.brushSetting.brushId
+          ),
+        }),
         session.currentInk,
-        stroke,
+        stroke.splinedPath,
         this.strokeCtx
       )
 
@@ -167,7 +177,8 @@ export class CanvasHandler extends Emitter<Events> {
             x: 0,
             y: 0,
             path: stroke.splinedPath,
-            brush: { ...session.brushSetting },
+            fill: null,
+            brush: deepClone(session.brushSetting),
           })
         )
       }
@@ -217,12 +228,17 @@ export class CanvasHandler extends Emitter<Events> {
     if (!this.currentStroke) return
 
     this.currentStroke.updatePoints((points) => {
-      e.getCoalescedEvents().forEach((e) => {
+      if (e.getCoalescedEvents) {
+        e.getCoalescedEvents().forEach((e) => {
+          points.push([e.offsetX, e.offsetY, e.pressure])
+        })
+      } else {
+        // Fxxk safari
         points.push([e.offsetX, e.offsetY, e.pressure])
-      })
+      }
     })
 
-    this.currentStroke.path = this.currentStroke.splinedPath
+    // this.currentStroke.path = this.currentStroke.splinedPath
     this.mitt.emit('tmpStroke', this.currentStroke)
   }
 
@@ -244,7 +260,8 @@ export class CanvasHandler extends Emitter<Events> {
       this._stroking = false
     }
 
-    currentStroke.path = currentStroke.splinedPath
+    currentStroke.simplify()
+    currentStroke.seal()
     this.mitt.emit('strokeComplete', currentStroke)
   }
 
@@ -287,7 +304,7 @@ export class CanvasHandler extends Emitter<Events> {
     currentStroke.updatePoints((points) => {
       points.push([x, y, e.touches[0].force])
     })
-    currentStroke.path = currentStroke.splinedPath
+    // currentStroke.path = currentStroke.splinedPath
 
     this.mitt.emit('tmpStroke', currentStroke)
   }
@@ -308,7 +325,7 @@ export class CanvasHandler extends Emitter<Events> {
     this._stroking = false
     this.currentStroke = null
 
-    currentStroke.path = currentStroke.splinedPath
+    // currentStroke.path = currentStroke.splinedPath
     this.mitt.emit('strokeComplete', currentStroke)
   }
 }

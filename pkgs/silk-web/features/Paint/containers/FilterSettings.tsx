@@ -4,8 +4,7 @@ import { useTranslation } from 'next-i18next'
 import { ReactNode } from 'react'
 import { SilkDOM } from 'silk-core'
 import { DeltaRange } from '🙌/components/DeltaRange'
-import { EditorSlice } from '🙌/domains/Editor'
-import { editorOps } from '🙌/domains/EditorStable'
+import { EditorOps } from '🙌/domains/EditorStable'
 import { centering } from '🙌/utils/mixins'
 import { roundString } from '🙌/utils/StringUtils'
 
@@ -36,8 +35,8 @@ const BloomSetting = ({ layer, filter }: Props) => {
   // }, [layer, filter])
 
   const handleChangeComplete = useFunk(() => {
-    executeOperation(editorOps.rerenderCanvas)
-  }, [])
+    executeOperation(EditorOps.rerenderCanvas)
+  })
 
   return (
     <div>
@@ -53,7 +52,7 @@ const GaussBlur = ({ layer, filter }: Props) => {
 
   const handleChangeRadius = useFunk((value: number) => {
     executeOperation(
-      editorOps.updateFilter,
+      EditorOps.updateFilter,
       layer.uid,
       filter.uid,
       (filter) => {
@@ -64,7 +63,7 @@ const GaussBlur = ({ layer, filter }: Props) => {
 
   const handleChangePower = useFunk((value: number) => {
     executeOperation(
-      editorOps.updateFilter,
+      EditorOps.updateFilter,
       layer.uid,
       filter.uid,
       (filter) => {
@@ -74,7 +73,7 @@ const GaussBlur = ({ layer, filter }: Props) => {
   }, [])
 
   const handleChangeComplete = useFunk(() => {
-    executeOperation(editorOps.rerenderCanvas)
+    executeOperation(EditorOps.rerenderCanvas)
   }, [])
 
   return (
@@ -123,7 +122,7 @@ const ChromaticAberration = ({ layer, filter }: Props) => {
 
   const handleChangeDistance = useFunk((value: number) => {
     executeOperation(
-      editorOps.updateFilter,
+      EditorOps.updateFilter,
       layer.uid,
       filter.uid,
       (filter) => {
@@ -134,7 +133,7 @@ const ChromaticAberration = ({ layer, filter }: Props) => {
 
   const handleChangeAngleDeg = useFunk((value: number) => {
     executeOperation(
-      editorOps.updateFilter,
+      EditorOps.updateFilter,
       layer.uid,
       filter.uid,
       (filter) => {
@@ -144,7 +143,7 @@ const ChromaticAberration = ({ layer, filter }: Props) => {
   }, [])
 
   const handleChangeComplete = useFunk(() => {
-    executeOperation(editorOps.rerenderCanvas)
+    executeOperation(EditorOps.rerenderCanvas)
   }, [])
 
   return (

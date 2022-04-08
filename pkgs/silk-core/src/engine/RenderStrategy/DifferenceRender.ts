@@ -1,8 +1,9 @@
 import { SilkEngine3 } from '../Engine3'
-import { createContext2D } from '../Engine3_CanvasFactory'
+import { createContext2D } from '../../Engine3_CanvasFactory'
 import { Document, LayerTypes } from '../../SilkDOM'
-import { assign, AtomicResource, deepClone } from '../../utils'
+import { deepClone, setCanvasSize } from '../../utils'
 import { IRenderStrategy } from './IRenderStrategy'
+import { AtomicResource } from '../../AtomicResource'
 
 export class DifferenceRender implements IRenderStrategy {
   private bitmapCache: WeakMap<LayerTypes, Uint8ClampedArray> = new WeakMap()
@@ -21,10 +22,14 @@ export class DifferenceRender implements IRenderStrategy {
     // document.body.appendChild(bufferCtx.canvas)
 
     const previewCtx = createContext2D()
-    assign(previewCtx.canvas, { width: 100, height: 100 })
+    setCanvasSize(previewCtx.canvas, 100, 100)
     this.previewCtx = previewCtx
     previewCtx.canvas.id = 'preview-canvas-difference-render'
     // document.body.appendChild(previewCtx.canvas)
+  }
+
+  public get renderScale() {
+    return 1
   }
 
   public getPreiewForLayer(uid: string) {
@@ -48,7 +53,7 @@ export class DifferenceRender implements IRenderStrategy {
   ): Promise<void> {
     const bufferCtx = await this.bufferCtx.enjure({ owner: this })
 
-    assign(bufferCtx.canvas, { width: document.width, height: document.height })
+    setCanvasSize(bufferCtx.canvas, document.width, document.height)
 
     const layerBitmaps = await Promise.all(
       [...document.layers].map(async (layer) => {
@@ -66,6 +71,7 @@ export class DifferenceRender implements IRenderStrategy {
               : this.bitmapCache.get(layer)
 
             bitmap ??= await engine.renderVectorLayer(document, layer)
+            this.bitmapCache.set(layer, bitmap)
 
             return {
               layer,
@@ -95,7 +101,7 @@ export class DifferenceRender implements IRenderStrategy {
       for (const { layer, image } of layerBitmaps) {
         if (!layer.visible) continue
 
-        assign(bufferCtx.canvas, document.getLayerSize(layer))
+        setCanvasSize(bufferCtx.canvas, document.getLayerSize(layer))
         bufferCtx.clearRect(0, 0, document.width, document.height)
 
         // Apply FilterLayer
@@ -164,17 +170,15 @@ export class DifferenceRender implements IRenderStrategy {
     } catch (e) {
       throw e
     } finally {
-      console.log('completed')
       this.bufferCtx.release(bufferCtx)
     }
 
     // Generate thumbnails
     setTimeout(async () => {
+      return
+
       const bufferCtx = await this.bufferCtx.enjure({ owner: this })
-      assign(bufferCtx.canvas, {
-        width: 100,
-        height: 100,
-      })
+      setCanvasSize(bufferCtx.canvas, 100, 100)
 
       try {
         for (const entry of layerBitmaps) {
@@ -187,7 +191,7 @@ export class DifferenceRender implements IRenderStrategy {
           if (entry.needsUpdate === false) return
 
           const { width, height } = document.getLayerSize(entry.layer)
-          assign(this.previewCtx.canvas, { width, height })
+          setCanvasSize(this.previewCtx.canvas, width, height)
           this.previewCtx.clearRect(0, 0, width, height)
 
           bufferCtx.clearRect(
@@ -213,6 +217,7 @@ export class DifferenceRender implements IRenderStrategy {
       }
     }, 100)
   }
+
   public dispose() {
     this.bufferCtx = null!
   }

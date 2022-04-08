@@ -1,4 +1,5 @@
-import { assign } from '../utils'
+import { setCanvasSize } from '../utils'
+import { createWebGLContext } from '../Engine3_CanvasFactory'
 
 type Uniform =
   | {
@@ -66,26 +67,23 @@ export declare namespace WebGLContext {
   }
 }
 
-export default class WebGLContext {
+export class WebGLContext {
   private gl: WebGLRenderingContext
   private vertexBuffer: WebGLBuffer
   private tex2DBuffer: WebGLBuffer
 
   public constructor(private width: number, private height: number) {
     // OffscreenCanvas not updated frame (bug?) so using HTMLCanvasElement
-    this.gl = assign(document.createElement('canvas'), {
-      width,
-      height,
-    }).getContext('webgl')!
+    this.gl = createWebGLContext()
 
+    setCanvasSize(this.gl.canvas, width, height)
     this.gl.viewport(0, 0, width, height)
-
     this.vertexBuffer = this.gl.createBuffer()!
     this.tex2DBuffer = this.gl.createBuffer()!
   }
 
   public setSize(width: number, height: number) {
-    assign(this.gl.canvas, { width, height })
+    setCanvasSize(this.gl.canvas, { width, height })
     this.gl.viewport(0, 0, width, height)
   }
 
@@ -188,8 +186,9 @@ export default class WebGLContext {
         uni.value instanceof TextureResource
           ? uni.value.tex
           : gl.createTexture()
+      const textureIdx = gl.TEXTURE0 + 1 + idx
 
-      gl.activeTexture(gl.TEXTURE0 + 1 + idx)
+      gl.activeTexture(textureIdx)
       gl.bindTexture(gl.TEXTURE_2D, tex)
 
       if (!(uni.value instanceof TextureResource)) {
@@ -209,7 +208,7 @@ export default class WebGLContext {
       gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE)
 
       const loc = gl.getUniformLocation(program.program, uniName)
-      gl.uniform1i(loc, idx + 1)
+      gl.uniform1i(loc, textureIdx)
 
       return tex
     })
@@ -220,7 +219,7 @@ export default class WebGLContext {
     gl.drawArrays(gl.TRIANGLE_FAN, 0, 4)
     gl.flush()
 
-    this.deleteProgram(program)
+    // this.deleteProgram(program)
     textures.forEach((tex) => tex && gl.deleteTexture(tex))
 
     const destCtx = dest.getContext('2d')!

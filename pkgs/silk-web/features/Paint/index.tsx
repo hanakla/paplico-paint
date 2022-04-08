@@ -21,7 +21,7 @@ import { autoPlacement, shift, useFloating } from '@floating-ui/react-dom'
 import {
   CanvasHandler,
   RenderStrategies,
-  Session,
+  SilkSession,
   Silk3,
   SilkBrushes,
   SilkDOM,
@@ -37,7 +37,7 @@ import { useTranslation } from 'next-i18next'
 import { Sidebar } from '🙌/components/Sidebar'
 import { FilterView } from './containers/FilterView'
 import { LayerView } from './containers/LayerView'
-import { editorOps, EditorSelector, EditorStore } from '🙌/domains/EditorStable'
+import { EditorOps, EditorSelector, EditorStore } from '🙌/domains/EditorStable'
 import {
   useFunkyGlobalMouseTrap,
   useGlobalMouseTrap,
@@ -49,12 +49,14 @@ import { MainActions } from '../Paint/containers/MainActions/MainActions'
 import { DebugView } from './containers/DebugView'
 import { centering } from '🙌/utils/mixins'
 import { rgba } from 'polished'
-import { theme } from '🙌/utils/theme'
+import { darkTheme } from '🙌/utils/theme'
 import { Button } from '🙌/components/Button'
-import { narrow } from '🙌/utils/responsive'
+import { media, narrow } from '🙌/utils/responsive'
 import { isEventIgnoringTarget } from './helpers'
 import { Tooltip } from '🙌/components/Tooltip'
 import { NotifyOps, useNotifyConsumer } from '🙌/domains/Notify'
+import { SidebarPane } from '🙌/components/SidebarPane'
+import { BrushPresets } from './containers/BrushPresets'
 
 export function PaintPage({}) {
   const { t } = useTranslation('app')
@@ -76,7 +78,7 @@ export function PaintPage({}) {
   const isNarrowMedia = useMedia(`(max-width: ${narrow})`, false)
 
   const engine = useRef<Silk3 | null>(null)
-  const session = useRef<Session | null>(null)
+  const session = useRef<SilkSession | null>(null)
   const canvasHandler = useRef<CanvasHandler | null>(null)
 
   const rootRef = useRef<HTMLDivElement | null>(null)
@@ -109,7 +111,7 @@ export function PaintPage({}) {
       const { image } = await loadImageFromBlob(file)
       const layer = await SilkHelper.imageToLayer(image)
 
-      executeOperation(editorOps.updateDocument, (document) => {
+      executeOperation(EditorOps.updateDocument, (document) => {
         document.addLayer(layer, {
           aboveLayerId: lastLayerId,
         })
@@ -128,7 +130,7 @@ export function PaintPage({}) {
 
   const handleChangeDisableFilters = useFunk(
     ({ currentTarget }: ChangeEvent<HTMLInputElement>) => {
-      executeOperation(editorOps.setRenderSetting, {
+      executeOperation(EditorOps.setRenderSetting, {
         disableAllFilters: currentTarget.checked,
       })
     }
@@ -161,7 +163,7 @@ export function PaintPage({}) {
         await handler.createWritable({ keepExistingData: false })
       ).write(blob)
 
-      executeOperation(editorOps.setCurrentFileHandler, handler)
+      executeOperation(EditorOps.setCurrentFileHandler, handler)
     }
 
     setTimeout(() => URL.revokeObjectURL(url), 10000)
@@ -200,42 +202,44 @@ export function PaintPage({}) {
   })
 
   const handleClickDarkTheme = useFunk(() => {
-    executeOperation(editorOps.setTheme, 'dark')
+    executeOperation(EditorOps.setTheme, 'dark')
   })
 
   const handleClickLightTheme = useFunk(() => {
-    executeOperation(editorOps.setTheme, 'light')
+    executeOperation(EditorOps.setTheme, 'light')
   })
 
   const dragState = useDrop({ onFiles: handleOnDrop })
   // const tapBind = useTap(handleTapEditArea)
 
-  useFunkyGlobalMouseTrap(['ctrl+s', 'command+s'], () => {
-    getStore(EditorStore)
+  useFunkyGlobalMouseTrap(['ctrl+s', 'command+s'], (e) => {
+    e.preventDefault()
+    handleClickExport()
   })
 
-  useGlobalMouseTrap(
-    [
-      {
-        key: 'v',
-        handler: () => executeOperation(editorOps.setTool, 'cursor'),
-      },
-      { key: 'b', handler: () => executeOperation(editorOps.setTool, 'draw') },
-      { key: 'e', handler: () => executeOperation(editorOps.setTool, 'erase') },
-      {
-        key: 'p',
-        handler: () => executeOperation(editorOps.setTool, 'shape-pen'),
-      },
-      {
-        key: 'tab',
-        handler: (e) => {
-          e.preventDefault()
-          sidebarToggle()
-        },
-      },
-    ],
-    []
+  useFunkyGlobalMouseTrap(['v'], () =>
+    executeOperation(EditorOps.setTool, 'cursor')
   )
+  useFunkyGlobalMouseTrap(['b'], () =>
+    executeOperation(EditorOps.setTool, 'draw')
+  )
+  useFunkyGlobalMouseTrap(['e'], () =>
+    executeOperation(EditorOps.setTool, 'erase')
+  )
+  useFunkyGlobalMouseTrap(['p'], () =>
+    executeOperation(EditorOps.setTool, 'shape-pen')
+  )
+  useFunkyGlobalMouseTrap(['tab'], (e) => {
+    e.preventDefault()
+    sidebarToggle()
+  })
+
+  useFunkyGlobalMouseTrap(['shift+x'], () => {
+    executeOperation(EditorOps.updateActiveObject, (o) => {
+      // o.fill?.type== 'linear-gradient'
+      // o.brush?.color
+    })
+  })
 
   useGesture(
     {
@@ -265,33 +269,31 @@ export function PaintPage({}) {
       canvas: canvasRef.current!,
     })
 
-    const session = ((window as any)._session =
-      engine.current?.createSession(null))
+    const session = ((window as any)._session = await SilkSession.create())
+    session.setBrushSetting({ color: { r: 0.3, g: 0.3, b: 0.3 } })
 
     const strategy = new RenderStrategies.DifferenceRender()
     session.setRenderStrategy(strategy)
 
-    await executeOperation(editorOps.initEngine, {
+    await executeOperation(EditorOps.initEngine, {
       engine: engine.current,
       session,
       strategy,
     })
-    await executeOperation(editorOps.setBrush, SilkBrushes.ScatterBrush.id)
+    await executeOperation(EditorOps.setBrush, SilkBrushes.ScatterBrush.id)
 
     canvasHandler.current = new CanvasHandler(canvasRef.current!)
     canvasHandler.current.connect(session, strategy, engine.current)
 
     if (process.env.NODE_ENV !== 'development') {
     } else {
-      await executeOperation(editorOps.setDocument, null)
-
       const document = SilkDOM.Document.create({ width: 1000, height: 1000 })
       // session.setDocument(document)
-      await executeOperation(editorOps.setDocument, document)
+      executeOperation(EditorOps.setDocument, document)
 
       const layer = SilkDOM.RasterLayer.create({ width: 1000, height: 1000 })
       const vector = SilkDOM.VectorLayer.create({
-        visible: false,
+        visible: true,
       })
       const text = SilkDOM.TextLayer.create({})
       const filter = SilkDOM.FilterLayer.create({})
@@ -299,12 +301,14 @@ export function PaintPage({}) {
       vector.filters.push(
         SilkDOM.Filter.create({
           filterId: '@silk-core/gauss-blur',
+          visible: false,
           settings: engine.current.toolRegistry.getFilterInstance(
             '@silk-core/gauss-blur'
           )!.initialConfig,
         }),
         SilkDOM.Filter.create({
           filterId: '@silk-core/chromatic-aberration',
+          visible: false,
           settings: engine.current.toolRegistry.getFilterInstance(
             '@silk-core/chromatic-aberration'
           )!.initialConfig,
@@ -316,9 +320,9 @@ export function PaintPage({}) {
       document.layers.push(text)
       document.layers.push(filter)
 
-      await executeOperation(editorOps.setActiveLayer, layer.uid)
+      await executeOperation(EditorOps.setActiveLayer, layer.uid)
 
-      await executeOperation(editorOps.setFill, {
+      await executeOperation(EditorOps.setFill, {
         type: 'linear-gradient',
         colorPoints: [
           { color: { r: 0, g: 255, b: 255, a: 1 }, position: 0 },
@@ -368,7 +372,7 @@ export function PaintPage({}) {
     if (!currentDocument) return
 
     const autoSave = () => {
-      executeOperation(editorOps.autoSave, currentDocument!.uid)
+      executeOperation(EditorOps.autoSave, currentDocument!.uid)
       executeOperation(NotifyOps.create, {
         area: 'save',
         message: t('exports.autoSaved'),
@@ -392,49 +396,54 @@ export function PaintPage({}) {
           flex-flow: row;
           width: 100%;
           height: 100%;
-          background-color: ${({ theme }) => theme.surface.default};
-          color: ${({ theme }) => theme.text.white};
+          background-color: ${({ theme }) => theme.color.background1};
+          color: ${({ theme }) => theme.color.text2};
         `}
         tabIndex={-1}
       >
         <>
-          {!isNarrowMedia && (
-            <div ref={sidebarRef}>
-              <Sidebar
-                style={{
-                  width: sidebarOpened ? 200 : 32,
-                }}
+          <div
+            css={`
+              ${media.narrow`
+                display: none;
+              `}
+            `}
+            ref={sidebarRef}
+          >
+            <Sidebar
+              style={{
+                width: sidebarOpened ? 200 : 32,
+              }}
+            >
+              <div
+                css={`
+                  display: flex;
+                  flex-flow: column;
+                  flex: 1;
+                  width: 200px;
+                  height: 100%;
+                  padding-bottom: env(safe-area-inset-bottom);
+                `}
               >
-                <div
-                  css={`
-                    display: flex;
-                    flex-flow: column;
-                    flex: 1;
-                    width: 200px;
-                    height: 100%;
-                    padding-bottom: env(safe-area-inset-bottom);
-                  `}
-                >
-                  <LayerView />
+                <LayerView />
 
-                  <FilterView />
+                <FilterView />
 
-                  <div css="display: flex; padding: 8px; margin-top: auto;">
-                    <div
-                      css="margin-right: auto; cursor: default;"
-                      onClick={sidebarToggle}
-                    >
-                      <Menu
-                        css={`
-                          width: 16px;
-                        `}
-                      />
-                    </div>
+                <div css="display: flex; padding: 8px; margin-top: auto;">
+                  <div
+                    css="margin-right: auto; cursor: default;"
+                    onClick={sidebarToggle}
+                  >
+                    <Menu
+                      css={`
+                        width: 16px;
+                      `}
+                    />
                   </div>
                 </div>
-              </Sidebar>
-            </div>
-          )}
+              </div>
+            </Sidebar>
+          </div>
         </>
 
         <div
@@ -446,7 +455,7 @@ export function PaintPage({}) {
             align-items: center;
             justify-content: center;
             overflow: hidden;
-            background-color: ${({ theme }) => theme.surface.canvas};
+            background-color: ${rgba('#11111A', 0.1)};
           `}
           style={{
             // prettier-ignore
@@ -548,6 +557,10 @@ export function PaintPage({}) {
               left: 50%;
               bottom: 16px;
               transform: translateX(-50%);
+
+              ${media.narrow`
+                bottom: 8px
+              `}
             `}
           >
             <MainActions />
@@ -563,183 +576,190 @@ export function PaintPage({}) {
         </div>
 
         <>
-          {!isNarrowMedia && (
-            <Sidebar
-              style={{
-                width: sidebarOpened ? 200 : 32,
-              }}
+          <Sidebar
+            css={`
+              ${media.narrow`
+                  display: none;
+                `}
+            `}
+            style={{
+              width: sidebarOpened ? 200 : 32,
+            }}
+          >
+            <SidebarPane heading={t('colorHistory')}>まだないよ</SidebarPane>
+
+            <BrushPresets />
+
+            <div
+              css={`
+                display: flex;
+                flex-flow: column;
+                flex: 1;
+                width: 200px;
+              `}
             >
               <div
                 css={`
+                  padding: 4px 8px;
+                `}
+              ></div>
+              <div
+                css={`
+                  padding: 4px 8px;
+                `}
+              >
+                {t('referenceColor')}
+              </div>
+              <div
+                css={`
+                  padding: 4px 8px;
+                `}
+              >
+                <label>
+                  <input
+                    css={`
+                      margin-right: 4px;
+                    `}
+                    type="checkbox"
+                    checked={renderSetting.disableAllFilters}
+                    onChange={handleChangeDisableFilters}
+                  />
+                  作業中のフィルター効果をオフ
+                </label>
+              </div>
+
+              <div
+                css={css`
                   display: flex;
-                  flex-flow: column;
-                  flex: 1;
-                  width: 200px;
+                  padding: 8px;
+                  margin-top: auto;
+                  border-top: ${({ theme }) =>
+                    `1px solid ${rgba(theme.colors.white50, 0.2)}`};
                 `}
               >
                 <div
-                  css={`
-                    padding: 4px 8px;
-                  `}
-                >
-                  {t('colorHistory')}
-                </div>
-                <div
-                  css={`
-                    padding: 4px 8px;
-                  `}
-                >
-                  {t('referenceColor')}
-                </div>
-                <div
-                  css={`
-                    padding: 4px 8px;
-                  `}
-                >
-                  <label>
-                    <input
-                      css="margin-right: 4px"
-                      type="checkbox"
-                      checked={renderSetting.disableAllFilters}
-                      onChange={handleChangeDisableFilters}
-                    />
-                    作業中のフィルター効果をオフ
-                  </label>
-                </div>
-
-                <div
                   css={css`
-                    display: flex;
-                    padding: 8px;
-                    margin-top: auto;
-                    border-top: ${({ theme }) =>
-                      `1px solid ${rgba(theme.colors.white50, 0.2)}`};
+                    ${centering()}
+                    gap: 4px;
                   `}
                 >
-                  <div
-                    css={css`
-                      ${centering()}
-                      gap: 4px;
+                  <span
+                    css={`
+                      padding: 4px;
+                      border-radius: 64px;
                     `}
+                    style={{
+                      color:
+                        currentTheme === 'dark'
+                          ? darkTheme.exactColors.black40
+                          : undefined,
+                      backgroundColor:
+                        currentTheme === 'dark'
+                          ? darkTheme.exactColors.white40
+                          : undefined,
+                    }}
+                    onClick={handleClickDarkTheme}
                   >
-                    <span
+                    <Moon
                       css={`
-                        padding: 4px;
-                        border-radius: 64px;
+                        width: 20px;
                       `}
-                      style={{
-                        color:
-                          currentTheme === 'dark'
-                            ? theme.exactColors.black40
-                            : undefined,
-                        backgroundColor:
-                          currentTheme === 'dark'
-                            ? theme.exactColors.white40
-                            : undefined,
-                      }}
-                      onClick={handleClickDarkTheme}
-                    >
-                      <Moon
-                        css={`
-                          width: 20px;
-                        `}
-                      />
-                    </span>
-                    <span
+                    />
+                  </span>
+                  <span
+                    css={`
+                      padding: 4px;
+                      border-radius: 64px;
+                    `}
+                    style={{
+                      color:
+                        currentTheme === 'light'
+                          ? darkTheme.exactColors.white40
+                          : undefined,
+                      backgroundColor:
+                        currentTheme === 'light'
+                          ? darkTheme.exactColors.black40
+                          : undefined,
+                    }}
+                    onClick={handleClickLightTheme}
+                  >
+                    <Sun
                       css={`
-                        padding: 4px;
-                        border-radius: 64px;
+                        width: 20px;
                       `}
-                      style={{
-                        color:
-                          currentTheme === 'light'
-                            ? theme.exactColors.white40
-                            : undefined,
-                        backgroundColor:
-                          currentTheme === 'light'
-                            ? theme.exactColors.black40
-                            : undefined,
-                      }}
-                      onClick={handleClickLightTheme}
-                    >
-                      <Sun
-                        css={`
-                          width: 20px;
-                        `}
-                      />
-                    </span>
-                  </div>
+                    />
+                  </span>
+                </div>
 
-                  <div
+                <div
+                  css={`
+                    position: relative;
+                    margin-left: auto;
+                  `}
+                  ref={saveFloat.reference}
+                >
+                  <span
+                    style={{
+                      position: saveFloat.strategy,
+                      top: saveFloat.y?.toString() ?? '',
+                      left: saveFloat.x?.toString() ?? '',
+                      transition: 'all .2s ease-in-out',
+                      pointerEvents: 'none',
+                      opacity: 0,
+                      transform: 'translateY(0%)',
+                      ...(saveMessage
+                        ? {
+                            opacity: 1,
+                            transform: 'translateY(calc(-100% - 8px))',
+                          }
+                        : {}),
+                    }}
+                  >
+                    <Tooltip ref={saveFloat.floating}>
+                      {saveMessage?.message}
+                    </Tooltip>
+                  </span>
+                  <Button
                     css={`
                       position: relative;
-                      margin-left: auto;
                     `}
-                    ref={saveFloat.reference}
-                  >
-                    <span
-                      style={{
-                        position: saveFloat.strategy,
-                        top: saveFloat.y?.toString() ?? '',
-                        left: saveFloat.x?.toString() ?? '',
-                        transition: 'all .2s ease-in-out',
-                        pointerEvents: 'none',
-                        opacity: 0,
-                        transform: 'translateY(0%)',
-                        ...(saveMessage
-                          ? {
-                              opacity: 1,
-                              transform: 'translateY(calc(-100% - 8px))',
-                            }
-                          : {}),
-                      }}
-                    >
-                      <Tooltip ref={saveFloat.floating}>
-                        {saveMessage?.message}
-                      </Tooltip>
-                    </span>
-                    <Button
-                      css={`
-                        position: relative;
-                      `}
-                      kind="primary"
-                      outline
-                      onClick={handleClickExport}
-                      popup={
-                        <div
-                          css={css`
-                            background-color: ${({ theme }) =>
-                              theme.exactColors.white50};
+                    kind="primary"
+                    outline
+                    onClick={handleClickExport}
+                    popup={
+                      <div
+                        css={css`
+                          background-color: ${({ theme }) =>
+                            theme.exactColors.white50};
 
-                            & > div {
-                              padding: 8px;
+                          & > div {
+                            padding: 8px;
 
-                              &:hover {
-                                background-color: ${({ theme }) =>
-                                  theme.exactColors.blueFade40};
-                              }
+                            &:hover {
+                              background-color: ${({ theme }) =>
+                                theme.exactColors.blueFade40};
                             }
-                          `}
-                        >
-                          <div onClick={handleClickExportAs} data-type="png">
-                            PNG(透過)で書き出し
-                          </div>
-                          <div onClick={handleClickExportAs} data-type="png">
-                            レイヤー別PNGで書き出し
-                          </div>
-                          <div onClick={handleClickExportAs} data-type="jpeg">
-                            JPEGで保存
-                          </div>
+                          }
+                        `}
+                      >
+                        <div onClick={handleClickExportAs} data-type="png">
+                          PNG(透過)で書き出し
                         </div>
-                      }
-                    >
-                      {t('export')}
-                    </Button>
-                  </div>
+                        <div onClick={handleClickExportAs} data-type="png">
+                          レイヤー別PNGで書き出し
+                        </div>
+                        <div onClick={handleClickExportAs} data-type="jpeg">
+                          JPEGで保存
+                        </div>
+                      </div>
+                    }
+                  >
+                    {t('export')}
+                  </Button>
                 </div>
               </div>
-            </Sidebar>
-          )}
+            </div>
+          </Sidebar>
         </>
       </div>
     </EngineContextProvider>

@@ -1,13 +1,18 @@
 import { Document } from '../../SilkDOM'
 import { IRenderStrategy } from './IRenderStrategy'
 import { SilkEngine3 } from '../Engine3'
-import { assign, deepClone } from '../../utils'
+import { assign, deepClone, setCanvasSize } from '../../utils'
+import { createContext2D } from '../../Engine3_CanvasFactory'
 
 export class FullRender implements IRenderStrategy {
   private bufferCtx: CanvasRenderingContext2D
 
   constructor() {
-    this.bufferCtx = document.createElement('canvas').getContext('2d')!
+    this.bufferCtx = createContext2D()
+  }
+
+  public get renderScale() {
+    return 1
   }
 
   public async render(
@@ -16,11 +21,7 @@ export class FullRender implements IRenderStrategy {
     destCtx: CanvasRenderingContext2D
   ): Promise<void> {
     const { bufferCtx } = this
-    // const destCtx = window.document.createElement('canvas').getContext('2d')!
-    assign(bufferCtx.canvas, {
-      width: document.width,
-      height: document.height,
-    })
+    setCanvasSize(bufferCtx.canvas, document.width, document.height)
 
     const layerBitmaps = await Promise.all(
       [...document.layers].map(async (layer) => {

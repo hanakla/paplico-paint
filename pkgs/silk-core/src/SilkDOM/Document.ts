@@ -6,12 +6,16 @@ import { RasterLayer } from './RasterLayer'
 import { VectorLayer } from './VectorLayer'
 import { FilterLayer } from './FilterLayer'
 import { Emitter } from '../Engine3_Emitter'
+import { ISilkDOMElement } from './ISilkDOMElement'
 
 type DocumentEvents = {
   layersChanged: void
 }
 
-export class Document extends Emitter<DocumentEvents> {
+export class Document
+  extends Emitter<DocumentEvents>
+  implements ISilkDOMElement
+{
   public static create({ width, height }: { width: number; height: number }) {
     const document = new Document()
     assign(document, { width, height })
@@ -48,6 +52,15 @@ export class Document extends Emitter<DocumentEvents> {
 
   public layers: LayerTypes[] = []
   public activeLayerId: string | null = null
+
+  public update(proc: (doc: this) => void) {
+    proc(this)
+  }
+
+  public getLayer(q: { byUid: string } | { byName: string }) {
+    if ('byUid' in q) return this.layers.find((l) => l.uid === q.byUid)
+    if ('byName' in q) return this.layers.find((l) => l.name === q.byName)
+  }
 
   public addLayer(
     layer: LayerTypes,
@@ -93,6 +106,4 @@ export class Document extends Emitter<DocumentEvents> {
       layers: this.layers.map((layer) => layer.serialize()),
     }
   }
-
-  public toArrayBuffer() {}
 }

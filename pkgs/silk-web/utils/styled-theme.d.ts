@@ -1,21 +1,20 @@
 import type { CSSProp } from 'styled-components'
 import type {} from 'styled-components/cssprop'
-import { theme, ThemeType } from './theme'
+import {} from '@charcoal-ui/styled'
+import { CharcoalTheme } from '@charcoal-ui/theme'
 
-declare module 'styled-components' {
-  interface DefaultTheme extends ThemeType {}
-}
+import { darkTheme, ThemeType } from './theme'
 
-declare module 'react' {
-  interface DOMAttributes<T> {
-    css?: CSSProp<ThemeType>
-  }
-}
+// declare module 'react' {
+//   interface DOMAttributes<T> {
+//     css?: CSSProp<ThemeType>
+//   }
+// }
 
-declare global {
-  namespace JSX {
-    interface IntrinsicAttributes {
-      css?: CSSProp<ThemeType>
-    }
-  }
-}
+// declare global {
+//   namespace JSX {
+//     interface IntrinsicAttributes {
+//       css?: CSSProp<ThemeType>
+//     }
+//   }
+// }

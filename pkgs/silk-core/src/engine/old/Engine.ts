@@ -14,7 +14,7 @@ import { CurrentBrushSetting as _CurrentBrushSetting } from './CurrentBrushSetti
 import getBound from 'svg-path-bounds'
 import { FilterClass, IFilter } from './IFilter'
 import { BloomFilter } from '../Filters/Bloom'
-import WebGLContext from './WebGLContext'
+import { WebGLContext } from './WebGLContext'
 import { GaussBlurFilter } from '../Filters/GaussBlur'
 import { ChromaticAberrationFilter } from '../Filters/ChromaticAberration'
 // import { hnklMultiplyMix_func } from './Shaders'
@@ -109,8 +109,6 @@ export class SilkEngine {
     this.strokingPreviewCtx = document
       .createElement('canvas')!
       .getContext('2d')!
-
-    document.body.appendChild(this.strokingPreviewCtx.canvas)
 
     this.thumbnailCanvas = document.createElement('canvas')
     assign(this.thumbnailCanvas, { width: 100, height: 100 })

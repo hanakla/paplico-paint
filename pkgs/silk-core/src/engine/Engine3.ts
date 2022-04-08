@@ -3,25 +3,25 @@ import mitt, { Emitter } from 'mitt'
 import getBound from 'svg-path-bounds'
 
 import { Brush, ScatterBrush } from '../Brushes'
-import { Document, LayerTypes, VectorLayer } from '../SilkDOM'
+import { Document, Path, VectorLayer } from '../SilkDOM'
 import { BloomFilter } from '../Filters/Bloom'
 import { ChromaticAberrationFilter } from '../Filters/ChromaticAberration'
 import { GaussBlurFilter } from '../Filters/GaussBlur'
-import { assign, AtomicResource, deepClone } from '../utils'
+import { deepClone, setCanvasSize } from '../utils'
 import { CurrentBrushSetting as _CurrentBrushSetting } from './CurrentBrushSetting'
 import { IRenderStrategy } from './RenderStrategy/IRenderStrategy'
 import { ToolRegistry } from './Engine3_ToolRegistry'
 import { Stroke } from './Stroke'
-import { PlainInk } from './Inks/PlainInk'
-import WebGLContext from './WebGLContext'
+import { PlainInk } from '../Inks/PlainInk'
+import { WebGLContext } from './WebGLContext'
 import { IFilter } from './IFilter'
-import { Session } from './Engine3_Sessions'
-import { CompositeMode } from 'SilkDOM/IRenderable'
+import { CompositeMode } from '../SilkDOM/IRenderable'
 import { FullRender } from './RenderStrategy/FullRender'
-import { createContext2D } from './Engine3_CanvasFactory'
-import { BrushSetting } from 'Value'
+import { createContext2D } from '../Engine3_CanvasFactory'
+import { BrushSetting } from '../Value'
 import { IBrush } from './IBrush'
-import { IInk } from './Inks/IInk'
+import { IInk } from '../Inks/IInk'
+import { AtomicResource } from '../AtomicResource'
 
 type EngineEvents = {
   rerender: void
@@ -52,6 +52,7 @@ export class SilkEngine3 {
 
   protected canvas: HTMLCanvasElement
   protected canvasCtx: CanvasRenderingContext2D
+  protected atomicPreDestCtx: AtomicResource<CanvasRenderingContext2D>
 
   // public readonly canvasHandler: CanvasHandler
   // public __dbg_bufferCtx: CanvasRenderingContext2D
@@ -98,8 +99,6 @@ export class SilkEngine3 {
   private camera: THREE.OrthographicCamera
   // private scene: THREE.Scene
 
-  protected sessions: Session[] = []
-
   protected mitt: Emitter<EngineEvents>
   public on: Emitter<EngineEvents>['on']
   public off: Emitter<EngineEvents>['off']
@@ -119,11 +118,11 @@ export class SilkEngine3 {
     this.on = this.mitt.on.bind(this.mitt)
     this.off = this.mitt.off.bind(this.mitt)
 
-    const buffer = document.createElement('canvas')
-    this.atomicBufferCtx = new AtomicResource(buffer.getContext('2d')!)
+    const buffer = createContext2D()
+    this.atomicBufferCtx = new AtomicResource(buffer!)
 
     this.gl = new WebGLContext(1, 1)
-    this.toolRegistry = new ToolRegistry(this)
+    this.toolRegistry = new ToolRegistry(this.gl)
 
     const renderer = new THREE.WebGLRenderer({
       alpha: true,
@@ -134,22 +133,12 @@ export class SilkEngine3 {
     renderer.setClearColor(0x000000, 0)
 
     this.atomicThreeRenderer = new AtomicResource(renderer)
+    this.atomicPreDestCtx = new AtomicResource(createContext2D())
 
     this.camera = new THREE.OrthographicCamera(0, 0, 0, 0, 0, 1000)
     // this.scene = new THREE.Scene()
 
-    document.body.appendChild(renderer.domElement)
-  }
-
-  public createSession(document: Document) {
-    const session = new Session(document)
-
-    this.sessions.push(session)
-    session.on('disposed', () => {
-      this.sessions.filter((s) => s !== session)
-    })
-
-    return session
+    // document.body.appendChild(renderer.domElement)
   }
 
   public setCachedBitmap(document: Document, layerId: string) {
@@ -165,12 +154,11 @@ export class SilkEngine3 {
   public async render(document: Document, strategy: IRenderStrategy) {
     const lock = await this.atomicRender.enjure({ owner: this })
     const renderer = await this.atomicThreeRenderer.enjure({ owner: this })
+    const preDestCtx = await this.atomicPreDestCtx.enjure({ owner: this })
 
     try {
-      assign(this.canvasCtx.canvas, {
-        width: document.width,
-        height: document.height,
-      })
+      setCanvasSize(this.canvasCtx.canvas, document.width, document.height)
+      setCanvasSize(preDestCtx.canvas, document.width, document.height)
 
       renderer.setSize(document.width, document.height)
       renderer.setClearColor(0x000000, 0)
@@ -182,11 +170,16 @@ export class SilkEngine3 {
       this.camera.bottom = -document.height / 2.0
       this.camera.updateProjectionMatrix()
 
-      await strategy.render(this, document, this.canvasCtx)
+      this.atomicThreeRenderer.release(renderer)
+
+      await strategy.render(this, document, preDestCtx)
+      this.canvasCtx.drawImage(preDestCtx.canvas, 0, 0)
 
       this.mitt.emit('rerender')
     } finally {
-      this.atomicThreeRenderer.release(renderer)
+      this.atomicThreeRenderer.isLocked &&
+        this.atomicThreeRenderer.release(renderer)
+      this.atomicPreDestCtx.release(preDestCtx)
       this.atomicRender.release(lock)
     }
   }
@@ -195,15 +188,12 @@ export class SilkEngine3 {
     document: Document,
     strategy: IRenderStrategy = new FullRender()
   ) {
-    const lock = await this.atomicRender.enjure({ owner: this })
     const exportCtx = createContext2D()
+    setCanvasSize(exportCtx.canvas, document.width, document.height)
+
+    const lock = await this.atomicRender.enjure({ owner: this })
 
     try {
-      assign(exportCtx.canvas, {
-        width: document.width,
-        height: document.height,
-      })
-
       await strategy.render(this, document, exportCtx)
 
       return {
@@ -221,19 +211,29 @@ export class SilkEngine3 {
         },
       }
     } finally {
+      // Free memory for canvas
+      setCanvasSize(exportCtx.canvas, 0, 0)
       this.atomicRender.release(lock)
     }
   }
 
-  public async renderStroke(
-    brush: IBrush,
-    brushSetting: BrushSetting,
+  public async renderPath(
+    brushSetting: BrushSetting & { specific: Record<string, any> | null },
     ink: IInk,
-    stroke: Stroke,
+    path: Path,
     destCtx: CanvasRenderingContext2D
   ) {
-    if (stroke.points.length < 2) return
+    if (path.points.length < 1) return
+
     const lock = await this.atomicStrokeRender.enjure({ owner: this })
+    const brush = this.toolRegistry.getBrushInstance(brushSetting.brushId)
+
+    if (!brush) {
+      throw new Error(
+        `Failed to render stroke: Brush not found ${brushSetting.brushId}`
+      )
+    }
+
     const renderer = await this.atomicThreeRenderer.enjure({ owner: this })
 
     renderer.setSize(destCtx.canvas.width, destCtx.canvas.height)
@@ -246,6 +246,7 @@ export class SilkEngine3 {
     this.camera.bottom = -destCtx.canvas.height / 2.0
     this.camera.updateProjectionMatrix()
 
+    destCtx.save()
     try {
       brush.render({
         brushSetting: brushSetting,
@@ -253,13 +254,15 @@ export class SilkEngine3 {
         threeRenderer: renderer,
         threeCamera: this.camera,
         ink: ink,
-        stroke,
+        path: path,
         destSize: {
           width: destCtx.canvas.width,
           height: destCtx.canvas.height,
         },
       })
     } finally {
+      destCtx.restore()
+
       this.atomicThreeRenderer.release(renderer)
       this.atomicStrokeRender.release(lock)
     }
@@ -272,13 +275,13 @@ export class SilkEngine3 {
     try {
       const bitmap = new Uint8ClampedArray(width * height * 4)
 
-      assign(bufferCtx.canvas, { width, height })
+      setCanvasSize(bufferCtx.canvas, width, height)
       bufferCtx.clearRect(0, 0, width, height)
 
       for (const object of layer.objects) {
         bufferCtx.save()
         bufferCtx.globalCompositeOperation = 'source-over'
-        bufferCtx.translate(object.x, object.y)
+        bufferCtx.transform(...object.matrix)
 
         if (object.fill) {
           bufferCtx.beginPath()
@@ -315,9 +318,7 @@ export class SilkEngine3 {
             }
             case 'linear-gradient': {
               const { colorPoints, opacity, start, end } = object.fill
-              // const bbox = getBound(object.path.svgPath)
               const [left, top, right, bottom] = getBound(object.path.svgPath)
-              // console.log(bbox)
 
               const width = right - left
               const height = bottom - top
@@ -356,11 +357,10 @@ export class SilkEngine3 {
 
           const stroke = Stroke.fromPath(object.path)
 
-          await this.renderStroke(
-            brush,
+          await this.renderPath(
             object.brush,
             new PlainInk(),
-            stroke,
+            stroke.path,
             bufferCtx
           )
         }

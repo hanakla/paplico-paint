@@ -1,16 +1,16 @@
 import { WebGLRenderer, Camera } from 'three'
 import { CurrentBrushSetting } from './CurrentBrushSetting'
-import { IInk } from './Inks/IInk'
-import { Stroke } from './Stroke'
-import WebGLContext from './WebGLContext'
+import { IInk } from '../Inks/IInk'
+import { Path } from '../SilkDOM/Path'
+import { WebGLContext } from './WebGLContext'
 
-export type BrushContext = {
+export type BrushContext<T = unknown> = {
   context: CanvasRenderingContext2D
   threeRenderer: WebGLRenderer
   threeCamera: Camera
-  stroke: Stroke
+  path: Path
   ink: IInk
-  brushSetting: CurrentBrushSetting
+  brushSetting: CurrentBrushSetting & { specific: T | null }
   destSize: { width: number; height: number }
 }
 

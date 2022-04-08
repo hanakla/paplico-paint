@@ -38,7 +38,6 @@ export const rangeThumb = css`
     box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.15);
   }
 `
-
 export const centering = ({
   x = true,
   y = true,
@@ -49,4 +48,11 @@ export const centering = ({
   display: flex;
   ${styleWhen(x)`justify-content: center;`}
   ${styleWhen(y)`align-items: center;`}
+`
+
+export const focusRing = css`
+  &:active,
+  &:focus {
+    box-shadow: 0 0 0 2px ${rgba('#3694f6', 0.8)};
+  }
 `

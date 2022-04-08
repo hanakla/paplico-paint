@@ -29,7 +29,7 @@ export const Sidebar = forwardRef<HTMLDivElement, Props>(
             height: 100%;
             padding-bottom: env(safe-area-inset-bottom);
             transition: width 0.2s ease-in-out;
-            background-color: ${({ theme }) => theme.colors.black40};
+            background-color: ${({ theme }) => theme.color.surface3};
           `}
           style={style}
         >

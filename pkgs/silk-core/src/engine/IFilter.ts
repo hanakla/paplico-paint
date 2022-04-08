@@ -1,4 +1,4 @@
-import WebGLContext from './WebGLContext'
+import { WebGLContext } from './WebGLContext'
 
 export type FilterContext = {
   gl: WebGLContext

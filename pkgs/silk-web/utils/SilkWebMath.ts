@@ -13,6 +13,7 @@ type RadianNumber = number & { __radiun: true }
 const degToRad = (deg: DegreeNumber) =>
   (normalizeDegree(deg) * (Math.PI / 180)) as RadianNumber
 
+/** Calc angle by p1 and p2 */
 const angleOfPoints = (
   p1: { x: number; y: number },
   p2: { x: number; y: number }
@@ -23,6 +24,7 @@ const distanceOfPoint = (
   p2: { x: number; y: number }
 ) => Math.hypot(p2.x - p1.x, p2.y - p1.y)
 
+/** Calc position by angle and distance */
 const pointByAngleAndDistance = ({
   angle,
   distance,

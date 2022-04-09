@@ -1,24 +1,37 @@
+import { LayerTypes } from 'SilkDOM'
 import { v4 } from 'uuid'
 
 import { Emitter } from '../Engine3_Emitter'
 import { assign } from '../utils'
+import { Filter } from './Filter'
 import { CompositeMode, ILayer, LayerEvents } from './IRenderable'
 
 type Events = LayerEvents<GroupLayer>
 
+type SubLayerTypes = Exclude<LayerTypes, GroupLayer>
+
 export class GroupLayer extends Emitter<Events> implements ILayer {
+  public static create({ layers = [] }: { layers?: SubLayerTypes[] }) {
+    return assign(new GroupLayer(), {
+      layers,
+    })
+  }
+
   public readonly layerType = 'group'
 
   public readonly uid: string = `grouplayer-${v4()}`
   public name: string = ''
   public visible: boolean = true
   public lock: boolean = false
+  public compositeIsolation: boolean = false
   public compositeMode: CompositeMode = 'normal'
   public opacity: number = 100
   public x: number = 0
   public y: number = 0
 
-  public layers: ILayer[] = []
+  /** Compositing "next on current" */
+  public layers: SubLayerTypes[] = []
+  public filters: Filter[] = []
 
   public static deserialize(obj: any) {
     return assign(new GroupLayer(), {
@@ -62,6 +75,7 @@ export class GroupLayer extends Emitter<Events> implements ILayer {
       x: this.x,
       y: this.y,
       layers: this.layers.map((l) => l.serialize()),
+      filters: this.filters.map((f) => f.serialize()),
     }
   }
 }

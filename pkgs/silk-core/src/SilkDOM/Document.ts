@@ -57,6 +57,7 @@ export class Document
   public width: number = 0
   public height: number = 0
 
+  /** Compositing "next on current" */
   public layers: LayerTypes[] = []
   public activeLayerId: string | null = null
   public globalColors: { [uid: string]: RGBColor } = Object.create(null)
@@ -98,7 +99,9 @@ export class Document
   public getLayerSize(layer: LayerTypes) {
     if (layer.layerType === 'raster') {
       return { width: layer.width, height: layer.height }
-    } else if (layer.layerType === 'vector') {
+    } else if (layer.layerType === 'text') {
+      return { width: 1, height: 1 }
+    } else {
       return { width: this.width, height: this.height }
     }
 

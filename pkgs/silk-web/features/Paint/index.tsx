@@ -316,6 +316,12 @@ export function PaintPage({}) {
       })
       const text = SilkDOM.TextLayer.create({})
       const filter = SilkDOM.FilterLayer.create({})
+      const group = SilkDOM.GroupLayer.create({
+        layers: [
+          SilkDOM.RasterLayer.create({ width: 1000, height: 1000 }),
+          SilkDOM.VectorLayer.create({}),
+        ],
+      })
 
       vector.filters.push(
         SilkDOM.Filter.create({
@@ -338,6 +344,7 @@ export function PaintPage({}) {
       document.layers.push(vector)
       document.layers.push(text)
       document.layers.push(filter)
+      document.layers.push(group)
 
       await executeOperation(EditorOps.setActiveLayer, layer.uid)
 

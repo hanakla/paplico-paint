@@ -151,6 +151,7 @@ export const FilterView = () => {
           </div>
         </>
       }
+      container={(children) => children}
     >
       {activeLayer && (
         <SortableFilterList

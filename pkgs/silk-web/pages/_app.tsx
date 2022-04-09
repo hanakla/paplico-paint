@@ -12,8 +12,6 @@ import { appWithFleur } from '../lib/fleur'
 const fastclick = process.browser ? require('fastclick') : null
 
 function MyApp({ Component, pageProps }: AppProps) {
-  const router = useRouter()
-
   useEffect(() => {
     fastclick?.attach(document.body)
   }, [])

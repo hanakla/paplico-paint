@@ -66,7 +66,6 @@ export class CanvasHandler extends Emitter<Events> {
   }
 
   public set scale(scale: number) {
-    console.log({ scale })
     this._scale = scale
   }
 
@@ -261,7 +260,7 @@ export class CanvasHandler extends Emitter<Events> {
     }
 
     currentStroke.simplify()
-    currentStroke.seal()
+    currentStroke.freeze()
     this.mitt.emit('strokeComplete', currentStroke)
   }
 

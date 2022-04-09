@@ -125,9 +125,12 @@ export class Stroke {
     }))
   }
 
-  public seal() {
+  public freeze() {
     if (!this._path) this.path.closed
     if (!this._splined) this.splinedPath.closed
+
+    this._path?.freeze()
+    this._splined?.freeze()
 
     Object.freeze(this)
     Object.freeze(this.points)

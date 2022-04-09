@@ -20,6 +20,7 @@ import { EditorOps, EditorSelector, EditorStore } from '🙌/domains/EditorStabl
 import { useFunk } from '@hanakla/arma'
 import {
   autoPlacement,
+  autoUpdate,
   offset,
   shift,
   useFloating,
@@ -165,9 +166,23 @@ export function MainActions() {
     placement: 'top-start',
   })
 
-  // useEffect(() => {
-  //   layersFloat.update()
-  // })
+  useEffect(() => {
+    if (
+      !layersFloat.refs.reference.current ||
+      !layersFloat.refs.floating.current
+    )
+      return
+
+    return autoUpdate(
+      layersFloat.refs.reference.current,
+      layersFloat.refs.floating.current,
+      layersFloat.update
+    )
+  }, [
+    layersFloat.refs.reference.current,
+    layersFloat.refs.floating.current,
+    layersFloat.update,
+  ])
 
   useClickAway(colorPickerPopRef, (e) => {
     if (DOMUtils.childrenOrSelf(e.target, colorPickerPopRef.current)) return

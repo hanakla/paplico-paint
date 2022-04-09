@@ -1,6 +1,13 @@
 import { useFleurContext, useStore } from '@fleur/react'
 import { useFunk } from '@hanakla/arma'
-import { Fragment, MouseEvent, useMemo, useRef, useState } from 'react'
+import {
+  Fragment,
+  MouseEvent,
+  PointerEvent,
+  useMemo,
+  useRef,
+  useState,
+} from 'react'
 import { useClickAway, useToggle } from 'react-use'
 import { useDrag, useHover } from 'react-use-gesture'
 import { SilkDOM } from 'silk-core'
@@ -13,12 +20,15 @@ import { useFunkyMouseTrap } from '🙌/hooks/useMouseTrap'
 import { assign } from '🙌/utils/assign'
 import { deepClone } from '🙌/utils/clone'
 import { isEventIgnoringTarget } from '../../helpers'
+import { css } from 'styled-components'
 
 const POINT_SIZE = 8
 
-export const VectorLayerControl = ({ scale }: { scale: number }) => {
+export const VectorLayerControl = () => {
   const { executeOperation } = useFleurContext()
   const {
+    canvasScale,
+    canvasPosition,
     activeLayer,
     currentDocument,
     currentTool,
@@ -30,6 +40,8 @@ export const VectorLayerControl = ({ scale }: { scale: number }) => {
     vectorFocusing,
     activeObject,
   } = useStore((get) => ({
+    canvasScale: EditorSelector.canvasScale(get),
+    canvasPosition: EditorSelector.canvasPosition(get),
     activeLayer: EditorSelector.activeLayer(get),
     currentDocument: EditorSelector.currentDocument(get),
     currentTool: get(EditorStore).state.currentTool,
@@ -47,12 +59,16 @@ export const VectorLayerControl = ({ scale }: { scale: number }) => {
   if (!activeLayer || activeLayer.layerType !== 'vector') throw new Error('')
 
   const [isHoverOnPath, toggleIsHoverOnPath] = useToggle(false)
-  const [hoverObjectId, setHoverObjectId] = useState<string | null>(null)
+  const [hoveredObjectUid, setHoveredObjectUid] = useState<string | null>(null)
+
+  const handleClickRoot = useFunk((e: PointerEvent<SVGSVGElement>) => {
+    console.log(e.target)
+  })
 
   const handleHoverChangePath = useFunk(
     ({ hovering, objectId }: { hovering: boolean; objectId: string }) => {
       toggleIsHoverOnPath(hovering)
-      setHoverObjectId(objectId)
+      setHoveredObjectUid(objectId)
     }
   )
 
@@ -77,23 +93,28 @@ export const VectorLayerControl = ({ scale }: { scale: number }) => {
           if (!object) return
 
           object.update((o) => {
-            o.path.points.splice(segmentIndex, 0, {
+            const path = o.path.clone()
+
+            path.points.splice(segmentIndex, 0, {
               x,
               y,
               in: { x: x + 2, y: y - 2 },
               out: { x: x - 2, y: y + 2 },
             })
+            path.freeze()
+
+            o.path = path
           })
         }
       )
     }
   )
 
-  const handleClickObjectFill = useFunk(
+  const handleClickObjectOutline = useFunk(
     ({ currentTarget }: MouseEvent<SVGPathElement>) => {
       executeOperation(
         EditorOps.setActiveObject,
-        currentTarget.dataset.objectId! ?? null
+        currentTarget.dataset.objectUid ?? null
       )
     }
   )
@@ -102,14 +123,9 @@ export const VectorLayerControl = ({ scale }: { scale: number }) => {
     ({ initial, first, last, xy, event: e }) => {
       assertVectorLayer(activeLayer)
 
-      if (currentTool === 'cursor' && e.target === rootRef.current) {
-        executeOperation(EditorOps.setVectorStroking, null)
-        executeOperation(EditorOps.setActiveObject, null)
-        return
-      }
-
       if (currentTool !== 'shape-pen') return
 
+      // Add point
       // SEE: https://stackoverflow.com/a/42711775
       const svg = e.currentTarget! as SVGSVGElement
       const initialPt = assign(svg.createSVGPoint(), {
@@ -251,30 +267,11 @@ export const VectorLayerControl = ({ scale }: { scale: number }) => {
     { useTouch: true }
   )
 
-  const bindObjectDrag = useDrag(
-    ({ event, delta }) => {
-      const objectId = (event.target as SVGPathElement).dataset.objectId
-
-      executeOperation(
-        EditorOps.updateVectorLayer,
-        activeLayer.uid,
-        (layer) => {
-          const object = layer.objects.find((obj) => obj.uid === objectId)
-          if (!object) return
-
-          object.update((o) => {
-            o.x += delta[0] * (1 / scale)
-            o.y += delta[1] * (1 / scale)
-          })
-        }
-      )
-    },
-    { threshold: 2 }
-  )
-
   const bindObjectHover = useHover(({ hovering, event: { currentTarget } }) => {
     toggleIsHoverOnPath(hovering)
-    setHoverObjectId((currentTarget as SVGPathElement)!.dataset.objectId!)
+    setHoveredObjectUid(
+      hovering ? (currentTarget as SVGPathElement)!.dataset.objectUid! : null
+    )
   })
 
   useClickAway(rootRef as any, (e) => {
@@ -304,65 +301,81 @@ export const VectorLayerControl = ({ scale }: { scale: number }) => {
   })
 
   if (!currentDocument) return null
-
-  const zoom = 1 / scale
+  if (!activeLayer.visible || activeLayer.lock) return null
 
   // MEMO: これ見て https://codepen.io/osublake/pen/ggYxvp
   return (
     <svg
       ref={rootRef}
       css={`
+        fill: transparent;
         outline: none;
       `}
       width={currentDocument.width}
       height={currentDocument.height}
       viewBox={`0 0 ${currentDocument.width} ${currentDocument.height}`}
       style={{
-        pointerEvents: any(currentTool).of('shape-pen', 'cursor')
+        pointerEvents: any(currentTool).in('shape-pen', 'cursor')
           ? 'all'
           : 'none',
       }}
       {...bindRootDrag()}
+      x={canvasPosition.x * canvasScale}
+      y={canvasPosition.y * canvasScale}
+      onClick={handleClickRoot}
       tabIndex={-1}
     >
-      {!activeLayer.visible || activeLayer.lock ? null : (
+      {activeLayer.objects.map((object) => (
         <>
-          {activeLayer.objects.map(
-            (object) => (
-              // activeObjectId === object.uid && (
-              <>
-                <g
-                  key={object.uid}
-                  style={{
-                    transform: `translate(${object.x}px, ${object.y}px)`,
-                  }}
-                >
-                  <path
-                    css={`
-                      stroke: none;
-                      fill: none;
-                      pointer-events: visiblePainted;
-                    `}
-                    style={{
+          <g
+            key={object.uid}
+            style={{
+              transform: `translate(${object.x}, ${object.y})`,
+            }}
+          >
+            <path
+              css={`
+                stroke: transparent;
+                stroke-width: 2;
+                fill: none;
+                pointer-events: visiblePainted;
+                shape-rendering: optimizeSpeed;
+              `}
+              style={
+                activeObject?.uid !== object.uid
+                  ? {
+                      stroke:
+                        // prettier-ignore
+                        object.uid === hoveredObjectUid ? ' #4e7fff'
+                    : object.brush != null ? 'transparent'
+                    : 'none',
                       fill: object.fill != null ? 'transparent' : 'none',
-                    }}
-                    d={object.path.svgPath}
-                    onClick={handleClickObjectFill}
-                    data-object-id={object.uid}
-                    {...bindObjectHover()}
-                    {...bindObjectDrag()}
-                  />
-                </g>
-              </>
-            )
-            // )
-          )}
+                    }
+                  : {}
+              }
+              d={object.path.svgPath}
+              onClick={handleClickObjectOutline}
+              data-object-uid={object.uid}
+              {...bindObjectHover()}
+              // {...bindObjectDrag()}
+            />
+          </g>
+        </>
+      ))}
 
+      {activeObject && (
+        <g
+          style={{
+            transform: `translate(${activeObject.x}, ${
+              activeObject.y
+            }) matrix(${activeObject.matrix.join(',')})`,
+          }}
+        >
           <PathSegments
-            objects={activeLayer.objects}
-            scale={scale}
-            isHoverOnPath={isHoverOnPath}
-            hoverObjectId={hoverObjectId}
+            object={activeObject}
+            scale={canvasScale}
+            // isHoverOnPath={isHoverOnPath}
+            // hoverObjectId={hoveredObjectUid}
             onClickPath={handleClickPath}
             onDoubleClickPath={handleDoubleClickPath}
             onHoverStateChange={handleHoverChangePath}
@@ -371,24 +384,18 @@ export const VectorLayerControl = ({ scale }: { scale: number }) => {
             showControls={currentTool === 'point-cursor'}
           />
 
-          {activeObject && (
-            <g
-              style={{ transform: `matrix(${activeObject.matrix.join(',')})` }}
-            >
-              {currentTool !== 'point-cursor' && (
-                <ObjectBoundingBox
-                  object={activeObject}
-                  active={true}
-                  scale={scale}
-                />
-              )}
-              {currentTool === 'point-cursor' &&
-                activeObject?.fill?.type === 'linear-gradient' && (
-                  <GradientControl object={activeObject} scale={scale} />
-                )}
-            </g>
+          {currentTool !== 'point-cursor' && (
+            <ObjectBoundingBox
+              object={activeObject}
+              active={true}
+              scale={canvasScale}
+            />
           )}
-        </>
+          {currentTool === 'point-cursor' &&
+            activeObject?.fill?.type === 'linear-gradient' && (
+              <GradientControl object={activeObject} scale={canvasScale} />
+            )}
+        </g>
       )}
     </svg>
   )
@@ -458,10 +465,10 @@ const GradientControl = ({
 }
 
 const PathSegments = ({
-  objects,
+  object,
   scale,
-  isHoverOnPath,
-  hoverObjectId,
+  // isHoverOnPath,
+  // hoverObjectId,
   onClickPath,
   onDoubleClickPath,
   onHoverStateChange,
@@ -469,10 +476,10 @@ const PathSegments = ({
   showPoints,
   showControls,
 }: {
-  objects: SilkDOM.VectorObject[]
+  object: SilkDOM.VectorObject
   scale: number
-  isHoverOnPath: boolean
-  hoverObjectId: string | null
+  // isHoverOnPath: boolean
+  // hoverObjectId: string | null
   onClickPath: (objectId: string) => void
   onDoubleClickPath: (
     objectId: string,
@@ -491,6 +498,7 @@ const PathSegments = ({
     currentTool,
     vectorStroking,
     activeObjectPointIndices,
+    canvasScale,
     lastUpdated,
   } = useStore((get) => ({
     activeLayer: EditorSelector.activeLayer(get),
@@ -500,6 +508,7 @@ const PathSegments = ({
     currentStroke: get(EditorStore).state.currentStroke,
     currentFill: get(EditorStore).state.currentFill,
     activeObjectPointIndices: get(EditorStore).state.activeObjectPointIndices,
+    canvasScale: EditorSelector.canvasScale(get),
 
     // Get for rerender on update
     lastUpdated: get(EditorStore).state.vectorLastUpdated,
@@ -512,7 +521,6 @@ const PathSegments = ({
     event.stopPropagation()
 
     const { dataset } = event.currentTarget as SVGCircleElement
-    const object = objects.find((obj) => obj.uid === dataset.objectId!)!
     const pointIndex = +dataset.pointIndex!
 
     executeOperation(EditorOps.updateVectorLayer, activeLayer?.uid, (layer) => {
@@ -530,7 +538,6 @@ const PathSegments = ({
     event.stopPropagation()
 
     const { dataset } = event.currentTarget as SVGCircleElement
-    const object = objects.find((obj) => obj.uid === dataset.objectId!)!
     const pointIndex = +dataset.pointIndex!
 
     executeOperation(EditorOps.updateVectorLayer, activeLayer?.uid, (layer) => {
@@ -544,15 +551,19 @@ const PathSegments = ({
     })
   })
 
-  const bindDragPoint = useDrag(({ delta, event }) => {
+  const bindDragPoint = useDrag(({ delta, event, first, last }) => {
     event.stopPropagation()
 
     const { dataset } = event.currentTarget as SVGElement
     const pointIndex = +dataset.pointIndex!
-    const object = objects.find((obj) => obj.uid === dataset.objectId)!
 
     executeOperation(EditorOps.updateVectorLayer, activeLayer?.uid, (layer) => {
-      const point = object?.path.points[pointIndex]
+      if (first) {
+        // Unfreeze path for faster processing
+        object.path = object.path.clone()
+      }
+
+      const point = object.path.points[pointIndex]
       if (!point) return
 
       const deltaX = delta[0] * (1 / scale)
@@ -570,6 +581,10 @@ const PathSegments = ({
         point.out.x += deltaX
         point.out.y += deltaY
       }
+
+      if (last) {
+        object.path.freeze()
+      }
     })
   })
 
@@ -577,7 +592,6 @@ const PathSegments = ({
     e.stopPropagation()
 
     const { dataset } = e.currentTarget
-    const object = objects.find((obj) => obj.uid === dataset.objectId!)!
     const pointIndex = +dataset.pointIndex!
     const isFirstSegment = dataset.isFirstSegment != null
     const isLastSegment = dataset.isLastSegment != null
@@ -629,7 +643,6 @@ const PathSegments = ({
     e.stopPropagation()
 
     const { dataset } = e.currentTarget
-    const object = objects.find((obj) => obj.uid === dataset.objectId!)!
     const pointIndex = +dataset.pointIndex!
     const point = object.path.points[pointIndex]
     const prevPoint = object.path.points[pointIndex - 1]
@@ -674,7 +687,6 @@ const PathSegments = ({
     e.stopPropagation()
 
     const { dataset } = e.currentTarget
-    const object = objects.find((obj) => obj.uid === dataset.objectId!)!
     const pointIndex = +dataset.pointIndex!
 
     // SEE: https://stackoverflow.com/a/42711775
@@ -710,21 +722,43 @@ const PathSegments = ({
     }
   )
 
-  const pathHoverBind = useHover((e) => {
-    const { dataset } = e.event.currentTarget as any as SVGPathElement
-    const object = objects.find((obj) => obj.uid === dataset.objectId!)!
+  const bindObjectDrag = useDrag(
+    ({ event, delta }) => {
+      const objectId = (event.target as SVGPathElement).dataset.objectId
 
-    onHoverStateChange({ hovering: e.hovering, objectId: object.uid })
-  })
+      console.log('hi')
+
+      executeOperation(
+        EditorOps.updateVectorLayer,
+        activeLayer.uid,
+        (layer) => {
+          const object = layer.objects.find((obj) => obj.uid === objectId)
+          if (!object) return
+
+          object.update((o) => {
+            o.x += delta[0] * (1 / canvasScale)
+            o.y += delta[1] * (1 / canvasScale)
+          })
+        }
+      )
+    },
+    { threshold: 2 }
+  )
+
+  // const pathHoverBind = useHover((e) => {
+  //   const { dataset } = e.event.currentTarget as any as SVGPathElement
+  //   const object = objects.find((obj) => obj.uid === dataset.objectId!)!
+
+  //   onHoverStateChange({ hovering: e.hovering, objectId: object.uid })
+  // })
 
   const zoom = Math.max(1 / scale, 1)
 
   const pathSegments = useMemo(() => {
-    return objects
-      .map((object) => {
-        return object.path.mapPoints((point, prevPoint, pointIdx, points) => {
-          // prettier-ignore
-          const segmentPath = prevPoint
+    return object.path
+      .mapPoints((point, prevPoint, pointIdx, points) => {
+        // prettier-ignore
+        const segmentPath = prevPoint
             ? `
               M${prevPoint.x},${prevPoint.y}
               C${prevPoint.out?.x ?? prevPoint.x},
@@ -734,158 +768,165 @@ const PathSegments = ({
               `
             : ''
 
-          const isActive = activeObject?.uid === object.uid
-          const isPointSelected = activeObjectPointIndices.includes(pointIdx)
-          const isFirstSegment = pointIdx === 0
-          const isLastSegment = pointIdx === points.length - 1
-          const hovering = isHoverOnPath && object.uid === hoverObjectId
-          const renderPoint =
-            pointIdx !== points.length - 1 || !object.path.closed
+        const isActive = activeObject?.uid === object.uid
+        const isPointSelected = activeObjectPointIndices.includes(pointIdx)
+        const isFirstSegment = pointIdx === 0
+        const isLastSegment = pointIdx === points.length - 1
+        // const hovering = isHoverOnPath && object.uid === hoverObjectId
+        const renderPoint =
+          pointIdx !== points.length - 1 || !object.path.closed
 
-          return {
-            object,
-            line: (
-              <Fragment key={`path-${object.uid}`}>
-                <path
-                  css={`
-                    stroke: transparent;
-                    stroke-width: 2;
-                    fill: none;
-                    pointer-events: none;
-                  `}
-                  style={{
-                    ...(hovering || isActive ? { stroke: '#4e7fff' } : {}),
-                  }}
-                  d={segmentPath}
-                  data-object-id={object.uid}
-                />
+        return {
+          object,
+          line: (
+            <Fragment key={`path-${object.uid}`}>
+              <path
+                css={`
+                  stroke: transparent;
+                  stroke-width: 2;
+                  fill: none;
+                  pointer-events: none;
+                  shape-rendering: optimizeSpeed;
+                `}
+                style={{
+                  ...(isActive ? { stroke: '#4e7fff' } : {}),
+                }}
+                d={segmentPath}
+                data-object-id={object.uid}
+              />
 
-                <path
-                  // 当たり判定ブチ上げくん
-                  css={`
-                    stroke: transparent;
-                    fill: none;
-                    pointer-events: visiblePainted;
-                    stroke: transparent;
-                  `}
-                  style={{
-                    strokeWidth: POINT_SIZE * zoom,
-                  }}
-                  d={segmentPath}
-                  data-object-id={object.uid}
-                  data-point-index={pointIdx}
-                  onClick={handleClickPath}
-                  onDoubleClick={handleDoubleClickPath}
-                  {...pathHoverBind()}
-                />
-              </Fragment>
-            ),
+              <path
+                // 当たり判定ブチ上げくん
+                css={`
+                  stroke: transparent;
+                  fill: none;
+                  pointer-events: visiblePainted;
+                  stroke: transparent;
+                  shape-rendering: optimizeSpeed;
+                `}
+                style={{
+                  strokeWidth: POINT_SIZE * zoom,
+                }}
+                d={segmentPath}
+                data-object-id={object.uid}
+                data-point-index={pointIdx}
+                onClick={handleClickPath}
+                onDoubleClick={handleDoubleClickPath}
+                // {...pathHoverBind()}
+                {...bindObjectDrag()}
+              />
+            </Fragment>
+          ),
 
-            inControl: (
-              <Fragment key={`inControl-${object.uid}`}>
-                {isActive &&
-                  isPointSelected &&
-                  !(object.path.closed && isLastSegment) && (
-                    <>
-                      {/* handle from previous to current */}
-                      {point.in && (
-                        <>
-                          <polyline
-                            css={`
-                              stroke: #4e7fff;
-                              pointer-events: none;
-                            `}
-                            style={{ strokeWidth: 0.5 * zoom }}
-                            points={`${point.in.x},${point.in.y} ${point.x},${point.y}`}
-                          />
-                          <circle
-                            css={`
-                              fill: #4e7fff;
-                              stroke: rgba(0, 0, 0, 0.2);
-                              pointer-events: visiblePainted;
-                            `}
-                            cx={point.in.x}
-                            cy={point.in.y}
-                            r={POINT_SIZE * zoom}
-                            data-object-id={object.uid}
-                            data-point-index={pointIdx}
-                            onDoubleClick={handleDoubleClickInPoint}
-                            {...bindDragStartInAnchor()}
-                          />
-                        </>
-                      )}
-                    </>
-                  )}
-              </Fragment>
-            ),
-
-            outControl: (
-              <Fragment key={`outControl-${object.uid}`}>
-                {/* handle current to previous  */}
-                {isPointSelected && point.out && (
+          inControl: (
+            <Fragment key={`inControl-${object.uid}`}>
+              {isActive &&
+                isPointSelected &&
+                !(object.path.closed && isLastSegment) && (
                   <>
-                    <polyline
-                      css={`
-                        stroke: #4e7fff;
-                        pointer-events: none;
-                      `}
-                      style={{ strokeWidth: 0.5 * zoom }}
-                      points={`${point.x},${point.y} ${point.out.x},${point.out.y}`}
-                    />
-                    <circle
-                      css={`
-                        fill: #4e7fff;
-                        stroke: rgba(0, 0, 0, 0.2);
-                        stroke-width: 0.5;
-                        pointer-events: visiblePainted;
-                      `}
-                      cx={point.out.x}
-                      cy={point.out.y}
-                      r={POINT_SIZE * zoom}
-                      data-object-id={object.uid}
-                      data-point-index={pointIdx}
-                      onDoubleClick={handleDoubleClickOutPoint}
-                      {...bindDragOutAnchor()}
-                    />
+                    {/* handle from previous to current */}
+                    {point.in && (
+                      <>
+                        <polyline
+                          css={`
+                            stroke: #4e7fff;
+                            pointer-events: none;
+                            shape-rendering: optimizeSpeed;
+                          `}
+                          style={{ strokeWidth: 0.5 * zoom }}
+                          points={`${point.in.x},${point.in.y} ${point.x},${point.y}`}
+                        />
+                        <circle
+                          css={`
+                            fill: #4e7fff;
+                            stroke: rgba(0, 0, 0, 0.2);
+                            pointer-events: visiblePainted;
+                            shape-rendering: optimizeSpeed;
+                          `}
+                          cx={point.in.x}
+                          cy={point.in.y}
+                          r={POINT_SIZE * zoom}
+                          data-object-id={object.uid}
+                          data-point-index={pointIdx}
+                          onDoubleClick={handleDoubleClickInPoint}
+                          {...bindDragStartInAnchor()}
+                        />
+                      </>
+                    )}
                   </>
                 )}
-              </Fragment>
-            ),
-            point:
-              !renderPoint || !isActive ? null : (
-                <Fragment key={`point-${object.uid}`}>
-                  <rect
+            </Fragment>
+          ),
+
+          outControl: (
+            <Fragment key={`outControl-${object.uid}`}>
+              {/* handle current to previous  */}
+              {isPointSelected && point.out && (
+                <>
+                  <polyline
                     css={`
-                      z-index: 1;
-                      pointer-events: visiblePainted;
+                      stroke: #4e7fff;
+                      pointer-events: none;
+                      shape-rendering: optimizeSpeed;
                     `}
-                    x={point.x}
-                    y={point.y}
-                    width={POINT_SIZE * zoom}
-                    height={POINT_SIZE * zoom}
-                    transform={`translate(${(-POINT_SIZE * zoom) / 2}, ${
-                      (-POINT_SIZE * zoom) / 2
-                    })`}
-                    style={{
-                      strokeWidth: 1 * zoom,
-                      ...(activeObjectPointIndices.includes(pointIdx)
-                        ? { fill: '#4e7fff', stroke: 'rgba(0, 0, 0, 0.2)' }
-                        : { fill: '#fff', stroke: '#4e7fff' }),
-                    }}
+                    style={{ strokeWidth: 0.5 * zoom }}
+                    points={`${point.x},${point.y} ${point.out.x},${point.out.y}`}
+                  />
+                  <circle
+                    css={`
+                      fill: #4e7fff;
+                      stroke: rgba(0, 0, 0, 0.2);
+                      stroke-width: 0.5;
+                      pointer-events: visiblePainted;
+                      shape-rendering: optimizeSpeed;
+                    `}
+                    cx={point.out.x}
+                    cy={point.out.y}
+                    r={POINT_SIZE * zoom}
                     data-object-id={object.uid}
                     data-point-index={pointIdx}
-                    data-is-first-segment={isFirstSegment ? true : null}
-                    data-is-last-segment={isLastSegment ? true : null}
-                    onClick={handleClickPoint}
-                    {...bindDragPoint()}
+                    onDoubleClick={handleDoubleClickOutPoint}
+                    {...bindDragOutAnchor()}
                   />
-                </Fragment>
-              ),
-          }
-        })
+                </>
+              )}
+            </Fragment>
+          ),
+          point:
+            !renderPoint || !isActive ? null : (
+              <Fragment key={`point-${object.uid}`}>
+                <rect
+                  css={`
+                    z-index: 1;
+                    pointer-events: visiblePainted;
+                    shape-rendering: optimizeSpeed;
+                  `}
+                  x={point.x}
+                  y={point.y}
+                  width={POINT_SIZE * zoom}
+                  height={POINT_SIZE * zoom}
+                  transform={`translate(${(-POINT_SIZE * zoom) / 2}, ${
+                    (-POINT_SIZE * zoom) / 2
+                  })`}
+                  style={{
+                    strokeWidth: 1 * zoom,
+                    ...(activeObjectPointIndices.includes(pointIdx)
+                      ? { fill: '#4e7fff', stroke: 'rgba(0, 0, 0, 0.2)' }
+                      : { fill: '#fff', stroke: '#4e7fff' }),
+                  }}
+                  data-object-id={object.uid}
+                  data-point-index={pointIdx}
+                  data-is-first-segment={isFirstSegment ? true : null}
+                  data-is-last-segment={isLastSegment ? true : null}
+                  onClick={handleClickPoint}
+                  {...bindDragPoint()}
+                />
+              </Fragment>
+            ),
+        }
       })
       .flat(1)
-  }, [activeObject?.uid, objects, objects.length, lastUpdated])
+  }, [activeObject?.uid, object, lastUpdated])
 
   return (
     <>
@@ -951,20 +992,28 @@ const ObjectBoundingBox = ({
   return (
     <>
       <rect
+        css={`
+          fill: none;
+          pointer-events: stroke;
+          shape-rendering: optimizeSpeed;
+        `}
         x={bbox.left}
         y={bbox.top}
         width={bbox.width}
         height={bbox.height}
         style={{
           strokeWidth: 1 * zoom,
-          pointerEvents: 'stroke',
-          fill: 'none',
+
           ...(active ? { stroke: '#4e7fff' } : {}),
         }}
         {...etc}
       />
 
       <rect
+        css={`
+          ${anchorRect}
+          shape-rendering: optimizeSpeed;
+        `}
         x={bbox.left}
         y={bbox.top}
         width={controlSize}
@@ -978,37 +1027,43 @@ const ObjectBoundingBox = ({
         {...bindLeftTopDrag()}
       />
       <rect
+        css={`
+          ${anchorRect}
+          shape-rendering: optimizeSpeed;
+        `}
         x={bbox.right}
         y={bbox.top}
         width={controlSize}
         height={controlSize}
         style={{
-          stroke: '#4e7fff',
-          fill: '#fff',
           strokeWidth: 1 * zoom,
           transform: `translate(${-controlSize / 2}px, ${-controlSize / 2}px)`,
         }}
       />
       <rect
+        css={`
+          ${anchorRect}
+          shape-rendering: optimizeSpeed;
+        `}
         x={bbox.left}
         y={bbox.bottom}
         width={controlSize}
         height={controlSize}
         style={{
-          stroke: '#4e7fff',
-          fill: '#fff',
           strokeWidth: 1 * zoom,
           transform: `translate(${-controlSize / 2}px, ${-controlSize / 2}px)`,
         }}
       />
       <rect
+        css={`
+          ${anchorRect}
+          shape-rendering: optimizeSpeed;
+        `}
         x={bbox.right}
         y={bbox.bottom}
         width={controlSize}
         height={controlSize}
         style={{
-          stroke: '#4e7fff',
-          fill: '#fff',
           strokeWidth: 1 * zoom,
           transform: `translate(${-controlSize / 2}px, ${-controlSize / 2}px)`,
         }}
@@ -1016,6 +1071,11 @@ const ObjectBoundingBox = ({
     </>
   )
 }
+
+const anchorRect = css`
+  stroke: #4e7fff;
+  fill: #fff;
+`
 
 function assertVectorLayer(layer: any): asserts layer is SilkDOM.VectorLayer {
   if (layer?.layerType !== 'vector')

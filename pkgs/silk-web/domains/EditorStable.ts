@@ -14,6 +14,7 @@ import {
 import { BrushSetting } from '🙌/../silk-core/dist/Value'
 import { connectIdb } from '🙌/infra/indexeddb'
 import { LocalStorage } from '🙌/infra/LocalStorage'
+import { any } from '🙌/utils/anyOf'
 import { deepClone } from '../utils/clone'
 import { log, trace, warn } from '../utils/log'
 
@@ -34,8 +35,12 @@ interface State {
 
   currentFileHandler: FileSystemFileHandle | null
 
+  currentTheme: 'dark' | 'light'
   editorMode: EditorMode
   editorPage: EditorPage
+  canvasScale: number
+  canvasPosition: { x: number; y: number }
+
   renderSetting: Silk3.RenderSetting
   currentDocument: SilkDOM.Document | null
   currentTool: Tool
@@ -48,7 +53,7 @@ interface State {
   vectorStroking: VectorStroking | null
   vectorFocusing: { objectId: string } | null
   clipboard: SilkDOM.VectorObject | null
-  currentTheme: 'dark' | 'light'
+
   vectorLastUpdated: number
 
   selectedLayerUids: []
@@ -70,10 +75,14 @@ export const [EditorStore, EditorOps] = minOps('Editor', {
 
     currentFileHandler: null,
 
-    currentDocument: null,
+    currentTheme: 'light',
     editorMode: 'sp',
     editorPage: process.env.NODE_ENV === 'development' ? 'app' : 'home',
-    currentTheme: 'light',
+    canvasScale: 1,
+    canvasPosition: { x: 0, y: 0 },
+
+    currentDocument: null,
+
     renderSetting: { disableAllFilters: false, updateThumbnail: true },
     currentTool: 'cursor',
     currentFill: null,
@@ -172,6 +181,13 @@ export const [EditorStore, EditorOps] = minOps('Editor', {
       x.executeOperation(EditorOps.rerenderCanvas)
     },
     setTool: (x, tool: Tool) => {
+      if (
+        EditorSelector.activeLayer(x.getStore)?.layerType !== 'vector' &&
+        any(tool).in('shape-pen', 'point-cursor')
+      ) {
+        return
+      }
+
       x.commit((d) => {
         d.currentTool = tool
 
@@ -233,6 +249,31 @@ export const [EditorStore, EditorOps] = minOps('Editor', {
     setEditorMode: ({ state }, mode: EditorMode) => {},
     setEditorPage: (x, page: EditorPage) => {
       x.commit({ editorPage: page })
+    },
+    setCanvasTransform(
+      x,
+      next: Partial<{
+        scale: number | ((current: number) => number)
+        pos:
+          | State['canvasPosition']
+          | ((current: State['canvasPosition']) => State['canvasPosition'])
+      }>
+    ) {
+      x.commit((d) => {
+        if (next.scale != null) {
+          d.canvasScale =
+            typeof next.scale === 'function'
+              ? next.scale(d.canvasScale)
+              : next.scale
+        }
+
+        if (next.pos != null) {
+          d.canvasPosition =
+            typeof next.pos === 'function'
+              ? next.pos(d.canvasPosition)
+              : next.pos
+        }
+      })
     },
     // #endregion
 
@@ -371,7 +412,7 @@ export const [EditorStore, EditorOps] = minOps('Editor', {
         d.vectorLastUpdated = Date.now()
       })
 
-      // !skipRerender && x.executeOperation(EditorOps.rerenderCanvas)
+      !skipRerender && x.executeOperation(EditorOps.rerenderCanvas)
     },
     updateFilter: (
       x,
@@ -538,16 +579,19 @@ export const EditorSelector = {
     return (layerId: string) => renderStrategy?.getPreiewForLayer(layerId)
   }),
 
+  // #region UI
+  canvasScale: selector((get) => get(EditorStore).canvasScale),
+  canvasPosition: selector((get) => get(EditorStore).canvasPosition),
+  // #endregon
+
   // #region Document
-  layers: selector((get) => [
-    ...(get(EditorStore).currentDocument?.layers ?? []),
-  ]),
+  layers: selector((get) => get(EditorStore).currentDocument?.layers ?? []),
   // #endregion
 
   // #region Session proxies
-  currentBrushSetting: selector((get) => ({
-    ...(get(EditorStore).session?.brushSetting ?? null),
-  })),
+  currentBrushSetting: selector(
+    (get) => get(EditorStore).session?.brushSetting ?? null
+  ),
   currentVectorBrush: selector((get) => {
     const { session, activeObjectId } = get(EditorStore)
 
@@ -559,7 +603,7 @@ export const EditorSelector = {
     )
 
     if (!object) return session?.brushSetting ?? null
-    return deepClone(object.brush)
+    return object.brush
   }),
   currentVectorFill: selector((get) => {
     const { session, currentFill, activeObjectId } = get(EditorStore)
@@ -572,9 +616,6 @@ export const EditorSelector = {
     if (!object) return currentFill
     return currentFill
   }),
-  currentBrushSetting: selector(
-    (get) => get(EditorStore).session?.brushSetting
-  ),
 
   currentSession: selector((get) => get(EditorStore).session),
   currentDocument: selector((get) => get(EditorStore).session?.document),

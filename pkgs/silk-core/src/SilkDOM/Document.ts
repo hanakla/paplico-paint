@@ -7,6 +7,7 @@ import { VectorLayer } from './VectorLayer'
 import { FilterLayer } from './FilterLayer'
 import { Emitter } from '../Engine3_Emitter'
 import { ISilkDOMElement } from './ISilkDOMElement'
+import { RGBColor } from '../Value/Colors/RGBColor'
 
 type DocumentEvents = {
   layersChanged: void
@@ -42,6 +43,12 @@ export class Document
             )
         }
       }),
+      globalColors: Object.entries(obj.globalColors).reduce(
+        (a, [uid, color]) => {
+          return assign(a, { [uid]: RGBColor.deserialize(color) })
+        },
+        Object.create(null)
+      ),
     })
   }
 
@@ -52,6 +59,7 @@ export class Document
 
   public layers: LayerTypes[] = []
   public activeLayerId: string | null = null
+  public globalColors: { [uid: string]: RGBColor } = Object.create(null)
 
   public update(proc: (doc: this) => void) {
     proc(this)
@@ -104,6 +112,12 @@ export class Document
       height: this.height,
       activeLayerId: this.activeLayerId,
       layers: this.layers.map((layer) => layer.serialize()),
+      globalColors: Object.entries(this.globalColors).reduce(
+        (a, [uid, color]) => {
+          return Object.assign(a, { [uid]: color.serialize() })
+        },
+        Object.create(null)
+      ),
     }
   }
 }

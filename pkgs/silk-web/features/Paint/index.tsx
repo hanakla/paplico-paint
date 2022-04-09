@@ -9,6 +9,8 @@ import {
 import {
   ChangeEvent,
   MouseEvent,
+  MutableRefObject,
+  RefObject,
   TouchEvent,
   useEffect,
   useRef,
@@ -67,19 +69,21 @@ export function PaintPage({}) {
     activeLayer,
     currentTool,
     currentTheme,
+    currentBrushSetting,
     renderSetting,
   } = useStore((get) => ({
     currentDocument: EditorSelector.currentDocument(get),
     activeLayer: EditorSelector.activeLayer(get),
     currentTool: get(EditorStore).state.currentTool,
     currentTheme: get(EditorStore).state.currentTheme,
+    currentBrushSetting: EditorSelector.currentBrushSetting(get),
     renderSetting: get(EditorStore).state.renderSetting,
   }))
+
   const isNarrowMedia = useMedia(`(max-width: ${narrow})`, false)
 
   const engine = useRef<Silk3 | null>(null)
   const session = useRef<SilkSession | null>(null)
-  const canvasHandler = useRef<CanvasHandler | null>(null)
 
   const rootRef = useRef<HTMLDivElement | null>(null)
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
@@ -92,11 +96,8 @@ export function PaintPage({}) {
   })
 
   const editorBound = useMeasure(editAreaRef)
-  const [position, setPosition] = useState({ x: 0, y: 0 })
   const rerender = useUpdate()
   const [sidebarOpened, sidebarToggle] = useToggle(!isNarrowMedia)
-  const [scale, setScale] = useState(0.5)
-  const [rotate, setRotate] = useState(0)
   const [saveMessage] = useNotifyConsumer('save', 1)
   // const sidebarStyles = useSpring({
   //   width: isNarrowMedia === false || sidebarOpened ? 200 : 32,
@@ -233,18 +234,39 @@ export function PaintPage({}) {
     e.preventDefault()
     sidebarToggle()
   })
+  useFunkyGlobalMouseTrap(['ctrl+0', 'command+0'], (e) => {
+    executeOperation(EditorOps.setCanvasTransform, {
+      scale: 1,
+      pos: { x: 0, y: 0 },
+    })
+  })
 
   useFunkyGlobalMouseTrap(['shift+x'], () => {
     executeOperation(EditorOps.updateActiveObject, (o) => {
-      // o.fill?.type== 'linear-gradient'
-      // o.brush?.color
+      const fill = o.fill
+      o.fill = o.brush
+        ? { type: 'fill', color: o.brush.color, opacity: o.brush.opacity }
+        : null
+      o.brush = fill
+        ? {
+            brushId: currentBrushSetting.brushId ?? SilkBrushes.Brush.id,
+            color:
+              fill.type === 'fill'
+                ? { ...fill.color }
+                : { ...fill.colorPoints[0].color },
+            opacity: fill.opacity,
+            size: 1,
+          }
+        : null
     })
   })
 
   useGesture(
     {
       onPinch: ({ delta: [d, r] }) => {
-        setScale((scale) => Math.max(0.1, scale + d / 400))
+        executeOperation(EditorOps.setCanvasTransform, {
+          scale: (prev) => Math.max(0.1, prev + d / 400),
+        })
         // setRotate(rotate => rotate + r)
       },
       // onDrag: ({ delta: [deltaX, deltaY], event }) => {
@@ -275,15 +297,12 @@ export function PaintPage({}) {
     const strategy = new RenderStrategies.DifferenceRender()
     session.setRenderStrategy(strategy)
 
-    await executeOperation(EditorOps.initEngine, {
+    executeOperation(EditorOps.initEngine, {
       engine: engine.current,
       session,
       strategy,
     })
-    await executeOperation(EditorOps.setBrush, SilkBrushes.ScatterBrush.id)
-
-    canvasHandler.current = new CanvasHandler(canvasRef.current!)
-    canvasHandler.current.connect(session, strategy, engine.current)
+    executeOperation(EditorOps.setBrush, SilkBrushes.ScatterBrush.id)
 
     if (process.env.NODE_ENV !== 'development') {
     } else {
@@ -349,24 +368,23 @@ export function PaintPage({}) {
 
   useEffect(() => {
     const handleCanvasWheel = (e: WheelEvent) => {
-      setPosition(({ x, y }) => ({
-        x: x - e.deltaX * 0.5,
-        y: y - e.deltaY * 0.5,
-      }))
+      executeOperation(EditorOps.setCanvasTransform, {
+        pos: ({ x, y }) => ({
+          x: x - e.deltaX * 0.5,
+          y: y - e.deltaY * 0.5,
+        }),
+      })
+
       e.preventDefault()
     }
 
     editAreaRef.current?.addEventListener('wheel', handleCanvasWheel, {
       passive: false,
     })
+
     return () =>
       editAreaRef.current?.removeEventListener('wheel', handleCanvasWheel)
   }, [])
-
-  useEffect(() => {
-    if (!session.current) return
-    canvasHandler.current!.scale = scale
-  }, [scale])
 
   useEffect(() => {
     if (!currentDocument) return
@@ -488,21 +506,8 @@ export function PaintPage({}) {
           >
             ドロップして画像を追加
           </div>
-          <div
-            css="position: absolute;"
-            style={{
-              transform: `scale(${scale}) rotate(${rotate}deg) translate(${position.x}px, ${position.y}px)`,
-            }}
-          >
-            <canvas
-              css={`
-                background-color: white;
-                box-shadow: 0 0 16px rgba(0, 0, 0, 0.1);
-              `}
-              data-is-paint-canvas="yup"
-              ref={canvasRef}
-            />
-          </div>
+
+          <PaintCanvas canvasRef={canvasRef} />
 
           <svg
             css={`
@@ -544,9 +549,7 @@ export function PaintPage({}) {
               // width={editorBound.width}
               // height={editorBound.height}
               editorBound={editorBound}
-              rotate={rotate}
-              position={position}
-              scale={scale}
+              // rotate={rotate}
             />
             {/* </g> */}
           </svg>
@@ -763,5 +766,51 @@ export function PaintPage({}) {
         </>
       </div>
     </EngineContextProvider>
+  )
+}
+
+function PaintCanvas({
+  canvasRef,
+}: {
+  canvasRef: RefObject<HTMLCanvasElement>
+}) {
+  const canvasHandler = useRef<CanvasHandler | null>(null)
+  const { session, engine, renderStrategy, scale, pos } = useStore((get) => ({
+    session: get(EditorStore).state.session,
+    engine: get(EditorStore).state.engine,
+    renderStrategy: get(EditorStore).state.renderStrategy,
+    scale: get(EditorStore).state.canvasScale,
+    pos: get(EditorStore).state.canvasPosition,
+  }))
+
+  useEffect(() => {
+    if (!session || !engine || !renderStrategy) return
+    canvasHandler.current = new CanvasHandler(canvasRef.current!)
+    canvasHandler.current.connect(session, renderStrategy, engine)
+  }, [session, renderStrategy, engine])
+
+  useEffect(() => {
+    if (!canvasHandler.current) return
+    canvasHandler.current!.scale = scale
+  }, [scale])
+
+  return (
+    <div
+      css={`
+        position: absolute;
+      `}
+      style={{
+        transform: `scale(${scale}) rotate(0deg) translate(${pos.x}px, ${pos.y}px)`,
+      }}
+    >
+      <canvas
+        css={`
+          background-color: white;
+          box-shadow: 0 0 16px rgba(0, 0, 0, 0.1);
+        `}
+        data-is-paint-canvas="yup"
+        ref={canvasRef}
+      />
+    </div>
   )
 }

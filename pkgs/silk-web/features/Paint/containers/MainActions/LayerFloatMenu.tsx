@@ -27,8 +27,7 @@ import { useFunk } from '@hanakla/arma'
 import { Portal } from '🙌/components/Portal'
 import { useLayerControl } from '🙌/hooks/useLayers'
 import { centering, rangeThumb, silkScroll } from '🙌/utils/mixins'
-import { useClickAway, useToggle, useUpdate } from 'react-use'
-import { usePopper } from 'react-popper'
+import { useClickAway, useToggle } from 'react-use'
 import { SelectBox } from '🙌/components/SelectBox'
 import { FakeInput } from '🙌/components/FakeInput'
 import {
@@ -405,14 +404,12 @@ const SortableLayerItem = SortableElement(
           user-select: none;
           color: ${({ theme }) => theme.exactColors.black40};
         `}
-        style={
-          {
-            // backgroundColor:
-            //   layerControl.activeLayer?.id === layer.id
-            //     ? theme.surface.floatActive
-            //     : 'transparent',
-          }
-        }
+        style={{
+          backgroundColor:
+            activeLayer?.uid === layer.uid
+              ? theme.colors.blueFade40
+              : 'transparent',
+        }}
         onClick={handleClick}
       >
         <img
@@ -436,12 +433,7 @@ const SortableLayerItem = SortableElement(
             width: 32px;
             height: 32px;
           `}
-          style={{
-            border:
-              activeLayer?.uid === layer.uid
-                ? `2px solid ${theme.colors.blueFade40}`
-                : '2px solid transparent',
-          }}
+          style={{}}
           src={thumbnailUrlOfLayer(layer.uid)}
         />
         <div

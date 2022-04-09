@@ -14,27 +14,29 @@ import { EditorOps, EditorSelector, EditorStore } from '🙌/domains/EditorStabl
 import { useFunk } from '@hanakla/arma'
 import { isEventIgnoringTarget } from '../helpers'
 import { VectorLayerControl } from './LayerControls/VectorLayerControl'
+import { RasterLayerControl } from './LayerControls/RasterLayerControl'
+import { TextLayerControl } from './LayerControls/TextLayerControl'
 
 export const ControlsOverlay = ({
   editorBound,
-  rotate,
-  position: { x, y },
-  scale,
   className,
 }: {
   editorBound: DOMRectReadOnly
-  rotate: number
-  position: { x: number; y: number }
-  scale: number
   className?: string
 }) => {
-  const { activeLayer, currentLayerBBox, currentDocument } = useStore(
-    (get) => ({
-      activeLayer: EditorSelector.activeLayer(get),
-      currentLayerBBox: EditorSelector.activeLayerBBox(get),
-      currentDocument: EditorSelector.currentDocument(get),
-    })
-  )
+  const {
+    activeLayer,
+    currentLayerBBox,
+    currentDocument,
+    canvasScale,
+    canvasPosition: { x, y },
+  } = useStore((get) => ({
+    activeLayer: EditorSelector.activeLayer(get),
+    currentLayerBBox: EditorSelector.activeLayerBBox(get),
+    currentDocument: EditorSelector.currentDocument(get),
+    canvasScale: EditorSelector.canvasScale(get),
+    canvasPosition: EditorSelector.canvasPosition(get),
+  }))
 
   const bbox = currentLayerBBox ?? { width: 0, height: 0 }
 
@@ -45,15 +47,15 @@ export const ControlsOverlay = ({
       width={editorBound.width}
       height={editorBound.height}
       viewBox={`0 0 ${editorBound.width} ${editorBound.height}`}
-      x={editorBound.width / 2 - (currentDocument.width * scale) / 2}
-      y={editorBound.height / 2 - (currentDocument.height * scale) / 2}
+      x={editorBound.width / 2 - (currentDocument.width * canvasScale) / 2}
+      y={editorBound.height / 2 - (currentDocument.height * canvasScale) / 2}
+      className={className}
     >
       <g
-        transform={`scale(${scale}) rotate(${rotate}) translate(${
+        transform={`scale(${canvasScale}) rotate(0deg) translate(${
           x - bbox.width / 2
         }, ${y - bbox.height / 2})`}
       >
-        <rect x="0" y="0" width="10" height="10" fill="red" />
         {/* {activeLayer?.layerType === 'raster' && bbox && (
           // <div
           //   css={`
@@ -77,74 +79,9 @@ export const ControlsOverlay = ({
           />
         )} */}
         {activeLayer?.layerType === 'raster' && <RasterLayerControl />}
-        {activeLayer?.layerType === 'vector' && (
-          <VectorLayerControl scale={scale} />
-        )}
+        {activeLayer?.layerType === 'vector' && <VectorLayerControl />}
         {activeLayer?.layerType === 'text' && <TextLayerControl />}
       </g>
     </svg>
-  )
-}
-
-const RasterLayerControl = () => {
-  const { session, currentDocument } = useStore((get) => ({
-    session: EditorSelector.currentSession(get),
-    currentDocument: EditorSelector.currentDocument(get),
-  }))
-
-  const bbox = session?.currentLayerBBox ?? null
-
-  if (!bbox || !currentDocument) return null
-
-  return (
-    <>
-      <rect
-        css={`
-          fill: none;
-          stroke: #0ff;
-        `}
-        x={bbox.x}
-        y={bbox.y}
-        width={bbox?.width}
-        height={bbox?.height}
-      />
-    </>
-  )
-}
-
-const TextLayerControl = ({}) => {
-  const currentLayerBBox = useStore((get) => EditorSelector.activeLayerBBox)
-  const editor = useMemo(() => withReact(createEditor()), [])
-  // Add the initial value when setting up our state.
-  const [value, setValue] = useState<Descendant[]>([
-    {
-      type: 'paragraph',
-      children: [{ text: 'A line of text in a paragraph.' }],
-    },
-  ])
-
-  const bbox = currentLayerBBox ?? null
-
-  return (
-    <div
-      css={`
-        position: absolute;
-        left: 0;
-        top: 0;
-        z-index: 1000;
-      `}
-      style={{
-        left: bbox?.x,
-        top: bbox?.y,
-      }}
-    >
-      <Slate
-        editor={editor}
-        value={value}
-        onChange={(newValue) => setValue(newValue)}
-      >
-        <Editable />
-      </Slate>
-    </div>
   )
 }

@@ -9,6 +9,7 @@ import {
 import prand from 'pure-rand'
 import { ISilkDOMElement } from './ISilkDOMElement'
 import { lerp } from '../SilkMath'
+import { nanoid } from 'nanoid'
 
 export declare namespace Path {
   export type StartPoint = { x: number; y: number }
@@ -32,19 +33,20 @@ export declare namespace Path {
     /** 0 to 1 */
     pressure?: number | null
   }
+
+  export type PathBBox = {
+    left: number
+    top: number
+    right: number
+    bottom: number
+    centerX: number
+    centerY: number
+    width: number
+    height: number
+  }
 }
 
 export class Path implements ISilkDOMElement {
-  public points: Path.PathPoint[] = []
-
-  /** Is path closed */
-  public closed: boolean = false
-
-  /** Random number seed for rendering this path */
-  public readonly randomSeed: number = prand.mersenne(Math.random()).next()[0]
-
-  private _pal!: CachedPointAtLength
-
   public static create({
     points,
     closed,
@@ -77,10 +79,30 @@ export class Path implements ISilkDOMElement {
     })
   }
 
+  /** Identifier of content, it changed only after .update() called or cloned instance */
+  public contentUid: string = nanoid()
+  public points: Path.PathPoint[] = []
+
+  /** Is path closed */
+  public closed: boolean = false
+
+  /** Random number seed for rendering this path */
+  public readonly randomSeed: number = prand.mersenne(Math.random()).next()[0]
+
+  private _pal!: CachedPointAtLength
+  private _freezedSvgPath: string | null = null
+  private _freezedBounds: Path.PathBBox | null = null
+  private _isFreezed: boolean = false
+
   protected constructor() {}
 
+  public get isFreezed() {
+    return this._isFreezed
+  }
+
   public get svgPath() {
-    return pointsToSVGPath(this.points, this.closed)
+    if (this._freezedSvgPath) return this._freezedSvgPath
+    return this.getFreshSVGPath()
   }
 
   // public getWeightAt(t: number) {
@@ -105,7 +127,9 @@ export class Path implements ISilkDOMElement {
   //   })
   // }
 
-  public getBoundingBox() {
+  public getBoundingBox(): Path.PathBBox {
+    if (this._freezedBounds) return this._freezedBounds
+
     const [left, top, right, bottom] = bounds(this.svgPath)
     const width = Math.abs(right - left)
     const height = Math.abs(bottom - top)
@@ -214,11 +238,29 @@ export class Path implements ISilkDOMElement {
 
   public update(proc: (entity: this) => void): void {
     proc(this)
+
+    this.contentUid = nanoid()
+    this._freezedSvgPath = this.getFreshSVGPath()
     this._pal = cachedPointAtLength(this.svgPath)
   }
 
+  /** Freeze changes and cache heavily process results */
+  public freeze() {
+    this._freezedSvgPath = this.getFreshSVGPath()
+    this._pal = cachedPointAtLength(this._freezedSvgPath)
+    this._freezedBounds = this.getBoundingBox()
+
+    this._isFreezed = true
+    Object.freeze(this)
+    Object.freeze(this.points)
+  }
+
   public clone() {
-    return Path.create({ points: deepClone(this.points), closed: this.closed })
+    return Path.create({
+      points: deepClone(this.points),
+      closed: this.closed,
+      randomSeed: this.randomSeed,
+    })
   }
 
   public serialize() {
@@ -227,6 +269,10 @@ export class Path implements ISilkDOMElement {
       closed: this.closed,
       randomSeed: this.randomSeed,
     }
+  }
+
+  private getFreshSVGPath() {
+    return pointsToSVGPath(this.points, this.closed)
   }
 
   private get pal() {

@@ -1,4 +1,4 @@
-import { DocumentDigger } from '../../DocumentDigger'
+import { SilkDOMDigger } from '../../SilkDOMDigger'
 import { ICommand } from '../ICommand'
 import { LayerProperties } from '../../SilkDOM/IRenderable'
 import { Document } from '../../SilkDOM'
@@ -21,7 +21,7 @@ export class LayerPatchLayerAttr implements ICommand {
   }
 
   async do(document: Document) {
-    const layer = DocumentDigger.findLayer(document, this.pathToTargetLayer, {
+    const layer = SilkDOMDigger.findLayer(document, this.pathToTargetLayer, {
       kind: 'vector',
     })!
 
@@ -34,13 +34,13 @@ export class LayerPatchLayerAttr implements ICommand {
   }
 
   async undo(document: Document): Promise<void> {
-    DocumentDigger.findLayer(document, this.pathToTargetLayer, {
+    SilkDOMDigger.findLayer(document, this.pathToTargetLayer, {
       kind: 'vector',
     })!.update((l) => assign(l, this.revertPatch))
   }
 
   async redo(document: Document): Promise<void> {
-    DocumentDigger.findLayer(document, this.pathToTargetLayer, {
+    SilkDOMDigger.findLayer(document, this.pathToTargetLayer, {
       kind: 'vector',
     })!.update((l) => assign(l, this.patch))
   }

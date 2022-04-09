@@ -9,12 +9,14 @@ import {
   RenderStrategies,
   IRenderStrategy,
   SilkSerializer,
+  SilkDOMDigger,
 } from 'silk-core'
 
 import { BrushSetting } from '🙌/../silk-core/dist/Value'
 import { connectIdb } from '🙌/infra/indexeddb'
 import { LocalStorage } from '🙌/infra/LocalStorage'
 import { any } from '🙌/utils/anyOf'
+import { shallowEquals } from '🙌/utils/object'
 import { deepClone } from '../utils/clone'
 import { log, trace, warn } from '../utils/log'
 
@@ -46,7 +48,7 @@ interface State {
   currentTool: Tool
   currentFill: SilkValue.FillSetting | null
   currentStroke: SilkValue.BrushSetting | null
-  activeLayerId: string | null
+  activeLayerId: string[] | null
   activeObjectId: string | null
   activeObjectPointIndices: number[]
   selectedFilterIds: { [id: string]: true | undefined }
@@ -120,10 +122,11 @@ export const [EditorStore, EditorOps] = minOps('Editor', {
       })
 
       session.on('activeLayerChanged', (s) => {
-        if (x.getState().activeLayerId === s.activeLayerId) return
+        if (shallowEquals(x.getState().activeLayerId, s.activeLayer?.uid))
+          return
 
         x.commit({
-          activeLayerId: s.activeLayerId,
+          activeLayerId: s.activeLayer?.uid ?? null,
           activeObjectId: null,
           activeObjectPointIndices: [],
         })
@@ -163,7 +166,8 @@ export const [EditorStore, EditorOps] = minOps('Editor', {
         if (!d.session) return
 
         d.session!.setDocument(document)
-        d.activeLayerId = document?.activeLayerId ?? null
+        // TODO
+        d.activeLayerId = [document?.activeLayerId] ?? null
         if (document && d.renderStrategy)
           d.engine?.render(document, d.renderStrategy)
       })
@@ -297,13 +301,13 @@ export const [EditorStore, EditorOps] = minOps('Editor', {
       })
     },
 
-    setActiveLayer: (x, layerId: string, objectUid?: string) => {
-      if (layerId === x.state.session?.activeLayerId) return
+    setActiveLayer: (x, path: string[], objectUid?: string) => {
+      if (shallowEquals(path, [x.state.session?.activeLayerId])) return
 
       x.commit((draft) => {
-        draft.session?.setActiveLayer(layerId)
+        draft.session?.setActiveLayer(path)
 
-        draft.activeLayerId = layerId
+        draft.activeLayerId = path
         draft.activeObjectId = objectUid ?? null
         draft.activeObjectPointIndices = []
         draft.selectedFilterIds = {}
@@ -312,16 +316,16 @@ export const [EditorStore, EditorOps] = minOps('Editor', {
     setActiveObject: (
       x,
       objectId: string | null,
-      layerId: string | null = null
+      layerPath: string[] | null = null
     ) => {
       x.commit((d) => {
         if (d.activeObjectId !== objectId) {
           d.activeObjectPointIndices = []
         }
 
-        if (layerId != null) {
-          d.session?.setActiveLayer(layerId)
-          d.activeLayerId = layerId
+        if (layerPath != null) {
+          d.session?.setActiveLayer(layerPath)
+          d.activeLayerId = layerPath
         }
 
         d.activeObjectId = objectId
@@ -362,15 +366,16 @@ export const [EditorStore, EditorOps] = minOps('Editor', {
     },
     updateLayer: (
       x,
-      layerId: string | null | undefined,
+      pathToLayer: string[] | null | undefined,
       proc: (layer: SilkDOM.LayerTypes) => void,
       { skipRerender = false }: { skipRerender?: boolean } = {}
     ) => {
-      layerId && x.state.renderStrategy!.markUpdatedLayerId(layerId)
-
       x.commit((d) => {
-        findLayer(d.currentDocument, layerId)?.update(proc)
-        layerId && d.renderStrategy!.markUpdatedLayerId(layerId)
+        if (!d.currentDocument || !pathToLayer) return
+        const layer = SilkDOMDigger.findLayer(d.currentDocument, pathToLayer)
+
+        layer?.update(proc)
+        x.state.renderStrategy!.markUpdatedLayerId(pathToLayer.slice(-1)[0])
       })
 
       !skipRerender && x.executeOperation(EditorOps.rerenderCanvas)
@@ -398,17 +403,18 @@ export const [EditorStore, EditorOps] = minOps('Editor', {
     },
     updateVectorLayer: (
       x,
-      layerId: string | null | undefined,
+      pathToLayer: string[] | null | undefined,
       proc: (layer: SilkDOM.VectorLayer) => void,
       { skipRerender = false }: { skipRerender?: boolean } = {}
     ) => {
+      if (!pathToLayer) return
+
       x.commit((d) => {
-        const layer = findLayer(d.currentDocument, layerId)
-        if (layer?.layerType !== 'vector') return
+        SilkDOMDigger.findLayer(d.currentDocument!, pathToLayer, {
+          kind: 'vector',
+        })?.update(proc)
 
-        layer.update(proc)
-
-        layerId && d.renderStrategy!.markUpdatedLayerId(layerId)
+        d.renderStrategy!.markUpdatedLayerId(pathToLayer.slice(-1)[0])
         d.vectorLastUpdated = Date.now()
       })
 
@@ -464,16 +470,30 @@ export const [EditorStore, EditorOps] = minOps('Editor', {
     ) => {
       x.commit((d) => {
         d.session!.document?.addLayer(newLayer, { aboveLayerId })
-        d.session!.activeLayerId = newLayer.uid
+        d.session!.setActiveLayer([newLayer.uid])
         d.engine!.render(d.currentDocument!, d.session?.renderStrategy!)
 
         d.renderStrategy?.markUpdatedLayerId(newLayer.uid)
       })
     },
-    moveLayer(x, oldIndex: number, newIndex: number) {
+    moveLayer(x, pathToParent: string[], oldIndex: number, newIndex: number) {
       x.commit((d) =>
         d.currentDocument?.sortLayer((layers) => {
-          return arrayMove(layers, oldIndex, newIndex)
+          if (pathToParent.length === 0) {
+            return arrayMove(layers, oldIndex, newIndex)
+          }
+
+          const parent = SilkDOMDigger.findLayer({ layers }, pathToParent, {
+            kind: 'group',
+          })!
+
+          console.log(pathToParent, parent.layers, oldIndex, newIndex)
+
+          parent.update((l) => {
+            arrayMove(l.layers, oldIndex, newIndex)
+          })
+
+          return layers
         })
       )
     },
@@ -499,38 +519,48 @@ export const [EditorStore, EditorOps] = minOps('Editor', {
 
       x.executeOperation(EditorOps.rerenderCanvas)
     },
-    deleteLayer: (x, layerId: string | null | undefined) => {
+    deleteLayer: (x, layerPath: string[] | null | undefined) => {
+      if (!layerPath) return
+
       x.commit((d) => {
         if (!d.session?.document) return
 
         const { document } = d.session
         if (document.layers.length === 1) return
 
-        const idx = findLayerIndex(document, layerId)
-        if (idx === -1) return
+        const targetUid = layerPath.slice(-1)[0]
+        const parent = SilkDOMDigger.findLayerParent(document, layerPath)
+        const idx = parent.layers.findIndex((l) => l.uid === targetUid)
 
-        document.layers.splice(idx, 1)
+        parent.update((l) => {
+          l.layers.splice(idx, 1)
+        })
 
         // ActiveLayerがなくなると画面がアになるので……
-        const nextActiveLayer =
-          document.layers[idx - 1] ?? document.layers.slice(-1)
-        if (layerId === d.activeLayerId) {
-          d.session.activeLayerId = nextActiveLayer.uid
-          d.activeLayerId = nextActiveLayer.uid
-        }
+        // TODO
+        // const nextActiveLayer =
+        //   document.layers[idx - 1] ?? document.layers.slice(-1)
+        // if (layerPath === d.activeLayerId) {
+        //   d.session.activeLayerId = nextActiveLayer.uid
+        //   d.activeLayerId = nextActiveLayer.uid
+        // }
       })
 
       x.executeOperation(EditorOps.rerenderCanvas)
     },
     deleteSelectedFilters: (x) => {
       x.commit((d) => {
-        findLayer(d.currentDocument, d.activeLayerId)?.update((layer) => {
-          for (const filterId of Object.keys(d.selectedFilterIds)) {
-            const idx = layer.filters.findIndex((f) => f.uid === filterId)
-            if (idx === -1) continue
-            layer.filters.splice(idx, 1)
+        if (!d.activeLayerId) return
+
+        SilkDOMDigger.findLayer(d.currentDocument!, d.activeLayerId)?.update(
+          (layer) => {
+            for (const filterId of Object.keys(d.selectedFilterIds)) {
+              const idx = layer.filters.findIndex((f) => f.uid === filterId)
+              if (idx === -1) continue
+              layer.filters.splice(idx, 1)
+            }
           }
-        })
+        )
       })
 
       x.executeOperation(EditorOps.rerenderCanvas)
@@ -620,6 +650,7 @@ export const EditorSelector = {
   currentSession: selector((get) => get(EditorStore).session),
   currentDocument: selector((get) => get(EditorStore).session?.document),
   activeLayer: selector((get) => get(EditorStore).session?.activeLayer),
+  activeLayerPath: selector((get) => get(EditorStore).activeLayerId),
   activeObject: selector((get): SilkDOM.VectorObject | null => {
     const { session, activeObjectId } = get(EditorStore)
 

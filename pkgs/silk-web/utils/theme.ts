@@ -88,7 +88,7 @@ export const darkTheme = {
     brushViewWhite: '#ccc',
     brushViewActive: rgba('#999', 0.5),
     inputActive: '#eee',
-    floatWhite: rgba('#f5f5f5', 0.9),
+    floatWhite: rgba('#f5f5f5', 0.95),
     floatActive: rgba('#85baf6', 0.9),
     contextMenu: '#4798f5',
     contextMenuActive: rgba('#4798f5', 0.9),

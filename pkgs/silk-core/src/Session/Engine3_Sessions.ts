@@ -13,6 +13,7 @@ import { BrushSetting } from '../Value'
 import { SilkEngine3 } from '../engine/Engine3'
 import { assign } from '../utils'
 import { ICommand } from './ICommand'
+import { SilkDOMDigger } from '../SilkDOMDigger'
 
 type Events = {
   documentChanged: SilkSession
@@ -106,10 +107,14 @@ export class SilkSession extends Emitter<Events> {
     return (this._pluginSpecificBrushSettings[brushId] as any) ?? null
   }
 
-  public setActiveLayer(uid: string | null) {
-    this._activeLayer = uid
-      ? this.document?.layers.find((layer) => layer.uid === uid) ?? null
-      : null
+  public setActiveLayer(path: string | string[] | null) {
+    this._activeLayer =
+      path && this.document
+        ? SilkDOMDigger.findLayer(
+            this.document,
+            Array.isArray(path) ? path : [path]
+          )
+        : null
 
     this.emit('activeLayerChanged', this)
   }

@@ -10,6 +10,7 @@
     "@charcoal-ui/styled": "^1.0.0",
     "@dnd-kit/core": "^5.0.3",
     "@dnd-kit/sortable": "^6.0.1",
+    "@dnd-kit/utilities": "^3.1.0",
     "@fleur/fleur": "^3.1.0",
     "@fleur/next": "^1.0.0",
     "@fleur/react": "^5.0.2",

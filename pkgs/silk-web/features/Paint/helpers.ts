@@ -1,5 +1,5 @@
 import { Silk3, SilkDOM, SilkInks } from 'silk-core'
-import { assign } from '🙌/utils/assign'
+import { assign } from '🙌/utils/object'
 
 export const isEventIgnoringTarget = (target: EventTarget | null) => {
   return (target as HTMLElement)?.dataset?.isPaintCanvas != null

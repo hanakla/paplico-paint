@@ -71,6 +71,7 @@ export class DifferenceRender implements IRenderStrategy {
       switch (layer.layerType) {
         case 'group': {
           const results: Omit<LayerBitmapResult, 'subResults'>[] = []
+
           for (const subLayer of layer.layers) {
             const result = await getLayerBitmap(subLayer)
             results.push(result)

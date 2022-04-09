@@ -17,7 +17,7 @@ import { SilkWebMath } from '🙌/utils/SilkWebMath'
 
 import { EditorOps, EditorSelector, EditorStore } from '🙌/domains/EditorStable'
 import { useFunkyMouseTrap } from '🙌/hooks/useMouseTrap'
-import { assign } from '🙌/utils/assign'
+import { assign } from '🙌/utils/object'
 import { deepClone } from '🙌/utils/clone'
 import { isEventIgnoringTarget } from '../../helpers'
 import { css } from 'styled-components'
@@ -30,6 +30,7 @@ export const VectorLayerControl = () => {
     canvasScale,
     canvasPosition,
     activeLayer,
+    activeLayerPath,
     currentDocument,
     currentTool,
     vectorStroking,
@@ -43,6 +44,7 @@ export const VectorLayerControl = () => {
     canvasScale: EditorSelector.canvasScale(get),
     canvasPosition: EditorSelector.canvasPosition(get),
     activeLayer: EditorSelector.activeLayer(get),
+    activeLayerPath: EditorSelector.activeLayerPath(get),
     currentDocument: EditorSelector.currentDocument(get),
     currentTool: get(EditorStore).state.currentTool,
     vectorStroking: get(EditorStore).state.vectorStroking,
@@ -87,7 +89,7 @@ export const VectorLayerControl = () => {
       // SEE: http://polymathprogrammer.com/2007/06/27/reverse-engineering-bezier-curves/
       executeOperation(
         EditorOps.updateVectorLayer,
-        activeLayer.uid,
+        activeLayerPath,
         (layer) => {
           const object = layer.objects.find((obj) => obj.uid === objectId)
           if (!object) return
@@ -162,7 +164,7 @@ export const VectorLayerControl = () => {
 
           executeOperation(
             EditorOps.updateVectorLayer,
-            activeLayer.uid,
+            activeLayerPath,
             (layer) => {
               layer.objects.push(object)
             }
@@ -177,7 +179,7 @@ export const VectorLayerControl = () => {
 
           executeOperation(
             EditorOps.updateVectorLayer,
-            activeLayer.uid,
+            activeLayerPath,
             (layer) => {
               const object = layer.objects.find(
                 (obj) => obj.uid === vectorStroking.objectId
@@ -210,7 +212,7 @@ export const VectorLayerControl = () => {
 
         executeOperation(
           EditorOps.updateVectorLayer,
-          activeLayer.uid,
+          activeLayerPath,
           (layer) => {
             const object = layer.objects.find(
               (obj) => obj.uid === vectorStroking.objectId
@@ -284,7 +286,7 @@ export const VectorLayerControl = () => {
     if (activeObjectPointIndices.length === 0 && activeObjectId == null) {
       executeOperation(
         EditorOps.updateVectorLayer,
-        activeLayer.uid,
+        activeLayerPath,
         (layer) => {
           const idx = layer.objects.findIndex(
             (obj) => obj.uid === activeObjectId
@@ -494,6 +496,7 @@ const PathSegments = ({
   const { executeOperation } = useFleurContext()
   const {
     activeLayer,
+    activeLayerPath,
     activeObject,
     currentTool,
     vectorStroking,
@@ -502,6 +505,7 @@ const PathSegments = ({
     lastUpdated,
   } = useStore((get) => ({
     activeLayer: EditorSelector.activeLayer(get),
+    activeLayerPath: EditorSelector.activeLayerPath(get),
     activeObject: EditorSelector.activeObject(get),
     currentTool: get(EditorStore).state.currentTool,
     vectorStroking: get(EditorStore).state.vectorStroking,
@@ -523,7 +527,7 @@ const PathSegments = ({
     const { dataset } = event.currentTarget as SVGCircleElement
     const pointIndex = +dataset.pointIndex!
 
-    executeOperation(EditorOps.updateVectorLayer, activeLayer?.uid, (layer) => {
+    executeOperation(EditorOps.updateVectorLayer, activeLayerPath, (layer) => {
       object.update((o) => {
         const point = object.path.points[pointIndex]
         if (!point?.in) return
@@ -540,7 +544,7 @@ const PathSegments = ({
     const { dataset } = event.currentTarget as SVGCircleElement
     const pointIndex = +dataset.pointIndex!
 
-    executeOperation(EditorOps.updateVectorLayer, activeLayer?.uid, (layer) => {
+    executeOperation(EditorOps.updateVectorLayer, activeLayerPath, (layer) => {
       object.update((o) => {
         const point = o.path.points[pointIndex]
         if (!point?.out) return
@@ -557,7 +561,7 @@ const PathSegments = ({
     const { dataset } = event.currentTarget as SVGElement
     const pointIndex = +dataset.pointIndex!
 
-    executeOperation(EditorOps.updateVectorLayer, activeLayer?.uid, (layer) => {
+    executeOperation(EditorOps.updateVectorLayer, activeLayerPath, (layer) => {
       if (first) {
         // Unfreeze path for faster processing
         object.path = object.path.clone()
@@ -603,7 +607,7 @@ const PathSegments = ({
 
       executeOperation(
         EditorOps.updateVectorLayer,
-        activeLayer.uid,
+        activeLayerPath,
         (layer) => {
           const object = layer.objects.find(
             (obj) => obj.uid === vectorStroking.objectId
@@ -726,11 +730,9 @@ const PathSegments = ({
     ({ event, delta }) => {
       const objectId = (event.target as SVGPathElement).dataset.objectId
 
-      console.log('hi')
-
       executeOperation(
         EditorOps.updateVectorLayer,
-        activeLayer.uid,
+        activeLayerPath,
         (layer) => {
           const object = layer.objects.find((obj) => obj.uid === objectId)
           if (!object) return

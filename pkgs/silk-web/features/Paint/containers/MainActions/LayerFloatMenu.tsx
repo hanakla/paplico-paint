@@ -40,6 +40,14 @@ import { DOMUtils } from '🙌/utils/dom'
 import { EditorOps, EditorSelector, EditorStore } from '🙌/domains/EditorStable'
 import { isEventIgnoringTarget } from '../../helpers'
 import { reversedIndex } from '🙌/utils/array'
+import {
+  closestCenter,
+  DndContext,
+  PointerSensor,
+  useSensor,
+  useSensors,
+} from '@dnd-kit/core'
+import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable'
 
 export const LayerFloatMenu = () => {
   const { t } = useTranslation('app')
@@ -51,6 +59,7 @@ export const LayerFloatMenu = () => {
     layers: EditorSelector.layers(get),
     activeLayer: EditorSelector.activeLayer(get),
   }))
+
   const [addLayerSheetOpened, toggleAddLayerSheetOpened] = useToggle(false)
 
   const handleChangeCompositeMode = useFunk((mode: string) => {
@@ -134,7 +143,18 @@ export const LayerFloatMenu = () => {
       `}
     >
       <div>
-        <SortableLayerList
+        {/* <DndContext
+          collisionDetection={closestCenter}
+          onDragEnd={console.log}
+        >
+          <SortableContext items={layers} strategy={verticalListSortingStrategy}>
+          {layers.map(layer => (
+
+          ))}
+          </SortableContext>
+        </DndContext> */}
+
+        {/* <SortableLayerList
           layers={[...layers].reverse()}
           onSortEnd={handleLayerSortEnd}
           distance={1}
@@ -216,7 +236,7 @@ export const LayerFloatMenu = () => {
               </div>
             </ActionSheet>
           </Portal>
-        </div>
+        </div>*/}
       </div>
 
       <div

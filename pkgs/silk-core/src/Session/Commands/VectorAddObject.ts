@@ -1,4 +1,4 @@
-import { DocumentDigger } from 'DocumentDigger'
+import { SilkDOMDigger } from 'SilkDOMDigger'
 import { ICommand } from 'Session/ICommand'
 import { Document, VectorObject } from '../../SilkDOM'
 
@@ -18,13 +18,13 @@ export class VectorAddObject implements ICommand {
   }
 
   async do(document: Document) {
-    DocumentDigger.findLayer(document, this.pathToTargetLayer, {
+    SilkDOMDigger.findLayer(document, this.pathToTargetLayer, {
       kind: 'vector',
     })!.objects.push(this.object)
   }
 
   async undo(document: Document): Promise<void> {
-    const layer = DocumentDigger.findLayer(document, this.pathToTargetLayer, {
+    const layer = SilkDOMDigger.findLayer(document, this.pathToTargetLayer, {
       kind: 'vector',
     })!
 
@@ -35,7 +35,7 @@ export class VectorAddObject implements ICommand {
   }
 
   async redo(document: Document): Promise<void> {
-    const layer = DocumentDigger.findLayer(document, this.pathToTargetLayer, {
+    const layer = SilkDOMDigger.findLayer(document, this.pathToTargetLayer, {
       kind: 'vector',
     })!.objects.push(this.object)
   }

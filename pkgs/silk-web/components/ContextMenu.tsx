@@ -34,11 +34,11 @@ export type ContextMenuParam<T> = ItemParams<T, any>
 //   close: () => void
 // } | null>(null)
 
-export const useContextMenu = () => {
-  const id = useMemo(() => 'MENU' ?? nanoid(), [])
-  const menu = originalUseContextMenu({ id })
+export const useContextMenu = (menuId: string) => {
+  const id = useMemo(() => menuId ?? nanoid(), [])
+  const menu = originalUseContextMenu({ id: id })
 
-  return { id, ...menu }
+  return { id, show: menu.show.bind(menu), hideAll: menu.hideAll.bind(menu) }
 }
 
 /** @deprecated */
@@ -123,13 +123,14 @@ export const ContextMenuItem = ({
   data,
   children,
   onClick,
+  ...props
 }: {
   data?: any
   children?: ReactNode
   onClick: (e: ContextMenuParam<any>) => void
 }) => {
   return (
-    <Item onClick={onClick} data={data}>
+    <Item onClick={onClick} data={data} {...props}>
       {children}
     </Item>
 

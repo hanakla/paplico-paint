@@ -219,7 +219,12 @@ export function PaintPage({}) {
   })
 
   useFunkyGlobalMouseTrap(['v'], () =>
-    executeOperation(EditorOps.setTool, 'cursor')
+    executeOperation(
+      EditorOps.setTool,
+      currentTool === 'cursor' && activeLayer?.layerType === 'vector'
+        ? 'point-cursor'
+        : 'cursor'
+    )
   )
   useFunkyGlobalMouseTrap(['b'], () =>
     executeOperation(EditorOps.setTool, 'draw')

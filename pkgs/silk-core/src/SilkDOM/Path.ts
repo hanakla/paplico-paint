@@ -90,8 +90,8 @@ export class Path implements ISilkDOMElement {
   public readonly randomSeed: number = prand.mersenne(Math.random()).next()[0]
 
   private _pal!: CachedPointAtLength
-  private _freezedSvgPath: string | null = null
-  private _freezedBounds: Path.PathBBox | null = null
+  private _cachedSvgPath: string | null = null
+  private _cachedBounds: Path.PathBBox | null = null
   private _isFreezed: boolean = false
 
   protected constructor() {}
@@ -101,7 +101,7 @@ export class Path implements ISilkDOMElement {
   }
 
   public get svgPath() {
-    if (this._freezedSvgPath) return this._freezedSvgPath
+    if (this._cachedSvgPath) return this._cachedSvgPath
     return this.getFreshSVGPath()
   }
 
@@ -128,7 +128,7 @@ export class Path implements ISilkDOMElement {
   // }
 
   public getBoundingBox(): Path.PathBBox {
-    if (this._freezedBounds) return this._freezedBounds
+    if (this._cachedBounds) return this._cachedBounds
 
     const [left, top, right, bottom] = bounds(this.svgPath)
     const width = Math.abs(right - left)
@@ -240,15 +240,15 @@ export class Path implements ISilkDOMElement {
     proc(this)
 
     this.contentUid = nanoid()
-    this._freezedSvgPath = this.getFreshSVGPath()
+    this._cachedSvgPath = this.getFreshSVGPath()
     this._pal = cachedPointAtLength(this.svgPath)
   }
 
   /** Freeze changes and cache heavily process results */
   public freeze() {
-    this._freezedSvgPath = this.getFreshSVGPath()
-    this._pal = cachedPointAtLength(this._freezedSvgPath)
-    this._freezedBounds = this.getBoundingBox()
+    this._cachedSvgPath = this.getFreshSVGPath()
+    this._pal = cachedPointAtLength(this._cachedSvgPath)
+    this._cachedBounds = this.getBoundingBox()
 
     this._isFreezed = true
     Object.freeze(this)

@@ -65,7 +65,7 @@ export const ActionSheet = forwardRef<HTMLDivElement, Props>(
             ${styleWhen(fill)`
               min-height: 40vh;
               box-shadow: 0 0 5px ${rgba('#000', 0.5)};
-              backdrop-filter: blur(4px);
+              backdrop-filter: blur(8px);
               border-radius: 4px;
             `}
           `}

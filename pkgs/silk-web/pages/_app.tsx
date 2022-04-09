@@ -36,7 +36,7 @@ MyApp.getInitialProps = async (context: AppContext) => {
 
 const ErrorFallback = () => {
   useEffect(() => {
-    setTimeout(() => window.location.reload(), 1000)
+    // setTimeout(() => window.location.reload(), 1000)
   }, [])
 
   return (

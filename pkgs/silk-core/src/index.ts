@@ -6,6 +6,7 @@ export { RenderStrategies } from './engine/RenderStrategy'
 export type { IRenderStrategy } from './engine/RenderStrategy'
 export { SilkSession } from './Session/Engine3_Sessions'
 export { CanvasHandler } from './engine/Engine3_CanvasHandler'
+export { SilkDOMDigger } from './SilkDOMDigger'
 export * as SilkInks from './Inks/index'
 
 export * as SilkBrushes from './Brushes/index'

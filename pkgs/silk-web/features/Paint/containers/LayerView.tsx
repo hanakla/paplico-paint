@@ -1,4 +1,12 @@
-import { ChangeEvent, MouseEvent, ReactNode, useEffect, useRef } from 'react'
+import {
+  ChangeEvent,
+  FC,
+  MouseEvent,
+  ReactNode,
+  useEffect,
+  useMemo,
+  useRef,
+} from 'react'
 import { SilkDOM, SilkHelper } from 'silk-core'
 import { useClickAway, useToggle, useUpdate } from 'react-use'
 import { loadImageFromBlob, selectFile, useFunk } from '@hanakla/arma'
@@ -36,21 +44,48 @@ import { isEventIgnoringTarget } from '../helpers'
 import { reversedIndex } from '🙌/utils/array'
 import { SidebarPane } from '🙌/components/SidebarPane'
 import { tm } from '🙌/utils/theme'
+import {
+  closestCenter,
+  DndContext,
+  DragEndEvent,
+  PointerSensor,
+  useDroppable,
+  useSensor,
+  useSensors,
+} from '@dnd-kit/core'
+import {
+  SortableContext,
+  useSortable,
+  verticalListSortingStrategy,
+} from '@dnd-kit/sortable'
+import { CSS } from '@dnd-kit/utilities'
+import { PropsOf } from '🙌/utils/types'
+import { contextMenu } from 'react-contexify'
+
+console.log({ contextMenu })
 
 export function LayerView() {
   const { t } = useTranslation('app')
-  const layerControls = useLayerControl()
 
   const { executeOperation } = useFleurContext()
-  const { activeLayer, currentDocument, layers } = useStore((get) => ({
-    activeLayer: EditorSelector.activeLayer(get),
-    layers: EditorSelector.layers(get),
-    currentDocument: EditorSelector.currentDocument(get),
-  }))
+  const { activeLayer, activeLayerPath, currentDocument, layers } = useStore(
+    (get) => ({
+      activeLayer: EditorSelector.activeLayer(get),
+      activeLayerPath: EditorSelector.activeLayerPath(get),
+      layers: EditorSelector.layers(get),
+      currentDocument: EditorSelector.currentDocument(get),
+    })
+  )
 
   const [layerTypeOpened, toggleLayerTypeOpened] = useToggle(false)
   const layerTypeOpenerRef = useRef<HTMLDivElement | null>(null)
   const layerTypeDropdownRef = useRef<HTMLUListElement | null>(null)
+
+  const contextMenu = useContextMenu('LAYER_ITEM_MENU')
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 4 } })
+  )
 
   useClickAway(layerTypeDropdownRef, (e) => {
     if (isEventIgnoringTarget(e.target)) return
@@ -122,20 +157,34 @@ export function LayerView() {
     }
   )
 
-  const handleLayerSortEnd: SortEndHandler = useFunk((sort) => {
-    executeOperation(
-      EditorOps.moveLayer,
-      reversedIndex(layers, sort.oldIndex),
-      reversedIndex(layers, sort.newIndex)
+  // const handleLayerSortEnd: SortEndHandler = useFunk((sort) => {
+  //   executeOperation(EditorOps.moveLayer)
+  //   // layerControls.moveLayer(sort.oldIndex, sort.newIndex)
+  // })
+
+  const handleLayerDragEnd = useFunk(({ active, over }: DragEndEvent) => {
+    if (!over || active.id === over.id) return
+
+    const indexOnFlatten = flattenLayers.findIndex(
+      (l) => l.layer.uid === active.id
     )
-    // layerControls.moveLayer(sort.oldIndex, sort.newIndex)
+    const nextIndexOnFlatten = flattenLayers.findIndex(
+      (l) => l.layer.uid === over.id
+    )
+
+    const entry = flattenLayers[indexOnFlatten]
+
+    const oldIndex = indexOnFlatten - (entry.parentIdx ?? 0)
+    const newIndex = nextIndexOnFlatten - (entry.parentIdx ?? 0)
+
+    executeOperation(EditorOps.moveLayer, entry.path, oldIndex, newIndex)
   })
 
   const handleChangeLayerName = useFunk(
     ({ currentTarget }: ChangeEvent<HTMLInputElement>) => {
       executeOperation(
         EditorOps.updateLayer,
-        activeLayer?.uid,
+        activeLayerPath,
         (layer) => {
           layer.name = currentTarget.value
         },
@@ -147,7 +196,7 @@ export function LayerView() {
   const handleChangeCompositeMode = useFunk((value: string) => {
     executeOperation(
       EditorOps.updateLayer,
-      activeLayer?.uid,
+      activeLayerPath,
       (layer) => (layer.compositeMode = value as any)
     )
   })
@@ -156,13 +205,48 @@ export function LayerView() {
     ({ currentTarget }: ChangeEvent<HTMLInputElement>) => {
       if (!activeLayer) return
 
-      executeOperation(EditorOps.updateLayer, activeLayer.uid, (layer) => {
+      executeOperation(EditorOps.updateLayer, activeLayerPath, (layer) => {
         layer.opacity = currentTarget.valueAsNumber
       })
     }
   )
 
+  const handleOpenContextMenu = useFunk<
+    PropsOf<typeof SortableLayerItem>['onContextMenu']
+  >((e, path) => {
+    contextMenu.show(e, { props: { layerPath: path } })
+  })
+
+  const handleClickDeleteLayer = useFunk(({ props }: LayerContextMenuParam) => {
+    executeOperation(EditorOps.deleteLayer, props!.layerPath)
+  })
+
   const container = useFunk((children: ReactNode) => <div>{children}</div>)
+
+  const flattenLayers = layers
+    .map((l, idx) => {
+      return l.layerType === 'group'
+        ? // (),
+          [
+            // { path: [], layer: l, depth: 0, index: idx, parentIdx: null },
+            {
+              path: [],
+              layer: l,
+              depth: 0,
+              index: idx,
+              parentIdx: null,
+            },
+            ...l.layers.map((sl, subIdx) => ({
+              path: [l.uid],
+              layer: sl,
+              depth: 1,
+              index: subIdx,
+              parentIdx: idx,
+            })),
+          ]
+        : { path: [], layer: l, depth: 0, index: idx, parentIdx: null }
+    })
+    .flat(2)
 
   return (
     <SidebarPane
@@ -258,161 +342,146 @@ export function LayerView() {
         </div>
       )}
 
-      {layers && (
-        <>
-          <div
-            css={`
-              margin-left: auto;
-              padding: 4px;
-            `}
-          >
-            <div
-              css={`
-                display: flex;
-                justify-content: flex-end;
-                user-select: none;
-              `}
-            >
-              <div ref={layerTypeOpenerRef} onClick={toggleLayerTypeOpened}>
-                <Add css="width: 16px;" />
-              </div>
-            </div>
-
-            <Portal>
-              <ul
-                ref={layerTypeDropdownRef}
-                css={css`
-                  background-color: ${({ theme }) => theme.surface.popupMenu};
-                  box-shadow: 0 0 4px ${rgba('#000', 0.5)};
-                  color: ${({ theme }) => theme.text.white};
-                  z-index: 1;
-                  border-radius: 4px;
-
-                  li {
-                    padding: 8px;
-                    user-select: none;
-                  }
-                  li:hover {
-                    background-color: rgba(255, 255, 255, 0.2);
-                  }
-                `}
-                style={{
-                  ...layerTypePopper.styles.popper,
-                  ...(layerTypeOpened
-                    ? { visibility: 'visible', pointerEvents: 'all' }
-                    : { visibility: 'hidden', pointerEvents: 'none' }),
-                }}
-                {...layerTypePopper.attributes.popper}
-              >
-                <li data-layer-type="raster" onClick={handleClickAddLayerItem}>
-                  {t('layerType.raster')}
-                </li>
-                <li data-layer-type="vector" onClick={handleClickAddLayerItem}>
-                  {t('layerType.vector')}
-                </li>
-                <li data-layer-type="filter" onClick={handleClickAddLayerItem}>
-                  {t('layerType.filter')}
-                </li>
-                <li data-layer-type="image" onClick={handleClickAddLayerItem}>
-                  <label>
-                    {t('addFromImage')}
-                    <input
-                      css={`
-                        display: block;
-                        width: 1px;
-                        height: 1px;
-                        opacity: 0;
-                      `}
-                      type="file"
-                      accept="'.png,.jpeg,.jpg"
-                      onChange={handleChangeFile}
-                    />
-                  </label>
-                </li>
-              </ul>
-            </Portal>
+      <div
+        css={`
+          margin-left: auto;
+          padding: 4px;
+        `}
+      >
+        <div
+          css={`
+            display: flex;
+            justify-content: flex-end;
+            user-select: none;
+          `}
+        >
+          <div ref={layerTypeOpenerRef} onClick={toggleLayerTypeOpened}>
+            <Add css="width: 16px;" />
           </div>
+        </div>
 
-          <SortableLayerList
+        <Portal>
+          <ul
+            ref={layerTypeDropdownRef}
+            css={css`
+              background-color: ${({ theme }) => theme.surface.popupMenu};
+              box-shadow: 0 0 4px ${rgba('#000', 0.5)};
+              color: ${({ theme }) => theme.text.white};
+              z-index: 1;
+              border-radius: 4px;
+
+              li {
+                padding: 8px;
+                user-select: none;
+              }
+              li:hover {
+                background-color: rgba(255, 255, 255, 0.2);
+              }
+            `}
+            style={{
+              ...layerTypePopper.styles.popper,
+              ...(layerTypeOpened
+                ? { visibility: 'visible', pointerEvents: 'all' }
+                : { visibility: 'hidden', pointerEvents: 'none' }),
+            }}
+            {...layerTypePopper.attributes.popper}
+          >
+            <li data-layer-type="raster" onClick={handleClickAddLayerItem}>
+              {t('layerType.raster')}
+            </li>
+            <li data-layer-type="vector" onClick={handleClickAddLayerItem}>
+              {t('layerType.vector')}
+            </li>
+            <li data-layer-type="filter" onClick={handleClickAddLayerItem}>
+              {t('layerType.filter')}
+            </li>
+            <li data-layer-type="image" onClick={handleClickAddLayerItem}>
+              <label>
+                {t('addFromImage')}
+                <input
+                  css={`
+                    display: block;
+                    width: 1px;
+                    height: 1px;
+                    opacity: 0;
+                  `}
+                  type="file"
+                  accept="'.png,.jpeg,.jpg"
+                  onChange={handleChangeFile}
+                />
+              </label>
+            </li>
+          </ul>
+        </Portal>
+      </div>
+
+      <DndContext
+        sensors={sensors}
+        collisionDetection={closestCenter}
+        onDragEnd={handleLayerDragEnd}
+      >
+        <SortableContext
+          items={flattenLayers.map((l) => l.layer.uid)}
+          strategy={verticalListSortingStrategy}
+        >
+          {flattenLayers.map((layer) => (
+            <SortableLayerItem
+              key={layer.layer.uid}
+              layer={layer}
+              onContextMenu={handleOpenContextMenu}
+            />
+          ))}
+        </SortableContext>
+      </DndContext>
+
+      <ContextMenu id={contextMenu.id}>
+        <ContextMenuItem onClick={handleClickDeleteLayer}>削除</ContextMenuItem>
+      </ContextMenu>
+
+      {/* <SortableLayerList
             layers={[...layers].reverse()}
             onSortEnd={handleLayerSortEnd}
             distance={2}
             lockAxis={'y'}
-          />
-        </>
-      )}
+          /> */}
     </SidebarPane>
   )
 }
 
-type LayerContextMenuParam = ContextMenuParam<{ layerUid: string }>
-
-const SortableLayerList = SortableContainer(
-  ({ layers }: { layers: SilkDOM.LayerTypes[] }) => {
-    const contextMenu = useContextMenu()
-    const { executeOperation } = useFleurContext()
-
-    const handleContextMenu = useFunk(
-      (e: MouseEvent<HTMLDivElement>, layerUid: string) => {
-        console.log(e, layerUid)
-        contextMenu.show(e, { props: { layerUid } })
-      }
-    )
-
-    const handleClickDeleteLayer = useFunk((e: LayerContextMenuParam) => {
-      console.log(e)
-      // executeOperation(EditorOps.deleteLayer, e.props!.layerUid)
-    })
-
-    return (
-      <div
-        css={css`
-          min-height: 40vh;
-          max-height: 40vh;
-          flex: 1;
-          overflow: auto;
-          background-color: ${({ theme }) => theme.colors.black50};
-          ${silkScroll}
-        `}
-      >
-        {layers.map((layer, idx) => (
-          <SortableLayerItem
-            key={layer.uid}
-            index={idx}
-            layer={layer}
-            onContextMenu={handleContextMenu}
-          />
-        ))}
-
-        <ContextMenu id={contextMenu.id}>
-          <ContextMenuItem onClick={handleClickDeleteLayer}>
-            削除
-          </ContextMenuItem>
-        </ContextMenu>
-      </div>
-    )
-  }
-)
-
-const SortableLayerItem = SortableElement(function LayerItem({
-  layer,
+const SortableLayerItem = ({
+  layer: { layer, path, depth },
   onContextMenu,
+  className,
 }: {
-  layer: SilkDOM.LayerTypes
-  onContextMenu: (e: MouseEvent<HTMLDivElement>, layerUid: string) => void
-}) {
+  layer: { path: string[]; layer: SilkDOM.LayerTypes; depth: number }
+  onContextMenu: (e: MouseEvent<HTMLDivElement>, layerPath: string[]) => void
+  className?: string
+}) => {
+  const { attributes, listeners, setNodeRef, transform, transition } =
+    useSortable({ id: layer.uid })
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+  }
+
   const { t } = useTranslation('app')
   const theme = useTheme()
-  const rerender = useUpdate()
 
   const { executeOperation } = useFleurContext()
-  const { activeLayer, currentDocument, thumbnailUrlOfLayer, activeObjectId } =
-    useStore((get) => ({
-      activeLayer: EditorSelector.activeLayer(get),
-      currentDocument: EditorSelector.currentDocument(get),
-      thumbnailUrlOfLayer: EditorSelector.thumbnailUrlOfLayer(get),
-      activeObjectId: get(EditorStore).state.activeObjectId,
-    }))
+  const {
+    activeLayer,
+    activeLayerPath,
+    currentDocument,
+    thumbnailUrlOfLayer,
+    activeObjectId,
+  } = useStore((get) => ({
+    activeLayer: EditorSelector.activeLayer(get),
+    activeLayerPath: EditorSelector.activeLayerPath(get),
+    currentDocument: EditorSelector.currentDocument(get),
+    thumbnailUrlOfLayer: EditorSelector.thumbnailUrlOfLayer(get),
+    activeObjectId: get(EditorStore).state.activeObjectId,
+  }))
 
   const [objectsOpened, toggleObjectsOpened] = useToggle(false)
 
@@ -421,7 +490,7 @@ const SortableLayerItem = SortableElement(function LayerItem({
   const handleToggleVisibility = useFunk(() => {
     executeOperation(
       EditorOps.updateLayer,
-      layer.uid,
+      [...path, layer.uid],
       (layer) => (layer.visible = !layer.visible)
     )
   })
@@ -433,7 +502,7 @@ const SortableLayerItem = SortableElement(function LayerItem({
     )
       return
 
-    executeOperation(EditorOps.setActiveLayer, layer.uid)
+    executeOperation(EditorOps.setActiveLayer, [...path, layer.uid])
   })
 
   const handleClickObject = useFunk(
@@ -441,7 +510,7 @@ const SortableLayerItem = SortableElement(function LayerItem({
       executeOperation(
         EditorOps.setActiveObject,
         currentTarget.dataset.objectId ?? null,
-        activeLayer?.uid
+        activeLayerPath
       )
     }
   )
@@ -466,7 +535,7 @@ const SortableLayerItem = SortableElement(function LayerItem({
   )
 
   const handleContextMenu = useFunk((e: MouseEvent<HTMLDivElement>) => {
-    onContextMenu(e, layer.uid)
+    onContextMenu(e, [...path, layer.uid])
   })
 
   useMouseTrap(
@@ -488,134 +557,138 @@ const SortableLayerItem = SortableElement(function LayerItem({
   }, [layer.uid])
 
   return (
-    <div
-      ref={combineRef(rootRef)}
-      css={`
-        cursor: default;
-      `}
-      onClick={handleChangeActiveLayer}
-      onContextMenu={handleContextMenu}
-      tabIndex={-1}
-    >
+    <div ref={setNodeRef} style={style} {...attributes} {...listeners}>
       <div
+        ref={combineRef(rootRef)}
         css={`
-          display: flex;
-          gap: 4px;
-          width: 100%;
-          padding: 4px;
-          align-items: center;
+          cursor: default;
+          margin-left: ${depth * 16}px;
         `}
-        style={{
-          backgroundColor:
-            activeLayer?.uid === layer.uid
-              ? theme.surface.sidebarListActive
-              : '',
-          color:
-            activeLayer?.uid === layer.uid ? theme.text.sidebarListActive : '',
-        }}
+        onClick={handleChangeActiveLayer}
+        onContextMenu={handleContextMenu}
+        tabIndex={-1}
       >
         <div
           css={`
-            flex: none;
-            width: 12px;
-          `}
-        >
-          {layer.layerType === 'vector' && (
-            <ArrowDownS
-              css={`
-                width: 12px;
-              `}
-              style={{
-                transform: objectsOpened ? 'rotateZ(180deg)' : 'rotateZ(0)',
-              }}
-              onClick={toggleObjectsOpened}
-            />
-          )}
-        </div>
-
-        <div
-          css={css`
-            padding: 4px 0;
-            color: ${({ theme }) => theme.colors.white10};
+            display: flex;
+            gap: 4px;
+            width: 100%;
+            padding: 4px;
+            align-items: center;
           `}
           style={{
-            ...(layer.visible ? {} : { opacity: 0.5 }),
+            backgroundColor:
+              activeLayer?.uid === layer.uid
+                ? theme.surface.sidebarListActive
+                : '',
+            color:
+              activeLayer?.uid === layer.uid
+                ? theme.text.sidebarListActive
+                : '',
           }}
-          onClick={handleToggleVisibility}
-          data-ignore-click
         >
-          {layer.visible ? (
-            <Eye
-              css={`
-                width: 16px;
-                vertical-align: bottom;
-              `}
-            />
-          ) : (
-            <EyeClose
-              css={`
-                width: 16px;
-                vertical-align: bottom;
-              `}
-            />
-          )}
-        </div>
-
-        <img
-          css={`
-            background: linear-gradient(
-                45deg,
-                rgba(0, 0, 0, 0.2) 25%,
-                transparent 25%,
-                transparent 75%,
-                rgba(0, 0, 0, 0.2) 75%
-              ),
-              linear-gradient(
-                45deg,
-                rgba(0, 0, 0, 0.2) 25%,
-                transparent 25%,
-                transparent 75%,
-                rgba(0, 0, 0, 0.2) 75%
-              );
-            /* background-color: transparent; */
-            background-size: 4px 4px;
-            background-position: 0 0, 2px 2px;
-            width: 16px;
-            height: 16px;
-            flex: none;
-          `}
-          src={thumbnailUrlOfLayer(layer.uid)}
-        />
-        <div
-          css={`
-            ${centering({ x: false, y: true })}
-            text-overflow: ellipsis;
-            white-space: nowrap;
-            overflow-x: hidden;
-            overflow-y: auto;
-            ::-webkit-scrollbar {
-              display: none;
-            }
-          `}
-        >
-          <FakeInput
+          <div
             css={`
-              font-size: 12px;
-              pointer-events: none;
-              background: transparent;
-              &::placeholder {
-                color: #9e9e9e;
+              flex: none;
+              width: 12px;
+            `}
+          >
+            {layer.layerType === 'vector' && (
+              <ArrowDownS
+                css={`
+                  width: 12px;
+                `}
+                style={{
+                  transform: objectsOpened ? 'rotateZ(180deg)' : 'rotateZ(0)',
+                }}
+                onClick={toggleObjectsOpened}
+              />
+            )}
+          </div>
+
+          <div
+            css={css`
+              padding: 4px 0;
+              color: ${({ theme }) => theme.colors.white10};
+            `}
+            style={{
+              ...(layer.visible ? {} : { opacity: 0.5 }),
+            }}
+            onClick={handleToggleVisibility}
+            data-ignore-click
+          >
+            {layer.visible ? (
+              <Eye
+                css={`
+                  width: 16px;
+                  vertical-align: bottom;
+                `}
+              />
+            ) : (
+              <EyeClose
+                css={`
+                  width: 16px;
+                  vertical-align: bottom;
+                `}
+              />
+            )}
+          </div>
+
+          <img
+            css={`
+              background: linear-gradient(
+                  45deg,
+                  rgba(0, 0, 0, 0.2) 25%,
+                  transparent 25%,
+                  transparent 75%,
+                  rgba(0, 0, 0, 0.2) 75%
+                ),
+                linear-gradient(
+                  45deg,
+                  rgba(0, 0, 0, 0.2) 25%,
+                  transparent 25%,
+                  transparent 75%,
+                  rgba(0, 0, 0, 0.2) 75%
+                );
+              /* background-color: transparent; */
+              background-size: 4px 4px;
+              background-position: 0 0, 2px 2px;
+              width: 16px;
+              height: 16px;
+              flex: none;
+            `}
+            src={thumbnailUrlOfLayer(layer.uid)}
+          />
+          <div
+            css={`
+              ${centering({ x: false, y: true })}
+              text-overflow: ellipsis;
+              white-space: nowrap;
+              overflow-x: hidden;
+              overflow-y: auto;
+              ::-webkit-scrollbar {
+                display: none;
               }
             `}
-            value={layer.name}
-            placeholder={`<${t(`layerType.${layer.layerType}`)}>`}
-            onChange={handleChangeLayerName}
-            disabled
-          />
+          >
+            <FakeInput
+              css={`
+                font-size: 12px;
+                pointer-events: none;
+                background: transparent;
+                &::placeholder {
+                  color: #9e9e9e;
+                }
+              `}
+              value={layer.name}
+              placeholder={`<${t(`layerType.${layer.layerType}`)}>`}
+              onChange={handleChangeLayerName}
+              disabled
+            />
+          </div>
         </div>
-      </div>
-      {layer.layerType === 'vector' && (
-        <>
+
+        {layer.layerType === 'vector' && (
           <div
             css={`
               flex-basis: 100%;
@@ -644,20 +717,13 @@ const SortableLayerItem = SortableElement(function LayerItem({
                 >
                   パス
                 </div>
-
-                {/* <ContextMenu>
-                  <ContextMenuItem
-                    data={{ objectId: object.uid }}
-                    onClick={handleClickDeleteObject}
-                  >
-                    削除
-                  </ContextMenuItem>
-                </ContextMenu> */}
               </>
             ))}
           </div>
-        </>
-      )}
+        )}
+      </div>
     </div>
   )
-})
+}
+
+type LayerContextMenuParam = ContextMenuParam<{ layerPath: string[] }>

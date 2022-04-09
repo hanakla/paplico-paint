@@ -11,7 +11,6 @@ export const FakeInput = forwardRef<
       ref={ref}
       css={css`
         width: 100%;
-        margin-top: -2px;
         padding: 4px 2px;
         appearance: none;
         background-color: transparent;

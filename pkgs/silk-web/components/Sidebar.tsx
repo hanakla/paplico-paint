@@ -5,10 +5,11 @@ type Props = {
   className?: string
   children?: ReactNode
   style?: CSSProperties
+  closed: boolean
 }
 
 export const Sidebar = forwardRef<HTMLDivElement, Props>(
-  ({ className, style, children }, ref) => {
+  ({ className, style, closed, children }, ref) => {
     return (
       <div
         ref={ref}
@@ -18,6 +19,8 @@ export const Sidebar = forwardRef<HTMLDivElement, Props>(
           flex-flow: column;
           height: 100%;
           max-width: 200px;
+          overflow: hidden;
+          background-color: ${({ theme }) => theme.color.surface3};
         `}
         className={className}
       >
@@ -28,10 +31,15 @@ export const Sidebar = forwardRef<HTMLDivElement, Props>(
             flex: 1;
             height: 100%;
             padding-bottom: env(safe-area-inset-bottom);
-            transition: width 0.2s ease-in-out;
-            background-color: ${({ theme }) => theme.color.surface3};
+            transition: 0.2s ease-in-out;
+            transition-property: width opacity;
+
+            opacity: 1;
           `}
-          style={style}
+          style={{
+            ...style,
+            ...(closed ? { opacity: 0, pointerEvents: 'none' } : {}),
+          }}
         >
           {children}
         </div>

@@ -226,19 +226,24 @@ export function PaintPage({}) {
         : 'cursor'
     )
   )
+
   useFunkyGlobalMouseTrap(['b'], () =>
     executeOperation(EditorOps.setTool, 'draw')
   )
+
   useFunkyGlobalMouseTrap(['e'], () =>
     executeOperation(EditorOps.setTool, 'erase')
   )
+
   useFunkyGlobalMouseTrap(['p'], () =>
     executeOperation(EditorOps.setTool, 'shape-pen')
   )
+
   useFunkyGlobalMouseTrap(['tab'], (e) => {
     e.preventDefault()
     sidebarToggle()
   })
+
   useFunkyGlobalMouseTrap(['ctrl+0', 'command+0'], (e) => {
     executeOperation(EditorOps.setCanvasTransform, {
       scale: 1,
@@ -444,6 +449,7 @@ export function PaintPage({}) {
               style={{
                 width: sidebarOpened ? 200 : 32,
               }}
+              closed={!sidebarOpened}
             >
               <div
                 css={`
@@ -600,6 +606,7 @@ export function PaintPage({}) {
             style={{
               width: sidebarOpened ? 200 : 32,
             }}
+            closed={!sidebarOpened}
           >
             <SidebarPane heading={t('colorHistory')}>まだないよ</SidebarPane>
 

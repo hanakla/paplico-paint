@@ -1,8 +1,80 @@
+import { Active, Over } from '@dnd-kit/core'
 import { Silk3, SilkDOM, SilkInks } from 'silk-core'
 import { assign } from '🙌/utils/object'
 
 export const isEventIgnoringTarget = (target: EventTarget | null) => {
   return (target as HTMLElement)?.dataset?.isPaintCanvas != null
+}
+
+export type FlatLayerEntry = {
+  path: string[]
+  layer: SilkDOM.LayerTypes
+  depth: number
+  index: number
+  parentIdx: number | null
+}
+
+export const calcLayerMove = (
+  flattenLayers: FlatLayerEntry[],
+  {
+    active,
+    over,
+  }: {
+    active: Active
+    over: Over | null
+  }
+) => {
+  if (!over || active.id === over.id) return
+
+  const indexOnFlatten = flattenLayers.findIndex(
+    (l) => l.layer.uid === active.id
+  )
+  const nextIndexOnFlatten = flattenLayers.findIndex(
+    (l) => l.layer.uid === over.id
+  )
+
+  const entry = flattenLayers[indexOnFlatten]
+
+  const oldIndex = indexOnFlatten - (entry.parentIdx ?? 0)
+  const newIndex = nextIndexOnFlatten - (entry.parentIdx ?? 0)
+
+  // TODO: レイヤーをまたいだDnD
+  return { sourcePath: entry.path, oldIndex, newIndex }
+}
+
+export const flattenLayers = (
+  layers: SilkDOM.LayerTypes[]
+): FlatLayerEntry[] => {
+  return layers
+    .map((l, idx) => {
+      return l.layerType === 'group'
+        ? // (),
+          [
+            // { path: [], layer: l, depth: 0, index: idx, parentIdx: null },
+            {
+              path: [],
+              layer: l,
+              depth: 0,
+              index: idx,
+              parentIdx: null,
+            },
+            ...l.layers.map((sl, subIdx) => ({
+              path: [l.uid],
+              layer: sl,
+              depth: 1,
+              index: subIdx,
+              parentIdx: idx,
+            })),
+          ]
+        : {
+            path: [],
+            layer: l,
+            depth: 0,
+            index: idx,
+            parentIdx: null,
+          }
+    })
+    .flat(2)
 }
 
 export const generateBrushThumbnail = async (

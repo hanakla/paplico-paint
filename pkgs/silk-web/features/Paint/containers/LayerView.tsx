@@ -22,7 +22,7 @@ import {
 } from 'react-sortable-hoc'
 import { centering, rangeThumb, silkScroll } from '🙌/utils/mixins'
 import { useTranslation } from 'next-i18next'
-import { ArrowDownS, Stack } from '@styled-icons/remix-line'
+import { ArrowDownS, Guide, Stack } from '@styled-icons/remix-line'
 import { Eye, EyeClose } from '@styled-icons/remix-fill'
 import { useLayerControl } from '🙌/hooks/useLayers'
 import {
@@ -40,7 +40,7 @@ import { useMouseTrap } from '🙌/hooks/useMouseTrap'
 import { useTheme } from 'styled-components'
 import { useFleurContext, useStore } from '@fleur/react'
 import { EditorOps, EditorSelector, EditorStore } from '🙌/domains/EditorStable'
-import { isEventIgnoringTarget } from '../helpers'
+import { calcLayerMove, flattenLayers, isEventIgnoringTarget } from '../helpers'
 import { reversedIndex } from '🙌/utils/array'
 import { SidebarPane } from '🙌/components/SidebarPane'
 import { tm } from '🙌/utils/theme'
@@ -163,21 +163,15 @@ export function LayerView() {
   // })
 
   const handleLayerDragEnd = useFunk(({ active, over }: DragEndEvent) => {
-    if (!over || active.id === over.id) return
+    const moves = calcLayerMove(flatLayers, { active, over })
+    if (!moves) return
 
-    const indexOnFlatten = flattenLayers.findIndex(
-      (l) => l.layer.uid === active.id
+    executeOperation(
+      EditorOps.moveLayer,
+      moves.sourcePath,
+      moves.oldIndex,
+      moves.newIndex
     )
-    const nextIndexOnFlatten = flattenLayers.findIndex(
-      (l) => l.layer.uid === over.id
-    )
-
-    const entry = flattenLayers[indexOnFlatten]
-
-    const oldIndex = indexOnFlatten - (entry.parentIdx ?? 0)
-    const newIndex = nextIndexOnFlatten - (entry.parentIdx ?? 0)
-
-    executeOperation(EditorOps.moveLayer, entry.path, oldIndex, newIndex)
   })
 
   const handleChangeLayerName = useFunk(
@@ -223,30 +217,7 @@ export function LayerView() {
 
   const container = useFunk((children: ReactNode) => <div>{children}</div>)
 
-  const flattenLayers = layers
-    .map((l, idx) => {
-      return l.layerType === 'group'
-        ? // (),
-          [
-            // { path: [], layer: l, depth: 0, index: idx, parentIdx: null },
-            {
-              path: [],
-              layer: l,
-              depth: 0,
-              index: idx,
-              parentIdx: null,
-            },
-            ...l.layers.map((sl, subIdx) => ({
-              path: [l.uid],
-              layer: sl,
-              depth: 1,
-              index: subIdx,
-              parentIdx: idx,
-            })),
-          ]
-        : { path: [], layer: l, depth: 0, index: idx, parentIdx: null }
-    })
-    .flat(2)
+  const flatLayers = flattenLayers(layers)
 
   return (
     <SidebarPane
@@ -415,24 +386,31 @@ export function LayerView() {
         </Portal>
       </div>
 
-      <DndContext
-        sensors={sensors}
-        collisionDetection={closestCenter}
-        onDragEnd={handleLayerDragEnd}
+      <div
+        css={`
+          height: 30vh;
+          overflow: auto;
+        `}
       >
-        <SortableContext
-          items={flattenLayers.map((l) => l.layer.uid)}
-          strategy={verticalListSortingStrategy}
+        <DndContext
+          sensors={sensors}
+          collisionDetection={closestCenter}
+          onDragEnd={handleLayerDragEnd}
         >
-          {flattenLayers.map((layer) => (
-            <SortableLayerItem
-              key={layer.layer.uid}
-              layer={layer}
-              onContextMenu={handleOpenContextMenu}
-            />
-          ))}
-        </SortableContext>
-      </DndContext>
+          <SortableContext
+            items={flatLayers.map((l) => l.layer.uid)}
+            strategy={verticalListSortingStrategy}
+          >
+            {flatLayers.map((layer) => (
+              <SortableLayerItem
+                key={layer.layer.uid}
+                layer={layer}
+                onContextMenu={handleOpenContextMenu}
+              />
+            ))}
+          </SortableContext>
+        </DndContext>
+      </div>
 
       <ContextMenu id={contextMenu.id}>
         <ContextMenuItem onClick={handleClickDeleteLayer}>削除</ContextMenuItem>
@@ -451,11 +429,9 @@ export function LayerView() {
 const SortableLayerItem = ({
   layer: { layer, path, depth },
   onContextMenu,
-  className,
 }: {
   layer: { path: string[]; layer: SilkDOM.LayerTypes; depth: number }
   onContextMenu: (e: MouseEvent<HTMLDivElement>, layerPath: string[]) => void
-  className?: string
 }) => {
   const { attributes, listeners, setNodeRef, transform, transition } =
     useSortable({ id: layer.uid })
@@ -469,19 +445,14 @@ const SortableLayerItem = ({
   const theme = useTheme()
 
   const { executeOperation } = useFleurContext()
-  const {
-    activeLayer,
-    activeLayerPath,
-    currentDocument,
-    thumbnailUrlOfLayer,
-    activeObjectId,
-  } = useStore((get) => ({
-    activeLayer: EditorSelector.activeLayer(get),
-    activeLayerPath: EditorSelector.activeLayerPath(get),
-    currentDocument: EditorSelector.currentDocument(get),
-    thumbnailUrlOfLayer: EditorSelector.thumbnailUrlOfLayer(get),
-    activeObjectId: get(EditorStore).state.activeObjectId,
-  }))
+  const { activeLayer, activeLayerPath, thumbnailUrlOfLayer, activeObjectId } =
+    useStore((get) => ({
+      activeLayer: EditorSelector.activeLayer(get),
+      activeLayerPath: EditorSelector.activeLayerPath(get),
+      currentDocument: EditorSelector.currentDocument(get),
+      thumbnailUrlOfLayer: EditorSelector.thumbnailUrlOfLayer(get),
+      activeObjectId: get(EditorStore).state.activeObjectId,
+    }))
 
   const [objectsOpened, toggleObjectsOpened] = useToggle(false)
 
@@ -573,7 +544,7 @@ const SortableLayerItem = ({
             display: flex;
             gap: 4px;
             width: 100%;
-            padding: 4px;
+            padding: 2px;
             align-items: center;
           `}
           style={{
@@ -608,7 +579,6 @@ const SortableLayerItem = ({
 
           <div
             css={css`
-              padding: 4px 0;
               color: ${({ theme }) => theme.colors.white10};
             `}
             style={{
@@ -659,6 +629,23 @@ const SortableLayerItem = ({
             `}
             src={thumbnailUrlOfLayer(layer.uid)}
           />
+
+          <div
+            css={`
+              width: 14px;
+              flex: none;
+              padding: 0 2px;
+            `}
+          >
+            {layer.layerType === 'vector' ? (
+              <Guide
+                css={`
+                  font-size: 12px;
+                `}
+              />
+            ) : null}
+          </div>
+
           <div
             css={`
               ${centering({ x: false, y: true })}

@@ -117,7 +117,7 @@ export function MainActions() {
   })
 
   const handleClickLayerIcon = useFunk((e: MouseEvent<HTMLDivElement>) => {
-    // if (layerPopRef.current!.contains(e.target as HTMLElement)) return
+    if (layerPopRef.current!.contains(e.target as HTMLElement)) return
     toggleLayers()
   })
 
@@ -140,10 +140,6 @@ export function MainActions() {
 
   const layerRef = useRef<HTMLDivElement | null>(null)
   const layerPopRef = useRef<HTMLDivElement | null>(null)
-  const layerPopper = usePopper(layerRef.current, layerPopRef.current, {
-    strategy: 'fixed',
-    placement: 'top-start',
-  })
 
   const layersArrowRef = useRef<HTMLDivElement | null>(null)
   const layersFloat = useFloating({
@@ -620,7 +616,7 @@ export function MainActions() {
             left: layersFloat.x ?? '',
           }}
         >
-          <LayerFloatMenu />
+          <LayerFloatMenu ref={layerPopRef} />
           <div
             ref={layersArrowRef}
             css={`

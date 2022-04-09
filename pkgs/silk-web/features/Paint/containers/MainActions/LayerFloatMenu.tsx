@@ -12,7 +12,14 @@ import {
 import { Magic as MagicFill } from '@styled-icons/remix-fill'
 import { useTranslation } from 'next-i18next'
 import { rgba } from 'polished'
-import { ChangeEvent, MouseEvent, useEffect, useRef, useState } from 'react'
+import {
+  ChangeEvent,
+  forwardRef,
+  MouseEvent,
+  useEffect,
+  useRef,
+  useState,
+} from 'react'
 import {
   SortableContainer,
   SortableElement,
@@ -32,26 +39,24 @@ import { SelectBox } from '🙌/components/SelectBox'
 import { FakeInput } from '🙌/components/FakeInput'
 import {
   ActionSheet,
-  ActionSheetItemGroup,
   ActionSheetItem,
+  ActionSheetItemGroup,
 } from '🙌/components/ActionSheet'
 import { FilterSettings } from '../FilterSettings'
 import { DOMUtils } from '🙌/utils/dom'
 import { EditorOps, EditorSelector, EditorStore } from '🙌/domains/EditorStable'
-import { isEventIgnoringTarget } from '../../helpers'
 import { reversedIndex } from '🙌/utils/array'
+import { closestCenter, DndContext, DragEndEvent } from '@dnd-kit/core'
 import {
-  closestCenter,
-  DndContext,
-  PointerSensor,
-  useSensor,
-  useSensors,
-} from '@dnd-kit/core'
-import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable'
+  SortableContext,
+  useSortable,
+  verticalListSortingStrategy,
+} from '@dnd-kit/sortable'
+import { calcLayerMove, FlatLayerEntry, flattenLayers } from '../../helpers'
+import { CSS } from '@dnd-kit/utilities'
 
-export const LayerFloatMenu = () => {
+export const LayerFloatMenu = forwardRef<HTMLDivElement, {}>((_, ref) => {
   const { t } = useTranslation('app')
-  const layerControl = useLayerControl()
 
   const { executeOperation } = useFleurContext()
   const { currentDocument, layers, activeLayer } = useStore((get) => ({
@@ -76,12 +81,15 @@ export const LayerFloatMenu = () => {
     }
   )
 
-  const handleLayerSortEnd: SortEndHandler = useFunk((sort) => {
-    if (!currentDocument?.layers) return
+  const handleLayerDragEnd = useFunk(({ active, over }: DragEndEvent) => {
+    const moves = calcLayerMove(flatLayers, { active, over })
+    if (!moves) return
+
     executeOperation(
       EditorOps.moveLayer,
-      reversedIndex(layers, sort.oldIndex),
-      reversedIndex(layers, sort.newIndex)
+      moves.sourcePath,
+      moves.oldIndex,
+      moves.newIndex
     )
   })
 
@@ -136,115 +144,103 @@ export const LayerFloatMenu = () => {
     if (addLayerSheetOpened) toggleAddLayerSheetOpened(false)
   })
 
+  const flatLayers = flattenLayers(layers)
+
   return (
     <div
+      ref={ref}
       css={`
         padding: 8px 4px;
       `}
     >
-      <div>
-        {/* <DndContext
+      <div
+        css={`
+          display: grid;
+          gap: 4px;
+          max-height: 50vh;
+          overflow: auto;
+        `}
+      >
+        <DndContext
           collisionDetection={closestCenter}
-          onDragEnd={console.log}
+          onDragEnd={handleLayerDragEnd}
         >
-          <SortableContext items={layers} strategy={verticalListSortingStrategy}>
-          {layers.map(layer => (
-
-          ))}
+          <SortableContext
+            items={flatLayers.map((l) => l.layer.uid)}
+            strategy={verticalListSortingStrategy}
+          >
+            {flatLayers.map((layer) => (
+              <SortableLayerItem key={layer.layer.uid} layer={layer} />
+            ))}
           </SortableContext>
-        </DndContext> */}
+        </DndContext>
+      </div>
 
-        {/* <SortableLayerList
-          layers={[...layers].reverse()}
-          onSortEnd={handleLayerSortEnd}
-          distance={1}
-          // hideSortableGhost
-
-          useDragHandle
-          axis="y"
-        />
-        <div
+      <div
+        css={`
+          padding: 4px 0;
+          flex: 1;
+          text-align: center;
+        `}
+        onClick={handleClickAddLayer}
+      >
+        <Add
           css={`
-            display: flex;
-            align-items: center;
-            justify-content: center;
+            width: 24px;
+            padding-bottom: 2px;
           `}
+        />{' '}
+        レイヤーを追加
+      </div>
+
+      <Portal>
+        <ActionSheet
+          ref={addLayerSheetRef}
+          opened={addLayerSheetOpened}
+          fill={false}
+          onClose={handleCloseAddLayerSheet}
         >
           <div
             css={`
-              flex: 1;
-              text-align: center;
-            `}
-            onClick={handleClickAddLayer}
-          >
-            <Add
-              css={`
-                width: 24px;
-                padding-bottom: 2px;
-              `}
-            />{' '}
-            レイヤーを追加
-          </div>
+              padding-top: 16px;
 
-          <Portal>
-            <ActionSheet
-              ref={addLayerSheetRef}
-              opened={addLayerSheetOpened}
-              fill={false}
-              onClose={handleCloseAddLayerSheet}
-            >
+              div + div {
+                border-top: 1px solid ${rgba('#000', 0.2)};
+              }
+            `}
+          >
+            <ActionSheetItemGroup>
+              <div onClick={handleClickAddLayerItem} data-layer-type="raster">
+                <ActionSheetItem>{t('layerType.raster')}</ActionSheetItem>
+              </div>
+              <div onClick={handleClickAddLayerItem} data-layer-type="vector">
+                <ActionSheetItem>{t('layerType.vector')}</ActionSheetItem>
+              </div>
+              <div onClick={handleClickAddLayerItem} data-layer-type="filter">
+                <ActionSheetItem>{t('layerType.filter')}</ActionSheetItem>
+              </div>
+            </ActionSheetItemGroup>
+
+            <ActionSheetItemGroup>
               <div
                 css={`
-                  padding-top: 16px;
-
-                  div + div {
-                    border-top: 1px solid ${rgba('#000', 0.2)};
-                  }
+                  font-weight: bold;
                 `}
+                onClick={handleCloseAddLayerSheet}
               >
-                <ActionSheetItemGroup>
-                  <div
-                    onClick={handleClickAddLayerItem}
-                    data-layer-type="raster"
-                  >
-                    <ActionSheetItem>{t('layerType.raster')}</ActionSheetItem>
-                  </div>
-                  <div
-                    onClick={handleClickAddLayerItem}
-                    data-layer-type="vector"
-                  >
-                    <ActionSheetItem>{t('layerType.vector')}</ActionSheetItem>
-                  </div>
-                  <div
-                    onClick={handleClickAddLayerItem}
-                    data-layer-type="filter"
-                  >
-                    <ActionSheetItem>{t('layerType.filter')}</ActionSheetItem>
-                  </div>
-                </ActionSheetItemGroup>
-
-                <ActionSheetItemGroup>
-                  <div
-                    css={`
-                      font-weight: bold;
-                    `}
-                    onClick={handleCloseAddLayerSheet}
-                  >
-                    <ActionSheetItem>{t('cancel')}</ActionSheetItem>
-                  </div>
-                </ActionSheetItemGroup>
+                <ActionSheetItem>{t('cancel')}</ActionSheetItem>
               </div>
-            </ActionSheet>
-          </Portal>
-        </div>*/}
-      </div>
+            </ActionSheetItemGroup>
+          </div>
+        </ActionSheet>
+      </Portal>
 
       <div
         css={`
           display: flex;
         `}
       >
-        {layerControl.activeLayer && (
+        {activeLayer && (
           <div
             css={`
               display: flex;
@@ -266,10 +262,8 @@ export const LayerFloatMenu = () => {
               `}
             >
               <FakeInput
-                placeholder={`<${t(
-                  `layerType.${layerControl.activeLayer.layerType}`
-                )}>`}
-                value={layerControl.activeLayer.name}
+                placeholder={`<${t(`layerType.${activeLayer.layerType}`)}>`}
+                value={activeLayer.name}
               />
               <div
                 css={`
@@ -298,7 +292,7 @@ export const LayerFloatMenu = () => {
                   { label: t('compositeModes.screen'), value: 'screen' },
                   { label: t('compositeModes.overlay'), value: 'overlay' },
                 ]}
-                value={layerControl.activeLayer.compositeMode}
+                value={activeLayer.compositeMode}
                 onChange={handleChangeCompositeMode}
               />
             </div>
@@ -329,7 +323,7 @@ export const LayerFloatMenu = () => {
                   min={0}
                   max={100}
                   step={0.1}
-                  value={layerControl.activeLayer.opacity}
+                  value={activeLayer.opacity}
                   onChange={handleChangeOpacity}
                 />
               </div>
@@ -339,259 +333,234 @@ export const LayerFloatMenu = () => {
       </div>
     </div>
   )
-}
+})
 
-const SortableLayerList = SortableContainer(
-  ({ layers }: { layers: SilkDOM.LayerTypes[] }) => {
-    const listRef = useRef<HTMLDivElement | null>(null)
+const SortableLayerItem = ({
+  layer: { layer, path, depth },
+}: {
+  layer: FlatLayerEntry
+}) => {
+  const { t } = useTranslation('app')
+  const theme = useTheme()
+  const { attributes, listeners, setNodeRef, transform, transition } =
+    useSortable({ id: layer.uid })
 
-    const [hasScroll, setHasScroll] = useState(false)
+  const { executeOperation } = useFleurContext()
+  const { activeLayer, thumbnailUrlOfLayer } = useStore((get) => ({
+    activeLayer: EditorSelector.activeLayer(get),
+    thumbnailUrlOfLayer: EditorSelector.thumbnailUrlOfLayer(get),
+  }))
 
-    useEffect(() => {
-      const list = listRef.current
-      if (!list) return
-      setHasScroll(list.scrollHeight > list.clientHeight)
+  const [actionSheetOpened, setActionSheetOpen] = useToggle(false)
+  const actionSheetRef = useRef<HTMLDivElement | null>(null)
+
+  const handleClick = useFunk((e: MouseEvent<HTMLDivElement>) => {
+    if (DOMUtils.closestOrSelf(e.target, '[data-ignore-click]')) return
+    executeOperation(EditorOps.setActiveLayer, [...path, layer.uid])
+  })
+
+  const handleClickToggleVisible = useFunk((e: MouseEvent) => {
+    executeOperation(EditorOps.updateLayer, [...path, layer.uid], (layer) => {
+      layer.visible = !layer.visible
     })
+  })
 
-    return (
-      <div
-        ref={listRef}
-        css={`
-          max-height: 40vh;
-          overflow: auto;
-          overflow-x: hidden;
-          ${silkScroll}
-        `}
-        style={{
-          maskImage: hasScroll
-            ? `linear-gradient(to bottom, #000 96%, rgba(255, 255, 255, 0) 100%)`
-            : 'none',
-        }}
-      >
-        {layers.map((layer, idx) => (
-          <SortableLayerItem key={layer.uid} index={idx} layer={layer} />
-        ))}
-      </div>
-    )
+  const handleClickLayerConfig = useFunk((e: MouseEvent) => {
+    e.stopPropagation()
+    setActionSheetOpen()
+  })
+
+  const handleSheetClose = useFunk(() => {
+    setActionSheetOpen(false)
+  })
+
+  useClickAway(actionSheetRef, (e) => {
+    // Reduce rerendering
+    if (actionSheetOpened) setActionSheetOpen(false)
+  })
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
   }
-)
 
-const SortableLayerItem = SortableElement(
-  ({ layer }: { layer: SilkDOM.LayerTypes }) => {
-    const { t } = useTranslation('app')
-    const theme = useTheme()
-    const { executeOperation } = useFleurContext()
-    const { activeLayer, thumbnailUrlOfLayer } = useStore((get) => ({
-      activeLayer: EditorSelector.activeLayer(get),
-      thumbnailUrlOfLayer: EditorSelector.thumbnailUrlOfLayer(get),
-    }))
-
-    const [actionSheetOpened, setActionSheetOpen] = useToggle(false)
-    const actionSheetRef = useRef<HTMLDivElement | null>(null)
-
-    const handleClick = useFunk((e: MouseEvent<HTMLDivElement>) => {
-      if (DOMUtils.closestOrSelf(e.target, '[data-ignore-click]')) return
-      executeOperation(EditorOps.setActiveLayer, layer.uid)
-    })
-
-    const handleClickToggleVisible = useFunk((e: MouseEvent) => {
-      executeOperation(EditorOps.updateLayer, layer.uid, (layer) => {
-        layer.visible = !layer.visible
-      })
-    })
-
-    const handleClickLayerConfig = useFunk((e: MouseEvent) => {
-      e.stopPropagation()
-      setActionSheetOpen()
-    })
-
-    const handleSheetClose = useFunk(() => {
-      setActionSheetOpen(false)
-    })
-
-    useClickAway(actionSheetRef, (e) => {
-      // Reduce rerendering
-      if (actionSheetOpened) setActionSheetOpen(false)
-    })
-
-    return (
-      <div
-        css={css`
-          display: flex;
-          gap: 8px;
-          padding: 8px;
-          height: 48px;
-          user-select: none;
-          color: ${({ theme }) => theme.exactColors.black40};
+  return (
+    <div
+      ref={setNodeRef}
+      css={css`
+        display: flex;
+        gap: 8px;
+        padding: 4px 8px;
+        user-select: none;
+        color: ${({ theme }) => theme.exactColors.black40};
+      `}
+      style={{
+        backgroundColor:
+          activeLayer?.uid === layer.uid
+            ? theme.colors.blueFade40
+            : 'transparent',
+        paddingLeft: 8 + depth * 24,
+        ...style,
+      }}
+      onClick={handleClick}
+    >
+      <img
+        css={`
+          background: linear-gradient(
+              45deg,
+              rgba(0, 0, 0, 0.2) 25%,
+              transparent 25%,
+              transparent 75%,
+              rgba(0, 0, 0, 0.2) 75%
+            ),
+            linear-gradient(
+              45deg,
+              rgba(0, 0, 0, 0.2) 25%,
+              transparent 25%,
+              transparent 75%,
+              rgba(0, 0, 0, 0.2) 75%
+            );
+          background-size: 8px 8px;
+          background-position: 0 0, 4px 4px;
+          width: 32px;
+          height: 32px;
         `}
-        style={{
-          backgroundColor:
-            activeLayer?.uid === layer.uid
-              ? theme.colors.blueFade40
-              : 'transparent',
-        }}
-        onClick={handleClick}
+        style={{}}
+        src={thumbnailUrlOfLayer(layer.uid)}
+      />
+      <div
+        css={`
+          display: flex;
+          justify-content: center;
+        `}
+        onClick={handleClickToggleVisible}
       >
-        <img
-          css={`
-            background: linear-gradient(
-                45deg,
-                rgba(0, 0, 0, 0.2) 25%,
-                transparent 25%,
-                transparent 75%,
-                rgba(0, 0, 0, 0.2) 75%
-              ),
-              linear-gradient(
-                45deg,
-                rgba(0, 0, 0, 0.2) 25%,
-                transparent 25%,
-                transparent 75%,
-                rgba(0, 0, 0, 0.2) 75%
-              );
-            background-size: 8px 8px;
-            background-position: 0 0, 4px 4px;
-            width: 32px;
-            height: 32px;
-          `}
-          style={{}}
-          src={thumbnailUrlOfLayer(layer.uid)}
-        />
+        {layer.visible ? (
+          <Eye
+            css={`
+              width: 20px;
+            `}
+          />
+        ) : (
+          <EyeClose
+            css={`
+              width: 20px;
+            `}
+          />
+        )}
+      </div>
+      <div
+        css={`
+          display: flex;
+          flex-flow: column;
+          flex: 1;
+          overflow: hidden;
+        `}
+      >
         <div
           css={`
-            display: flex;
-            justify-content: center;
+            max-width: 100%;
+            white-space: nowrap;
           `}
-          onClick={handleClickToggleVisible}
         >
-          {layer.visible ? (
-            <Eye
-              css={`
-                width: 20px;
-              `}
-            />
-          ) : (
-            <EyeClose
-              css={`
-                width: 20px;
-              `}
-            />
-          )}
+          {layer.name === ''
+            ? `<${t(`layerType.${layer.layerType}`)}>`
+            : layer.name}
         </div>
-        <div
-          css={`
-            display: flex;
-            flex-flow: column;
-            flex: 1;
-            overflow: hidden;
-          `}
+        <div css="display: flex; gap: 4px;">
+          <span>{t(`compositeModes.${layer.compositeMode}`)}</span>
+          <span>{Math.round(layer.opacity)}%</span>
+        </div>
+      </div>
+
+      <div
+        css={`
+          display: flex;
+          justify-content: center;
+          align-items: center;
+        `}
+        onClick={handleClickLayerConfig}
+        data-ignore-click
+      >
+        {layer.filters.length > 0 ? (
+          <MagicFill
+            css={`
+              width: 20px;
+            `}
+          />
+        ) : (
+          <Magic
+            css={`
+              width: 20px;
+            `}
+          />
+        )}
+      </div>
+
+      <div
+        css={`
+          display: flex;
+          justify-content: center;
+          align-items: center;
+        `}
+        data-ignore-click
+        {...attributes}
+        {...listeners}
+      >
+        <span tabIndex={0}>
+          <Menu
+            css={`
+              width: 20px;
+            `}
+          />
+        </span>
+      </div>
+
+      <Portal>
+        <ActionSheet
+          ref={actionSheetRef}
+          opened={actionSheetOpened}
+          onClose={handleSheetClose}
+          fill
         >
           <div
             css={`
-              max-width: 100%;
-              white-space: nowrap;
+              display: flex;
+              flex-flow: column;
             `}
-          >
-            {layer.name === ''
-              ? `<${t(`layerType.${layer.layerType}`)}>`
-              : layer.name}
-          </div>
-          <div css="display: flex; gap: 4px;">
-            <span>{t(`compositeModes.${layer.compositeMode}`)}</span>
-            <span>{Math.round(layer.opacity)}%</span>
-          </div>
-        </div>
-
-        <div
-          css={`
-            display: flex;
-            justify-content: center;
-            align-items: center;
-          `}
-          onClick={handleClickLayerConfig}
-          data-ignore-click
-        >
-          {layer.filters.length > 0 ? (
-            <MagicFill
-              css={`
-                width: 20px;
-              `}
-            />
-          ) : (
-            <Magic
-              css={`
-                width: 20px;
-              `}
-            />
-          )}
-        </div>
-
-        <div
-          css={`
-            display: flex;
-            justify-content: center;
-            align-items: center;
-          `}
-          data-ignore-click
-        >
-          <LayerSortHandle />
-        </div>
-
-        <Portal>
-          <ActionSheet
-            ref={actionSheetRef}
-            opened={actionSheetOpened}
-            onClose={handleSheetClose}
-            fill
           >
             <div
               css={`
-                display: flex;
-                flex-flow: column;
+                margin-bottom: 24px;
               `}
             >
-              <div
+              フィルター -{' '}
+              <span
                 css={`
-                  margin-bottom: 24px;
+                  max-width: 100px;
+                  white-space: nowrap;
+                  text-overflow: ellipsis;
                 `}
               >
-                フィルター -{' '}
-                <span
-                  css={`
-                    max-width: 100px;
-                    white-space: nowrap;
-                    text-overflow: ellipsis;
-                  `}
-                >
-                  {layer.name}
-                </span>
-              </div>
-
-              <SortableFiltersList
-                css={`
-                  flex: 1;
-                  overflow: auto;
-                `}
-                layer={layer}
-                axis="y"
-                useDragHandle
-              />
+                {layer.name}
+              </span>
             </div>
-          </ActionSheet>
-        </Portal>
-      </div>
-    )
-  }
-)
 
-const LayerSortHandle = SortableHandle(() => (
-  <span tabIndex={0}>
-    <Menu
-      css={`
-        width: 20px;
-      `}
-    />
-  </span>
-))
+            <SortableFiltersList
+              css={`
+                flex: 1;
+                overflow: auto;
+              `}
+              layer={layer}
+              axis="y"
+              useDragHandle
+            />
+          </div>
+        </ActionSheet>
+      </Portal>
+    </div>
+  )
+}
 
 const SortableFiltersList = SortableContainer(
   ({ layer, className }: { layer: SilkDOM.LayerTypes; className?: string }) => {

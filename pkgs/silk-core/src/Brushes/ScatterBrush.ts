@@ -27,6 +27,8 @@ const _translate2d = new Vector2()
 export declare namespace ScatterBrush {
   export type ScatterSetting = {
     texture: keyof typeof Textures
+    divisions: number
+    scatterRange: number
   }
 }
 
@@ -43,7 +45,7 @@ export class ScatterBrush implements IBrush {
   private materials: Record<string, MeshBasicMaterial> = {}
 
   public getInitialSpecificConfig(): ScatterBrush.ScatterSetting {
-    return { texture: 'pencil' }
+    return { texture: 'pencil', divisions: 1000, scatterRange: 1 }
   }
 
   public async initialize() {
@@ -114,7 +116,7 @@ export class ScatterBrush implements IBrush {
     const material = this.materials[specific.texture]
     material.color.set(new Color(color.r, color.g, color.b))
 
-    const counts = Math.ceil(path.getLength() * 1000)
+    const counts = Math.ceil(path.getLength() * specific.divisions)
     const mesh = new InstancedMesh(this.geometry, material, counts)
     this.scene.add(mesh)
 
@@ -138,8 +140,12 @@ export class ScatterBrush implements IBrush {
       const tangent = path.getTangentAt(frac).normalize()
       const angle = Math.atan2(tangent.x, tangent.y)
 
-      _object.translateX(lerp(-0.5, 0.5, Math.cos(angle)))
-      _object.translateY(lerp(-0.5, 0.5, Math.sin(angle)))
+      _object.translateX(
+        lerp(-specific.scatterRange, specific.scatterRange, Math.cos(angle))
+      )
+      _object.translateY(
+        lerp(-specific.scatterRange, specific.scatterRange, Math.sin(angle))
+      )
 
       _object.updateMatrix()
 

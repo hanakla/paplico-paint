@@ -10,7 +10,7 @@ export type BrushContext<T = unknown> = {
   threeCamera: Camera
   path: Path
   ink: IInk
-  brushSetting: CurrentBrushSetting & { specific: T | null }
+  brushSetting: CurrentBrushSetting & { specific: Partial<T> | null }
   destSize: { width: number; height: number }
 }
 

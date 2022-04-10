@@ -81,7 +81,6 @@ export class Path implements ISilkDOMElement {
   }
 
   /** Identifier of content, it changed only after .update() called or cloned instance */
-  public contentUid: string = nanoid()
   public points: Path.PathPoint[] = []
 
   /** Is path closed */
@@ -240,7 +239,6 @@ export class Path implements ISilkDOMElement {
   public update(proc: (entity: this) => void): void {
     proc(this)
 
-    this.contentUid = nanoid()
     this._cachedSvgPath = this.getFreshSVGPath()
     this._pal = cachedPointAtLength(this.svgPath)
   }

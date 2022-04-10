@@ -659,7 +659,7 @@ const SortableLayerItem = ({
             `}
           >
             {layer.layerType === 'vector' ? (
-              <Tooltip2 content={'ベクターレイヤー'}>
+              <Tooltip2 placement="right" content={'ベクターレイヤー'}>
                 <Guide
                   css={`
                     font-size: 12px;

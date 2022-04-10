@@ -426,24 +426,10 @@ export function MainActions() {
               }}
               onClick={handleClickVectorFillColor}
             />
-            <div
-              ref={vectorColorPickerPopRef}
-              style={{
-                ...(vectorColorOpened
-                  ? { opacity: 1, pointerEvents: 'all' }
-                  : { opacity: 0, pointerEvents: 'none' }),
-                ...vectorColorPopper.styles.popper,
-              }}
-              data-ignore-click
-              {...vectorColorPopper.attributes.popper}
-            >
-              {activeObject && (
-                <VectorColorPicker
-                  mode={vectorColorTarget}
-                  object={activeObject}
-                />
-              )}
-            </div>
+            <VectorColorPicker
+              opened={vectorColorOpened}
+              mode={vectorColorTarget}
+            />
           </div>
         )}
       </div>
@@ -677,13 +663,11 @@ const BrushItem = ({
 }
 
 const VectorColorPicker = ({
+  opened,
   object,
   mode,
-}: // color,
-// onChange,
-// onChangeComplete,
-
-{
+}: {
+  opened: boolean
   object: SilkDOM.VectorObject
   mode: 'fill' | 'stroke'
   // color: Color
@@ -697,6 +681,11 @@ const VectorColorPicker = ({
     currentVectorBrush: EditorSelector.currentVectorBrush(get),
     defaultVectorBrush: EditorSelector.defaultVectorBrush(get),
   }))
+
+  const fl = useFloating({
+    placement: 'top',
+    middleware: [shift(), autoPlacement({ alignment: 'start' })],
+  })
 
   const handleChangeFillMode = useFunk(() => {
     // handleChangeFillMode
@@ -715,48 +704,66 @@ const VectorColorPicker = ({
     }
   )
 
+  useEffect(() => {
+    fl.reference(fl.refs.floating.current!.parentElement)
+    // autoUpdate()
+  }, [fl.refs.floating.current])
+
   return (
-    <div>
-      {mode === 'fill' && (
-        <>
-          <div>
-            <SelectBox
-              items={[
-                { label: t('vectorColorPicker.modes.solid'), value: 'solid' },
-                {
-                  label: t('vectorColorPicker.modes.linearGradient'),
-                  value: 'linear-gradient',
-                },
-              ]}
-              value={object.fill?.type}
-              placeholder={t('vectorColorPicker.noFill')}
-              placement="auto"
-              onChange={handleChangeFillMode}
-            />
-          </div>
-          <div
+    <div
+      ref={fl.floating}
+      style={{
+        position: fl.strategy,
+        left: fl.x ?? 0,
+        top: fl.y ?? 0,
+        ...(opened
+          ? { opacity: 1, pointerEvents: 'all' }
+          : { opacity: 0, pointerEvents: 'none' }),
+      }}
+      data-ignore-click
+    >
+      <div>
+        {mode === 'fill' && (
+          <>
+            <div>
+              <SelectBox
+                items={[
+                  { label: t('vectorColorPicker.modes.solid'), value: 'solid' },
+                  {
+                    label: t('vectorColorPicker.modes.linearGradient'),
+                    value: 'linear-gradient',
+                  },
+                ]}
+                value={object.fill?.type}
+                placeholder={t('vectorColorPicker.noFill')}
+                placement="auto"
+                onChange={handleChangeFillMode}
+              />
+            </div>
+            <div
+              css={`
+                position: relative;
+                height: 100px;
+              `}
+            >
+              <CustomColorPicker color={{ r: 0, g: 0, b: 0 }} />
+            </div>
+          </>
+        )}
+        {mode === 'stroke' && object.brush && (
+          <ChromePicker
             css={`
-              position: relative;
-              height: 100px;
+              position: absolute;
+              left: 50%;
+              bottom: 100%;
+              transform: translateX(-50%);
             `}
-          >
-            <CustomColorPicker color={{ r: 0, g: 0, b: 0 }} />
-          </div>
-        </>
-      )}
-      {mode === 'stroke' && object.brush && (
-        <ChromePicker
-          css={`
-            /* position: absolute;
-    left: 50%;
-    bottom: 100%;
-    transform: translateX(-50%); */
-          `}
-          color={object.brush?.color}
-          onChange={handleChangeStrokeColor}
-          onChangeComplete={handleChangeStrokeColor}
-        />
-      )}
+            color={object.brush?.color}
+            onChange={handleChangeStrokeColor}
+            onChangeComplete={handleChangeStrokeColor}
+          />
+        )}
+      </div>
     </div>
   )
 }

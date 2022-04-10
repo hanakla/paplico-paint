@@ -1,8 +1,11 @@
 import { autoPlacement } from '@floating-ui/core'
-import { arrow, autoUpdate, useFloating } from '@floating-ui/react-dom'
-import { styleWhen } from '@hanakla/arma'
+import {
+  arrow,
+  autoUpdate,
+  useFloating,
+  Placement,
+} from '@floating-ui/react-dom'
 import { nanoid } from 'nanoid'
-import { rgba } from 'polished'
 import { ReactNode, useEffect, useMemo, useRef } from 'react'
 import { createGlobalStyle } from 'styled-components'
 
@@ -10,14 +13,20 @@ type Props = {
   content: ReactNode
   children: ReactNode
   show?: boolean
+  placement?: Placement
 }
 
-export const Tooltip2 = ({ content, children, show }: Props) => {
+export const Tooltip2 = ({
+  content,
+  children,
+  show,
+  placement = 'top',
+}: Props) => {
   const id = useMemo(() => nanoid(), [])
   const arrowRef = useRef<HTMLDivElement | null>(null)
 
   const fl = useFloating({
-    placement: 'top',
+    placement,
     strategy: 'fixed',
     middleware: [
       autoPlacement({ alignment: 'start', allowedPlacements: ['top'] }),
@@ -70,8 +79,7 @@ export const Tooltip2 = ({ content, children, show }: Props) => {
           role="none"
           style={{
             left: fl.middlewareData.arrow?.x ?? 0,
-            // top: fl.middlewareData.arrow?.y ?? 0,
-            top: '100% !important',
+            top: fl.middlewareData.arrow?.y ?? 0,
           }}
         />
       </div>

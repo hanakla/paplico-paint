@@ -2,23 +2,19 @@ import { SilkDOMDigger } from '../../SilkDOMDigger'
 import { ICommand } from '../ICommand'
 import { Document, Path } from '../../SilkDOM'
 
-type Transform = {
-  movement: { x: number; y: number }
-}
-
 export class VectorObjectRemovePoint implements ICommand {
-  private indices: number[] = []
-  private pathToTargetLayer: string[]
+  private indices: readonly number[] = []
+  private pathToTargetLayer: readonly string[]
   private objectUid: string
-  private reverter: [oldIndex: number, point: Path.PathPoint][] = []
+  private prevPath!: Path
 
   constructor({
     pointIndices,
     pathToTargetLayer,
     objectUid,
   }: {
-    pointIndices: number[]
-    pathToTargetLayer: string[]
+    pointIndices: readonly number[]
+    pathToTargetLayer: readonly string[]
     objectUid: string
   }) {
     this.indices = pointIndices
@@ -35,20 +31,34 @@ export class VectorObjectRemovePoint implements ICommand {
         strict: true,
       }
     ).update((o) => {
-      this.indices.forEach((idx) => {
-        const [point] = o.path.points.splice(idx, 1)
-        this.reverter.push([idx, point])
-      })
+      this.prevPath = o.path
+
+      const path = o.path.clone()
+      this.indices.forEach((idx) => path.points.splice(idx, 1))
+      if (this.prevPath.isFreezed) path.freeze()
+
+      o.path = path
     })
   }
 
-  async undo(document: Document): Promise<void> {}
+  async undo(document: Document): Promise<void> {
+    SilkDOMDigger.findObjectInLayer(
+      document,
+      this.pathToTargetLayer,
+      this.objectUid,
+      {
+        strict: true,
+      }
+    ).update((o) => {
+      o.path = this.prevPath
+    })
+  }
 
   async redo(document: Document): Promise<void> {
-    // TODO
+    await this.do(document)
   }
 
   get effectedLayers(): string[][] {
-    return [this.pathToTargetLayer]
+    return [this.pathToTargetLayer as string[]]
   }
 }

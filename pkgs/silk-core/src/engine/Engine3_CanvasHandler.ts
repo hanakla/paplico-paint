@@ -98,7 +98,9 @@ export class CanvasHandler extends Emitter<Events> {
 
       strategy.setLayerOverride({
         layerId: activeLayer.uid,
-        canvas: this.strokeCtx.canvas,
+        context2d: this.strokeCtx,
+        compositeMode:
+          session.pencilMode === 'draw' ? 'normal' : 'destination-out',
       })
       strategy.markUpdatedLayerId(activeLayer.uid)
     })
@@ -125,6 +127,7 @@ export class CanvasHandler extends Emitter<Events> {
         stroke.splinedPath,
         this.strokeCtx
       )
+
       await engine.render(session.document, strategy)
     })
 

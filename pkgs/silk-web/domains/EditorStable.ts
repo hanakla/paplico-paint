@@ -593,29 +593,23 @@ export const [EditorStore, EditorOps] = minOps('Editor', {
 
       x.executeOperation(EditorOps.rerenderCanvas)
     },
-    deleteSelectedObjectPoints: (x) => {
-      x.commit((d) => {
-        const layer = d.session?.activeLayer
-        if (!layer || layer.layerType !== 'vector') return
+    deleteSelectedObjectPoints: async (x) => {
+      if (
+        !x.state.activeLayerId ||
+        !x.state.activeObjectId ||
+        x.state.session?.activeLayer?.layerType !== 'vector'
+      )
+        return
 
-        const obj = layer.objects.find((obj) => obj.uid === d.activeObjectId)
-        if (!obj) return
-
-        const points: Array<SilkDOM.Path.PathPoint | null> = [
-          ...obj.path.points,
-        ]
-
-        d.activeObjectPointIndices.forEach((idx) => {
-          points[idx] = null
+      await x.state.session?.runCommand(
+        new SilkCommands.VectorLayer.RemovePathPoint({
+          pathToTargetLayer: x.state.activeLayerId,
+          pointIndices: x.state.activeObjectPointIndices,
+          objectUid: x.state.activeObjectId,
         })
+      )
 
-        obj.path.points = points.filter(
-          (v): v is SilkDOM.Path.PathPoint => v != null
-        )
-
-        d.activeObjectPointIndices = []
-      })
-
+      x.commit({ activeObjectPointIndices: [] })
       x.executeOperation(EditorOps.rerenderCanvas)
     },
     // #endregion

@@ -4,13 +4,19 @@ import { Document, LayerTypes } from '../../SilkDOM'
 import { deepClone, setCanvasSize } from '../../utils'
 import { IRenderStrategy } from './IRenderStrategy'
 import { AtomicResource } from '../../AtomicResource'
+import { CompositeMode } from 'SilkDOM/IRenderable'
+
+type Override = {
+  layerId: string
+  context2d: CanvasRenderingContext2D
+  compositeMode: CompositeMode | 'destination-out'
+}
 
 export class DifferenceRender implements IRenderStrategy {
   private bitmapCache: WeakMap<LayerTypes, Uint8ClampedArray> = new WeakMap()
   // private layerLastUpdateTimes = new WeakMap<LayerTypes, number>()
   private needsUpdateLayerIds: { [layerId: string]: true | undefined } = {}
-  private overrides: { layerId: string; canvas: HTMLCanvasElement } | null =
-    null
+  private overrides: Override | null = null
 
   private bufferCtx: AtomicResource<CanvasRenderingContext2D>
   private previewCtx: CanvasRenderingContext2D
@@ -40,9 +46,7 @@ export class DifferenceRender implements IRenderStrategy {
     this.needsUpdateLayerIds[layerId] = true
   }
 
-  public setLayerOverride(
-    override: { layerId: string; canvas: HTMLCanvasElement } | null
-  ) {
+  public setLayerOverride(override: Override | null) {
     this.overrides = override
   }
 
@@ -186,7 +190,10 @@ export class DifferenceRender implements IRenderStrategy {
       bufferCtx.putImageData(image, 0, 0)
 
       if (this.overrides?.layerId === layer.uid) {
-        bufferCtx.drawImage(this.overrides.canvas, 0, 0)
+        await engine.compositeLayers(this.overrides.context2d, bufferCtx, {
+          mode: this.overrides.compositeMode,
+          opacity: layer.opacity,
+        })
       }
 
       for (const filter of layer.filters) {

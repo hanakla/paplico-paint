@@ -12,30 +12,29 @@ import {
 interface Digger {
   // prettier-ignore
   findLayer<K extends LayerTypes['layerType'], S extends boolean | undefined>(
-    document: { layers: LayerTypes[] },
-    path: string[],
+    document: { layers: readonly LayerTypes[] },
+    path: readonly string[],
     query?: { kind?: K, strict?: S }
   ): (K extends 'raster' ? RasterLayer
     : K extends 'vector' ? VectorLayer
     : K extends 'filter' ? FilterLayer
     : K extends 'group' ? GroupLayer
     : LayerTypes) | (S extends true ? never : null)
-  findLayerParent(document: Document, path: string[]): Document | GroupLayer
+  findLayerParent(
+    document: Document,
+    path: readonly string[]
+  ): Document | GroupLayer
   // prettier-ignore
   findObjectInLayer<S extends boolean | undefined>(
-    document: { layers: LayerTypes[] },
-    path: string[],
+    document: { layers: readonly LayerTypes[] },
+    path: readonly string[],
     objectUid: string,
     option?: { strict?: S }
   ): VectorObject | (S extends true ? never : Nullish)
 }
 
 export const SilkDOMDigger: Digger = {
-  findLayer: (
-    document: { layers: LayerTypes[] },
-    path: string[],
-    { kind, strict }: { kind?: string; strict?: boolean } = {}
-  ) => {
+  findLayer: (document, path, { kind, strict } = {}) => {
     const [first, ...parts] = path
     let target: LayerTypes | Nullish = document.layers.find(
       (l) => l.uid === first
@@ -60,7 +59,7 @@ export const SilkDOMDigger: Digger = {
 
     return target as any
   },
-  findLayerParent: (document: Document, path: string[]) => {
+  findLayerParent: (document, path) => {
     let prev: Document | GroupLayer | null = document
     let parent: any = null
     // let target = document.layers.find((l) => l.uid === first)

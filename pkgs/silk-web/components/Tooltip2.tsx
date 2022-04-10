@@ -36,8 +36,6 @@ export const Tooltip2 = ({ content, children, show }: Props) => {
     )
   }, [fl.refs.reference.current, fl.refs.floating.current])
 
-  console.log(fl.middlewareData.arrow)
-
   return (
     <>
       <div

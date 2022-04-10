@@ -28,7 +28,6 @@ export const VectorLayerControl = () => {
   const { executeOperation } = useFleurContext()
   const {
     canvasScale,
-    canvasPosition,
     activeLayer,
     activeLayerPath,
     currentDocument,
@@ -42,7 +41,6 @@ export const VectorLayerControl = () => {
     activeObject,
   } = useStore((get) => ({
     canvasScale: EditorSelector.canvasScale(get),
-    canvasPosition: EditorSelector.canvasPosition(get),
     activeLayer: EditorSelector.activeLayer(get),
     activeLayerPath: EditorSelector.activeLayerPath(get),
     currentDocument: EditorSelector.currentDocument(get),
@@ -64,7 +62,7 @@ export const VectorLayerControl = () => {
   const [hoveredObjectUid, setHoveredObjectUid] = useState<string | null>(null)
 
   const handleClickRoot = useFunk((e: PointerEvent<SVGSVGElement>) => {
-    console.log(e.target)
+    // console.log(e.target)
   })
 
   const handleHoverChangePath = useFunk(
@@ -308,10 +306,12 @@ export const VectorLayerControl = () => {
   // MEMO: これ見て https://codepen.io/osublake/pen/ggYxvp
   return (
     <svg
+      data-devmemo="Vector layer control"
       ref={rootRef}
       css={`
         fill: transparent;
         outline: none;
+        pointer-events: none;
       `}
       width={currentDocument.width}
       height={currentDocument.height}
@@ -320,13 +320,18 @@ export const VectorLayerControl = () => {
         pointerEvents: any(currentTool).in('shape-pen', 'cursor')
           ? 'all'
           : 'none',
+        stroke: '#000',
       }}
       {...bindRootDrag()}
-      x={canvasPosition.x * canvasScale}
-      y={canvasPosition.y * canvasScale}
       onClick={handleClickRoot}
       tabIndex={-1}
     >
+      <rect
+        width={currentDocument.width}
+        height={currentDocument.height}
+        x={0}
+        y={0}
+      />
       {activeLayer.objects.map((object) => (
         <>
           <g
@@ -984,7 +989,6 @@ const ObjectBoundingBox = ({
         { x: initial[0] + delta[0], y: delta[1] }
       )
 
-      console.log({ initial, delta }, SilkWebMath.radToDeg(angle))
       o.rotate = rotateRef.current + SilkWebMath.radToDeg(angle)
       // o.x += delta[0] * zoom
       // o.y += delta[1] * zoom

@@ -528,6 +528,8 @@ export function PaintPage({}) {
           <PaintCanvas canvasRef={canvasRef} />
 
           <svg
+            // Match to Editor bounding
+            data-devmemo="Editor bounding svg"
             css={`
               position: absolute;
               top: 0;
@@ -540,38 +542,8 @@ export function PaintPage({}) {
             width={editorBound.width}
             height={editorBound.height}
           >
-            {/* <g
-              style={{
-                transform: `scale(${scale}) rotate(${rotate}deg) translate(${
-                  position.x + editorBound.width / 2
-                }px, ${position.y + editorBound.height / 2}px)`,
-              }}
-            > */}
-            {/* <div
-            css={`
-              position: absolute;
-              top: 0;
-              left: 0;
-              width: 100%;
-              height: 100%;
-            `}
-          > */}
-            <ControlsOverlay
-              css={`
-                position: absolute;
-                top: 0;
-                left: 0;
-                pointer-events: none;
-              `}
-              // viewBox={`0 0 ${editorBound.width} ${editorBound.height}`}
-              // width={editorBound.width}
-              // height={editorBound.height}
-              editorBound={editorBound}
-              // rotate={rotate}
-            />
-            {/* </g> */}
+            <ControlsOverlay editorBound={editorBound} />
           </svg>
-          {/* </div> */}
           <div
             css={`
               position: absolute;

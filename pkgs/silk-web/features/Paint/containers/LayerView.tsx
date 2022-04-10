@@ -6,8 +6,9 @@ import {
   useEffect,
   useMemo,
   useRef,
+  useState,
 } from 'react'
-import { SilkDOM, SilkHelper } from 'silk-core'
+import { SilkCommands, SilkDOM, SilkHelper } from 'silk-core'
 import { useClickAway, useToggle, useUpdate } from 'react-use'
 import { loadImageFromBlob, selectFile, useFunk } from '@hanakla/arma'
 import { rgba } from 'polished'
@@ -62,8 +63,7 @@ import { CSS } from '@dnd-kit/utilities'
 import { PropsOf } from '🙌/utils/types'
 import { contextMenu } from 'react-contexify'
 import { Tooltip2 } from '🙌/components/Tooltip2'
-
-console.log({ contextMenu })
+import { useCachedInputState, useDebouncedFunk } from '🙌/utils/hooks'
 
 export function LayerView() {
   const { t } = useTranslation('app')
@@ -81,6 +81,8 @@ export function LayerView() {
   const [layerTypeOpened, toggleLayerTypeOpened] = useToggle(false)
   const layerTypeOpenerRef = useRef<HTMLDivElement | null>(null)
   const layerTypeDropdownRef = useRef<HTMLUListElement | null>(null)
+
+  const [layerName, setLayerName] = useCachedInputState(activeLayer?.name)
 
   const contextMenu = useContextMenu('LAYER_ITEM_MENU')
 
@@ -177,15 +179,24 @@ export function LayerView() {
 
   const handleChangeLayerName = useFunk(
     ({ currentTarget }: ChangeEvent<HTMLInputElement>) => {
-      executeOperation(
-        EditorOps.updateLayer,
-        activeLayerPath,
-        (layer) => {
-          layer.name = currentTarget.value
-        },
-        { skipRerender: false }
-      )
+      if (!activeLayerPath) return
+
+      setLayerName(currentTarget.value)
+      commitChangeLayerName(activeLayerPath, currentTarget.value)
     }
+  )
+
+  const commitChangeLayerName = useDebouncedFunk(
+    (path: string[], layerName: string) => {
+      executeOperation(
+        EditorOps.runCommand,
+        new SilkCommands.Layer.PatchLayerAttr({
+          patch: { name: layerName },
+          pathToTargetLayer: path,
+        })
+      )
+    },
+    1000
   )
 
   const handleChangeCompositeMode = useFunk((value: string) => {
@@ -248,7 +259,7 @@ export function LayerView() {
         >
           <div>
             <FakeInput
-              value={activeLayer.name}
+              value={layerName}
               placeholder={`<${t(`layerType.${activeLayer.layerType}`)}>`}
               onChange={handleChangeLayerName}
             />
@@ -461,9 +472,11 @@ const SortableLayerItem = ({
 
   const handleToggleVisibility = useFunk(() => {
     executeOperation(
-      EditorOps.updateLayer,
-      [...path, layer.uid],
-      (layer) => (layer.visible = !layer.visible)
+      EditorOps.runCommand,
+      new SilkCommands.Layer.PatchLayerAttr({
+        patch: { visible: !layer.visible },
+        pathToTargetLayer: [...path, layer.uid],
+      })
     )
   })
 
@@ -500,9 +513,13 @@ const SortableLayerItem = ({
 
   const handleChangeLayerName = useFunk(
     ({ currentTarget }: ChangeEvent<HTMLInputElement>) => {
-      executeOperation(EditorOps.updateLayer, layer.uid, (layer) => {
-        layer.name = currentTarget.value
-      })
+      executeOperation(
+        EditorOps.runCommand,
+        new SilkCommands.Layer.PatchLayerAttr({
+          patch: { name: currentTarget.value },
+          pathToTargetLayer: [...path, layer.uid],
+        })
+      )
     }
   )
 
@@ -628,7 +645,10 @@ const SortableLayerItem = ({
               height: 16px;
               flex: none;
             `}
-            src={thumbnailUrlOfLayer(layer.uid)}
+            src={
+              thumbnailUrlOfLayer(layer.uid) ??
+              'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII='
+            }
           />
 
           <div

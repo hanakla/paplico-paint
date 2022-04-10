@@ -32,6 +32,7 @@ export declare namespace Path {
     y: number
     /** 0 to 1 */
     pressure?: number | null
+    deltaTime?: number
   }
 
   export type PathBBox = {

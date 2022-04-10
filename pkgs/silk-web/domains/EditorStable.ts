@@ -10,6 +10,7 @@ import {
   IRenderStrategy,
   SilkSerializer,
   SilkDOMDigger,
+  SilkCommands,
 } from 'silk-core'
 
 import { BrushSetting } from '🙌/../silk-core/dist/Value'
@@ -353,6 +354,33 @@ export const [EditorStore, EditorOps] = minOps('Editor', {
     // #endregion
 
     // #region Document controls
+    runCommand: async (x, cmd: SilkCommands.AnyCommandType) => {
+      await x.state.session?.runCommand(cmd)
+
+      cmd.effectedLayers.forEach((path) =>
+        x.state.renderStrategy?.markUpdatedLayerId(path.slice(-1)[0])
+      )
+
+      await x.executeOperation(EditorOps.rerenderCanvas)
+    },
+    undoCommand: async (x) => {
+      const cmd = await x.state.session?.undo()
+
+      cmd?.effectedLayers.forEach((p) =>
+        x.state.renderStrategy?.markUpdatedLayerId(p.slice(-1)[0])
+      )
+
+      await x.executeOperation(EditorOps.rerenderCanvas)
+    },
+    redoCommand: async (x) => {
+      const cmd = await x.state.session?.redo()
+
+      cmd?.effectedLayers.forEach((p) =>
+        x.state.renderStrategy?.markUpdatedLayerId(p.slice(-1)[0])
+      )
+
+      await x.executeOperation(EditorOps.rerenderCanvas)
+    },
     updateDocument: (
       x,
       proc: (document: SilkDOM.Document) => void,

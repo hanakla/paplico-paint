@@ -2,6 +2,7 @@ import { Path } from '../SilkDOM/Path'
 import spline from '@yr/catmull-rom-spline'
 import { nanoid } from 'nanoid'
 import simplify from 'simplify-js'
+import { Nullish } from '../utils'
 
 type StrokePoint = [
   /** Absolute position on canvas */
@@ -9,8 +10,9 @@ type StrokePoint = [
   /** Absolute position on canvas */
   y: number,
   /** 0 to 1 */
-  pressure: number
+  pressure: number,
   // time
+  deltaTime: number | Nullish
 ]
 
 export class Stroke {
@@ -29,6 +31,7 @@ export class Stroke {
       point.x,
       point.y,
       point.pressure ?? 0.5,
+      point.deltaTime ?? null,
     ])
     stroke._path = cloned
 
@@ -40,6 +43,7 @@ export class Stroke {
 
   public id: string = nanoid()
   public points: StrokePoint[] = []
+  public startTime: number = 0
 
   public get path() {
     if (this._path) return this._path

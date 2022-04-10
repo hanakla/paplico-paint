@@ -218,6 +218,14 @@ export function PaintPage({}) {
     handleClickExport()
   })
 
+  useFunkyGlobalMouseTrap(['ctrl+z', 'command+z'], () => {
+    executeOperation(EditorOps.undoCommand)
+  })
+
+  useFunkyGlobalMouseTrap(['ctrl+shift+z', 'command+shift+z', 'ctrl+y'], () => {
+    executeOperation(EditorOps.redoCommand)
+  })
+
   useFunkyGlobalMouseTrap(['v'], () =>
     executeOperation(
       EditorOps.setTool,

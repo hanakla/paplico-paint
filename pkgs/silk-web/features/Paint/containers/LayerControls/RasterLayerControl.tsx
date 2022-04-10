@@ -2,14 +2,16 @@ import { useStore } from '@fleur/react'
 import { EditorSelector } from '🙌/domains/EditorStable'
 
 export const RasterLayerControl = () => {
-  const { session, currentDocument } = useStore((get) => ({
-    session: EditorSelector.currentSession(get),
+  const { activeLayer, canvasScale, currentDocument } = useStore((get) => ({
+    activeLayer: EditorSelector.activeLayer(get),
+    canvasScale: EditorSelector.canvasScale(get),
     currentDocument: EditorSelector.currentDocument(get),
   }))
 
-  const bbox = session?.currentLayerBBox ?? null
+  const bbox = currentDocument?.getLayerSize(activeLayer!) ?? null
 
-  if (!bbox || !currentDocument) return null
+  if (activeLayer?.layerType !== 'raster' || !bbox || !currentDocument)
+    return null
 
   return (
     <>
@@ -18,8 +20,8 @@ export const RasterLayerControl = () => {
           fill: none;
           stroke: #0ff;
         `}
-        x={bbox.x}
-        y={bbox.y}
+        x={activeLayer.x}
+        y={activeLayer.x}
         width={bbox?.width}
         height={bbox?.height}
       />

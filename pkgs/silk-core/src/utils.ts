@@ -65,3 +65,5 @@ type RemoveReadonly<T> =
 
 export const deepClone = <T>(obj: T): RemoveReadonly<T> =>
   clone(obj, false) as any
+
+export type Nullish = null | undefined

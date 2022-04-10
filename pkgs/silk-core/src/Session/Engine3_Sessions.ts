@@ -65,6 +65,8 @@ export class SilkSession extends Emitter<Events> {
   public redoHistory: ICommand[] = []
   // protected currentCommandTransaction = []
 
+  public historyLimit = 30
+
   protected constructor(public document: Document | null = null) {
     super()
 
@@ -123,7 +125,9 @@ export class SilkSession extends Emitter<Events> {
     if (!this.document) return
 
     await com.do(this.document)
+
     this.commandHistory.push(com)
+    this.commandHistory = this.commandHistory.slice(-this.historyLimit)
     this.redoHistory = []
   }
 
@@ -133,6 +137,8 @@ export class SilkSession extends Emitter<Events> {
     const [cmd] = this.commandHistory.splice(-1)
     await cmd.undo(this.document)
     this.redoHistory.push(cmd)
+
+    return cmd
   }
 
   public async redo() {
@@ -141,6 +147,8 @@ export class SilkSession extends Emitter<Events> {
     const [cmd] = this.redoHistory.splice(-1)
     await cmd.redo(this.document)
     this.commandHistory.push(cmd)
+
+    return cmd
   }
 
   public get activeLayer() {

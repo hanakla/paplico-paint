@@ -13,7 +13,7 @@ export class LayerPatchLayerAttr implements ICommand {
     patch,
     pathToTargetLayer,
   }: {
-    patch: LayerProperties
+    patch: Partial<LayerProperties>
     pathToTargetLayer: string[]
   }) {
     this.patch = patch
@@ -22,8 +22,8 @@ export class LayerPatchLayerAttr implements ICommand {
 
   async do(document: Document) {
     const layer = SilkDOMDigger.findLayer(document, this.pathToTargetLayer, {
-      kind: 'vector',
-    })!
+      strict: true,
+    })
 
     this.revertPatch = pick(
       layer as LayerProperties,
@@ -43,5 +43,9 @@ export class LayerPatchLayerAttr implements ICommand {
     SilkDOMDigger.findLayer(document, this.pathToTargetLayer, {
       kind: 'vector',
     })!.update((l) => assign(l, this.patch))
+  }
+
+  get effectedLayers(): string[][] {
+    return [this.pathToTargetLayer]
   }
 }

@@ -10,7 +10,7 @@ import {
 } from 'react'
 import { useClickAway, useToggle } from 'react-use'
 import { useDrag, useHover } from 'react-use-gesture'
-import { SilkDOM } from 'silk-core'
+import { SilkCommands, SilkDOM } from 'silk-core'
 import { rgba } from 'polished'
 import { any } from '🙌/utils/anyOf'
 import { SilkWebMath } from '🙌/utils/SilkWebMath'
@@ -732,22 +732,42 @@ const PathSegments = ({
   )
 
   const bindObjectDrag = useDrag(
-    ({ event, delta }) => {
-      const objectId = (event.target as SVGPathElement).dataset.objectId
+    (e) => {
+      const { event, delta, initial, xy, last } = e
+      if (!activeLayerPath) return
 
-      executeOperation(
-        EditorOps.updateVectorLayer,
-        activeLayerPath,
-        (layer) => {
-          const object = layer.objects.find((obj) => obj.uid === objectId)
-          if (!object) return
+      const objectUid = (event.target as SVGPathElement).dataset.objectId!
 
-          object.update((o) => {
-            o.x += delta[0] * (1 / canvasScale)
-            o.y += delta[1] * (1 / canvasScale)
+      if (last) {
+        executeOperation(
+          EditorOps.runCommand,
+          new SilkCommands.VectorLayer.TransformObject({
+            pathToTargetLayer: activeLayerPath,
+            objectUid: objectUid,
+            transform: {
+              movement: {
+                x: (xy[0] - initial[0]) * (1 / canvasScale),
+                y: (xy[1] - initial[1]) * (1 / canvasScale),
+              },
+            },
+            skipDo: true,
           })
-        }
-      )
+        )
+      } else {
+        executeOperation(
+          EditorOps.updateVectorLayer,
+          activeLayerPath,
+          (layer) => {
+            const object = layer.objects.find((obj) => obj.uid === objectUid)
+            if (!object) return
+
+            object.update((o) => {
+              o.x += delta[0] * (1 / canvasScale)
+              o.y += delta[1] * (1 / canvasScale)
+            })
+          }
+        )
+      }
     },
     { threshold: 2 }
   )

@@ -1,5 +1,5 @@
-import { SilkDOMDigger } from 'SilkDOMDigger'
-import { ICommand } from 'Session/ICommand'
+import { SilkDOMDigger } from '../../SilkDOMDigger'
+import { ICommand } from '../ICommand'
 import { Document, VectorObject } from '../../SilkDOM'
 
 export class VectorAddObject implements ICommand {
@@ -20,13 +20,15 @@ export class VectorAddObject implements ICommand {
   async do(document: Document) {
     SilkDOMDigger.findLayer(document, this.pathToTargetLayer, {
       kind: 'vector',
-    })!.objects.push(this.object)
+      strict: true,
+    }).objects.unshift(this.object)
   }
 
   async undo(document: Document): Promise<void> {
     const layer = SilkDOMDigger.findLayer(document, this.pathToTargetLayer, {
       kind: 'vector',
-    })!
+      strict: true,
+    })
 
     const idx = layer.objects.findIndex((o) => o.uid === this.object.uid)
     if (idx === -1) return
@@ -35,8 +37,13 @@ export class VectorAddObject implements ICommand {
   }
 
   async redo(document: Document): Promise<void> {
-    const layer = SilkDOMDigger.findLayer(document, this.pathToTargetLayer, {
+    SilkDOMDigger.findLayer(document, this.pathToTargetLayer, {
       kind: 'vector',
-    })!.objects.push(this.object)
+      strict: true,
+    }).objects.unshift(this.object)
+  }
+
+  get effectedLayers(): string[][] {
+    return [this.pathToTargetLayer]
   }
 }

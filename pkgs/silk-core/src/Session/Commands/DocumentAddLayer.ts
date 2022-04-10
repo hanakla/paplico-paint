@@ -29,4 +29,8 @@ export class DocumentAddLayer implements ICommand {
   async redo(document: Document): Promise<void> {
     document.addLayer(this.layer, { aboveLayerId: this.aboveOnLayerId })
   }
+
+  get effectedLayers(): string[][] {
+    return [[this.layer.uid]]
+  }
 }

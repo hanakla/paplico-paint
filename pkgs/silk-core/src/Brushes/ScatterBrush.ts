@@ -10,13 +10,9 @@ import {
   TextureLoader,
   Vector2,
   Path as ThreePath,
-  DynamicDrawUsage,
   Object3D,
   Color,
-  ShaderMaterial,
-  Vector3,
 } from 'three'
-// import { BRUSH1 } from './test_brushes'
 import { lerp } from '../SilkMath'
 import * as Textures from './ScatterTexture/assets'
 import { mergeToNew } from '../utils'
@@ -45,7 +41,7 @@ export class ScatterBrush implements IBrush {
   private materials: Record<string, MeshBasicMaterial> = {}
 
   public getInitialSpecificConfig(): ScatterBrush.ScatterSetting {
-    return { texture: 'pencil', divisions: 1000, scatterRange: 1 }
+    return { texture: 'pencil', divisions: 1000, scatterRange: 0.5 }
   }
 
   public async initialize() {

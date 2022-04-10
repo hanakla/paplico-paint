@@ -1,0 +1,6 @@
+*.ai
+yarn.lock
+
+src/
+spec/
+/*.ts

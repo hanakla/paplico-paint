@@ -7,7 +7,8 @@ import { Stroke } from './Stroke'
 import { mergeToNew, deepClone, setCanvasSize } from '../utils'
 import { LayerTypes, RasterLayer, VectorLayer, VectorObject } from '../SilkDOM'
 import { createContext2D } from '../Engine3_CanvasFactory'
-import PointerTracker from 'pointer-tracker'
+// import PointerTracker from 'pointer-tracker'
+import { Commands } from '../Session/Commands'
 
 type Events = {
   strokeStart: Stroke
@@ -156,7 +157,7 @@ export class CanvasHandler extends Emitter<Events> {
         this.compositeSourceCtx.drawImage(await activeLayer.imageBitmap, 0, 0)
 
         engine.compositeLayers(this.strokeCtx, this.compositeSourceCtx, {
-          mode: 'normal',
+          mode: session.pencilMode === 'draw' ? 'normal' : 'destination-out',
           opacity: 100,
         })
 
@@ -171,13 +172,16 @@ export class CanvasHandler extends Emitter<Events> {
           )
         })
       } else if (activeLayer.layerType === 'vector') {
-        activeLayer.objects.unshift(
-          VectorObject.create({
-            x: 0,
-            y: 0,
-            path: stroke.splinedPath,
-            fill: null,
-            brush: deepClone(session.brushSetting),
+        session.runCommand(
+          new Commands.VectorLayer.AddObject({
+            pathToTargetLayer: [activeLayer.uid],
+            object: VectorObject.create({
+              x: 0,
+              y: 0,
+              path: stroke.splinedPath,
+              fill: null,
+              brush: deepClone(session.brushSetting),
+            }),
           })
         )
       }
@@ -201,11 +205,13 @@ export class CanvasHandler extends Emitter<Events> {
 
   #handleMouseDown = (e: PointerEvent) => {
     this.currentStroke = new Stroke()
+    this.currentStroke.startTime = e.timeStamp
     this.currentStroke.updatePoints((points) => {
       points.push([
         e.offsetX,
         e.offsetY,
         e.pointerType === 'mouse' ? 1 : e.pressure,
+        0,
       ])
     })
 
@@ -224,26 +230,36 @@ export class CanvasHandler extends Emitter<Events> {
   }
 
   #handleMouseMove = (e: PointerEvent) => {
-    if (!this.currentStroke) return
+    const { currentStroke } = this
+    if (!currentStroke) return
 
-    this.currentStroke.updatePoints((points) => {
+    currentStroke.updatePoints((points) => {
       if (e.getCoalescedEvents) {
         e.getCoalescedEvents().forEach((e) => {
-          points.push([e.offsetX, e.offsetY, e.pressure])
+          points.push([
+            e.offsetX,
+            e.offsetY,
+            e.pressure,
+            e.timeStamp - currentStroke!.startTime,
+          ])
         })
       } else {
         // Fxxk safari
-        points.push([e.offsetX, e.offsetY, e.pressure])
+        points.push([
+          e.offsetX,
+          e.offsetY,
+          e.pressure,
+          e.timeStamp - currentStroke!.startTime,
+        ])
       }
     })
 
     // this.currentStroke.path = this.currentStroke.splinedPath
-    this.mitt.emit('tmpStroke', this.currentStroke)
+    this.mitt.emit('tmpStroke', currentStroke)
   }
 
   #handleMouseUp = () => {
     const { currentStroke } = this
-
     if (!currentStroke || !this.#strokingState) return
 
     this.#strokingState.touches--
@@ -261,6 +277,7 @@ export class CanvasHandler extends Emitter<Events> {
 
     currentStroke.simplify()
     currentStroke.freeze()
+    console.log(currentStroke)
     this.mitt.emit('strokeComplete', currentStroke)
   }
 

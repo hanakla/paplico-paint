@@ -61,6 +61,7 @@ import {
 import { CSS } from '@dnd-kit/utilities'
 import { PropsOf } from '🙌/utils/types'
 import { contextMenu } from 'react-contexify'
+import { Tooltip2 } from '🙌/components/Tooltip2'
 
 console.log({ contextMenu })
 
@@ -638,11 +639,13 @@ const SortableLayerItem = ({
             `}
           >
             {layer.layerType === 'vector' ? (
-              <Guide
-                css={`
-                  font-size: 12px;
-                `}
-              />
+              <Tooltip2 content={'ベクターレイヤー'}>
+                <Guide
+                  css={`
+                    font-size: 12px;
+                  `}
+                />
+              </Tooltip2>
             ) : null}
           </div>
 

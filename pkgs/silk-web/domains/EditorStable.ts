@@ -657,16 +657,23 @@ export const EditorSelector = {
     if (!object) return session?.brushSetting ?? null
     return object.brush
   }),
-  currentVectorFill: selector((get) => {
+  currentVectorFill: selector((get): SilkValue.FillSetting => {
+    const defaultFill: SilkValue.FillSetting = {
+      type: 'fill',
+      color: { r: 0.2, g: 0.2, b: 0.2 },
+      opacity: 1,
+    }
+
     const { session, currentFill, activeObjectId } = get(EditorStore)
-    if (session?.activeLayer?.layerType !== 'vector') return currentFill
+    if (session?.activeLayer?.layerType !== 'vector')
+      return currentFill ?? defaultFill
 
     const object = session?.activeLayer?.objects.find(
       (obj) => obj.uid === activeObjectId
     )
 
-    if (!object) return currentFill
-    return currentFill
+    if (object?.fill) return object.fill
+    return currentFill ?? defaultFill
   }),
 
   currentSession: selector((get) => get(EditorStore).session),

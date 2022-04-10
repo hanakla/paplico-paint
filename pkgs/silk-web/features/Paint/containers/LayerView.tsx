@@ -13,7 +13,7 @@ import { useClickAway, useToggle, useUpdate } from 'react-use'
 import { loadImageFromBlob, selectFile, useFunk } from '@hanakla/arma'
 import { rgba } from 'polished'
 import { usePopper } from 'react-popper'
-import { Add } from '@styled-icons/remix-fill'
+import { Add, Brush, Filter3 } from '@styled-icons/remix-fill'
 import { css } from 'styled-components'
 import { Portal } from '🙌/components/Portal'
 import {
@@ -23,7 +23,7 @@ import {
 } from 'react-sortable-hoc'
 import { centering, rangeThumb, silkScroll } from '🙌/utils/mixins'
 import { useTranslation } from 'next-i18next'
-import { ArrowDownS, Guide, Stack } from '@styled-icons/remix-line'
+import { ArrowDownS, Guide, Stack, Text } from '@styled-icons/remix-line'
 import { Eye, EyeClose } from '@styled-icons/remix-fill'
 import { useLayerControl } from '🙌/hooks/useLayers'
 import {
@@ -653,20 +653,44 @@ const SortableLayerItem = ({
 
           <div
             css={`
-              width: 14px;
+              width: 16px;
               flex: none;
               padding: 0 2px;
             `}
           >
-            {layer.layerType === 'vector' ? (
-              <Tooltip2 placement="right" content={'ベクターレイヤー'}>
-                <Guide
+            <Tooltip2
+              placement="right"
+              content={t(`layerType.${layer.layerType}`)}
+            >
+              {layer.layerType === 'filter' && (
+                <Filter3
                   css={`
-                    font-size: 12px;
+                    font-size: 16px;
                   `}
                 />
-              </Tooltip2>
-            ) : null}
+              )}
+              {layer.layerType === 'raster' && (
+                <Brush
+                  css={`
+                    font-size: 16px;
+                  `}
+                />
+              )}
+              {layer.layerType === 'text' &&
+                // <Text
+                //   css={`
+                //     font-size: 16px;
+                //   `}
+                // />
+                'T'}
+              {layer.layerType === 'vector' && (
+                <Guide
+                  css={`
+                    font-size: 16px;
+                  `}
+                />
+              )}
+            </Tooltip2>
           </div>
 
           <div

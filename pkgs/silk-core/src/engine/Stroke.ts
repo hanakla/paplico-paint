@@ -130,6 +130,7 @@ export class Stroke {
   }
 
   public freeze() {
+    // Warm caches
     if (!this._path) this.path.closed
     if (!this._splined) this.splinedPath.closed
 

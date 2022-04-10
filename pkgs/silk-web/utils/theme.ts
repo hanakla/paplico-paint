@@ -1,4 +1,5 @@
 import { rgba, invert, grayscale } from 'polished'
+import { CharcoalTheme } from '@charcoal-ui/theme'
 import createTheme from '@charcoal-ui/styled'
 import styled from 'styled-components'
 
@@ -136,7 +137,7 @@ export const lightTheme = {
   exactColors: baseColors,
 }
 
-export type ThemeType = typeof darkTheme
+export type ThemeType = typeof darkTheme & CharcoalTheme
 
 export const tm = createTheme(styled)
 
@@ -144,3 +145,5 @@ declare module 'styled-components' {
   // interface DefaultTheme extends ThemeType {}
   interface DefaultTheme extends CharcoalTheme {}
 }
+
+export type ThemeProp<T = {}> = T & { theme: ThemeType }

@@ -6,7 +6,7 @@ import { rgba, readableColor, rgb } from 'polished'
 import { usePopper } from 'react-popper'
 import { SilkBrushes, SilkDOM } from 'silk-core'
 import { useTranslation } from 'next-i18next'
-import { useClickAway, useToggle, useUpdate } from 'react-use'
+import { useClickAway, useToggle } from 'react-use'
 import { Brush, Close, Eraser, Pencil, Stack } from '@styled-icons/remix-line'
 import { Cursor } from '@styled-icons/remix-fill'
 import { useTheme } from 'styled-components'
@@ -664,7 +664,6 @@ const BrushItem = ({
 
 const VectorColorPicker = ({
   opened,
-  object,
   mode,
 }: {
   opened: boolean
@@ -677,9 +676,16 @@ const VectorColorPicker = ({
   const { t } = useTranslation('app')
 
   const { executeOperation } = useFleurContext()
-  const { currentVectorBrush, defaultVectorBrush } = useStore((get) => ({
+  const {
+    currentVectorBrush,
+    currentVectorFill,
+    defaultVectorBrush,
+    // activeObject,
+  } = useStore((get) => ({
     currentVectorBrush: EditorSelector.currentVectorBrush(get),
+    currentVectorFill: EditorSelector.currentVectorFill(get),
     defaultVectorBrush: EditorSelector.defaultVectorBrush(get),
+    activeObject: EditorSelector.activeObject(get),
   }))
 
   const fl = useFloating({
@@ -691,18 +697,18 @@ const VectorColorPicker = ({
     // handleChangeFillMode
   })
 
-  const handleChangeStrokeColor: ColorChangeHandler = useFunk(
-    ({ rgb: { r, g, b } }) => {
-      executeOperation(EditorOps.updateActiveObject, (obj) => {
-        obj.brush = obj.brush
-          ? { ...obj.brush, color: { r, g, b } }
-          : {
-              ...(currentVectorBrush ?? defaultVectorBrush),
-              color: { r, g, b },
-            }
-      })
-    }
-  )
+  console.log({ currentVectorBrush, currentVectorFill })
+
+  const handleChangeStrokeColor: ColorChangeHandler = useFunk(({ rgb }) => {
+    executeOperation(EditorOps.updateActiveObject, (obj) => {
+      obj.brush = obj.brush
+        ? { ...obj.brush, color: toRationalColor(rgb) }
+        : {
+            ...(currentVectorBrush ?? defaultVectorBrush),
+            color: toRationalColor(rgb),
+          }
+    })
+  })
 
   useEffect(() => {
     fl.reference(fl.refs.floating.current!.parentElement)
@@ -734,7 +740,7 @@ const VectorColorPicker = ({
                     value: 'linear-gradient',
                   },
                 ]}
-                value={object.fill?.type}
+                value={currentVectorFill?.type}
                 placeholder={t('vectorColorPicker.noFill')}
                 placement="auto"
                 onChange={handleChangeFillMode}
@@ -750,7 +756,7 @@ const VectorColorPicker = ({
             </div>
           </>
         )}
-        {mode === 'stroke' && object.brush && (
+        {mode === 'stroke' && currentVectorBrush && (
           <ChromePicker
             css={`
               position: absolute;
@@ -758,7 +764,7 @@ const VectorColorPicker = ({
               bottom: 100%;
               transform: translateX(-50%);
             `}
-            color={object.brush?.color}
+            color={currentVectorBrush.color}
             onChange={handleChangeStrokeColor}
             onChangeComplete={handleChangeStrokeColor}
           />
@@ -775,4 +781,10 @@ const CustomColorPicker = CustomPicker((props) => {
       <Saturation {...props} />
     </div>
   )
+})
+
+const toRationalColor = ({ r, g, b }: Record<'r' | 'g' | 'b', number>) => ({
+  r: r / 255,
+  g: g / 255,
+  b: b / 255,
 })

@@ -25,6 +25,7 @@ export declare namespace ScatterBrush {
     texture: keyof typeof Textures
     divisions: number
     scatterRange: number
+    fadeForce: number
   }
 }
 
@@ -41,7 +42,12 @@ export class ScatterBrush implements IBrush {
   private materials: Record<string, MeshBasicMaterial> = {}
 
   public getInitialSpecificConfig(): ScatterBrush.ScatterSetting {
-    return { texture: 'pencil', divisions: 1000, scatterRange: 0.5 }
+    return {
+      texture: 'pencil',
+      divisions: 1000,
+      scatterRange: 0.5,
+      fadeForce: 1,
+    }
   }
 
   public async initialize() {
@@ -117,6 +123,7 @@ export class ScatterBrush implements IBrush {
     this.scene.add(mesh)
 
     const seed = fastRandom(inputPath.randomSeed)
+    // const totalLength = inputPath.getTotalLength()
     for (let idx = 0; idx < counts; idx++) {
       const frac = idx / counts
       path.getPoint(frac, _translate2d)
@@ -130,7 +137,19 @@ export class ScatterBrush implements IBrush {
         ),
         0
       )
-      _object.scale.set(brushSetting.size, brushSetting.size, 1)
+
+      // prettier-ignore
+      const fadeWeight =
+        frac <= .15 ? MathUtils.lerp(0, 1, Math.min(frac, .15) / .15)
+        : frac >= (1 - .15) ? MathUtils.lerp(0, 1, Math.min(1 - frac, 0.15) / 0.15)
+        : 1
+      const pressureWeight = 0.2 + inputPath.getPressureAt(frac) * 0.8
+
+      _object.scale.set(
+        brushSetting.size * pressureWeight * fadeWeight,
+        brushSetting.size * pressureWeight * fadeWeight,
+        1
+      )
       _object.rotation.z = seed.nextFloat() * 360
 
       const tangent = path.getTangentAt(frac).normalize()

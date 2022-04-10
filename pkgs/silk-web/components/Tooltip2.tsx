@@ -22,15 +22,19 @@ export const Tooltip2 = ({
   show,
   placement = 'top',
 }: Props) => {
-  const id = useMemo(() => nanoid(), [])
+  const id = useMemo(() => nanoid().replace(/-/gm, ''), [])
   const arrowRef = useRef<HTMLDivElement | null>(null)
 
   const fl = useFloating({
     placement,
     strategy: 'fixed',
     middleware: [
-      autoPlacement({ alignment: 'start', allowedPlacements: ['top'] }),
-      arrow({ element: arrowRef }),
+      autoPlacement({
+        alignment: 'start',
+        allowedPlacements: ['top'],
+        padding: 2,
+      }),
+      arrow({ element: arrowRef, padding: 2 }),
     ],
   })
 
@@ -50,6 +54,7 @@ export const Tooltip2 = ({
       <div
         css={`
           position: fixed;
+          z-index: 1;
           padding: 4px;
           background-color: #111;
           border-radius: 4px;
@@ -66,12 +71,12 @@ export const Tooltip2 = ({
           top: fl.y ?? 0,
         }}
       >
-        {content}
         <div
           css={`
             position: absolute;
-            width: 6px;
-            height: 6px;
+            z-index: 0;
+            width: 8px;
+            height: 8px;
             transform: rotate(45deg);
             background-color: #111;
           `}
@@ -82,6 +87,14 @@ export const Tooltip2 = ({
             top: fl.middlewareData.arrow?.y ?? 0,
           }}
         />
+
+        <span
+          css={`
+            position: relative;
+          `}
+        >
+          {content}
+        </span>
       </div>
       <Global id={id} show={show} />
 
@@ -91,7 +104,7 @@ export const Tooltip2 = ({
 }
 
 const Global = createGlobalStyle<{ id: string; show?: boolean }>`
-* > [data-tipid=${({ id }) => id}] {
+* > [data-tipid="${({ id }) => id}"] {
   opacity: 0;
   pointer-events: none;
   transition: 0.2s ease-in-out;
@@ -99,7 +112,7 @@ const Global = createGlobalStyle<{ id: string; show?: boolean }>`
   opacity: ${({ show }) => (show ? 1 : 0)};
 }
 
-*:hover > [data-tipid=${({ id }) => id}] {
+*:hover > [data-tipid="${({ id }) => id}"] {
   opacity: 1;
 }
 `

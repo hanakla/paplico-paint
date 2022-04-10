@@ -1,3 +1,4 @@
+import { rgba } from 'polished'
 import { forwardRef, DetailedHTMLProps, InputHTMLAttributes } from 'react'
 import { css } from 'styled-components'
 import { media } from '../utils/responsive'
@@ -20,9 +21,10 @@ export const FakeInput = forwardRef<
         outline: none;
         font-size: inherit;
         background-color: ${({ theme }) => theme.colors.whiteFade10};
+        color: ${({ theme }) => theme.color.text1};
 
         &::placeholder {
-          color: #d9d9d9;
+          color: ${({ theme }) => theme.color.text2};
         }
 
         ${media.narrow`

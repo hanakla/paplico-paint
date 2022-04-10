@@ -1,3 +1,4 @@
+import { ThemeProp } from '@charcoal-ui/styled'
 import { useFunk } from '@hanakla/arma'
 import { Placement } from '@popperjs/core'
 import { ArrowDownS, Check } from '@styled-icons/remix-line'
@@ -59,7 +60,7 @@ export const SelectBox = ({
         border: 1px solid ${rgba('#aaa', 0.2)};
         border-radius: 4px;
         background-color: ${({ theme }) => theme.color.surface3};
-        /* color: ${({ theme }) => theme.exactColors.black50}; */
+        color: ${({ theme }) => theme.color.text2};
 
         &::placeholder {
           color: ${({ theme }) => theme.exactColors.black30};

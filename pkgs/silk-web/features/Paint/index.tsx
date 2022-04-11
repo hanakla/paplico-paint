@@ -320,7 +320,9 @@ export function PaintPage({}) {
       session,
       strategy,
     })
-    executeOperation(EditorOps.setBrush, SilkBrushes.ScatterBrush.id)
+    executeOperation(EditorOps.setBrushSetting, {
+      brushId: SilkBrushes.ScatterBrush.id,
+    })
 
     if (process.env.NODE_ENV !== 'development') {
     } else {

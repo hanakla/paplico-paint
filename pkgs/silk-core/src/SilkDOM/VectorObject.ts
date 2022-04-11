@@ -7,7 +7,19 @@ import { BrushSetting } from '../Value/BrushSetting'
 import { FillSetting } from '../Value/FillSetting'
 import { assign, deepClone } from '../utils'
 
-export class VectorObject implements ISilkDOMElement {
+export declare namespace VectorObject {
+  interface Attributes {
+    x: number
+    y: number
+    /** 0..360 */
+    rotate: number
+    scale: [number, number]
+    brush: BrushSetting | null
+    fill: FillSetting | null
+  }
+}
+
+export class VectorObject implements ISilkDOMElement, VectorObject.Attributes {
   public readonly uid: string = `vectorobj-${v4()}`
 
   public x: number = 0
@@ -22,7 +34,7 @@ export class VectorObject implements ISilkDOMElement {
   // public appearances: ObjectAppearance[]
 
   /** Mark for re-rendering decision */
-  protected _lastUpdatedAt = Date.now()
+  protected _contentUpdatedAt = Date.now()
 
   public static create({
     x,
@@ -68,7 +80,7 @@ export class VectorObject implements ISilkDOMElement {
   protected constructor() {}
 
   public get lastUpdatedAt() {
-    return this._lastUpdatedAt
+    return this._contentUpdatedAt
   }
 
   public get matrix() {
@@ -86,8 +98,7 @@ export class VectorObject implements ISilkDOMElement {
 
   public update(proc: (layer: this) => void) {
     proc(this)
-    this._lastUpdatedAt = Date.now()
-    // this.emit('updated', this)
+    this._contentUpdatedAt = Date.now()
   }
 
   public getBoundingBox() {

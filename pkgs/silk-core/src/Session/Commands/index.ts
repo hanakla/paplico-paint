@@ -3,6 +3,7 @@ import { DocumentAddLayer } from './DocumentAddLayer'
 
 import { LayerPatchLayerAttr } from './LayerPatchLayerAttr'
 import { VectorAddObject } from './VectorAddObject'
+import { VectorObjectPatchAttr } from './VectorObjectPatchAttr'
 import { VectorObjectTransform } from './VectorObjectTransform'
 import { VectorObjectRemovePoint } from './VectorObjectRemovePoint'
 
@@ -15,6 +16,7 @@ export const Commands = {
   Layer: { PatchLayerAttr: LayerPatchLayerAttr },
   VectorLayer: {
     AddObject: VectorAddObject,
+    PatchObjectAttr: VectorObjectPatchAttr,
     TransformObject: VectorObjectTransform,
     RemovePathPoint: VectorObjectRemovePoint,
   },

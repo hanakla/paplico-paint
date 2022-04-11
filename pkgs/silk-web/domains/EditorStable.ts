@@ -49,7 +49,7 @@ interface State {
   currentTool: Tool
   currentFill: SilkValue.FillSetting | null
   currentStroke: SilkValue.BrushSetting | null
-  activeLayerId: string[] | null
+  activeLayerPath: string[] | null
   activeObjectId: string | null
   activeObjectPointIndices: number[]
   selectedFilterIds: { [id: string]: true | undefined }
@@ -90,7 +90,7 @@ export const [EditorStore, EditorOps] = minOps('Editor', {
     currentTool: 'cursor',
     currentFill: null,
     currentStroke: null,
-    activeLayerId: null,
+    activeLayerPath: null,
     activeObjectId: null,
     activeObjectPointIndices: [],
     selectedFilterIds: {},
@@ -123,11 +123,11 @@ export const [EditorStore, EditorOps] = minOps('Editor', {
       })
 
       session.on('activeLayerChanged', (s) => {
-        if (shallowEquals(x.getState().activeLayerId, s.activeLayer?.uid))
+        if (shallowEquals(x.getState().activeLayerPath, s.activeLayer?.uid))
           return
 
         x.commit({
-          activeLayerId: s.activeLayer?.uid ?? null,
+          activeLayerPath: s.activeLayer?.uid ?? null,
           activeObjectId: null,
           activeObjectPointIndices: [],
         })
@@ -168,7 +168,8 @@ export const [EditorStore, EditorOps] = minOps('Editor', {
 
         d.session!.setDocument(document)
         // TODO
-        d.activeLayerId = [document?.activeLayerId] ?? null
+        d.activeLayerPath = [document?.activeLayerId!] ?? null
+
         if (document && d.renderStrategy)
           d.engine?.render(document, d.renderStrategy)
       })
@@ -289,17 +290,26 @@ export const [EditorStore, EditorOps] = minOps('Editor', {
     setStroke: (x, stroke: SilkValue.BrushSetting | null) => {
       x.commit({ currentStroke: stroke })
     },
-    /** @deprecated */
-    setBrush(x, brushId: string) {
-      x.commit((d) => {
-        d.session!.currentBursh =
-          d.engine?.toolRegistry.getBrushInstance(brushId)!
-      })
-    },
     setBrushSetting(x, setting: Partial<BrushSetting>) {
       x.commit((draft) => {
         draft.session!.setBrushSetting(setting)
       })
+    },
+
+    setAndUpdateVectorStroke: (x, stroke: Partial<BrushSetting> | null) => {
+      const activeLayerPath = x.state.activeLayerPath
+      const activeObject = EditorSelector.activeObject(x.getStore)
+
+      if (activeObject && x.state.session) {
+        x.state.session.runCommand(
+          new SilkCommands.VectorLayer.PatchObjectAttr({
+            pathToTargetLayer: a,
+            patch: { brush: Object.assign({}, activeObject.brush, stroke) },
+          })
+        )
+      }
+
+      x.commit({ vectorStroking })
     },
 
     setActiveLayer: (x, path: string[], objectUid?: string) => {
@@ -308,7 +318,7 @@ export const [EditorStore, EditorOps] = minOps('Editor', {
       x.commit((draft) => {
         draft.session?.setActiveLayer(path)
 
-        draft.activeLayerId = path
+        draft.activeLayerPath = path
         draft.activeObjectId = objectUid ?? null
         draft.activeObjectPointIndices = []
         draft.selectedFilterIds = {}
@@ -326,7 +336,7 @@ export const [EditorStore, EditorOps] = minOps('Editor', {
 
         if (layerPath != null) {
           d.session?.setActiveLayer(layerPath)
-          d.activeLayerId = layerPath
+          d.activeLayerPath = layerPath
         }
 
         d.activeObjectId = objectId
@@ -578,9 +588,9 @@ export const [EditorStore, EditorOps] = minOps('Editor', {
     },
     deleteSelectedFilters: (x) => {
       x.commit((d) => {
-        if (!d.activeLayerId) return
+        if (!d.activeLayerPath) return
 
-        SilkDOMDigger.findLayer(d.currentDocument!, d.activeLayerId)?.update(
+        SilkDOMDigger.findLayer(d.currentDocument!, d.activeLayerPath)?.update(
           (layer) => {
             for (const filterId of Object.keys(d.selectedFilterIds)) {
               const idx = layer.filters.findIndex((f) => f.uid === filterId)
@@ -595,7 +605,7 @@ export const [EditorStore, EditorOps] = minOps('Editor', {
     },
     deleteSelectedObjectPoints: async (x) => {
       if (
-        !x.state.activeLayerId ||
+        !x.state.activeLayerPath ||
         !x.state.activeObjectId ||
         x.state.session?.activeLayer?.layerType !== 'vector'
       )
@@ -603,7 +613,7 @@ export const [EditorStore, EditorOps] = minOps('Editor', {
 
       await x.state.session?.runCommand(
         new SilkCommands.VectorLayer.RemovePathPoint({
-          pathToTargetLayer: x.state.activeLayerId,
+          pathToTargetLayer: x.state.activeLayerPath,
           pointIndices: x.state.activeObjectPointIndices,
           objectUid: x.state.activeObjectId,
         })
@@ -679,7 +689,7 @@ export const EditorSelector = {
   currentSession: selector((get) => get(EditorStore).session),
   currentDocument: selector((get) => get(EditorStore).session?.document),
   activeLayer: selector((get) => get(EditorStore).session?.activeLayer),
-  activeLayerPath: selector((get) => get(EditorStore).activeLayerId),
+  activeLayerPath: selector((get) => get(EditorStore).activeLayerPath),
   activeObject: selector((get): SilkDOM.VectorObject | null => {
     const { session, activeObjectId } = get(EditorStore)
 

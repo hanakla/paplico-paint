@@ -150,6 +150,7 @@ export class ScatterBrush implements IBrush {
         brushSetting.size * pressureWeight * fadeWeight,
         1
       )
+
       _object.rotation.z = seed.nextFloat() * 360
 
       const tangent = path.getTangentAt(frac).normalize()

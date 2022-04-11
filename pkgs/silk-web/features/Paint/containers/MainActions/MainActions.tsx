@@ -8,7 +8,7 @@ import { SilkBrushes, SilkDOM } from 'silk-core'
 import { useTranslation } from 'next-i18next'
 import { useClickAway, useToggle } from 'react-use'
 import { Brush, Close, Eraser, Pencil, Stack } from '@styled-icons/remix-line'
-import { Cursor } from '@styled-icons/remix-fill'
+import { Cursor, Edit } from '@styled-icons/remix-fill'
 import { useTheme } from 'styled-components'
 import { Portal } from '🙌/components/Portal'
 import { FloatMenu } from '🙌/components/FloatMenu'
@@ -25,6 +25,7 @@ import {
   shift,
   useFloating,
 } from '@floating-ui/react-dom'
+import { Tab, TabBar } from '🙌/components/TabBar'
 
 export function MainActions() {
   const theme = useTheme()
@@ -428,7 +429,7 @@ export function MainActions() {
             />
             <VectorColorPicker
               opened={vectorColorOpened}
-              mode={vectorColorTarget}
+              target={vectorColorTarget}
             />
           </div>
         )}
@@ -664,11 +665,11 @@ const BrushItem = ({
 
 const VectorColorPicker = ({
   opened,
-  mode,
+  target,
 }: {
   opened: boolean
   object: SilkDOM.VectorObject
-  mode: 'fill' | 'stroke'
+  target: 'fill' | 'stroke'
   // color: Color
   // onChange: ColorChangeHandler
   // onChangeComplete: ColorChangeHandler
@@ -688,9 +689,19 @@ const VectorColorPicker = ({
     activeObject: EditorSelector.activeObject(get),
   }))
 
+  const [tab, setTab] = useState<'solid' | 'gradient'>('solid')
+
   const fl = useFloating({
     placement: 'top',
     middleware: [shift(), autoPlacement({ alignment: 'start' })],
+  })
+
+  const handleClickTab = useFunk((tabName) => {
+    setTab(tabName)
+
+    if (target === 'fill') {
+      executeOperation(EditorOps.setAndUpdateVectorStroke)
+    }
   })
 
   const handleChangeFillMode = useFunk(() => {
@@ -718,6 +729,10 @@ const VectorColorPicker = ({
   return (
     <div
       ref={fl.floating}
+      css={`
+        border-radius: 4px;
+        overflow: hidden;
+      `}
       style={{
         position: fl.strategy,
         left: fl.x ?? 0,
@@ -729,23 +744,25 @@ const VectorColorPicker = ({
       data-ignore-click
     >
       <div>
-        {mode === 'fill' && (
+        <TabBar>
+          <Tab
+            tabName="solid"
+            active={tab === 'solid'}
+            onClick={handleClickTab}
+          >
+            単色
+          </Tab>
+          <Tab
+            tabName="gradient"
+            active={tab === 'gradient'}
+            onClick={handleClickTab}
+          >
+            グラデーション
+          </Tab>
+        </TabBar>
+
+        {target === 'fill' && (
           <>
-            <div>
-              <SelectBox
-                items={[
-                  { label: t('vectorColorPicker.modes.solid'), value: 'solid' },
-                  {
-                    label: t('vectorColorPicker.modes.linearGradient'),
-                    value: 'linear-gradient',
-                  },
-                ]}
-                value={currentVectorFill?.type}
-                placeholder={t('vectorColorPicker.noFill')}
-                placement="auto"
-                onChange={handleChangeFillMode}
-              />
-            </div>
             <div
               css={`
                 position: relative;
@@ -756,7 +773,7 @@ const VectorColorPicker = ({
             </div>
           </>
         )}
-        {mode === 'stroke' && currentVectorBrush && (
+        {target === 'stroke' && currentVectorBrush && (
           <ChromePicker
             css={`
               position: absolute;
@@ -777,8 +794,7 @@ const VectorColorPicker = ({
 const CustomColorPicker = CustomPicker((props) => {
   return (
     <div>
-      <Hue {...props} />
-      <Saturation {...props} />
+      <ChromePicker />
     </div>
   )
 })

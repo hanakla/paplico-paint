@@ -210,7 +210,18 @@ export class Path implements ISilkDOMElement {
     // SEE: https://developer.mozilla.org/ja/docs/Web/API/PointerEvent/pressure#return_value
     const defaultPressure = 0.5
     const tAtFragment =
-      segmentLength === 0 ? 1 : (len - prevLength) / (nextLength - prevLength)
+      segmentLength === 0 ? 1 : (len - prevLength) / segmentLength
+
+    console.log({
+      prev: prevLength,
+      next: nextLength,
+      len,
+      total: this.getTotalLength(),
+      pal: this.pal,
+      prevLength,
+      segmentLength,
+      tAtFragment,
+    })
 
     return lerp(
       prev.element.pressure ?? defaultPressure,

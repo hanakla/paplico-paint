@@ -126,6 +126,7 @@ export class ScatterBrush implements IBrush {
     // const totalLength = inputPath.getTotalLength()
     for (let idx = 0; idx < counts; idx++) {
       const frac = idx / counts
+
       path.getPoint(frac, _translate2d)
 
       _object.position.set(

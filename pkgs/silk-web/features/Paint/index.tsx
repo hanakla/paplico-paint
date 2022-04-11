@@ -370,7 +370,8 @@ export function PaintPage({}) {
       document.layers.push(filter)
       document.layers.push(group)
 
-      await executeOperation(EditorOps.setActiveLayer, layer.uid)
+      // await executeOperation(EditorOps.createSession, document)
+      await executeOperation(EditorOps.setActiveLayer, [layer.uid])
 
       await executeOperation(EditorOps.setFill, {
         type: 'linear-gradient',

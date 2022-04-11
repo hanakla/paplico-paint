@@ -1,6 +1,7 @@
 import { minOps, selector } from '@fleur/fleur'
 import arrayMove from 'array-move'
 import { debounce } from 'debounce'
+import { nanoid } from 'nanoid'
 import {
   SilkSession,
   Silk3,
@@ -34,6 +35,20 @@ type VectorStroking = {
 interface State {
   engine: Silk3 | null
   session: SilkSession | null
+
+  sessions: Record<
+    string,
+    {
+      sid: string
+      session: SilkSession
+      renderStrategy: RenderStrategies.DifferenceRender | null
+      currentFileHandler: FileSystemFileHandle | null
+      canvasScale: number
+      canvasPosition: { x: number; y: number }
+    }
+  >
+  activeSessionId: string | null
+
   renderStrategy: RenderStrategies.DifferenceRender | null
 
   currentFileHandler: FileSystemFileHandle | null
@@ -76,6 +91,8 @@ export const [EditorStore, EditorOps] = minOps('Editor', {
     session: null,
     renderStrategy: null,
 
+    sessions: Object.create(null),
+    activeSessionId: null,
     currentFileHandler: null,
 
     currentTheme: 'light',
@@ -245,6 +262,30 @@ export const [EditorStore, EditorOps] = minOps('Editor', {
         updatedAt: new Date(),
       })
     },
+    async createSession(x, document: SilkDOM.Document) {
+      const session = await SilkSession.create()
+      const renderStrategy = new RenderStrategies.DifferenceRender()
+
+      session.setDocument(document)
+      session.setBrushSetting({ color: { r: 0.3, g: 0.3, b: 0.3 } })
+      session.setRenderStrategy(renderStrategy)
+
+      x.commit((d) => {
+        const sid = nanoid()
+
+        d.session = session
+        d.sessions[sid] = {
+          sid,
+          session,
+          canvasPosition: { x: 0, y: 0 },
+          canvasScale: 1,
+          currentFileHandler: null,
+          renderStrategy,
+        }
+
+        d.activeSessionId = sid
+      })
+    },
     // #endregion Engine & Session
 
     // #region UI
@@ -300,16 +341,17 @@ export const [EditorStore, EditorOps] = minOps('Editor', {
       const activeLayerPath = x.state.activeLayerPath
       const activeObject = EditorSelector.activeObject(x.getStore)
 
-      if (activeObject && x.state.session) {
+      if (activeLayerPath && activeObject && x.state.session) {
         x.state.session.runCommand(
           new SilkCommands.VectorLayer.PatchObjectAttr({
-            pathToTargetLayer: a,
+            pathToTargetLayer: activeLayerPath,
+            objectUid: activeObject.uid,
             patch: { brush: Object.assign({}, activeObject.brush, stroke) },
           })
         )
       }
 
-      x.commit({ vectorStroking })
+      // x.commit({ vectorStroking })
     },
 
     setActiveLayer: (x, path: string[], objectUid?: string) => {
@@ -642,8 +684,24 @@ export const EditorSelector = {
   }),
 
   // #region UI
-  canvasScale: selector((get) => get(EditorStore).canvasScale),
-  canvasPosition: selector((get) => get(EditorStore).canvasPosition),
+  activeSession: selector((get) => {
+    // const { activeSessionId, sessions } = get(EditorStore)
+    // if (!activeSessionId) return null
+    // return sessions[activeSessionId]
+    return get(EditorStore).session
+  }),
+  canvasScale: selector((get) => {
+    // const { activeSessionId, sessions } = get(EditorStore)
+    // if (!activeSessionId) return 1
+    // return sessions[activeSessionId].canvasScale ?? 1
+    return get(EditorStore).canvasScale
+  }),
+  canvasPosition: selector((get) => {
+    // const { activeSessionId, sessions } = get(EditorStore)
+    // if (!activeSessionId) return { x: 0, y: 0 }
+    // return sessions[activeSessionId].canvasPosition ?? { x: 0, y: 0 }
+    return get(EditorStore).canvasPosition
+  }),
   // #endregon
 
   // #region Document

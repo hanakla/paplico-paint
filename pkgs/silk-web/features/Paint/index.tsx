@@ -325,6 +325,10 @@ export function PaintPage({}) {
     })
 
     if (process.env.NODE_ENV !== 'development') {
+      const document = EditorSelector.currentDocument(getStore)
+      if (document) {
+        executeOperation(EditorOps.setActiveLayer, [document.layers[0].uid])
+      }
     } else {
       const document = SilkDOM.Document.create({ width: 1000, height: 1000 })
       // session.setDocument(document)

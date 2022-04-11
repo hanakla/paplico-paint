@@ -8,7 +8,7 @@ packer.register(
   Uint8ClampedArray,
   (obj: Uint8ClampedArray) => Buffer.from(obj.buffer),
   (buffer) => {
-    return new Uint8ClampedArray(buffer.buffer)
+    return new Uint8ClampedArray(buffer)
   }
 )
 

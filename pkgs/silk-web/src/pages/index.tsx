@@ -1,4 +1,5 @@
 import type {} from '../utils/styled-theme'
+import type {} from '../declarations'
 
 import 'react-contexify/dist/ReactContexify.css'
 import React, { useEffect, useMemo } from 'react'

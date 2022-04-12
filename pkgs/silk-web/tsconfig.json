@@ -14,7 +14,7 @@
     "strict": true,
     "jsx": "preserve",
     "paths": {
-      "🙌/*": ["./*"]
+      "🙌/*": ["./src/*"]
     },
     "incremental": true
   },

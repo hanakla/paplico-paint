@@ -12,11 +12,16 @@
     "watch:source": "bili --watch",
     "dev": "run-p -c watch:*",
     "build": "run-p build:*",
+    "test": "NODE_OPTIONS=--experimental-vm-modules yarn jest",
     "clean-dist": "rm -rf ./dist",
     "prepublishOnly": "yarn clean-dist && yarn build"
   },
   "dependencies": {
+    "@babel/preset-env": "^7.16.11",
+    "@swc/core": "^1.2.165",
+    "@swc/jest": "^0.2.20",
     "@yr/catmull-rom-spline": "^1.0.3",
+    "babel-jest": "^27.5.1",
     "clone": "^2.1.2",
     "dommatrix": "^0.0.24",
     "fast-random": "^2.0.4",
@@ -40,7 +45,7 @@
     "wasm-flood-fill": "^1.1.1"
   },
   "devDependencies": {
-    "@babel/core": "^7.17.8",
+    "@babel/core": "^7.17.9",
     "@babel/preset-typescript": "^7.16.7",
     "@rollup/plugin-image": "^2.1.0",
     "@types/clone": "^2.1.1",

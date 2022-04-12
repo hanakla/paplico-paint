@@ -59,6 +59,7 @@ import { Tooltip } from '🙌/components/Tooltip'
 import { NotifyOps, useNotifyConsumer } from '🙌/domains/Notify'
 import { SidebarPane } from '🙌/components/SidebarPane'
 import { BrushPresets } from './containers/BrushPresets'
+import { ThemeProp } from '🙌/utils/theme'
 
 export function PaintPage({}) {
   const { t } = useTranslation('app')
@@ -451,6 +452,13 @@ export function PaintPage({}) {
         `}
         tabIndex={-1}
       >
+        <div
+          css={`
+            background-color: ${({ theme }: ThemeProp) => theme.color.surface2};
+          `}
+        >
+          もどる
+        </div>
         <>
           <div
             css={`

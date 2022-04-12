@@ -4,11 +4,21 @@ import {
   LayerProperties as LayerAttributes,
 } from './IRenderable'
 import { v4 } from 'uuid'
-import { Path } from './Path'
 import { VectorObject } from './VectorObject'
 import { Filter } from './Filter'
 import { assign } from '../utils'
 import { Emitter } from '../Engine3_Emitter'
+import { AtomicResource } from '../AtomicResource'
+import {
+  produce,
+  createDraft,
+  current,
+  enablePatches,
+  finishDraft,
+  immerable,
+  applyPatches,
+  Patch,
+} from 'immer'
 
 type Events = LayerEvents<VectorLayer>
 
@@ -32,6 +42,7 @@ export class VectorLayer extends Emitter<Events> implements ILayer {
 
   /** Mark for re-rendering decision */
   protected _lastUpdatedAt = Date.now()
+  protected _transaction = new AtomicResource({})
 
   public static create(
     attrs: Partial<
@@ -71,6 +82,33 @@ export class VectorLayer extends Emitter<Events> implements ILayer {
 
   public get lastUpdatedAt() {
     return this._lastUpdatedAt
+  }
+
+  public createTransaction() {
+    enablePatches()
+    ;(this as any)[immerable] = true
+    const patches: Patch[] = []
+    const inverses: Patch[] = []
+
+    const base = Object.setPrototypeOf({ ...this }, VectorLayer.prototype)
+
+    return {
+      update: (patcher: (layer: VectorLayer) => void) => {
+        produce(base, patcher, (patches, inverse) => {
+          patches.push(...patches)
+          inverses.push(...inverse)
+
+          console.log(patches)
+          applyPatches(this, patches)
+        })
+      },
+      rollback: () => {
+        applyPatches(this, inverses)
+      },
+      commit: () => {
+        applyPatches(this, patches)
+      },
+    }
   }
 
   public update(proc: (layer: this) => void) {

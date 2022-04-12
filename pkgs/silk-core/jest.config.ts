@@ -5,10 +5,23 @@ const config: Config.InitialOptions = {
   testEnvironment: 'node',
   testRegex: '.*\\.spec\\.tsx?$',
   // setupFiles: ['jest-canvas-mock'],
-  globals: {
-    'ts-jest': {
-      isolatedModules: true,
-    },
+  transform: {
+    '^.+\\.[tj]s$': [
+      '@swc/jest',
+      {
+        jsc: {
+          parser: {
+            syntax: 'typescript',
+            exportNamespaceFrom: true,
+            exportDefaultFrom: true,
+          },
+          target: 'es2015',
+        },
+      },
+    ],
+  },
+  moduleNameMapper: {
+    '^(\\.{1,2}/.*)\\.js$': '$1',
   },
 }
 

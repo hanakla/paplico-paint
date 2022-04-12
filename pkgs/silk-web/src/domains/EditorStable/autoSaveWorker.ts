@@ -2,50 +2,54 @@ import { JSDOM } from 'jsdom'
 import { SilkSerializer, SilkCanvasFactory, Silk3 } from 'silk-core'
 import { connectIdb } from '🙌/infra/indexeddb'
 
-const dom = new JSDOM('<!DOCTYPE html><html></html>')
-self.document = dom.window.document
+;(async () => {
+  const dom = new JSDOM('<!DOCTYPE html><html></html>')
+  self.document = dom.window.document
 
-SilkCanvasFactory.setCanvasFactory(() => new OffscreenCanvas(1, 1) as any)
+  const canvas = new OffscreenCanvas(1, 1)
+  const engine = await Silk3.create({ canvas: canvas as any })
 
-// self.document = {
-//   createElementNS: (_: string, name: string) => {
-//     console.log('name:', name)
-//     return {}
-//   },
-// }
+  SilkCanvasFactory.setCanvasFactory(() => new OffscreenCanvas(1, 1) as any)
 
-self.addEventListener('message', async (e) => {
-  if (e.data.warm) return
+  // self.document = {
+  //   createElementNS: (_: string, name: string) => {
+  //     console.log('name:', name)
+  //     return {}
+  //   },
+  // }
 
-  console.log(e.data)
+  self.addEventListener('message', async (e) => {
+    if (e.data.warm) return
 
-  const buffer = e.data.buffer as ArrayBuffer
-  const document = SilkSerializer.importDocument(new Uint8Array(buffer))
+    console.log(e.data)
 
-  const db = await connectIdb()
+    const buffer = e.data.buffer as ArrayBuffer
+    const document = SilkSerializer.importDocument(new Uint8Array(buffer))
 
-  try {
-    const bin = new Blob([buffer], {
-      type: 'application/octet-binary',
-    })
+    const db = await connectIdb()
 
-    const prev = await db.get('projects', document.uid)
-    const canvas = new OffscreenCanvas(1, 1)
-    const engine = await Silk3.create({ canvas: canvas as any })
-    const image = await (
-      await engine.renderAndExport(document)
-    ).export('image/jpeg', 80)
+    try {
+      const bin = new Blob([buffer], {
+        type: 'application/octet-binary',
+      })
 
-    await db.put('projects', {
-      uid: document.uid,
-      bin,
-      hasSavedOnce: prev?.hasSavedOnce ?? false,
-      thumbnail: image,
-      updatedAt: new Date(),
-    })
+      const prev = await db.get('projects', document.uid)
 
-    console.log('ok')
-  } finally {
-    db.close()
-  }
-})
+      const image = await (
+        await engine.renderAndExport(document)
+      ).export('image/jpeg', 80)
+
+      await db.put('projects', {
+        uid: document.uid,
+        bin,
+        hasSavedOnce: prev?.hasSavedOnce ?? false,
+        thumbnail: image,
+        updatedAt: new Date(),
+      })
+
+      console.log('ok')
+    } finally {
+      db.close()
+    }
+  })
+})()

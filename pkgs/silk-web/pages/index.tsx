@@ -8,7 +8,7 @@ import { createGlobalStyle, ThemeProvider } from 'styled-components'
 import { useFleurContext, useStore } from '@fleur/react'
 import Head from 'next/head'
 import { useMedia } from '🙌/utils/hooks'
-import { lightTheme, darkTheme } from '🙌/utils/theme'
+import { lightTheme, darkTheme, ThemeType } from '🙌/utils/theme'
 import i18nConfig from '🙌/next-i18next.config'
 import { narrow } from '🙌/utils/responsive'
 import { getStaticPropsWithFleur } from '🙌/lib/fleur'
@@ -25,6 +25,10 @@ import { HomeContent } from '🙌/features/Home'
 //   // return {}
 //   return {}
 // }
+
+declare module 'styled-components' {
+  export interface DefaultTheme extends ThemeType {}
+}
 
 const DefaultStyle = createGlobalStyle`
   html {
@@ -77,7 +81,11 @@ export default function Index() {
 export const getStaticProps = getStaticPropsWithFleur(async ({ locale }) => {
   return {
     props: {
-      ...(await serverSideTranslations(locale!, ['app'], i18nConfig)),
+      ...(await serverSideTranslations(
+        locale!,
+        ['app', 'index-home'],
+        i18nConfig
+      )),
       // Will be passed to the page component as props
     },
   }

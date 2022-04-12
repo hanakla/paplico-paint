@@ -5,7 +5,7 @@ type Props = {
   className?: string
   children?: ReactNode
   style?: CSSProperties
-  closed: boolean
+  closed?: boolean
 }
 
 export const Sidebar = forwardRef<HTMLDivElement, Props>(

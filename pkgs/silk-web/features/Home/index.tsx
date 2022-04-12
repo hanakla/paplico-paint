@@ -1,5 +1,5 @@
 import { MouseEvent } from 'react'
-import { css, useTheme } from 'styled-components'
+import styled, { css, useTheme } from 'styled-components'
 import { SilkDOM, SilkHelper, SilkSerializer } from 'silk-core'
 import { useFleurContext, useStore } from '@fleur/react'
 import { Moon, Sun } from '@styled-icons/remix-fill'
@@ -12,10 +12,12 @@ import { EditorOps, EditorSelector, EditorStore } from '🙌/domains/EditorStabl
 import { Sidebar } from '🙌/components/Sidebar'
 import { mediaNarrow } from '🙌/utils/responsive'
 import { centering } from '🙌/utils/mixins'
-import { SidebarPane } from '🙌/components/SidebarPane'
+import { tm } from '🙌/utils/theme'
+import { useTranslation } from 'next-i18next'
 
 export const HomeContent = () => {
   const theme = useTheme()
+  const { t } = useTranslation()
 
   const { executeOperation } = useFleurContext()
   const { currentTheme } = useStore((get) => ({
@@ -104,7 +106,7 @@ export const HomeContent = () => {
         color: ${({ theme }) => theme.text.white};
       `}
     >
-      <SidebarPane
+      <Sidebar
         css={`
           width: 200px;
 
@@ -121,24 +123,12 @@ export const HomeContent = () => {
 
           ${mediaNarrow`
             overflow: auto;
-
             padding: 32px;
           `}
         `}
       >
         <div>
-          <h1
-            css={`
-              margin-bottom: 0.8em;
-              font-size: 48px;
-
-              ${mediaNarrow`
-                font-size: 32px;
-              `}
-            `}
-          >
-            あたらしく描く
-          </h1>
+          <Heading>{t('createNew')}</Heading>
 
           <div
             css={`
@@ -198,19 +188,13 @@ export const HomeContent = () => {
             ))}
           </div>
 
-          <h1
+          <Heading
             css={`
               margin-top: 1.3em;
-              margin-bottom: 0.8em;
-              font-size: 48px;
-
-              ${mediaNarrow`
-                font-size: 32px;
-              `}
             `}
           >
-            ファイルをひらく
-          </h1>
+            {t('openFile')}
+          </Heading>
 
           <div
             css={css`
@@ -238,6 +222,16 @@ export const HomeContent = () => {
             />
             ファイルをドロップしてひらく
           </div>
+
+          <section>
+            <Heading
+              css={`
+                margin-top: 1.3em;
+              `}
+            >
+              {t('savedItems')}
+            </Heading>
+          </section>
 
           <div
             css={css`
@@ -307,3 +301,12 @@ export const HomeContent = () => {
     </div>
   )
 }
+
+const Heading = styled.h1`
+  margin-bottom: 0.8em;
+  ${tm((o) => [o.typography(32)])}
+
+  ${mediaNarrow`
+    ${tm((o) => [o.typography(20)])}
+  `}
+`

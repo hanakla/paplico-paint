@@ -7,6 +7,7 @@ interface SilkDBSchama extends DBSchema {
       uid: string
       bin: Blob
       hasSavedOnce: boolean
+      thumbnail: Blob
       updatedAt: Date
     }
     indexes?: {
@@ -18,12 +19,10 @@ interface SilkDBSchama extends DBSchema {
 export const connectIdb = async () => {
   const db = await openDB<SilkDBSchama>('virse', 2, {
     upgrade(db, old, next) {
-      if (old === 0) {
-        db.createObjectStore('projects', {
-          autoIncrement: false,
-          keyPath: 'uid',
-        })
-      }
+      db.createObjectStore('projects', {
+        autoIncrement: false,
+        keyPath: 'uid',
+      })
     },
   })
 

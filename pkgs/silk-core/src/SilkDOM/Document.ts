@@ -8,6 +8,9 @@ import { FilterLayer } from './FilterLayer'
 import { Emitter } from '../Engine3_Emitter'
 import { ISilkDOMElement } from './ISilkDOMElement'
 import { RGBColor } from '../Value/Colors/RGBColor'
+import { TextLayer } from './TextLayer'
+import { GroupLayer } from './GroupLayer'
+import { deserializeLayer } from './desrializeLayer'
 
 type DocumentEvents = {
   layersChanged: void
@@ -29,20 +32,7 @@ export class Document
       width: obj.width,
       height: obj.height,
       activeLayerId: obj.activeLayerId,
-      layers: obj.layers.map((layer: any) => {
-        switch (layer.layerType as LayerTypes['layerType']) {
-          case 'raster':
-            return RasterLayer.deserialize(layer)
-          case 'vector':
-            return VectorLayer.deserialize(layer)
-          case 'filter':
-            return FilterLayer.deserialize(layer)
-          default:
-            throw new Error(
-              `Deserialization failed, unexpected layerType ${layer.layerType}`
-            )
-        }
-      }),
+      layers: obj.layers.map((layer: any) => deserializeLayer(layer)),
       globalColors: Object.entries(obj.globalColors).reduce(
         (a, [uid, color]) => {
           return assign(a, { [uid]: RGBColor.deserialize(color) })

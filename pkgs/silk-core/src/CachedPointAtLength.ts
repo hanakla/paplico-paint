@@ -213,10 +213,8 @@ function binarySearch(sortedArray: number[], seekElement: number): number {
     if (guess === seekElement) {
       return mid
     } else if (guess > seekElement) {
-      // minNearIdx = minNearIdx != 0 ? mid : 0
-      endIndex = mid - 1
+      minNearIdx = endIndex = mid - 1
     } else {
-      // minNearIdx = mid
       startIndex = mid + 1
     }
   }

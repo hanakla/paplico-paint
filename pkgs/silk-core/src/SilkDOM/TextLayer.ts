@@ -7,6 +7,25 @@ import { Emitter } from '../Engine3_Emitter'
 type Events = LayerEvents<TextLayer>
 
 export class TextLayer extends Emitter<Events> implements ILayer {
+  public static deserialize(obj: any) {
+    return assign(new TextLayer(), {
+      layerType: obj.layerType,
+      uid: obj.uid,
+      name: obj.name,
+      visible: obj.visible,
+      lock: obj.lock,
+      compositeMode: obj.compositeMode,
+      opacity: obj.opacity,
+      width: obj.width,
+      height: obj.height,
+      x: obj.x,
+      y: obj.y,
+      filters: obj.filters.map((f: any) => Filter.deserialize(f)),
+      content: obj.content,
+      letterSpacing: obj.letterSpacing,
+    })
+  }
+
   public readonly layerType = 'text'
 
   public readonly uid: string = `textlayer-${v4()}`

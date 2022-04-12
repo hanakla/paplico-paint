@@ -17,7 +17,11 @@ import { WebGLContext } from './WebGLContext'
 import { IFilter } from './IFilter'
 import { CompositeMode } from '../SilkDOM/IRenderable'
 import { FullRender } from './RenderStrategy/FullRender'
-import { createContext2D } from '../Engine3_CanvasFactory'
+import {
+  createCanvas,
+  createContext2D,
+  createWebGLContext,
+} from '../Engine3_CanvasFactory'
 import { BrushSetting } from '../Value'
 import { IBrush } from './IBrush'
 import { IInk } from '../Inks/IInk'
@@ -129,6 +133,7 @@ export class SilkEngine3 {
       premultipliedAlpha: true,
       antialias: true,
       preserveDrawingBuffer: true,
+      canvas: createCanvas() as HTMLCanvasElement,
     })
     renderer.setClearColor(0x000000, 0)
 

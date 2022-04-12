@@ -33,6 +33,8 @@ type VectorStroking = {
 }
 
 interface State {
+  savedItems: []
+
   engine: Silk3 | null
   session: SilkSession | null
 
@@ -85,8 +87,15 @@ const debouncing = debounce(
   100
 )
 
+const autoSaveWorker =
+  typeof window === 'undefined'
+    ? null
+    : new Worker(new URL('./EditorStable/autoSaveWorker', import.meta.url))
+
 export const [EditorStore, EditorOps] = minOps('Editor', {
   initialState: (): State => ({
+    savedItems: [],
+
     engine: null,
     session: null,
     renderStrategy: null,
@@ -97,7 +106,7 @@ export const [EditorStore, EditorOps] = minOps('Editor', {
 
     currentTheme: 'light',
     editorMode: 'sp',
-    editorPage: process.env.NODE_ENV === 'development' ? 'app' : 'home',
+    editorPage: 'home', // process.env.NODE_ENV === 'development' ? 'app' : 'home',
     canvasScale: 1,
     canvasPosition: { x: 0, y: 0 },
 
@@ -136,7 +145,7 @@ export const [EditorStore, EditorOps] = minOps('Editor', {
       session.renderSetting = x.state.renderSetting
 
       engine.on('rerender', () => {
-        trace('Canvas rerendered')
+        // trace('Canvas rerendered')
       })
 
       session.on('activeLayerChanged', (s) => {
@@ -235,32 +244,18 @@ export const [EditorStore, EditorOps] = minOps('Editor', {
       )
     },
     async autoSave(x, documentUid: string) {
+      if (!x.state.engine) return
       if (x.state.currentDocument?.uid !== documentUid) return
 
-      const document = x.state.currentDocument
+      const document = x.state
+        .currentDocument as unknown as SilkDOM.Document | null
       if (!document) return
 
-      const db = await connectIdb()
-      x.finally(() => db.close())
+      const buffer = SilkSerializer.exportDocument(
+        document as unknown as SilkDOM.Document
+      ).buffer
 
-      const bin = new Blob(
-        [
-          SilkSerializer.exportDocument(document as unknown as SilkDOM.Document)
-            .buffer,
-        ],
-        {
-          type: 'application/octet-binary',
-        }
-      )
-
-      const prev = await db.get('projects', documentUid)
-
-      await db.put('projects', {
-        uid: document.uid,
-        bin,
-        hasSavedOnce: prev?.hasSavedOnce ?? false,
-        updatedAt: new Date(),
-      })
+      autoSaveWorker?.postMessage({ buffer }, [buffer])
     },
     async createSession(x, document: SilkDOM.Document) {
       const session = await SilkSession.create()

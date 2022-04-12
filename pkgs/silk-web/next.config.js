@@ -30,6 +30,11 @@ const config = {
       '🙌': path.join(__dirname, './'),
     }
 
+    config.resolve.fallback = {
+      ...config.resolve.fallback,
+      net: false,
+    }
+
     // if (context.dev) {
     //   config.plugins.push(new ForkTsCheckerWebpackPlugin())
     // }

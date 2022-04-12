@@ -194,8 +194,8 @@ export class Path implements ISilkDOMElement {
       from: nearPoint.index,
       increments: -1,
     })!
-    const next = findIndex(this.points, (p, idx) => p.pressure != null, {
-      from: nearPoint.length === len ? nearPoint.index : nearPoint.index + 1,
+    const next = findIndex(this.points, (p) => p.pressure != null, {
+      from: nearPoint.index + 1,
       increments: 1,
     })!
 
@@ -211,17 +211,6 @@ export class Path implements ISilkDOMElement {
     const defaultPressure = 0.5
     const tAtFragment =
       segmentLength === 0 ? 1 : (len - prevLength) / segmentLength
-
-    console.log({
-      prev: prevLength,
-      next: nextLength,
-      len,
-      total: this.getTotalLength(),
-      pal: this.pal,
-      prevLength,
-      segmentLength,
-      tAtFragment,
-    })
 
     return lerp(
       prev.element.pressure ?? defaultPressure,

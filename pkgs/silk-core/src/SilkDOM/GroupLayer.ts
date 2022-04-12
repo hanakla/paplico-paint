@@ -3,6 +3,7 @@ import { v4 } from 'uuid'
 
 import { Emitter } from '../Engine3_Emitter'
 import { assign } from '../utils'
+import { deserializeLayer } from './desrializeLayer'
 import { Filter } from './Filter'
 import { CompositeMode, ILayer, LayerEvents } from './IRenderable'
 
@@ -43,7 +44,7 @@ export class GroupLayer extends Emitter<Events> implements ILayer {
       opacity: obj.opacity,
       x: obj.x,
       y: obj.y,
-      layers: obj.layers.map(),
+      layers: obj.layers.map((l: any) => deserializeLayer(l)),
     })
   }
 
@@ -66,6 +67,7 @@ export class GroupLayer extends Emitter<Events> implements ILayer {
 
   public serialize() {
     return {
+      layerType: this.layerType,
       uid: this.uid,
       name: this.name,
       visible: this.visible,

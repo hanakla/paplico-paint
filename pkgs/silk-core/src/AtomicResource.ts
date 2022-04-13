@@ -3,7 +3,7 @@ import deferred, { DeferredPromise } from 'p-defer'
 export class AtomicResource<T> {
   private que: DeferredPromise<T>[] = []
   private locked: boolean = false
-  private currentOwner: { stack: string; owner: any } | null = null
+  private currentOwner: { stack: Error; owner: any } | null = null
 
   constructor(private resource: T) {}
 
@@ -17,7 +17,7 @@ export class AtomicResource<T> {
       console.warn(
         'AtomicResource: Enjure enqueued in locked resource, it may cause deadlock.',
         { resource: this.resource },
-        { request: owner, current: this.currentOwner }
+        { request: { owner, stack: new Error() }, current: this.currentOwner }
       )
       return defer.promise
     }
@@ -26,7 +26,7 @@ export class AtomicResource<T> {
     // console.groupCollapsed('enjure', this.resource)
     // console.trace()
     // console.groupEnd()
-    this.currentOwner = { owner, stack: new Error().stack! }
+    this.currentOwner = { owner, stack: new Error() }
     return Promise.resolve(this.resource)
   }
 

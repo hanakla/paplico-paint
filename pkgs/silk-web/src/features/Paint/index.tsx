@@ -450,7 +450,7 @@ export function PaintPage({}) {
         `}
         tabIndex={-1}
       >
-        <div
+        {/* <div
           css={`
             position: absolute;
             top: 0;
@@ -484,7 +484,7 @@ export function PaintPage({}) {
               `}
             />
           </Button>
-        </div>
+        </div> */}
         <>
           <div
             css={`

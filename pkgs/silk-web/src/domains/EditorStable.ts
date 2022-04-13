@@ -110,8 +110,8 @@ export const [EditorStore, EditorOps] = minOps('Editor', {
 
     currentTheme: 'light',
     editorMode: 'sp',
-    editorPage: process.env.NODE_ENV === 'development' ? 'app' : 'home',
-    // editorPage: 'home', // process.env.NODE_ENV === 'development' ? 'app' : 'home',
+    // editorPage: process.env.NODE_ENV === 'development' ? 'app' : 'home',
+    editorPage: 'home', // process.env.NODE_ENV === 'development' ? 'app' : 'home',
     canvasScale: 1,
     canvasPosition: { x: 0, y: 0 },
 
@@ -139,12 +139,14 @@ export const [EditorStore, EditorOps] = minOps('Editor', {
 
       const documents = await db.getAll('projects')
       x.commit({
-        savedItems: documents.map((d) => ({
-          uid: d.uid,
-          title: d.title,
-          thumbnailUrl: URL.createObjectURL(d.thumbnail),
-          updatedAt: d.updatedAt,
-        })),
+        savedItems: documents
+          .map((d) => ({
+            uid: d.uid,
+            title: d.title,
+            thumbnailUrl: URL.createObjectURL(d.thumbnail),
+            updatedAt: d.updatedAt,
+          }))
+          .sort((a, b) => +b.updatedAt - +a.updatedAt),
       })
     },
     async loadDocumentFromIdb(x, documentUid: string) {

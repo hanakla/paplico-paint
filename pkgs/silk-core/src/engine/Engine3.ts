@@ -178,12 +178,16 @@ export class SilkEngine3 {
       this.camera.bottom = -document.height / 2.0
       this.camera.updateProjectionMatrix()
 
+      // After clear, release resource for rendering
+      this.atomicThreeRenderer.release(renderer)
+
       await strategy.render(this, document, preDestCtx)
       this.canvasCtx.drawImage(preDestCtx.canvas, 0, 0)
 
       this.mitt.emit('rerender')
     } finally {
-      this.atomicThreeRenderer.release(renderer)
+      this.atomicThreeRenderer.isLocked &&
+        this.atomicThreeRenderer.release(renderer)
       this.atomicPreDestCtx.release(preDestCtx)
       this.atomicRender.release(lock)
     }

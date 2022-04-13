@@ -21,6 +21,7 @@ import { assign } from '🙌/utils/object'
 import { deepClone } from '🙌/utils/clone'
 import { isEventIgnoringTarget } from '../../helpers'
 import { css } from 'styled-components'
+import { useFleur } from '🙌/utils/hooks'
 
 const POINT_SIZE = 8
 
@@ -988,35 +989,58 @@ const ObjectBoundingBox = ({
   scale: number
   active: boolean
 }) => {
-  const { executeOperation } = useFleurContext()
+  const { execute } = useFleur()
   const bbox = useMemo(() => object.getBoundingBox(), [object.lastUpdatedAt])
   const rotateRef = useRef(object.rotate)
+
+  const [dragPoint, setDragPoint] = useState<[number, number] | null>(null)
 
   const zoom = 1 / scale
   const controlSize = POINT_SIZE * zoom
 
   const bindLeftTopDrag = useDrag((e) => {
-    const { initial, delta, first } = e
+    const { initial, xy, last } = e
 
-    if (first) {
-      rotateRef.current = object.rotate
-    }
+    e.memo ??= { rotate: object.rotate }
 
-    executeOperation(EditorOps.updateActiveObject, (o) => {
+    const svg = (e.event.target as SVGElement).closest('svg')!
+
+    const xyIni = assign(svg.createSVGPoint(), {
+      x: initial[0],
+      y: initial[1],
+    }).matrixTransform(svg.getScreenCTM()!.inverse())
+
+    const xyPt = assign(svg.createSVGPoint(), {
+      x: xy[0],
+      y: xy[1],
+    }).matrixTransform(svg.getScreenCTM()!.inverse())
+
+    const { x, y } = xyPt
+
+    setDragPoint([x, y])
+
+    execute(EditorOps.updateActiveObject, (o) => {
       const bbox = o.getBoundingBox()
+
       const angle = SilkWebMath.angleOfPoints(
         { x: bbox.centerX, y: bbox.centerY },
-        { x: initial[0] + delta[0], y: delta[1] }
+        { x: x - xyIni.x, y: y - xyIni.y }
       )
 
-      o.rotate = rotateRef.current + SilkWebMath.radToDeg(angle)
+      o.rotate = e.memo!.rotate - SilkWebMath.radToDeg(angle)
       // o.x += delta[0] * zoom
       // o.y += delta[1] * zoom
     })
+
+    if (last) {
+      setDragPoint(null)
+    }
+
+    return e.memo
   })
 
   return (
-    <>
+    <g transform={`matrix(${object.matrix})`}>
       <rect
         css={`
           fill: none;
@@ -1035,6 +1059,24 @@ const ObjectBoundingBox = ({
         {...etc}
       />
 
+      {dragPoint && (
+        <line
+          x1={bbox.centerX}
+          y1={bbox.centerY}
+          x2={dragPoint[0]}
+          y2={dragPoint[1]}
+        />
+      )}
+
+      <circle
+        cx={bbox.centerX}
+        cy={bbox.centerY - bbox.height / 2 - 24}
+        stroke="#4e7fff"
+        strokeWidth={2 * zoom}
+        r={8 * zoom}
+        {...bindLeftTopDrag()}
+      />
+
       <rect
         css={`
           ${anchorRect}
@@ -1050,7 +1092,6 @@ const ObjectBoundingBox = ({
           strokeWidth: 1 * zoom,
           transform: `translate(${-controlSize / 2}px, ${-controlSize / 2}px)`,
         }}
-        {...bindLeftTopDrag()}
       />
       <rect
         css={`
@@ -1094,7 +1135,7 @@ const ObjectBoundingBox = ({
           transform: `translate(${-controlSize / 2}px, ${-controlSize / 2}px)`,
         }}
       />
-    </>
+    </g>
   )
 }
 

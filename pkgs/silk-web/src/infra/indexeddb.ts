@@ -5,6 +5,7 @@ interface SilkDBSchama extends DBSchema {
     key: string
     value: {
       uid: string
+      title: string
       bin: Blob
       hasSavedOnce: boolean
       thumbnail: Blob

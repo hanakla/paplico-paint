@@ -7,7 +7,7 @@ import { Document, Path, VectorLayer } from '../SilkDOM'
 import { BloomFilter } from '../Filters/Bloom'
 import { ChromaticAberrationFilter } from '../Filters/ChromaticAberration'
 import { GaussBlurFilter } from '../Filters/GaussBlur'
-import { deepClone, setCanvasSize } from '../utils'
+import { deepClone, mergeToNew, setCanvasSize } from '../utils'
 import { CurrentBrushSetting as _CurrentBrushSetting } from './CurrentBrushSetting'
 import { IRenderStrategy } from './RenderStrategy/IRenderStrategy'
 import { ToolRegistry } from './Engine3_ToolRegistry'
@@ -165,7 +165,7 @@ export class SilkEngine3 {
       setCanvasSize(this.canvasCtx.canvas, document.width, document.height)
       setCanvasSize(preDestCtx.canvas, document.width, document.height)
 
-      renderer.setSize(document.width, document.height)
+      renderer.setSize(document.width, document.height, false)
       renderer.setClearColor(0x000000, 0)
       renderer.clear()
 
@@ -175,15 +175,12 @@ export class SilkEngine3 {
       this.camera.bottom = -document.height / 2.0
       this.camera.updateProjectionMatrix()
 
-      this.atomicThreeRenderer.release(renderer)
-
       await strategy.render(this, document, preDestCtx)
       this.canvasCtx.drawImage(preDestCtx.canvas, 0, 0)
 
       this.mitt.emit('rerender')
     } finally {
-      this.atomicThreeRenderer.isLocked &&
-        this.atomicThreeRenderer.release(renderer)
+      this.atomicThreeRenderer.release(renderer)
       this.atomicPreDestCtx.release(preDestCtx)
       this.atomicRender.release(lock)
     }
@@ -194,30 +191,56 @@ export class SilkEngine3 {
     strategy: IRenderStrategy = new FullRender()
   ) {
     const exportCtx = createContext2D()
-    setCanvasSize(exportCtx.canvas, document.width, document.height)
 
     const lock = await this.atomicRender.enjure({ owner: this })
+    const renderer = await this.atomicThreeRenderer.enjure({ owner: this })
 
     try {
+      setCanvasSize(exportCtx.canvas, document.width, document.height)
+
+      renderer.setSize(document.width, document.height, false)
+      renderer.setClearColor(0x000000, 0)
+      renderer.clear()
+
+      this.camera.left = -document.width / 2.0
+      this.camera.right = document.width / 2.0
+      this.camera.top = document.height / 2.0
+      this.camera.bottom = -document.height / 2.0
+      this.camera.updateProjectionMatrix()
+
       await strategy.render(this, document, exportCtx)
 
       return {
         export: (mimeType: string, quality?: number) => {
-          return new Promise<Blob>((resolve, reject) => {
-            exportCtx.canvas.toBlob(
-              (blob) => {
-                if (blob) resolve(blob)
-                else reject(new Error('Failed to export canvas'))
-              },
-              mimeType,
-              quality
-            )
+          return new Promise<Blob>(async (resolve, reject) => {
+            const canvas = exportCtx.canvas as
+              | HTMLCanvasElement
+              | OffscreenCanvas
+
+            if ('toBlob' in canvas) {
+              canvas.toBlob(
+                (blob) => {
+                  if (blob) resolve(blob)
+                  else reject(new Error('Failed to export canvas'))
+                },
+                mimeType,
+                quality
+              )
+            } else {
+              try {
+                resolve(await canvas.convertToBlob({ type: mimeType, quality }))
+              } catch (e) {
+                reject(e)
+              }
+            }
+
+            // Free memory for canvas
+            setCanvasSize(exportCtx.canvas, 0, 0)
           })
         },
       }
     } finally {
-      // Free memory for canvas
-      setCanvasSize(exportCtx.canvas, 0, 0)
+      this.atomicThreeRenderer.release(renderer)
       this.atomicRender.release(lock)
     }
   }
@@ -363,7 +386,7 @@ export class SilkEngine3 {
           const stroke = Stroke.fromPath(object.path)
 
           await this.renderPath(
-            object.brush,
+            mergeToNew(object.brush, { specific: {} }),
             new PlainInk(),
             stroke.path,
             bufferCtx

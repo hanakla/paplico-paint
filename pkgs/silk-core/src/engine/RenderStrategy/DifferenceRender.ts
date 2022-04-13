@@ -119,7 +119,7 @@ export class DifferenceRender implements IRenderStrategy {
     }
 
     const layerBitmaps = await Promise.all(
-      [...document.layers].map(async (layer) => getLayerBitmap(layer))
+      [...document.layers].reverse().map(async (layer) => getLayerBitmap(layer))
     )
 
     const compositeTo = async (

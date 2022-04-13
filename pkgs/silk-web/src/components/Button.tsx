@@ -19,6 +19,7 @@ import { isEventIgnoringTarget } from '🙌/features/Paint/helpers'
 
 type Props = {
   kind: 'normal' | 'primary'
+  circled?: boolean
   outline?: boolean
   popup?: ReactNode
   children?: ReactNode
@@ -28,7 +29,7 @@ type AllProps = Props &
   DetailedHTMLProps<ButtonHTMLAttributes<HTMLButtonElement>, HTMLButtonElement>
 
 export const Button = forwardRef<HTMLButtonElement, Props>(
-  ({ kind, outline, children, popup, ...props }: AllProps, ref) => {
+  ({ kind, circled, outline, children, popup, ...props }: AllProps, ref) => {
     const rootRef = useRef<HTMLButtonElement | null>(null)
     const popperRef = useRef<HTMLDivElement | null>(null)
     const popper = usePopper(rootRef.current, popperRef.current, {
@@ -65,6 +66,7 @@ export const Button = forwardRef<HTMLButtonElement, Props>(
 
           ${!outline && kind === 'primary' && primary}
           ${outline && kind === 'primary' && primaryOutline}
+          ${circled && circledStyle}
         `}
         {...props}
       >
@@ -144,7 +146,7 @@ const primary = css`
 const primaryOutline = css`
   --border-color: ${({ theme }) => theme.exactColors.blue50};
 
-  border: ${({ theme }) => `1px solid ${theme.exactColors.blue50}`};
+  border: ${({ theme }) => `2px solid ${theme.exactColors.blue50}`};
   background-color: transparent;
   color: ${({ theme }) => theme.exactColors.blue50};
 
@@ -153,4 +155,8 @@ const primaryOutline = css`
     color: ${({ theme }) => theme.exactColors.white50};
     background-color: ${({ theme }) => theme.exactColors.blue50};
   }
+`
+
+const circledStyle = css`
+  border-radius: 300px;
 `

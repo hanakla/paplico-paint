@@ -3,5 +3,6 @@ module.exports = {
     defaultLocale: 'ja',
     locales: ['ja', 'en'],
   },
-  localeExtension: 'yml'
+  localeExtension: 'yml',
+  reloadOnPrerender: true,
 }

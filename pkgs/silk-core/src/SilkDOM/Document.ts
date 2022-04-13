@@ -2,14 +2,9 @@ import { v4 } from 'uuid'
 
 import { LayerTypes } from './index'
 import { assign } from '../utils'
-import { RasterLayer } from './RasterLayer'
-import { VectorLayer } from './VectorLayer'
-import { FilterLayer } from './FilterLayer'
 import { Emitter } from '../Engine3_Emitter'
 import { ISilkDOMElement } from './ISilkDOMElement'
 import { RGBColor } from '../Value/Colors/RGBColor'
-import { TextLayer } from './TextLayer'
-import { GroupLayer } from './GroupLayer'
 import { deserializeLayer } from './desrializeLayer'
 
 type DocumentEvents = {
@@ -29,6 +24,8 @@ export class Document
 
   public static deserialize(obj: any) {
     return assign(new Document(), {
+      uid: obj.uid,
+      title: obj.title,
       width: obj.width,
       height: obj.height,
       activeLayerId: obj.activeLayerId,
@@ -100,6 +97,7 @@ export class Document
 
   public serialize() {
     return {
+      uid: this.uid,
       title: this.title,
       width: this.width,
       height: this.height,

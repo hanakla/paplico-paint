@@ -1,55 +1,50 @@
-import { JSDOM } from 'jsdom'
 import { SilkSerializer, SilkCanvasFactory, Silk3 } from 'silk-core'
 import { connectIdb } from '🙌/infra/indexeddb'
 
-;(async () => {
-  const dom = new JSDOM('<!DOCTYPE html><html></html>')
-  self.document = dom.window.document
+SilkCanvasFactory.setCanvasFactory(() => new OffscreenCanvas(1, 1) as any)
 
-  const canvas = new OffscreenCanvas(1, 1)
-  const engine = await Silk3.create({ canvas: canvas as any })
+const canvas = new OffscreenCanvas(1, 1)
+const engineInit = Silk3.create({ canvas: canvas as any })
 
-  SilkCanvasFactory.setCanvasFactory(() => new OffscreenCanvas(1, 1) as any)
+self.addEventListener('message', async (e) => {
+  if (e.data.warm) return
 
-  // self.document = {
-  //   createElementNS: (_: string, name: string) => {
-  //     console.log('name:', name)
-  //     return {}
-  //   },
-  // }
+  const buffer = e.data.buffer as ArrayBuffer
+  const document = SilkSerializer.importDocument(new Uint8Array(buffer))
 
-  self.addEventListener('message', async (e) => {
-    if (e.data.warm) return
+  const db = await connectIdb()
 
-    console.log(e.data)
+  try {
+    const bin = new Blob([buffer], {
+      type: 'application/octet-binary',
+    })
 
-    const buffer = e.data.buffer as ArrayBuffer
-    const document = SilkSerializer.importDocument(new Uint8Array(buffer))
+    const prev = await db.get('projects', document.uid)
+    const engine = await engineInit
 
-    const db = await connectIdb()
+    const image = await (
+      await engine.renderAndExport(document)
+    ).export('image/jpeg', 80)
 
-    try {
-      const bin = new Blob([buffer], {
-        type: 'application/octet-binary',
-      })
+    const bitmap = await createImageBitmap(image)
+    const canvas = new OffscreenCanvas(bitmap.width / 2, bitmap.height / 2)
+    canvas
+      .getContext('2d')!
+      .drawImage(bitmap, 0, 0, canvas.width, canvas.height)
 
-      const prev = await db.get('projects', document.uid)
+    await db.put('projects', {
+      uid: document.uid,
+      title: document.title,
+      bin,
+      hasSavedOnce: prev?.hasSavedOnce ?? false,
+      thumbnail: await canvas.convertToBlob({
+        type: 'image/png',
+      }),
+      updatedAt: new Date(),
+    })
 
-      const image = await (
-        await engine.renderAndExport(document)
-      ).export('image/jpeg', 80)
-
-      await db.put('projects', {
-        uid: document.uid,
-        bin,
-        hasSavedOnce: prev?.hasSavedOnce ?? false,
-        thumbnail: image,
-        updatedAt: new Date(),
-      })
-
-      console.log('ok')
-    } finally {
-      db.close()
-    }
-  })
-})()
+    console.log('ok')
+  } finally {
+    db.close()
+  }
+})

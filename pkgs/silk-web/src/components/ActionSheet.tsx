@@ -1,6 +1,6 @@
 import { Close, Polaroid } from '@styled-icons/remix-fill'
 import { rgba } from 'polished'
-import { forwardRef, ReactNode } from 'react'
+import { DetailedHTMLProps, forwardRef, HTMLAttributes, ReactNode } from 'react'
 import { styleWhen, useFunk } from '@hanakla/arma'
 import { animated, useSpring } from 'react-spring'
 import { css, useTheme } from 'styled-components'
@@ -136,11 +136,10 @@ export const ActionSheetItemGroup = ({
 
 export const ActionSheetItem = ({
   children,
-  className,
+  ...props
 }: {
-  className?: string
   children: ReactNode
-}) => {
+} & DetailedHTMLProps<HTMLAttributes<HTMLDivElement>, HTMLDivElement>) => {
   return (
     <div
       css={`
@@ -152,7 +151,7 @@ export const ActionSheetItem = ({
           border-top: 1px solid ${rgba('#000', 0.5)};
         }
       `}
-      className={className}
+      {...props}
     >
       {children}
     </div>

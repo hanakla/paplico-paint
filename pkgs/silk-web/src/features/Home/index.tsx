@@ -4,28 +4,31 @@ import { SilkDOM, SilkHelper, SilkSerializer } from 'silk-core'
 import { useFleurContext, useStore } from '@fleur/react'
 import { Moon, Sun } from '@styled-icons/remix-fill'
 import { DragDrop, File } from '@styled-icons/remix-line'
-import { loadImageFromBlob, selectFile, useFunk } from '@hanakla/arma'
+import { cssurl, loadImageFromBlob, selectFile, useFunk } from '@hanakla/arma'
 import { extname } from 'path'
-import { useDropArea } from 'react-use'
+import { useDropArea, useMount } from 'react-use'
 import { rgba } from 'polished'
 import { EditorOps, EditorSelector, EditorStore } from '🙌/domains/EditorStable'
 import { Sidebar } from '🙌/components/Sidebar'
-import { mediaNarrow } from '🙌/utils/responsive'
+import { media } from '🙌/utils/responsive'
 import { centering } from '🙌/utils/mixins'
-import { tm } from '🙌/utils/theme'
+import { ThemeProp, tm } from '🙌/utils/theme'
 import { useTranslation } from 'next-i18next'
+import dayjs from 'dayjs'
+import relativeTime from 'dayjs/plugin/relativeTime'
+import 'dayjs/locale/ja'
+import { useRouter } from 'next/router'
+dayjs.extend(relativeTime)
 
 export const HomeContent = () => {
   const theme = useTheme()
-  const { t } = useTranslation()
+  const { t } = useTranslation('index-home')
+  const { locale } = useRouter()
 
   const { executeOperation } = useFleurContext()
-  const { currentTheme } = useStore((get) => ({
-    currentDocument: EditorSelector.currentDocument(get),
-    activeLayer: EditorSelector.activeLayer(get),
-    currentTool: get(EditorStore).state.currentTool,
+  const { savedItems, currentTheme } = useStore((get) => ({
+    savedItems: EditorSelector.savedItems(get),
     currentTheme: get(EditorStore).state.currentTheme,
-    renderSetting: get(EditorStore).state.renderSetting,
   }))
 
   const handleClickItem = useFunk(
@@ -89,10 +92,23 @@ export const HomeContent = () => {
     executeOperation(EditorOps.setTheme, 'light')
   )
 
+  const handleClickSavedItem = useFunk(
+    ({ currentTarget }: MouseEvent<HTMLLIElement>) => {
+      executeOperation(
+        EditorOps.loadDocumentFromIdb,
+        currentTarget.dataset.documentUid!
+      )
+    }
+  )
+
   const [bindDrop, dropState] = useDropArea({
     onFiles: ([file]) => {
       handleFileSelected(file)
     },
+  })
+
+  useMount(() => {
+    executeOperation(EditorOps.fetchSavedItems)
   })
 
   return (
@@ -102,7 +118,7 @@ export const HomeContent = () => {
         width: 100%;
         height: 100%;
         overflow: hidden;
-        background-color: ${({ theme }) => theme.colors.black50};
+        /* background-color: ${({ theme }) => theme.colors.black50}; */
         color: ${({ theme }) => theme.text.white};
       `}
     >
@@ -110,7 +126,7 @@ export const HomeContent = () => {
         css={`
           width: 200px;
 
-          ${mediaNarrow`
+          ${media.narrow`
             display: none;
           `}
         `}
@@ -120,117 +136,189 @@ export const HomeContent = () => {
         css={`
           flex: 1;
           padding: 10vh 64px;
+          overflow: auto;
 
-          ${mediaNarrow`
-            overflow: auto;
+          ${media.narrow`
             padding: 32px;
           `}
         `}
       >
         <div>
-          <Heading>{t('createNew')}</Heading>
+          <section>
+            <Heading>{t('createNew')}</Heading>
 
-          <div
-            css={`
-              display: grid;
-              gap: 16px;
-              grid-template-columns: repeat(4, minmax(0px, 1fr));
+            <div
+              css={`
+                display: grid;
+                gap: 16px;
+                grid-template-columns: repeat(4, minmax(0px, 1fr));
 
-              ${mediaNarrow`
+                ${media.narrow`
                 grid-template-columns: repeat(2, minmax(0px, 1fr));
               `}
-            `}
-          >
-            {[
-              { name: '縦長', size: [1080, 1920] },
-              { name: '横長', size: [1920, 1080] },
-
-              { name: 'A4(縦) 300dpi', size: [2480, 3508] },
-              { name: 'A4(横) 300dpi', size: [3508, 2480] },
-            ].map((preset, idx) => (
-              <div
-                key={idx}
-                css={css`
-                  padding: 16px;
-                  text-align: center;
-                  border-radius: 8px;
-                  background-color: ${({ theme }) => theme.colors.whiteFade10};
-                  cursor: pointer;
-
-                  &:hover {
-                    background-color: ${({ theme }) =>
-                      theme.colors.whiteFade20};
-                  }
-                `}
-                onClick={handleClickItem}
-                tabIndex={-1}
-                data-width={preset.size[0]}
-                data-height={preset.size[1]}
-              >
-                <File
-                  css={`
-                    width: 64px;
-                  `}
-                />
-                <div
-                  css={`
-                    margin: 8px 0 8px;
-                    font-size: 16px;
-                    font-weight: bold;
-                  `}
-                >
-                  {preset.name}
-                </div>
-                <div>
-                  {preset.size[0]} × {preset.size[1]} px
-                </div>
-              </div>
-            ))}
-          </div>
-
-          <Heading
-            css={`
-              margin-top: 1.3em;
-            `}
-          >
-            {t('openFile')}
-          </Heading>
-
-          <div
-            css={css`
-              ${centering()}
-              flex-flow:column;
-              padding: 48px 32px;
-              font-size: 24px;
-              background-color: ${({ theme }) => theme.colors.whiteFade10};
-              border-radius: 8px;
-            `}
-            style={{
-              ...(dropState.over
-                ? { backgroundColor: theme.colors.whiteFade20 }
-                : {}),
-            }}
-            onClick={handleClickDropArea}
-            {...bindDrop}
-          >
-            <DragDrop
-              css={`
-                width: 32px;
-                margin-right: 16px;
-                vertical-align: bottom;
-              `}
-            />
-            ファイルをドロップしてひらく
-          </div>
-
-          <section>
-            <Heading
-              css={`
-                margin-top: 1.3em;
               `}
             >
-              {t('savedItems')}
-            </Heading>
+              {[
+                { name: '縦長', size: [1080, 1920] },
+                { name: '横長', size: [1920, 1080] },
+
+                { name: 'A4(縦) 300dpi', size: [2480, 3508] },
+                { name: 'A4(横) 300dpi', size: [3508, 2480] },
+              ].map((preset, idx) => (
+                <div
+                  key={idx}
+                  css={css`
+                    padding: 16px;
+                    text-align: center;
+                    border-radius: 8px;
+                    background-color: ${({ theme }) =>
+                      theme.colors.whiteFade10};
+                    cursor: pointer;
+
+                    &:hover {
+                      background-color: ${({ theme }) =>
+                        theme.colors.whiteFade20};
+                    }
+                  `}
+                  onClick={handleClickItem}
+                  tabIndex={-1}
+                  data-width={preset.size[0]}
+                  data-height={preset.size[1]}
+                >
+                  <File
+                    css={`
+                      width: 64px;
+                    `}
+                  />
+                  <div
+                    css={`
+                      margin: 8px 0 8px;
+                      font-size: 16px;
+                      font-weight: bold;
+                    `}
+                  >
+                    {preset.name}
+                  </div>
+                  <div>
+                    {preset.size[0]} × {preset.size[1]} px
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+
+          <section>
+            <Heading>{t('openFile')}</Heading>
+
+            <div
+              css={css`
+                ${centering()}
+                flex-flow:column;
+                padding: 48px 32px;
+                font-size: 24px;
+                background-color: ${({ theme }) => theme.colors.whiteFade10};
+                border-radius: 8px;
+                cursor: pointer;
+
+                &:hover {
+                  background-color: ${({ theme }) => theme.colors.whiteFade20};
+                }
+              `}
+              style={{
+                ...(dropState.over
+                  ? { backgroundColor: theme.colors.whiteFade20 }
+                  : {}),
+              }}
+              onClick={handleClickDropArea}
+              {...bindDrop}
+            >
+              <DragDrop
+                css={`
+                  width: 32px;
+                  margin-right: 16px;
+                  vertical-align: bottom;
+                `}
+              />
+              ファイルをドロップしてひらく
+            </div>
+          </section>
+
+          <section>
+            <Heading>{t('savedItems')}</Heading>
+            <ul
+              css={`
+                display: flex;
+                flex-wrap: nowrap;
+                gap: 8px;
+                overflow: auto;
+
+                ${media.narrow`
+                  display: grid;
+                  gap: 24px 8px;
+                  grid-template-columns: repeat(2, 1fr);
+                  overflow: none;
+                `}
+              `}
+            >
+              {savedItems.map((item) => (
+                <li
+                  key={item.uid}
+                  css={css`
+                    width: 128px;
+                    padding: 8px;
+                    border-radius: 4px;
+                    cursor: pointer;
+
+                    &:hover {
+                      background-color: ${({ theme }) =>
+                        theme.colors.whiteFade10};
+                    }
+
+                    ${media.narrow`
+                      width: 100%;
+                    `}
+                  `}
+                  data-document-uid={item.uid}
+                  onClick={handleClickSavedItem}
+                >
+                  <div
+                    role="img"
+                    css={`
+                      width: 100%;
+                      background-position: 80% 0;
+                      background-size: cover;
+                      border-radius: 4px;
+                      background-color: ${({ theme }: ThemeProp) =>
+                        theme.color.surface9};
+
+                      &::before {
+                        content: '';
+                        display: block;
+                        padding-top: 100%;
+                      }
+                    `}
+                    style={{ backgroundImage: cssurl(item.thumbnailUrl) }}
+                  />
+
+                  <h2
+                    css={`
+                      margin: 8px 0 4px;
+                      ${tm((o) => [o.typography(14)])}
+                    `}
+                  >
+                    {!item.title ? <span>{t('untitled')}</span> : item.title}
+                  </h2>
+                  <time
+                    css={`
+                      display: block;
+                      ${tm((o) => [o.font.text2])}
+                    `}
+                  >
+                    {dayjs(item.updatedAt).locale(locale!).fromNow()}
+                  </time>
+                </li>
+              ))}
+            </ul>
           </section>
 
           <div
@@ -304,9 +392,10 @@ export const HomeContent = () => {
 
 const Heading = styled.h1`
   margin-bottom: 0.8em;
-  ${tm((o) => [o.typography(32)])}
+  ${tm((o) => [o.typography(32).bold])}
 
-  ${mediaNarrow`
-    ${tm((o) => [o.typography(20)])}
+  ${media.narrow`
+    margin-top: 32px;
+    ${tm((o) => [o.typography(20).bold])}
   `}
 `

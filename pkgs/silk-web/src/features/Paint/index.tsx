@@ -9,12 +9,10 @@ import {
 import {
   ChangeEvent,
   MouseEvent,
-  MutableRefObject,
   RefObject,
   TouchEvent,
   useEffect,
   useRef,
-  useState,
 } from 'react'
 import { useClickAway, useDrop, useToggle, useUpdate } from 'react-use'
 import { useGesture } from 'react-use-gesture'
@@ -32,7 +30,7 @@ import {
 } from 'silk-core'
 import { css } from 'styled-components'
 import useMeasure from 'use-measure'
-import { Moon, Sun } from '@styled-icons/remix-fill'
+import { ArrowDropLeft, Moon, Share, Sun } from '@styled-icons/remix-fill'
 import { Menu } from '@styled-icons/remix-line'
 import { useTranslation } from 'next-i18next'
 
@@ -454,10 +452,38 @@ export function PaintPage({}) {
       >
         <div
           css={`
+            position: absolute;
+            top: 0;
+            left: 0;
+            z-index: 1;
+            display: flex;
+            width: 100%;
+            padding: 8px;
             background-color: ${({ theme }: ThemeProp) => theme.color.surface2};
           `}
         >
-          もどる
+          <div>
+            <ArrowDropLeft
+              css={`
+                width: 24px;
+              `}
+            />
+          </div>
+
+          <Button
+            css={`
+              margin-left: auto;
+            `}
+            kind="primary"
+            outline
+            circled
+          >
+            <Share
+              css={`
+                width: 24px;
+              `}
+            />
+          </Button>
         </div>
         <>
           <div

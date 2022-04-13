@@ -2348,6 +2348,11 @@ data-urls@^3.0.1:
     whatwg-mimetype "^3.0.0"
     whatwg-url "^10.0.0"
 
+dayjs@^1.11.0:
+  version "1.11.0"
+  resolved "https://registry.yarnpkg.com/dayjs/-/dayjs-1.11.0.tgz#009bf7ef2e2ea2d5db2e6583d2d39a4b5061e805"
+  integrity sha512-JLC809s6Y948/FuCZPm5IX8rRhQwOiyMb2TfVVQEixG7P8Lm/gt5S7yoQZmC8x1UehI9Pb7sksEt4xx14m+7Ug==
+
 debounce-raf@^1.0.1:
   version "1.0.1"
   resolved "https://registry.yarnpkg.com/debounce-raf/-/debounce-raf-1.0.1.tgz#1e9cd63fd9afb0a9dce86b79ef435655bcb0c5d1"

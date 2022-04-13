@@ -8,7 +8,7 @@ import { SilkBrushes, SilkDOM } from 'silk-core'
 import { useTranslation } from 'next-i18next'
 import { useClickAway, useToggle } from 'react-use'
 import { Brush, Close, Eraser, Pencil, Stack } from '@styled-icons/remix-line'
-import { Cursor, Edit } from '@styled-icons/remix-fill'
+import { Cursor, Edit, Menu } from '@styled-icons/remix-fill'
 import { useTheme } from 'styled-components'
 import { Portal } from '🙌/components/Portal'
 import { FloatMenu } from '🙌/components/FloatMenu'
@@ -26,6 +26,7 @@ import {
   useFloating,
 } from '@floating-ui/react-dom'
 import { Tab, TabBar } from '🙌/components/TabBar'
+import { AnotherMenus } from './AnotherMenus'
 
 export function MainActions() {
   const theme = useTheme()
@@ -568,7 +569,6 @@ export function MainActions() {
         ref={layersFloat.reference}
         css={`
           position: relative;
-          padding: 4px;
           display: flex;
           justify-content: center;
           align-items: center;
@@ -625,6 +625,25 @@ export function MainActions() {
         </FloatMenu>
       </div>
       {/* )} */}
+
+      {/* <div
+        css={`
+          position: relative;
+          display: flex;
+          justify-content: center;
+          align-items: center;
+          height: 36px;
+        `}
+      >
+        <Menu
+          css={`
+            width: 24px;
+            border-radius: 60px;
+          `}
+        />
+
+        <AnotherMenus />
+      </div> */}
     </div>
   )
 }

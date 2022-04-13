@@ -1,12 +1,11 @@
 import { nanoid } from 'nanoid'
 
 import { Document, LayerTypes } from '../SilkDOM'
-import { Brush, ScatterBrush } from '../Brushes'
+import { Brush } from '../Brushes'
 import { CurrentBrushSetting } from '../engine/CurrentBrushSetting'
 import { Emitter } from '../Engine3_Emitter'
 import { RandomInk } from '../Inks/RandomInk'
 import { IInk } from '../Inks/IInk'
-import { IBrush } from '../engine/IBrush'
 import { IRenderStrategy } from '../engine/RenderStrategy/IRenderStrategy'
 import { RenderStrategies } from '../engine/RenderStrategy'
 import { BrushSetting } from '../Value'

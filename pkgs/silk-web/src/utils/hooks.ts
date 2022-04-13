@@ -1,7 +1,9 @@
+import { useFleurContext } from '@fleur/react'
 import {
   useCallback,
   useEffect,
   useLayoutEffect,
+  useMemo,
   useRef,
   useState,
 } from 'react'
@@ -67,3 +69,14 @@ export const useDebouncedFunk = <T extends (...args: any[]) => unknown>(
 
 export const useIsomorphicLayoutEffect =
   typeof window !== 'undefined' ? useLayoutEffect : useEffect
+
+export const useFleur = () => {
+  const ctx = useFleurContext()
+  return useMemo(
+    () => ({
+      execute: ctx.executeOperation,
+      getStore: ctx.getStore,
+    }),
+    []
+  )
+}

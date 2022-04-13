@@ -8,10 +8,12 @@ import {
   Scene,
   Texture,
   TextureLoader,
+  ImageBitmapLoader,
   Vector2,
   Path as ThreePath,
   Object3D,
   Color,
+  CanvasTexture,
 } from 'three'
 import { lerp } from '../SilkMath'
 import * as Textures from './ScatterTexture/assets'
@@ -55,14 +57,16 @@ export class ScatterBrush implements IBrush {
 
     await Promise.all(
       Object.keys(Textures).map(async (key) => {
-        const texture = await new Promise<Texture>((resolve, reject) =>
-          new TextureLoader().load(
+        const bitmap = await new Promise<ImageBitmap>((resolve, reject) =>
+          new ImageBitmapLoader().load(
             (Textures as any)[key as any],
             resolve,
             undefined,
             reject
           )
         )
+
+        const texture = new CanvasTexture(bitmap)
 
         this.materials[key] = new MeshBasicMaterial({
           // map: texture,

@@ -1,4 +1,4 @@
-import { Document } from '../../SilkDOM'
+import { Document, LayerTypes } from '../../SilkDOM'
 import { IRenderStrategy } from './IRenderStrategy'
 import { SilkEngine3 } from '../Engine3'
 import { assign, deepClone, setCanvasSize } from '../../utils'
@@ -23,144 +23,152 @@ export class FullRender implements IRenderStrategy {
     const { bufferCtx } = this
     setCanvasSize(bufferCtx.canvas, document.width, document.height)
 
-    const layerBitmaps = await Promise.all(
-      [...document.layers].map(async (layer) => {
-        if (!layer.visible) return [layer.uid, layer, null] as const
+    type LayerBitmapResult = {
+      layer: LayerTypes
+      image: ImageData | null
+      subResults?: Omit<LayerBitmapResult, 'subResults'>[]
+    }
 
-        switch (layer.layerType) {
-          case 'vector': {
-            const bitmap = await engine.renderVectorLayer(document, layer)
+    const getLayerBitmap = async (
+      layer: LayerTypes
+    ): Promise<LayerBitmapResult> => {
+      if (!layer.visible) return { layer, image: null }
 
-            return [
-              layer.uid,
-              layer,
-              new ImageData(bitmap, document.width, document.height),
-            ] as const
-          }
-          case 'raster': {
-            // if (
-            //   this.canvasHandler.stroking &&
-            //   layer.uid === this._activeLayer?.id
-            // )
-            //   return [layer.uid, layer, null] as const
+      // Needs rerender
+      switch (layer.layerType) {
+        case 'group': {
+          const results: Omit<LayerBitmapResult, 'subResults'>[] = []
 
-            return [
-              layer.uid,
-              layer,
-              new ImageData(layer.bitmap, layer.width, layer.height),
-            ] as const
+          for (const subLayer of layer.layers) {
+            const result = await getLayerBitmap(subLayer)
+            results.push(result)
           }
-          case 'filter': {
-            return [layer.uid, layer, null] as const
-          }
-          case 'text': {
-            return [layer.uid, layer, null] as const
+
+          return {
+            layer,
+            image: null,
+            subResults: results,
           }
         }
-      })
+        case 'vector': {
+          let bitmap = await engine.renderVectorLayer(document, layer)
+
+          return {
+            layer,
+            image: new ImageData(bitmap, document.width, document.height),
+          }
+        }
+        case 'raster': {
+          return {
+            layer,
+            image: new ImageData(layer.bitmap, layer.width, layer.height),
+          }
+        }
+        case 'filter': {
+          return { layer, image: null }
+        }
+        case 'text': {
+          return { layer, image: null }
+        }
+      }
+    }
+
+    const layerBitmaps = await Promise.all(
+      [...document.layers].map(async (layer) => getLayerBitmap(layer))
     )
 
     bufferCtx.save()
 
-    try {
-      for (const [, layer, image] of layerBitmaps) {
-        if (!layer.visible) continue
+    const compositeTo = async (
+      { layer, image, subResults }: LayerBitmapResult,
+      dest: CanvasRenderingContext2D
+    ) => {
+      if (!layer.visible) return
 
-        bufferCtx.clearRect(0, 0, document.width, document.height)
+      setCanvasSize(bufferCtx.canvas, document.getLayerSize(layer))
+      bufferCtx.clearRect(0, 0, document.width, document.height)
 
-        if (image == null) {
-          // if (
-          //   this.canvasHandler.stroking &&
-          //   layer.uid === this._activeLayer?.id
-          // ) {
-          //   destCtx.globalCompositeOperation = layer.compositeMode
-          //   destCtx.globalAlpha = Math.max(0, Math.min(layer.opacity / 100, 1))
-          //   destCtx.drawImage(this.strokingPreviewCtx.canvas, 0, 0)
-
-          //   continue
-          // } else
-
-          if (layer.layerType === 'filter') {
-            // TODO
-            // if (disableAllFilters) continue
-
-            for (const filter of layer.filters) {
-              if (!filter.visible) continue
-
-              const instance = engine.toolRegistry.getFilterInstance(
-                filter.filterId
-              )!
-              if (!instance)
-                throw new Error(`Filter not found (id:${filter.filterId})`)
-
-              destCtx.save()
-              bufferCtx.save()
-
-              try {
-                instance.render({
-                  gl: engine.gl,
-                  source: destCtx.canvas,
-                  dest: bufferCtx.canvas,
-                  size: { width: document.width, height: document.height },
-                  settings: deepClone(filter.settings),
-                })
-              } catch (e) {
-                throw e
-              } finally {
-                destCtx.restore()
-                bufferCtx.restore()
-              }
-
-              destCtx.globalCompositeOperation =
-                layer.compositeMode === 'normal'
-                  ? 'source-over'
-                  : layer.compositeMode
-              destCtx.globalAlpha = Math.max(
-                0,
-                Math.min(layer.opacity / 100, 1)
-              )
-              destCtx.drawImage(bufferCtx.canvas, 0, 0)
-            }
-
-            continue
-          }
-        }
-
-        if (image == null) continue
-
-        // TODO: layer.{x,y} 対応
-        bufferCtx.putImageData(image, 0, 0)
+      // Apply FilterLayer
+      if (image == null && layer.layerType === 'filter') {
+        // TODO
+        // if (disableAllFilters) continue
 
         for (const filter of layer.filters) {
           if (!filter.visible) continue
-          // if (disableAllFilters) continue
 
           const instance = engine.toolRegistry.getFilterInstance(
             filter.filterId
-          )!
+          )
+
           if (!instance)
             throw new Error(`Filter not found (id:${filter.filterId})`)
 
-          bufferCtx.save()
-          try {
-            instance.render({
-              gl: engine.gl,
-              source: bufferCtx.canvas,
-              dest: bufferCtx.canvas,
-              size: { width: document.width, height: document.height },
-              settings: deepClone(filter.settings),
-            })
-          } catch (e) {
-            throw e
-          } finally {
-            bufferCtx.restore()
-          }
+          await engine.applyFilter(destCtx, bufferCtx, instance, {
+            size: { width: document.width, height: document.height },
+            filterSettings: deepClone(filter.settings),
+          })
+          await engine.compositeLayers(bufferCtx, destCtx, {
+            mode: layer.compositeMode,
+            opacity: layer.opacity,
+          })
         }
 
-        destCtx.globalCompositeOperation =
-          layer.compositeMode === 'normal' ? 'source-over' : layer.compositeMode
-        destCtx.globalAlpha = Math.max(0, Math.min(layer.opacity / 100, 1))
-        destCtx.drawImage(bufferCtx.canvas, 0, 0)
+        return
+      }
+
+      if (image == null && layer.layerType === 'group' && subResults) {
+        // Isolated group
+        if (layer.compositeIsolation) {
+          for (const r of subResults) {
+            await compositeTo(r, dest)
+          }
+
+          return
+        } else {
+          const groupCtx = createContext2D()
+          setCanvasSize(groupCtx.canvas, document.getLayerSize(layer))
+
+          for (const r of subResults) {
+            await compositeTo(r, groupCtx)
+          }
+
+          await engine.compositeLayers(groupCtx, destCtx, {
+            mode: layer.compositeMode,
+            opacity: layer.opacity,
+          })
+
+          setCanvasSize(groupCtx.canvas, 0, 0)
+        }
+      }
+
+      if (image == null) return
+
+      // TODO: layer.{x,y} 対応
+      bufferCtx.putImageData(image, 0, 0)
+
+      for (const filter of layer.filters) {
+        if (!filter.visible) continue
+        // if (disableAllFilters) continue
+
+        const instance = engine.toolRegistry.getFilterInstance(filter.filterId)!
+        if (!instance)
+          throw new Error(`Filter not found (id:${filter.filterId})`)
+
+        await engine.applyFilter(bufferCtx, bufferCtx, instance, {
+          size: { width: document.width, height: document.height },
+          filterSettings: deepClone(filter.settings),
+        })
+      }
+
+      await engine.compositeLayers(bufferCtx, destCtx, {
+        mode: layer.compositeMode,
+        opacity: layer.opacity,
+      })
+    }
+
+    try {
+      for (const result of layerBitmaps) {
+        await compositeTo(result, destCtx)
       }
     } catch (e) {
       throw e

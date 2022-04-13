@@ -9,7 +9,7 @@ import { createGlobalStyle, ThemeProvider } from 'styled-components'
 import { useFleurContext, useStore } from '@fleur/react'
 import Head from 'next/head'
 import { useMedia } from '🙌/utils/hooks'
-import { lightTheme, darkTheme, ThemeType } from '🙌/utils/theme'
+import { lightTheme, darkTheme, ThemeType, tm } from '🙌/utils/theme'
 import i18nConfig from '../../next-i18next.config'
 import { narrow } from '🙌/utils/responsive'
 import { getStaticPropsWithFleur } from '🙌/lib/fleur'
@@ -33,7 +33,7 @@ declare module 'styled-components' {
 
 const DefaultStyle = createGlobalStyle`
   html {
-    background-color: #bebebe;
+    ${tm((o) => [o.bg.surface1])}
   }
 `
 

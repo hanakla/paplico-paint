@@ -19,8 +19,7 @@ import { connectIdb } from '🙌/infra/indexeddb'
 import { LocalStorage } from '🙌/infra/LocalStorage'
 import { any } from '🙌/utils/anyOf'
 import { shallowEquals } from '🙌/utils/object'
-import { deepClone } from '../utils/clone'
-import { log, trace, warn } from '../utils/log'
+import { log, trace, warn } from '🙌/utils/log'
 
 type EditorMode = 'pc' | 'sp' | 'tablet'
 type EditorPage = 'home' | 'app'
@@ -33,7 +32,12 @@ type VectorStroking = {
 }
 
 interface State {
-  savedItems: []
+  savedItems: {
+    uid: string
+    title: string
+    thumbnailUrl: string
+    updatedAt: Date
+  }[]
 
   engine: Silk3 | null
   session: SilkSession | null
@@ -106,7 +110,8 @@ export const [EditorStore, EditorOps] = minOps('Editor', {
 
     currentTheme: 'light',
     editorMode: 'sp',
-    editorPage: 'home', // process.env.NODE_ENV === 'development' ? 'app' : 'home',
+    editorPage: process.env.NODE_ENV === 'development' ? 'app' : 'home',
+    // editorPage: 'home', // process.env.NODE_ENV === 'development' ? 'app' : 'home',
     canvasScale: 1,
     canvasPosition: { x: 0, y: 0 },
 
@@ -128,6 +133,33 @@ export const [EditorStore, EditorOps] = minOps('Editor', {
     selectedLayerUids: [],
   }),
   ops: {
+    async fetchSavedItems(x) {
+      const db = await connectIdb()
+      x.finally(() => db.close())
+
+      const documents = await db.getAll('projects')
+      x.commit({
+        savedItems: documents.map((d) => ({
+          uid: d.uid,
+          title: d.title,
+          thumbnailUrl: URL.createObjectURL(d.thumbnail),
+          updatedAt: d.updatedAt,
+        })),
+      })
+    },
+    async loadDocumentFromIdb(x, documentUid: string) {
+      const db = await connectIdb()
+      const record = await db.get('projects', documentUid)
+      if (!record) throw new Error('WHAT')
+
+      const document = SilkSerializer.importDocument(
+        new Uint8Array(await record.bin.arrayBuffer())
+      )
+
+      await x.executeOperation(EditorOps.setDocument, document)
+      x.commit({ editorPage: 'app' })
+    },
+
     // #region Engine & Session
     initEngine: (
       x,
@@ -153,7 +185,7 @@ export const [EditorStore, EditorOps] = minOps('Editor', {
           return
 
         x.commit({
-          activeLayerPath: s.activeLayer?.uid ?? null,
+          activeLayerPath: s.activeLayer?.uid ? [s.activeLayer?.uid] : null,
           activeObjectId: null,
           activeObjectPointIndices: [],
         })
@@ -664,6 +696,8 @@ export const [EditorStore, EditorOps] = minOps('Editor', {
 })
 
 export const EditorSelector = {
+  savedItems: selector((get) => get(EditorStore).savedItems),
+
   defaultVectorBrush: selector(
     (): SilkSession.BrushSetting => ({
       brushId: '@silk-paint/brush',
@@ -679,6 +713,7 @@ export const EditorSelector = {
   }),
 
   // #region UI
+  currentTheme: selector((get) => get(EditorStore).currentTheme),
   activeSession: selector((get) => {
     // const { activeSessionId, sessions } = get(EditorStore)
     // if (!activeSessionId) return null

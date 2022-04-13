@@ -24,13 +24,16 @@ self.addEventListener('message', async (e) => {
 
     const image = await (
       await engine.renderAndExport(document)
-    ).export('image/jpeg', 80)
+    ).export('image/png')
 
     const bitmap = await createImageBitmap(image)
-    const canvas = new OffscreenCanvas(bitmap.width / 2, bitmap.height / 2)
-    canvas
-      .getContext('2d')!
-      .drawImage(bitmap, 0, 0, canvas.width, canvas.height)
+    const canvas = new OffscreenCanvas(
+      Math.floor(bitmap.width / 2),
+      Math.floor(bitmap.height / 2)
+    )
+    const ctx = canvas.getContext('2d')!
+    ctx.clearRect(0, 0, canvas.width, canvas.height)
+    ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height)
 
     await db.put('projects', {
       uid: document.uid,

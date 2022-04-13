@@ -207,7 +207,11 @@ export const HomeContent = () => {
             </div>
           </section>
 
-          <section>
+          <section
+            css={`
+              margin-top: 64px;
+            `}
+          >
             <Heading>{t('openFile')}</Heading>
 
             <div
@@ -243,7 +247,11 @@ export const HomeContent = () => {
             </div>
           </section>
 
-          <section>
+          <section
+            css={`
+              margin-top: 64px;
+            `}
+          >
             <Heading>{t('savedItems')}</Heading>
             <ul
               css={`

@@ -165,6 +165,9 @@ export class SilkEngine3 {
       setCanvasSize(this.canvasCtx.canvas, document.width, document.height)
       setCanvasSize(preDestCtx.canvas, document.width, document.height)
 
+      this.canvasCtx.clearRect(0, 0, document.width, document.height)
+      preDestCtx.clearRect(0, 0, document.width, document.height)
+
       renderer.setSize(document.width, document.height, false)
       renderer.setClearColor(0x000000, 0)
       renderer.clear()

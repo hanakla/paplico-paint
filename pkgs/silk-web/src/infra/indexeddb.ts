@@ -18,7 +18,7 @@ interface SilkDBSchama extends DBSchema {
 }
 
 export const connectIdb = async () => {
-  const db = await openDB<SilkDBSchama>('virse', 2, {
+  const db = await openDB<SilkDBSchama>('silk', 2, {
     upgrade(db, old, next) {
       db.createObjectStore('projects', {
         autoIncrement: false,

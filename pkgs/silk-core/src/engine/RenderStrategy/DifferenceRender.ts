@@ -4,7 +4,8 @@ import { Document, LayerTypes } from '../../SilkDOM'
 import { deepClone, setCanvasSize } from '../../utils'
 import { IRenderStrategy } from './IRenderStrategy'
 import { AtomicResource } from '../../AtomicResource'
-import { CompositeMode } from 'SilkDOM/IRenderable'
+import { CompositeMode } from '../../SilkDOM/IRenderable'
+import { SilkDOMDigger } from '../../SilkDOMDigger'
 
 type Override = {
   layerId: string
@@ -66,10 +67,22 @@ export class DifferenceRender implements IRenderStrategy {
       subResults?: Omit<LayerBitmapResult, 'subResults'>[]
     }
 
+    const referencedLayers = new Map()
+    SilkDOMDigger.traverseLayers(document, { kind: 'reference' }, (layer) => {
+      referencedLayers.set(
+        layer.uid,
+        SilkDOMDigger.findLayerRecursive(document, layer.referencedLayerId, {
+          strict: false,
+        })
+      )
+    })
+
     const getLayerBitmap = async (
-      layer: LayerTypes
+      layer: LayerTypes,
+      ignoreVisibility: boolean = false
     ): Promise<LayerBitmapResult> => {
-      if (!layer.visible) return { layer, needsUpdate: false, image: null }
+      if (!layer.visible && !ignoreVisibility)
+        return { layer, needsUpdate: false, image: null }
 
       // Needs rerender
       switch (layer.layerType) {
@@ -114,6 +127,15 @@ export class DifferenceRender implements IRenderStrategy {
         }
         case 'text': {
           return { layer, needsUpdate: false, image: null }
+        }
+        case 'reference': {
+          const referenced = referencedLayers.get(layer.uid)
+          const result = referenced
+            ? await getLayerBitmap(referenced, true)
+            : null
+          return result
+            ? { layer, needsUpdate: result.needsUpdate, image: result.image }
+            : { layer, needsUpdate: false, image: null }
         }
       }
     }
@@ -187,7 +209,7 @@ export class DifferenceRender implements IRenderStrategy {
       if (image == null) return
 
       // TODO: layer.{x,y} 対応
-      bufferCtx.putImageData(image, 0, 0)
+      bufferCtx.putImageData(image, layer.x, layer.y)
 
       if (this.overrides?.layerId === layer.uid) {
         await engine.compositeLayers(this.overrides.context2d, bufferCtx, {

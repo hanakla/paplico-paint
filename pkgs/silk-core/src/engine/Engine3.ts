@@ -125,7 +125,7 @@ export class SilkEngine3 {
     const buffer = createContext2D()
     this.atomicBufferCtx = new AtomicResource(buffer!)
 
-    this.gl = new WebGLContext(1, 1)
+    this.gl = new WebGLContext()
     this.toolRegistry = new ToolRegistry(this.gl)
 
     const renderer = new THREE.WebGLRenderer({
@@ -428,7 +428,7 @@ export class SilkEngine3 {
     dest.save()
 
     try {
-      filter.render({
+      await filter.render({
         gl: this.gl,
         source: source.canvas,
         dest: dest.canvas,
@@ -457,6 +457,7 @@ export class SilkEngine3 {
 
     compositeTo.globalCompositeOperation =
       mode === 'normal' ? 'source-over' : mode
+
     compositeTo.globalAlpha = Math.max(0, Math.min(opacity / 100, 1))
     compositeTo.drawImage(layerImage.canvas, 0, 0)
 

@@ -133,6 +133,12 @@ export class VectorLayer extends Emitter<Events> implements ILayer {
     }
   }
 
+  public clone(): this {
+    return VectorLayer.deserialize(
+      assign(this.serialize(), { uid: `vectorlayer-${v4()}` })
+    ) as this
+  }
+
   public get width() {
     return 0
   }

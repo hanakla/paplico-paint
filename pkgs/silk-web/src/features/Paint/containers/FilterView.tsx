@@ -35,10 +35,13 @@ export const FilterView = () => {
   const { t } = useTranslation('app')
 
   const { executeOperation, getStore } = useFleurContext()
-  const { activeLayer, registeredFilters } = useStore((get) => ({
-    activeLayer: EditorSelector.activeLayer(get),
-    registeredFilters: EditorSelector.getAvailableFilters(get),
-  }))
+  const { activeLayer, activeLayerPath, registeredFilters } = useStore(
+    (get) => ({
+      activeLayer: EditorSelector.activeLayer(get),
+      activeLayerPath: EditorSelector.activeLayerPath(get),
+      registeredFilters: EditorSelector.getAvailableFilters(get),
+    })
+  )
 
   const [listOpened, toggleListOpened] = useToggle(false)
   const addFilterListRef = useRef<HTMLDivElement | null>(null)
@@ -66,7 +69,7 @@ export const FilterView = () => {
       const filter = EditorSelector.getFilterInstance(getStore, filterId)
       if (!filter) return
 
-      executeOperation(EditorOps.updateLayer, activeLayer.uid, (layer) => {
+      executeOperation(EditorOps.updateLayer, activeLayerPath, (layer) => {
         layer.filters.unshift(
           SilkDOM.Filter.create({ filterId, settings: filter.initialConfig })
         )
@@ -77,9 +80,9 @@ export const FilterView = () => {
   )
 
   const handleFilterSortEnd: SortEndHandler = useFunk((sort) => {
-    if (!activeLayer) return
+    if (!activeLayer || !activeLayerPath) return
 
-    executeOperation(EditorOps.updateLayer, activeLayer.uid, (layer) => {
+    executeOperation(EditorOps.updateLayer, activeLayerPath, (layer) => {
       arrayMove.mutate(
         layer.filters,
         reversedIndex(activeLayer.filters, sort.oldIndex),
@@ -223,10 +226,13 @@ const SortableFilterItem = SortableElement(function FilterItem({
   const theme = useTheme()
 
   const { executeOperation } = useFleurContext()
-  const { activeLayer, selectedFilterIds } = useStore((get) => ({
-    activeLayer: EditorSelector.activeLayer(get),
-    selectedFilterIds: get(EditorStore).state.selectedFilterIds,
-  }))
+  const { activeLayer, activeLayerPath, selectedFilterIds } = useStore(
+    (get) => ({
+      activeLayer: EditorSelector.activeLayer(get),
+      activeLayerPath: EditorSelector.activeLayerPath(get),
+      selectedFilterIds: get(EditorStore).state.selectedFilterIds,
+    })
+  )
 
   const active = selectedFilterIds[filter.uid]
   const [propsOpened, togglePropsOpened] = useToggle(false)
@@ -243,9 +249,9 @@ const SortableFilterItem = SortableElement(function FilterItem({
   })
 
   const handleToggleVisibility = useFunk(() => {
-    if (!activeLayer) return
+    if (!activeLayer || !activeLayerPath) return
 
-    executeOperation(EditorOps.updateLayer, activeLayer.uid, (layer) => {
+    executeOperation(EditorOps.updateLayer, activeLayerPath, (layer) => {
       const targetFilter = layer.filters.find((f) => f.uid === filter.uid)
       if (!targetFilter) return
 
@@ -255,10 +261,10 @@ const SortableFilterItem = SortableElement(function FilterItem({
     executeOperation(EditorOps.rerenderCanvas)
   })
 
-  const handleClickRemove: ContextMenuCallback = useFunk((_) => {
-    if (!activeLayer) return
+  const handleClickRemove = useFunk(() => {
+    if (!activeLayer || !activeLayerPath) return
 
-    executeOperation(EditorOps.updateLayer, activeLayer.uid, (layer) => {
+    executeOperation(EditorOps.updateLayer, activeLayerPath, (layer) => {
       const idx = layer.filters.findIndex((f) => f.uid === filter.uid)
       if (idx === -1) return
 

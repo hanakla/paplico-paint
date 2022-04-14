@@ -7,5 +7,6 @@ export const setCanvasFactory = (fn: Factory) => {
 }
 
 export const createCanvas = () => canvasFactory()
-export const createWebGLContext = () => canvasFactory().getContext('webgl')!
+export const createWebGLContext = (options?: WebGLContextAttributes) =>
+  canvasFactory().getContext('webgl', options)!
 export const createContext2D = () => canvasFactory().getContext('2d')!

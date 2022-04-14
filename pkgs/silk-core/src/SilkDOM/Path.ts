@@ -190,22 +190,26 @@ export class Path implements ISilkDOMElement {
   public getPressureAtLength(len: number) {
     const nearPoint = this.getNearPointIdxAtLength(len)
 
+    const fallbackLast = this.closed
+      ? { index: 0, element: this.points[0] }
+      : {
+          index: this.points.length - 1,
+          element: this.points[this.points.length - 1],
+        }
+
     const prev = findIndex(this.points, (p) => p.pressure != null, {
       from: nearPoint.index,
       increments: -1,
-    })!
-    const next = findIndex(this.points, (p) => p.pressure != null, {
-      from: nearPoint.index + 1,
-      increments: 1,
-    })!
+    }) ?? { index: 0, element: this.points[0] }
+    const next =
+      findIndex(this.points, (p) => p.pressure != null, {
+        from: nearPoint.index + 1,
+        increments: 1,
+      }) ?? fallbackLast
 
     const prevLength = this.pal.lengthOfPoint(prev.index).length
     const nextLength = this.pal.lengthOfPoint(next.index).length
     const segmentLength = nextLength - prevLength
-
-    if (this.points.length !== this.pal._points.length) {
-      throw new Error('getPressureAt: WHAT??????')
-    }
 
     // SEE: https://developer.mozilla.org/ja/docs/Web/API/PointerEvent/pressure#return_value
     const defaultPressure = 0.5
@@ -326,7 +330,7 @@ const findIndex = <T>(
 ) => {
   if (!(opt.from in arr)) return undefined
 
-  for (let i = opt.from; i >= 0 || i < arr.length; i += opt.increments) {
+  for (let i = opt.from; i >= 0 && i < arr.length; i += opt.increments) {
     if (cb(arr[i], i)) return { index: i, element: arr[i] }
   }
 

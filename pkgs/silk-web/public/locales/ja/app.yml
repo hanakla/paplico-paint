@@ -25,6 +25,7 @@ layerType:
   vector: ベクターレイヤー
   raster: 通常レイヤー
   text: テキストレイヤー
+  reference: 参照レイヤー
 
 compositeModes:
   normal: 通常

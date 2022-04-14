@@ -83,4 +83,10 @@ export class FilterLayer extends Emitter<Events> implements ILayer {
       filters: this.filters.map((f) => f.serialize()),
     }
   }
+
+  public clone(): this {
+    return FilterLayer.deserialize(
+      assign(this.serialize(), { uid: `filterlayer-${v4()}` })
+    ) as this
+  }
 }

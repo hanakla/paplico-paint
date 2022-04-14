@@ -346,17 +346,22 @@ export function PaintPage({}) {
         ],
       })
 
+      const reference = SilkDOM.ReferenceLayer.create({
+        referencedLayerId: layer.uid,
+      })
+      reference.x = 20
+
       vector.filters.push(
         SilkDOM.Filter.create({
           filterId: '@silk-core/gauss-blur',
-          visible: false,
+          visible: true,
           settings: engine.current.toolRegistry.getFilterInstance(
             '@silk-core/gauss-blur'
           )!.initialConfig,
         }),
         SilkDOM.Filter.create({
           filterId: '@silk-core/chromatic-aberration',
-          visible: false,
+          visible: true,
           settings: engine.current.toolRegistry.getFilterInstance(
             '@silk-core/chromatic-aberration'
           )!.initialConfig,
@@ -368,6 +373,7 @@ export function PaintPage({}) {
       document.layers.push(text)
       document.layers.push(filter)
       document.layers.push(group)
+      document.layers.unshift(reference)
 
       // await executeOperation(EditorOps.createSession, document)
       await executeOperation(EditorOps.setActiveLayer, [layer.uid])

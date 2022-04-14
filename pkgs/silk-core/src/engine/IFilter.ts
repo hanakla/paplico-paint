@@ -1,5 +1,9 @@
 import { WebGLContext } from './WebGLContext'
 
+export type FilterInitializeContext = {
+  gl: WebGLContext
+}
+
 export type FilterContext = {
   gl: WebGLContext
   source: TexImageSource
@@ -17,5 +21,5 @@ export interface IFilter {
   get id(): string
   get initialConfig(): Record<string, any>
   initialize(context: { gl: WebGLContext }): Promise<void>
-  render(ctx: FilterContext): void
+  render(ctx: FilterContext): Promise<void>
 }

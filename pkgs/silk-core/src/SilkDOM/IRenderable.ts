@@ -9,7 +9,7 @@ export type LayerEvents<T extends ILayer> = {
 
 export type LayerProperties = {
   uid: string
-  layerType: 'raster' | 'vector' | 'filter' | 'group' | 'text'
+  layerType: 'raster' | 'vector' | 'filter' | 'group' | 'text' | 'reference'
   name: string
   visible: boolean
   lock: boolean
@@ -30,4 +30,5 @@ export interface ILayer
   update(proc: (layer: this) => void): void
 
   serialize(): any
+  clone(): this
 }

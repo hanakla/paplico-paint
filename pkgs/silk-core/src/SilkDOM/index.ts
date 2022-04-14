@@ -1,6 +1,7 @@
 import type { FilterLayer } from './FilterLayer'
 import type { GroupLayer } from './GroupLayer'
 import type { RasterLayer } from './RasterLayer'
+import type { ReferenceLayer } from './ReferenceLayer'
 import type { TextLayer } from './TextLayer'
 import type { VectorLayer } from './VectorLayer'
 
@@ -9,7 +10,7 @@ export { GroupLayer } from './GroupLayer'
 export { VectorLayer } from './VectorLayer'
 export { FilterLayer } from './FilterLayer'
 export { TextLayer } from './TextLayer'
-export { GroupLayer as Group } from './GroupLayer'
+export { ReferenceLayer } from './ReferenceLayer'
 export { Filter } from './Filter'
 export { Document } from './Document'
 export { Path } from './Path'
@@ -21,3 +22,4 @@ export type LayerTypes =
   | FilterLayer
   | TextLayer
   | GroupLayer
+  | ReferenceLayer

@@ -72,12 +72,12 @@ export class WebGLContext {
   private vertexBuffer: WebGLBuffer
   private tex2DBuffer: WebGLBuffer
 
-  public constructor(private width: number, private height: number) {
+  public constructor() {
     // OffscreenCanvas not updated frame (bug?) so using HTMLCanvasElement
     this.gl = createWebGLContext()
+    setCanvasSize(this.gl.canvas, 1, 1)
+    this.gl.viewport(0, 0, 1, 1)
 
-    setCanvasSize(this.gl.canvas, width, height)
-    this.gl.viewport(0, 0, width, height)
     this.vertexBuffer = this.gl.createBuffer()!
     this.tex2DBuffer = this.gl.createBuffer()!
   }
@@ -132,6 +132,9 @@ export class WebGLContext {
     dest: HTMLCanvasElement | OffscreenCanvas
   ) {
     const { gl } = this
+
+    setCanvasSize(this.gl.canvas, source.width, source.height)
+    this.gl.viewport(0, 0, source.width, source.height)
 
     gl.clearColor(0, 0, 0, 1)
     gl.clearDepth(1)

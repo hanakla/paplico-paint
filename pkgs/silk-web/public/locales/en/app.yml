@@ -25,6 +25,7 @@ layerType:
   vector: Vector layer
   raster: Normal layer
   text: Text layer
+  reference: Referenced
 
 compositeModes:
   normal: Normal

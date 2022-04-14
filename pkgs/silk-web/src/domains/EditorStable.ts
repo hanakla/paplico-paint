@@ -395,6 +395,25 @@ export const [EditorStore, EditorOps] = minOps('Editor', {
         draft.selectedFilterIds = {}
       })
     },
+    setActiveLayerToReferenceTarget: (x, layerUid, objectUid?: string) => {
+      const path = SilkDOMDigger.getPathToLayer(
+        x.state.currentDocument!,
+        layerUid,
+        {
+          strict: true,
+        }
+      )
+
+      x.commit((draft) => {
+        draft.session?.setActiveLayer(path)
+
+        draft.activeLayerPath = path
+        draft.activeObjectId = objectUid ?? null
+        draft.activeObjectPointIndices = []
+        draft.selectedFilterIds = {}
+      })
+    },
+
     setActiveObject: (
       x,
       objectId: string | null,

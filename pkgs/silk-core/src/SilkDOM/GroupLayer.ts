@@ -80,4 +80,10 @@ export class GroupLayer extends Emitter<Events> implements ILayer {
       filters: this.filters.map((f) => f.serialize()),
     }
   }
+
+  public clone(): this {
+    return GroupLayer.deserialize(
+      assign(this.serialize(), { uid: `grouplayer-${v4()}` })
+    ) as this
+  }
 }

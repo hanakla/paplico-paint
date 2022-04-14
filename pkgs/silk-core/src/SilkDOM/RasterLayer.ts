@@ -15,7 +15,7 @@ export class RasterLayer extends Emitter<Events> implements ILayer {
   public name: string = ''
   public visible: boolean = true
   public lock: boolean = false
-  public compositeMode: ILayer['compositeMode'] = 'normal' as const
+  public compositeMode: CompositeMode = 'normal' as const
   public opacity: number = 100
 
   public width: number = 0
@@ -80,63 +80,6 @@ export class RasterLayer extends Emitter<Events> implements ILayer {
     super()
   }
 
-  // #region getter and setters
-
-  // prettier-ignore
-  // public get id() { return this.#id }
-
-  // // prettier-ignore
-  // public get name() { return this.#name }
-  // // prettier-ignore
-  // public set name(val: string) { this.#name = val }
-
-  // // prettier-ignore
-  // public get visible() { return this.#visible }
-  // // prettier-ignore
-  // public set visible(val: boolean) { this.#visible = val }
-
-  // // prettier-ignore
-  // public get lock() { return this.#lock }
-  // // prettier-ignore
-  // public set lock(val: boolean) { this.#lock = val }
-
-  // // prettier-ignore
-  // public get compositeMode() { return this.#compositeMode }
-  // // prettier-ignore
-  // public set compositeMode(val: CompositeMode) { this.#compositeMode = val }
-
-  // // prettier-ignore
-  // public get opacity() { return this.#opacity }
-  // // prettier-ignore
-  // public set opacity(val: number) { this.#opacity = val }
-
-  // // prettier-ignore
-  // public get width() { return this.#width }
-  // // prettier-ignore
-  // public set width(val: number) { this.#width = val }
-
-  // // prettier-ignore
-  // public get height() { return this.#height }
-  // // prettier-ignore
-  // public set height(val: number) { this.#height = val }
-
-  // // prettier-ignore
-  // public get x() { return this.#x }
-  // // prettier-ignore
-  // public set x(val: number) { this.#x = val }
-
-  // // prettier-ignore
-  // public get y() { return this.#y }
-  // // prettier-ignore
-  // public set y(val: number) { this.#y = val }
-
-  // // prettier-ignore
-  // public get filters() { return this.#filters }
-  // prettier-ignore
-  // public set filters(val: D) { this.#filters = val }
-
-  // #endregion
-
   public get imageBitmap(): Promise<ImageBitmap> {
     return this._imageBitmapPromise
   }
@@ -179,5 +122,11 @@ export class RasterLayer extends Emitter<Events> implements ILayer {
       filters: this.filters.map((f) => f.serialize()),
       bitmap: this.bitmap,
     }
+  }
+
+  public clone(): this {
+    return RasterLayer.deserialize(
+      assign(this.serialize(), { uid: `rasterlayer-${v4()}` })
+    ) as this
   }
 }

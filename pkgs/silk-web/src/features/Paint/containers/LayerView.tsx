@@ -1,31 +1,16 @@
-import {
-  ChangeEvent,
-  FC,
-  MouseEvent,
-  ReactNode,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from 'react'
+import { ChangeEvent, MouseEvent, ReactNode, useEffect, useRef } from 'react'
 import { SilkCommands, SilkDOM, SilkHelper } from 'silk-core'
-import { useClickAway, useToggle, useUpdate } from 'react-use'
+import { useClickAway, useToggle } from 'react-use'
 import { loadImageFromBlob, selectFile, useFunk } from '@hanakla/arma'
 import { rgba } from 'polished'
 import { usePopper } from 'react-popper'
-import { Add, Brush, Filter3 } from '@styled-icons/remix-fill'
+import { Add, Brush, Filter3, Guide, Shape } from '@styled-icons/remix-fill'
 import { css } from 'styled-components'
 import { Portal } from '🙌/components/Portal'
-import {
-  SortableContainer,
-  SortableElement,
-  SortEndHandler,
-} from 'react-sortable-hoc'
-import { centering, rangeThumb, silkScroll } from '🙌/utils/mixins'
+import { centering, rangeThumb } from '🙌/utils/mixins'
 import { useTranslation } from 'next-i18next'
-import { ArrowDownS, Guide, Stack, Text } from '@styled-icons/remix-line'
+import { ArrowDownS, Stack } from '@styled-icons/remix-line'
 import { Eye, EyeClose } from '@styled-icons/remix-fill'
-import { useLayerControl } from '🙌/hooks/useLayers'
 import {
   ContextMenu,
   ContextMenuItem,
@@ -63,7 +48,7 @@ import { CSS } from '@dnd-kit/utilities'
 import { PropsOf } from '🙌/utils/types'
 import { contextMenu } from 'react-contexify'
 import { Tooltip2 } from '🙌/components/Tooltip2'
-import { useCachedInputState, useDebouncedFunk } from '🙌/utils/hooks'
+import { useCachedInputState, useDebouncedFunk, useFleur } from '🙌/utils/hooks'
 
 export function LayerView() {
   const { t } = useTranslation('app')
@@ -216,16 +201,6 @@ export function LayerView() {
       })
     }
   )
-
-  const handleOpenContextMenu = useFunk<
-    PropsOf<typeof SortableLayerItem>['onContextMenu']
-  >((e, path) => {
-    contextMenu.show(e, { props: { layerPath: path } })
-  })
-
-  const handleClickDeleteLayer = useFunk(({ props }: LayerContextMenuParam) => {
-    executeOperation(EditorOps.deleteLayer, props!.layerPath)
-  })
 
   const container = useFunk((children: ReactNode) => <div>{children}</div>)
 
@@ -414,19 +389,11 @@ export function LayerView() {
             strategy={verticalListSortingStrategy}
           >
             {flatLayers.map((layer) => (
-              <SortableLayerItem
-                key={layer.layer.uid}
-                layer={layer}
-                onContextMenu={handleOpenContextMenu}
-              />
+              <SortableLayerItem key={layer.layer.uid} layer={layer} />
             ))}
           </SortableContext>
         </DndContext>
       </div>
-
-      <ContextMenu id={contextMenu.id}>
-        <ContextMenuItem onClick={handleClickDeleteLayer}>削除</ContextMenuItem>
-      </ContextMenu>
 
       {/* <SortableLayerList
             layers={[...layers].reverse()}
@@ -440,11 +407,12 @@ export function LayerView() {
 
 const SortableLayerItem = ({
   layer: { layer, path, depth },
-  onContextMenu,
-}: {
+}: // onContextMenu,
+{
   layer: { path: string[]; layer: SilkDOM.LayerTypes; depth: number }
-  onContextMenu: (e: MouseEvent<HTMLDivElement>, layerPath: string[]) => void
+  // onContextMenu: (e: MouseEvent<HTMLDivElement>, layerPath: string[]) => void
 }) => {
+  const contextMenu = useContextMenu()
   const { attributes, listeners, setNodeRef, transform, transition } =
     useSortable({ id: layer.uid })
 
@@ -456,7 +424,7 @@ const SortableLayerItem = ({
   const { t } = useTranslation('app')
   const theme = useTheme()
 
-  const { executeOperation } = useFleurContext()
+  const { execute } = useFleur()
   const { activeLayer, activeLayerPath, thumbnailUrlOfLayer, activeObjectId } =
     useStore((get) => ({
       activeLayer: EditorSelector.activeLayer(get),
@@ -471,7 +439,7 @@ const SortableLayerItem = ({
   const rootRef = useRef<HTMLDivElement | null>(null)
 
   const handleToggleVisibility = useFunk(() => {
-    executeOperation(
+    execute(
       EditorOps.runCommand,
       new SilkCommands.Layer.PatchLayerAttr({
         patch: { visible: !layer.visible },
@@ -487,12 +455,30 @@ const SortableLayerItem = ({
     )
       return
 
-    executeOperation(EditorOps.setActiveLayer, [...path, layer.uid])
+    execute(EditorOps.setActiveLayer, [...path, layer.uid])
   })
+
+  const handleChangeActiveLayerToReferenceTarget = useFunk(
+    (e: MouseEvent<SVGElement>) => {
+      if (
+        DOMUtils.closestOrSelf(e.target, '[data-ignore-click]') ||
+        DOMUtils.closestOrSelf(e.target, '[data-ignore-layer-click]') ||
+        layer.layerType !== 'reference'
+      )
+        return
+
+      e.stopPropagation()
+
+      execute(
+        EditorOps.setActiveLayerToReferenceTarget,
+        layer.referencedLayerId
+      )
+    }
+  )
 
   const handleClickObject = useFunk(
     ({ currentTarget }: MouseEvent<HTMLDivElement>) => {
-      executeOperation(
+      execute(
         EditorOps.setActiveObject,
         currentTarget.dataset.objectId ?? null,
         activeLayerPath
@@ -513,7 +499,7 @@ const SortableLayerItem = ({
 
   const handleChangeLayerName = useFunk(
     ({ currentTarget }: ChangeEvent<HTMLInputElement>) => {
-      executeOperation(
+      execute(
         EditorOps.runCommand,
         new SilkCommands.Layer.PatchLayerAttr({
           patch: { name: currentTarget.value },
@@ -524,7 +510,15 @@ const SortableLayerItem = ({
   )
 
   const handleContextMenu = useFunk((e: MouseEvent<HTMLDivElement>) => {
-    onContextMenu(e, [...path, layer.uid])
+    contextMenu.show(e, { props: { layerPath: [...path, layer.uid] } })
+  })
+
+  const handleClickConvertToSubstance = useFunk(() => {
+    execute(EditorOps.convertToSubstance, [...path, layer.uid])
+  })
+
+  const handleClickDeleteLayer = useFunk(({ props }: LayerContextMenuParam) => {
+    execute(EditorOps.deleteLayer, props!.layerPath)
   })
 
   useMouseTrap(
@@ -684,10 +678,20 @@ const SortableLayerItem = ({
                 // />
                 'T'}
               {layer.layerType === 'vector' && (
-                <Guide
+                <Shape
                   css={`
                     font-size: 16px;
                   `}
+                />
+              )}
+              {layer.layerType === 'reference' && (
+                <Guide
+                  css={`
+                    font-size: 16px;
+                    border-bottom: 1px solid currentColor;
+                    cursor: pointer;
+                  `}
+                  onClick={handleChangeActiveLayerToReferenceTarget}
                 />
               )}
             </Tooltip2>
@@ -756,6 +760,16 @@ const SortableLayerItem = ({
           </div>
         )}
       </div>
+
+      <ContextMenu id={contextMenu.id}>
+        <ContextMenuItem
+          hidden={layer.layerType !== 'reference'}
+          onClick={handleClickConvertToSubstance}
+        >
+          レイヤーに変換
+        </ContextMenuItem>
+        <ContextMenuItem onClick={handleClickDeleteLayer}>削除</ContextMenuItem>
+      </ContextMenu>
     </div>
   )
 }

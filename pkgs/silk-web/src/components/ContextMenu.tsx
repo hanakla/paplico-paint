@@ -18,6 +18,7 @@ import {
   HandlerParamsEvent,
   Item,
   ItemParams,
+  ItemProps,
   Menu,
   useContextMenu as originalUseContextMenu,
 } from 'react-contexify'
@@ -34,8 +35,8 @@ export type ContextMenuParam<T> = ItemParams<T, any>
 //   close: () => void
 // } | null>(null)
 
-export const useContextMenu = (menuId: string) => {
-  const id = useMemo(() => menuId ?? nanoid(), [])
+export const useContextMenu = () => {
+  const id = useMemo(() => nanoid(), [])
   const menu = originalUseContextMenu({ id: id })
 
   return { id, show: menu.show.bind(menu), hideAll: menu.hideAll.bind(menu) }
@@ -124,11 +125,7 @@ export const ContextMenuItem = ({
   children,
   onClick,
   ...props
-}: {
-  data?: any
-  children?: ReactNode
-  onClick: (e: ContextMenuParam<any>) => void
-}) => {
+}: ItemProps) => {
   return (
     <Item onClick={onClick} data={data} {...props}>
       {children}

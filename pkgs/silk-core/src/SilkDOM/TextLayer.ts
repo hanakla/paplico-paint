@@ -80,6 +80,12 @@ export class TextLayer extends Emitter<Events> implements ILayer {
       letterSpacing: this.letterSpacing,
     }
   }
+
+  public clone(): this {
+    return TextLayer.deserialize(
+      assign(this.serialize(), { uid: `textlayer-${v4()}` })
+    ) as this
+  }
 }
 
 export namespace TextLayer {

@@ -3,6 +3,7 @@ import { IRenderStrategy } from './IRenderStrategy'
 import { SilkEngine3 } from '../Engine3'
 import { assign, deepClone, setCanvasSize } from '../../utils'
 import { createContext2D } from '../../Engine3_CanvasFactory'
+import { SilkDOMDigger } from '../../SilkDOMDigger'
 
 export class FullRender implements IRenderStrategy {
   private bufferCtx: CanvasRenderingContext2D
@@ -29,12 +30,22 @@ export class FullRender implements IRenderStrategy {
       subResults?: Omit<LayerBitmapResult, 'subResults'>[]
     }
 
-    const getLayerBitmap = async (
-      layer: LayerTypes
-    ): Promise<LayerBitmapResult> => {
-      if (!layer.visible) return { layer, image: null }
+    const referencedLayers = new Map()
+    SilkDOMDigger.traverseLayers(document, { kind: 'reference' }, (layer) => {
+      referencedLayers.set(
+        layer.uid,
+        SilkDOMDigger.findLayerRecursive(document, layer.referencedLayerId, {
+          strict: true,
+        })
+      )
+    })
 
-      // Needs rerender
+    const getLayerBitmap = async (
+      layer: LayerTypes,
+      ignoreVisibility: boolean = false
+    ): Promise<LayerBitmapResult> => {
+      if (!layer.visible && !ignoreVisibility) return { layer, image: null }
+
       switch (layer.layerType) {
         case 'group': {
           const results: Omit<LayerBitmapResult, 'subResults'>[] = []
@@ -70,11 +81,18 @@ export class FullRender implements IRenderStrategy {
         case 'text': {
           return { layer, image: null }
         }
+        case 'reference': {
+          const referenced = referencedLayers.get(layer.uid)!
+          return {
+            layer,
+            image: (await getLayerBitmap(referenced, true)).image,
+          }
+        }
       }
     }
 
     const layerBitmaps = await Promise.all(
-      [...document.layers].map(async (layer) => getLayerBitmap(layer))
+      [...document.layers].reverse().map(async (layer) => getLayerBitmap(layer))
     )
 
     bufferCtx.save()
@@ -144,7 +162,7 @@ export class FullRender implements IRenderStrategy {
       if (image == null) return
 
       // TODO: layer.{x,y} 対応
-      bufferCtx.putImageData(image, 0, 0)
+      bufferCtx.putImageData(image, layer.x, layer.y)
 
       for (const filter of layer.filters) {
         if (!filter.visible) continue

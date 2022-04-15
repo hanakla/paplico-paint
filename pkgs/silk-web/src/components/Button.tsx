@@ -14,13 +14,14 @@ import { css } from 'styled-components'
 import { darken, rgba } from 'polished'
 import { combineRef } from '../utils/react'
 import { Portal } from './Portal'
-import { useFunk } from '@hanakla/arma'
+import { styleWhen, useFunk } from '@hanakla/arma'
 import { isEventIgnoringTarget } from '🙌/features/Paint/helpers'
 
 type Props = {
   kind: 'normal' | 'primary'
   circled?: boolean
   outline?: boolean
+  blocked?: boolean
   popup?: ReactNode
   children?: ReactNode
 }
@@ -28,8 +29,11 @@ type Props = {
 type AllProps = Props &
   DetailedHTMLProps<ButtonHTMLAttributes<HTMLButtonElement>, HTMLButtonElement>
 
-export const Button = forwardRef<HTMLButtonElement, Props>(
-  ({ kind, circled, outline, children, popup, ...props }: AllProps, ref) => {
+export const Button = forwardRef<HTMLButtonElement, AllProps>(
+  (
+    { kind, circled, outline, children, blocked, popup, ...props }: AllProps,
+    ref
+  ) => {
     const rootRef = useRef<HTMLButtonElement | null>(null)
     const popperRef = useRef<HTMLDivElement | null>(null)
     const popper = usePopper(rootRef.current, popperRef.current, {
@@ -56,7 +60,7 @@ export const Button = forwardRef<HTMLButtonElement, Props>(
           display: flex;
           justify-content: center;
           align-items: center;
-          padding: 0;
+          padding: 4px 8px;
 
           appearance: none;
           text-align: center;
@@ -64,6 +68,9 @@ export const Button = forwardRef<HTMLButtonElement, Props>(
           border-radius: 4px;
           line-height: 14px;
 
+          ${styleWhen(!!blocked)`
+            width: 100%;
+          `}
           ${!outline && kind === 'primary' && primary}
           ${outline && kind === 'primary' && primaryOutline}
           ${circled && circledStyle}

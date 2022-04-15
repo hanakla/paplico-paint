@@ -1,4 +1,4 @@
-import { MouseEvent } from 'react'
+import { MouseEvent, useState } from 'react'
 import styled, { css, useTheme } from 'styled-components'
 import { SilkDOM, SilkHelper, SilkSerializer } from 'silk-core'
 import { useFleurContext, useStore } from '@fleur/react'
@@ -18,6 +18,8 @@ import dayjs from 'dayjs'
 import relativeTime from 'dayjs/plugin/relativeTime'
 import 'dayjs/locale/ja'
 import { useRouter } from 'next/router'
+import { useFleur } from '🙌/utils/hooks'
+import { Button } from '🙌/components/Button'
 dayjs.extend(relativeTime)
 
 export const HomeContent = () => {
@@ -25,7 +27,9 @@ export const HomeContent = () => {
   const { t } = useTranslation('index-home')
   const { locale } = useRouter()
 
-  const { executeOperation } = useFleurContext()
+  const [displayItems, setDisplayItems] = useState(12)
+
+  const { execute } = useFleur()
   const { savedItems, currentTheme } = useStore((get) => ({
     savedItems: EditorSelector.savedItems(get),
     currentTheme: get(EditorStore).state.currentTheme,
@@ -41,8 +45,8 @@ export const HomeContent = () => {
       doc.addLayer(layer)
       doc.activeLayerId = layer.uid
 
-      executeOperation(EditorOps.setDocument, doc)
-      executeOperation(EditorOps.setEditorPage, 'app')
+      execute(EditorOps.setDocument, doc)
+      execute(EditorOps.setEditorPage, 'app')
     }
   )
 
@@ -54,9 +58,9 @@ export const HomeContent = () => {
         new Uint8Array(await file.arrayBuffer())
       )
 
-      executeOperation(EditorOps.setDocument, doc)
-      executeOperation(EditorOps.createSession, doc)
-      executeOperation(EditorOps.setEditorPage, 'app')
+      execute(EditorOps.setDocument, doc)
+      execute(EditorOps.createSession, doc)
+      execute(EditorOps.setEditorPage, 'app')
     } else if (/^image\//.test(file.type)) {
       const { image, url } = await loadImageFromBlob(file)
       const layer = await SilkHelper.imageToLayer(image)
@@ -69,9 +73,9 @@ export const HomeContent = () => {
       })
       doc.addLayer(layer)
 
-      executeOperation(EditorOps.setDocument, doc)
-      executeOperation(EditorOps.createSession, doc)
-      executeOperation(EditorOps.setEditorPage, 'app')
+      execute(EditorOps.setDocument, doc)
+      execute(EditorOps.createSession, doc)
+      execute(EditorOps.setEditorPage, 'app')
     }
   })
 
@@ -86,20 +90,21 @@ export const HomeContent = () => {
   })
 
   const handleClickDarkTheme = useFunk(() =>
-    executeOperation(EditorOps.setTheme, 'dark')
+    execute(EditorOps.setTheme, 'dark')
   )
   const handleClickLightTheme = useFunk(() =>
-    executeOperation(EditorOps.setTheme, 'light')
+    execute(EditorOps.setTheme, 'light')
   )
 
   const handleClickSavedItem = useFunk(
     ({ currentTarget }: MouseEvent<HTMLLIElement>) => {
-      executeOperation(
-        EditorOps.loadDocumentFromIdb,
-        currentTarget.dataset.documentUid!
-      )
+      execute(EditorOps.loadDocumentFromIdb, currentTarget.dataset.documentUid!)
     }
   )
+
+  const handleClickMoreSavedItems = useFunk(() => {
+    setDisplayItems((s) => s + 6)
+  })
 
   const [bindDrop, dropState] = useDropArea({
     onFiles: ([file]) => {
@@ -108,7 +113,7 @@ export const HomeContent = () => {
   })
 
   useMount(() => {
-    executeOperation(EditorOps.fetchSavedItems)
+    execute(EditorOps.fetchSavedItems)
   })
 
   return (
@@ -220,17 +225,17 @@ export const HomeContent = () => {
                 flex-flow:column;
                 padding: 48px 32px;
                 font-size: 24px;
-                background-color: ${({ theme }) => theme.colors.whiteFade10};
+                background-color: ${({ theme }) => theme.colors.whiteFade20};
                 border-radius: 8px;
                 cursor: pointer;
 
                 &:hover {
-                  background-color: ${({ theme }) => theme.colors.whiteFade20};
+                  background-color: ${({ theme }) => theme.colors.whiteFade30};
                 }
               `}
               style={{
                 ...(dropState.over
-                  ? { backgroundColor: theme.colors.whiteFade20 }
+                  ? { backgroundColor: theme.colors.whiteFade30 }
                   : {}),
               }}
               onClick={handleClickDropArea}
@@ -255,10 +260,12 @@ export const HomeContent = () => {
             <Heading>{t('savedItems')}</Heading>
             <ul
               css={`
-                display: flex;
+                display: grid;
                 flex-wrap: nowrap;
                 gap: 8px;
+                margin: 0 -8px;
                 overflow: auto;
+                grid-template-columns: repeat(6, 1fr);
 
                 ${media.narrow`
                   display: grid;
@@ -268,11 +275,11 @@ export const HomeContent = () => {
                 `}
               `}
             >
-              {savedItems.map((item) => (
+              {savedItems.slice(0, displayItems).map((item) => (
                 <li
                   key={item.uid}
                   css={css`
-                    width: 128px;
+                    /* width: 128px; */
                     padding: 8px;
                     border-radius: 4px;
                     cursor: pointer;
@@ -327,6 +334,28 @@ export const HomeContent = () => {
                 </li>
               ))}
             </ul>
+
+            {savedItems.length > displayItems && (
+              <div
+                css={`
+                  ${centering()}
+                  margin: 16px 0 32px;
+                  text-align: center;
+                `}
+              >
+                <Button
+                  css={`
+                    ${tm((o) => [o.typography(14)])}
+                    text-align: center;
+                    cursor: pointer;
+                  `}
+                  kind="normal"
+                  onClick={handleClickMoreSavedItems}
+                >
+                  もっと見る
+                </Button>
+              </div>
+            )}
           </section>
 
           <div

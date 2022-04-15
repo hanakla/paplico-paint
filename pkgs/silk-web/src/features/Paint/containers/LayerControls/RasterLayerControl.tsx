@@ -14,7 +14,12 @@ export const RasterLayerControl = () => {
     return null
 
   return (
-    <>
+    <svg
+      data-devmemo="Raster layer control"
+      width={currentDocument.width}
+      height={currentDocument.height}
+      viewBox={`0 0 ${currentDocument.width} ${currentDocument.height}`}
+    >
       <rect
         css={`
           fill: none;
@@ -25,6 +30,6 @@ export const RasterLayerControl = () => {
         width={bbox?.width}
         height={bbox?.height}
       />
-    </>
+    </svg>
   )
 }

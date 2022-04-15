@@ -22,6 +22,11 @@ declare module 'point-at-length' {
   export = _
 }
 
+declare module 'is-ios' {
+  const _: boolean
+  export = _
+}
+
 declare module 'fast-random' {
   const fastRandom: (seed: number) => {
     nextInt(): number

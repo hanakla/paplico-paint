@@ -1,4 +1,3 @@
-import simplify from 'simplify-js'
 import { SilkEngine3 } from './Engine3'
 import { Emitter } from '../Engine3_Emitter'
 import { SilkSession } from '../Session/Engine3_Sessions'
@@ -9,6 +8,7 @@ import { LayerTypes, RasterLayer, VectorLayer, VectorObject } from '../SilkDOM'
 import { createContext2D } from '../Engine3_CanvasFactory'
 // import PointerTracker from 'pointer-tracker'
 import { Commands } from '../Session/Commands'
+import isIOS from 'is-ios'
 
 type Events = {
   strokeStart: Stroke
@@ -43,17 +43,16 @@ export class CanvasHandler extends Emitter<Events> {
     this.strokeCtx = createContext2D()
     this.compositeSourceCtx = createContext2D()
 
-    // this.canvas.addEventListener('mousedown', this.#handleMouseDown)
-    // this.canvas.addEventListener('mousemove', this.#handleMouseMove)
-    // this.canvas.addEventListener('mouseup', this.#handleMouseUp)
-
-    // this.canvas.addEventListener('touchstart', this.#handleTouchStart)
-    // this.canvas.addEventListener('touchmove', this.#handleTouchMove)
-    // this.canvas.addEventListener('touchend', this.#handleTouchEnd)
-
-    this.canvas.addEventListener('pointerdown', this.#handleMouseDown)
-    this.canvas.addEventListener('pointermove', this.#handleMouseMove)
-    this.canvas.addEventListener('pointerup', this.#handleMouseUp)
+    // Touch Event is used in iOS because Pointer Event cannot be used as a basis for smooth paths.
+    if (isIOS) {
+      this.canvas.addEventListener('touchstart', this.#handleTouchStart)
+      this.canvas.addEventListener('touchmove', this.#handleTouchMove)
+      this.canvas.addEventListener('touchend', this.#handleTouchEnd)
+    } else {
+      this.canvas.addEventListener('pointerdown', this.#handleMouseDown)
+      this.canvas.addEventListener('pointermove', this.#handleMouseMove)
+      this.canvas.addEventListener('pointerup', this.#handleMouseUp)
+    }
 
     window.addEventListener('pointerup', this.#handleMouseUp)
   }
@@ -194,16 +193,20 @@ export class CanvasHandler extends Emitter<Events> {
       await engine.render(session.document, strategy)
       this.mitt.emit('canvasUpdated')
     })
+
+    session.on('documentChanged', () => {
+      setCanvasSize(this.canvas, session.document!)
+    })
   }
 
   public dispose() {
-    this.canvas.removeEventListener('pointerdown', this.#handleMouseDown)
-    this.canvas.removeEventListener('pointermove', this.#handleMouseMove)
-    this.canvas.removeEventListener('pointerup', this.#handleMouseUp)
+    // this.canvas.removeEventListener('pointerdown', this.#handleMouseDown)
+    // this.canvas.removeEventListener('pointermove', this.#handleMouseMove)
+    // this.canvas.removeEventListener('pointerup', this.#handleMouseUp)
 
-    // this.canvas.removeEventListener('touchstart', this.#handleTouchStart)
-    // this.canvas.removeEventListener('touchmove', this.#handleTouchMove)
-    // this.canvas.removeEventListener('touchend', this.#handleTouchEnd)
+    this.canvas.removeEventListener('touchstart', this.#handleTouchStart)
+    this.canvas.removeEventListener('touchmove', this.#handleTouchMove)
+    this.canvas.removeEventListener('touchend', this.#handleTouchEnd)
   }
 
   #handleMouseDown = (e: PointerEvent) => {
@@ -272,6 +275,8 @@ export class CanvasHandler extends Emitter<Events> {
       return
     }
 
+    console.log(currentStroke.points.length)
+
     if (this.#strokingState.touches === 0) {
       this.#strokingState = null
       this.currentStroke = null
@@ -280,7 +285,6 @@ export class CanvasHandler extends Emitter<Events> {
 
     currentStroke.simplify()
     currentStroke.freeze()
-    console.log(currentStroke)
     this.mitt.emit('strokeComplete', currentStroke)
   }
 
@@ -288,6 +292,7 @@ export class CanvasHandler extends Emitter<Events> {
     if (e.touches.length > 1) return
 
     this.currentStroke = new Stroke()
+    this.currentStroke.startTime = e.timeStamp
 
     const { x, y } = getTouchOffset(
       e.target as HTMLElement,
@@ -295,12 +300,20 @@ export class CanvasHandler extends Emitter<Events> {
       e.touches[0]
     )
 
-    this.currentStroke = new Stroke()
     this.currentStroke.updatePoints((points) => {
-      points.push([x, y, e.touches[0].force])
+      points.push([x, y, e.touches[0].force, 0])
     })
 
-    this._stroking = true
+    this.#strokingState ??= { touches: 0 }
+    this.#strokingState.touches++
+
+    if (this.#strokingState.touches > 1) {
+      this._stroking = false
+      this.currentStroke = null
+      this.#strokingState = null
+      return
+    }
+
     this.emit('strokeStart', this.currentStroke)
   }
 
@@ -308,43 +321,43 @@ export class CanvasHandler extends Emitter<Events> {
     const { currentStroke } = this
     if (!currentStroke) return
 
-    if (e.touches.length > 1) {
-      // Cancel current stroke when pinch
-      this.currentStroke = null
-      return
-    }
-
-    const { x, y } = getTouchOffset(
+    const point = getTouchOffset(
       e.target as HTMLElement,
       this._scale,
       e.touches[0]
     )
 
     currentStroke.updatePoints((points) => {
-      points.push([x, y, e.touches[0].force])
+      points.push([
+        point.x,
+        point.y,
+        e.touches[0].force,
+        e.timeStamp - currentStroke!.startTime,
+      ])
     })
-    // currentStroke.path = currentStroke.splinedPath
 
     this.mitt.emit('tmpStroke', currentStroke)
   }
 
   #handleTouchEnd = (e: TouchEvent) => {
     const { currentStroke } = this
+    if (!currentStroke || !this.#strokingState) return
 
-    if (!currentStroke) return
-    if (currentStroke.points.length <= 1) return
-
-    // Cancel current stroke when pinch
-    if (e.touches.length > 1) {
+    this.#strokingState.touches--
+    if (currentStroke.points.length <= 1) {
       this.currentStroke = null
       this._stroking = false
       return
     }
 
-    this._stroking = false
-    this.currentStroke = null
+    if (this.#strokingState.touches === 0) {
+      this.#strokingState = null
+      this.currentStroke = null
+      this._stroking = false
+    }
 
-    // currentStroke.path = currentStroke.splinedPath
+    currentStroke.simplify()
+    currentStroke.freeze()
     this.mitt.emit('strokeComplete', currentStroke)
   }
 }

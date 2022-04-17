@@ -51,7 +51,7 @@ interface Digger {
   getPathToLayer<S extends boolean | undefined>(
     document: { layers: readonly LayerTypes[] },
     layerUid: string,
-    query?: { strict: S }
+    query?: { strict?: S }
   ): string[] | (S extends true ? Nullish : never)
 
   traverseLayers<K extends LayerTypes['layerType']>(
@@ -135,7 +135,7 @@ export const SilkDOMDigger: Digger = {
     traverse(document.layers)
   },
 
-  getPathToLayer(document, uid, { strict }) {
+  getPathToLayer(document, uid, { strict } = {}) {
     const traverse = (
       layers: readonly LayerTypes[],
       current: string[] = []

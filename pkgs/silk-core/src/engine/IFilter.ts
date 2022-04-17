@@ -1,12 +1,15 @@
+import { Camera, WebGLRenderer } from 'three'
 import { WebGLContext } from './WebGLContext'
 
-export type FilterInitializeContext = {
+export type FilterInitContext = {
   gl: WebGLContext
 }
 
 export type FilterContext = {
   gl: WebGLContext
-  source: TexImageSource
+  threeRenderer: WebGLRenderer
+  threeCamera: Camera
+  source: HTMLCanvasElement
   dest: HTMLCanvasElement
   size: { width: number; height: number }
   settings: Record<string, any>
@@ -20,6 +23,6 @@ export interface FilterClass<T extends IFilter = IFilter> {
 export interface IFilter {
   get id(): string
   get initialConfig(): Record<string, any>
-  initialize(context: { gl: WebGLContext }): Promise<void>
+  initialize(context: FilterInitContext): Promise<void>
   render(ctx: FilterContext): Promise<void>
 }

@@ -14,6 +14,8 @@ export const shallowEquals = (prev: any, next: any) => {
     for (const idx in prev) {
       if (!is(prev[idx], next[idx])) return false
     }
+
+    return true
   }
 
   if (
@@ -26,7 +28,19 @@ export const shallowEquals = (prev: any, next: any) => {
       if (!hasOwnKey.call(next, key)) continue
       if (!is(prev[key], next[key])) return false
     }
+
+    return true
   }
 
   return false
 }
+
+export const pick = <T, K extends readonly (keyof T)[]>(
+  obj: T,
+  keys: K
+): { [KK in ArrayElement<K>]: T[KK] } => {
+  return keys.reduce((a, k) => assign(a, { [k]: obj[k] }), Object.create(null))
+}
+
+type ArrayElement<ArrayType extends readonly unknown[]> =
+  ArrayType extends readonly (infer ElementType)[] ? ElementType : never

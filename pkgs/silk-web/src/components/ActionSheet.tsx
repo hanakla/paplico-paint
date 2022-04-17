@@ -56,23 +56,23 @@ export const ActionSheet = forwardRef<HTMLDivElement, Props>(
             position: fixed;
             left: 50%;
             bottom: 0;
-            width: 100vw;
+            width: 100%;
             max-width: 400px;
-            padding: 8px;
+            padding: 12px;
             padding-bottom: max(env(safe-area-inset-bottom), 16px);
             overflow: hidden;
 
             ${styleWhen(fill)`
-              min-height: 40vh;
-              box-shadow: 0 0 5px ${rgba('#000', 0.5)};
+              min-height: 50vh;
+              box-shadow: 0 0 8px ${rgba('#000', 0.2)};
               backdrop-filter: blur(8px);
-              border-radius: 4px;
+              // border-radius: 4px;
             `}
           `}
           style={{
             ...styles,
             pointerEvents: opened ? 'all' : 'none',
-            backgroundColor: fill ? theme.surface.floatWhite : 'transparent',
+            backgroundColor: fill ? theme.color.surface1 : 'transparent',
           }}
         >
           <div

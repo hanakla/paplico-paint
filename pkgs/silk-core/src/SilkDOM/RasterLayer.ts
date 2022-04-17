@@ -68,7 +68,6 @@ export class RasterLayer extends Emitter<Events> implements ILayer {
       filters: obj.filters.map((filter: any) => Filter.deserialize(filter)),
     })
 
-    console.log(layer, obj)
     layer._imageBitmapPromise = createImageBitmap(
       new ImageData(layer.bitmap, obj.width, obj.height)
     )

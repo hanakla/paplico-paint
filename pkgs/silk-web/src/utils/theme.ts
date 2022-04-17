@@ -1,7 +1,8 @@
 import { rgba, invert, grayscale } from 'polished'
-import { CharcoalTheme } from '@charcoal-ui/theme'
+import { CharcoalTheme, dark, light } from '@charcoal-ui/theme'
 import createTheme from '@charcoal-ui/styled'
 import styled from 'styled-components'
+import { assign } from './object'
 
 // Dark
 const baseColors = {
@@ -33,6 +34,8 @@ const baseColors = {
   blueFade50: 'hsla(207.9, 91%, 61%, 0.56)',
   blue50: 'hsl(207.9, 91%, 61%)',
   red50: 'hsl(342.9, 82.8%, 63.3%)',
+  focusRing: '#3694f6',
+  orange10: 'hsla(41.9, 66.8%, 52.7%, .12)',
 }
 
 const lightColor: typeof baseColors = {
@@ -64,6 +67,8 @@ const lightColor: typeof baseColors = {
   blueFade50: 'hsla(207.9, 91%, 61%, 0.56)',
   blue50: 'hsl(207.9, 91%, 61%)',
   red50: 'hsl(342.9, 82.8%, 63.3%)',
+  focusRing: '#3694f6',
+  orange10: 'hsla(41.9, 66.8%, 52.7%, .12)',
 }
 
 // Default
@@ -96,7 +101,7 @@ export const darkTheme = {
     popupMenu: rgba('#464b4e', 1),
   },
   border: {
-    floatActiveLayer: '#336cff',
+    floatPane: '#336cff',
   },
   colors: baseColors,
   exactColors: baseColors,
@@ -136,6 +141,30 @@ export const lightTheme = {
   colors: lightColor,
   exactColors: baseColors,
 }
+
+export const lightWithCharcoal = Object.assign({}, lightTheme, light)
+assign(lightWithCharcoal.color, {
+  surface1: '#f9f9f9',
+  surface2: '#f1f1f1',
+  surface3: '#e2e2e2',
+  surface4: '#bbbbbb',
+  surface6: '#828181',
+  surface7: '#5c5c5c',
+  surface8: '#393939',
+  surface9: '#212121',
+})
+
+export const darkWithCharcoal = Object.assign({}, darkTheme, dark)
+assign(darkWithCharcoal.color, {
+  surface1: '#060606',
+  surface2: '#2a2a2a',
+  surface3: '#373737',
+  surface4: '#4c4c4c',
+  surface6: '#7d7e7e',
+  surface7: '#a3a3a3',
+  surface8: '#c6c6c6',
+  surface9: '#dedede',
+})
 
 export type ThemeType = typeof darkTheme & CharcoalTheme
 

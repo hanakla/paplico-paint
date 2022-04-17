@@ -4,9 +4,6 @@ import getBound from 'svg-path-bounds'
 
 import { Brush, ScatterBrush } from '../Brushes'
 import { Document, Path, VectorLayer } from '../SilkDOM'
-import { BloomFilter } from '../Filters/Bloom'
-import { ChromaticAberrationFilter } from '../Filters/ChromaticAberration'
-import { GaussBlurFilter } from '../Filters/GaussBlur'
 import { deepClone, mergeToNew, setCanvasSize } from '../utils'
 import { CurrentBrushSetting as _CurrentBrushSetting } from './CurrentBrushSetting'
 import { IRenderStrategy } from './RenderStrategy/IRenderStrategy'
@@ -26,6 +23,12 @@ import { BrushSetting } from '../Value'
 import { IBrush } from './IBrush'
 import { IInk } from '../Inks/IInk'
 import { AtomicResource } from '../AtomicResource'
+
+import { BloomFilter } from '../Filters/Bloom'
+import { ChromaticAberrationFilter } from '../Filters/ChromaticAberration'
+import { GaussBlurFilter } from '../Filters/GaussBlur'
+import { HalftoneFilter } from '../Filters/HalfTone'
+import { GlitchJpeg } from '../Filters/GlitchJpeg'
 
 type EngineEvents = {
   rerender: void
@@ -47,8 +50,10 @@ export class SilkEngine3 {
       silk.toolRegistry.registerBrush(Brush),
       silk.toolRegistry.registerBrush(ScatterBrush),
       silk.toolRegistry.registerFilter(BloomFilter),
+      silk.toolRegistry.registerFilter(GlitchJpeg),
       silk.toolRegistry.registerFilter(GaussBlurFilter),
       silk.toolRegistry.registerFilter(ChromaticAberrationFilter),
+      silk.toolRegistry.registerFilter(HalftoneFilter),
     ])
 
     return silk
@@ -135,7 +140,7 @@ export class SilkEngine3 {
       preserveDrawingBuffer: true,
       canvas: createCanvas() as HTMLCanvasElement,
     })
-    renderer.setClearColor(0x000000, 0)
+    renderer.setClearColor(0xffffff, 0)
 
     this.atomicThreeRenderer = new AtomicResource(renderer)
     this.atomicPreDestCtx = new AtomicResource(createContext2D())
@@ -347,12 +352,19 @@ export class SilkEngine3 {
               } = object.fill
 
               bufferCtx.globalAlpha = 1
-              bufferCtx.fillStyle = `rgba(${r}, ${g}, ${b}, ${opacity})`
+              bufferCtx.fillStyle = `rgba(${r * 255}, ${g * 255}, ${
+                b * 255
+              }, ${opacity})`
               bufferCtx.fill()
               break
             }
             case 'linear-gradient': {
-              const { colorPoints, opacity, start, end } = object.fill
+              const {
+                colorStops: colorPoints,
+                opacity,
+                start,
+                end,
+              } = object.fill
               const [left, top, right, bottom] = getBound(object.path.svgPath)
 
               const width = right - left
@@ -371,7 +383,10 @@ export class SilkEngine3 {
                 position,
                 color: { r, g, b, a },
               } of colorPoints) {
-                gradient.addColorStop(position, `rgba(${r}, ${g}, ${b}, ${a}`)
+                gradient.addColorStop(
+                  position,
+                  `rgba(${r * 255}, ${g * 255}, ${b * 255}, ${a}`
+                )
               }
 
               bufferCtx.globalAlpha = opacity
@@ -427,15 +442,30 @@ export class SilkEngine3 {
     source.save()
     dest.save()
 
+    const renderer = await this.atomicThreeRenderer.enjure({ owner: this })
+
+    renderer.setSize(dest.canvas.width, dest.canvas.height)
+    renderer.setClearColor(0xffffff, 0)
+    renderer.clear()
+
+    this.camera.left = -dest.canvas.width / 2.0
+    this.camera.right = dest.canvas.width / 2.0
+    this.camera.top = dest.canvas.height / 2.0
+    this.camera.bottom = -dest.canvas.height / 2.0
+    this.camera.updateProjectionMatrix()
+
     try {
       await filter.render({
         gl: this.gl,
+        threeRenderer: renderer,
+        threeCamera: this.camera,
         source: source.canvas,
         dest: dest.canvas,
         size: options.size,
         settings: deepClone(options.filterSettings),
       })
     } finally {
+      this.atomicThreeRenderer.release(renderer)
       dest.restore()
       source.restore()
     }

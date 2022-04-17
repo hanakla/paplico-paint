@@ -39,6 +39,8 @@ export class VectorObjectPatchAttr implements ICommand {
       Object.keys(this.patch) as any
     )
 
+    console.log(this.patch)
+
     object.update((l) => assign(l, this.patch))
   }
 

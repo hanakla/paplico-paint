@@ -71,7 +71,7 @@ export default function Debug() {
             opacity: 1,
             start: { x: -100, y: -100 },
             end: { x: 100, y: 100 },
-            colorPoints: [
+            colorStops: [
               { color: { r: 0, g: 255, b: 255, a: 1 }, position: 0 },
               { color: { r: 128, g: 255, b: 200, a: 1 }, position: 1 },
             ],

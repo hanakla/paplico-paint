@@ -50,7 +50,11 @@ export class Document
   public globalColors: { [uid: string]: RGBColor } = Object.create(null)
 
   public update(proc: (doc: this) => void) {
+    const prevLength = this.layers.length
+
     proc(this)
+
+    if (prevLength !== this.layers.length) this.emit('layersChanged')
   }
 
   public getLayer(q: { byUid: string } | { byName: string }) {

@@ -1,5 +1,6 @@
 import { Active, Over } from '@dnd-kit/core'
-import { Silk3, SilkDOM, SilkInks } from 'silk-core'
+import { rgba } from 'polished'
+import { Silk3, SilkDOM, SilkInks, SilkValue } from 'silk-core'
 import { assign } from '🙌/utils/object'
 
 export const isEventIgnoringTarget = (target: EventTarget | null) => {
@@ -123,4 +124,62 @@ export const generateBrushThumbnail = async (
   )
 
   return ctx.canvas.toDataURL('image/png')
+}
+
+export const swapObjectBrushAndFill = (
+  obj: SilkDOM.VectorObject,
+  { fallbackBrushId }: { fallbackBrushId: string }
+) => {
+  const fill = obj.fill
+
+  obj.fill = obj.brush
+    ? { type: 'fill', color: obj.brush.color, opacity: obj.brush.opacity }
+    : null
+
+  obj.brush = fill
+    ? {
+        brushId: fallbackBrushId,
+        color:
+          fill.type === 'fill'
+            ? { ...fill.color }
+            : { ...fill.colorStops[0].color },
+        opacity: fill.opacity,
+        size: 1,
+      }
+    : null
+}
+
+export const normalRgbToRgbArray = (color: {
+  r: number
+  g: number
+  b: number
+}) => {
+  const c = normalRGBAToRGBA(color)
+  return [c.r, c.g, c.b] as const
+}
+
+export const normalRGBAToRGBA = (color: {
+  r: number
+  g: number
+  b: number
+  a?: number
+}) => {
+  return {
+    r: Math.round(color.r * 255),
+    g: Math.round(color.g * 255),
+    b: Math.round(color.b * 255),
+    ...(color.a != null ? { a: color.a } : {}),
+  }
+}
+
+export const colorStopsToCssGradient = (
+  degree: number,
+  colorStops: SilkValue.ColorStop[]
+): string => {
+  return `linear-gradient(${degree}deg, ${colorStops
+    .map(
+      ({ color, position }) =>
+        `${rgba(...normalRgbToRgbArray(color), color.a)} ${position * 100}%`
+    )
+    .join(', ')})`
 }

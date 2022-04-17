@@ -10,7 +10,7 @@ import { assign } from '../utils'
 import { Emitter } from '../Engine3_Emitter'
 import { AtomicResource } from '../AtomicResource'
 import {
-  produce,
+  produceWithPatches,
   createDraft,
   current,
   enablePatches,
@@ -23,6 +23,7 @@ import {
 type Events = LayerEvents<VectorLayer>
 
 export class VectorLayer extends Emitter<Events> implements ILayer {
+  private [immerable] = false
   public readonly layerType = 'vector'
 
   public readonly uid: string = `vectorlayer-${v4()}`
@@ -86,21 +87,27 @@ export class VectorLayer extends Emitter<Events> implements ILayer {
 
   public createTransaction() {
     enablePatches()
-    ;(this as any)[immerable] = true
+
     const patches: Patch[] = []
     const inverses: Patch[] = []
 
-    const base = Object.setPrototypeOf({ ...this }, VectorLayer.prototype)
+    const base: VectorLayer = Object.setPrototypeOf(
+      { ...this },
+      VectorLayer.prototype
+    )
 
     return {
       update: (patcher: (layer: VectorLayer) => void) => {
-        produce(base, patcher, (patches, inverse) => {
-          patches.push(...patches)
-          inverses.push(...inverse)
+        base[immerable] = true
 
-          console.log(patches)
-          applyPatches(this, patches)
-        })
+        const [, patches, inverse] = produceWithPatches(base, patcher)
+        patches.push(...patches)
+        inverses.push(...inverse)
+
+        console.log(patches)
+        this[immerable] = true
+        applyPatches(this, patches)
+        base[immerable] = false
       },
       rollback: () => {
         applyPatches(this, inverses)

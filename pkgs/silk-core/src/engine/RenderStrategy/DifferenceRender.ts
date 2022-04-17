@@ -172,6 +172,7 @@ export class DifferenceRender implements IRenderStrategy {
             size: { width: document.width, height: document.height },
             filterSettings: deepClone(filter.settings),
           })
+
           await engine.compositeLayers(bufferCtx, destCtx, {
             mode: layer.compositeMode,
             opacity: layer.opacity,

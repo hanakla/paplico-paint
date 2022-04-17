@@ -38,6 +38,11 @@ const pointByAngleAndDistance = ({
   y: base.y + Math.sin(angle) * distance,
 })
 
+const clamp = (x: number, min: number, max: number) =>
+  Math.max(min, Math.min(x, max))
+
+const lerp = (a: number, b: number, t: number) => a + (b - a) * t
+
 export const SilkWebMath = {
   deg,
   normalizeDegree,
@@ -46,4 +51,6 @@ export const SilkWebMath = {
   angleOfPoints,
   distanceOfPoint,
   pointByAngleAndDistance,
+  clamp,
+  lerp,
 }

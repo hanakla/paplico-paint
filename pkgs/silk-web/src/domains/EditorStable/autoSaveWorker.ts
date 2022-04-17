@@ -10,7 +10,9 @@ self.addEventListener('message', async (e) => {
   if (e.data.warm) return
 
   const buffer = e.data.buffer as ArrayBuffer
-  const document = SilkSerializer.importDocument(new Uint8Array(buffer))
+  const { document, extra } = SilkSerializer.importDocument(
+    new Uint8Array(buffer)
+  )
 
   const db = await connectIdb()
 

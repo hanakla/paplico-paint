@@ -1,10 +1,12 @@
 import { useFleurContext } from '@fleur/react'
 import { useFunk } from '@hanakla/arma'
 import { useTranslation } from 'next-i18next'
-import { ReactNode } from 'react'
+import { memo, ReactNode } from 'react'
 import { SilkDOM } from 'silk-core'
 import { DeltaRange } from '🙌/components/DeltaRange'
+import { SelectBox } from '🙌/components/SelectBox'
 import { EditorOps } from '🙌/domains/EditorStable'
+import { useFleur } from '🙌/utils/hooks'
 import { centering } from '🙌/utils/mixins'
 import { roundString } from '🙌/utils/StringUtils'
 
@@ -20,6 +22,9 @@ export const FilterSettings = ({ layer, filter }: Props) => {
     }
     case '@silk-core/chromatic-aberration': {
       return <ChromaticAberration layer={layer} filter={filter} />
+    }
+    case '@silk-core/halftone': {
+      return <Halftone layer={layer} filter={filter} />
     }
     default: {
       return <>🤔</>
@@ -183,62 +188,144 @@ const ChromaticAberration = ({ layer, filter }: Props) => {
   )
 }
 
-const Column = ({
-  nameKey,
-  value,
-  filter: { filterId },
-  children,
-}: {
-  nameKey: string
-  value?: string
-  filter: SilkDOM.Filter
-  children: ReactNode
-}) => {
+const Halftone = ({ layer, filter }: Props) => {
   const { t } = useTranslation('app')
+  const { execute } = useFleur()
+
+  const handleChangeShape = useFunk((value: string) => {
+    execute(EditorOps.updateFilter, layer.uid, filter.uid, (filter) => {
+      filter.settings.shape = +value
+    })
+  })
+
+  const handleChangeRadius = useFunk((value: number) => {
+    execute(EditorOps.updateFilter, layer.uid, filter.uid, (filter) => {
+      filter.settings.radius = value
+    })
+  })
+
+  const handleChangeScatter = useFunk((value: number) => {
+    execute(EditorOps.updateFilter, layer.uid, filter.uid, (filter) => {
+      filter.settings.scatter = value
+    })
+  })
 
   return (
-    <div
-      css={`
-        padding: 2px 0;
-
-        & + & {
-          margin-top: 8px;
-        }
-      `}
-    >
-      <div>{t(`filterOptions.${filterId}.${nameKey}`)}</div>
-
-      <div
-        css={`
-          display: flex;
-          margin-top: 4px;
-          flex: 1;
-          flex-basis: 100%;
-          gap: 4px;
-        `}
+    <div>
+      <Column
+        filter={filter}
+        nameKey="shape"
+        value={`${roundString(filter.settings.shape)}`}
       >
-        <div
-          css={`
-            flex: 1;
-          `}
-        >
-          {children}
-        </div>
-
-        {value !== undefined && (
-          <div
-            css={`
-              ${centering({ x: false, y: true })}
-              justify-content: flex-end;
-              width: 40px;
-              margin-left: auto;
-              text-align: right;
-            `}
-          >
-            {value}
-          </div>
-        )}
-      </div>
+        <SelectBox
+          items={[
+            {
+              label: t('filterOptions.@silk-core/halftone.shapes.dot'),
+              value: '1',
+            },
+            {
+              label: t('filterOptions.@silk-core/halftone.shapes.ellipse'),
+              value: '2',
+            },
+            {
+              label: t('filterOptions.@silk-core/halftone.shapes.line'),
+              value: '3',
+            },
+            {
+              label: t('filterOptions.@silk-core/halftone.shapes.square'),
+              value: '4',
+            },
+          ]}
+          value={`${filter.settings.shape}`}
+          onChange={handleChangeShape}
+        />
+      </Column>
+      <Column
+        filter={filter}
+        nameKey="radius"
+        value={`${roundString(filter.settings.radius)}`}
+      >
+        <DeltaRange
+          min={0}
+          step={0.1}
+          value={filter.settings.radius}
+          onChange={handleChangeRadius}
+        />
+      </Column>
+      <Column
+        filter={filter}
+        nameKey="scatter"
+        value={`${roundString(filter.settings.scatter)}`}
+      >
+        <DeltaRange
+          min={0}
+          step={0.05}
+          value={filter.settings.scatter}
+          onChange={handleChangeScatter}
+        />
+      </Column>
     </div>
   )
 }
+
+const Column = memo(
+  ({
+    nameKey,
+    value,
+    filter: { filterId },
+    children,
+  }: {
+    nameKey: string
+    value?: string
+    filter: SilkDOM.Filter
+    children: ReactNode
+  }) => {
+    const { t } = useTranslation('app')
+
+    return (
+      <div
+        css={`
+          padding: 2px 0;
+
+          & + & {
+            margin-top: 8px;
+          }
+        `}
+      >
+        <div>{t(`filterOptions.${filterId}.${nameKey}`)}</div>
+
+        <div
+          css={`
+            display: flex;
+            margin-top: 4px;
+            flex: 1;
+            flex-basis: 100%;
+            gap: 4px;
+          `}
+        >
+          <div
+            css={`
+              flex: 1;
+            `}
+          >
+            {children}
+          </div>
+
+          {value !== undefined && (
+            <div
+              css={`
+                ${centering({ x: false, y: true })}
+                justify-content: flex-end;
+                width: 40px;
+                margin-left: auto;
+                text-align: right;
+              `}
+            >
+              {value}
+            </div>
+          )}
+        </div>
+      </div>
+    )
+  }
+)

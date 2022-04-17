@@ -7,6 +7,7 @@ import {
   useRef,
   useState,
 } from 'react'
+import { shallowEquals } from './object'
 
 export const useMedia = (query: string, defaultState?: boolean) => {
   if (defaultState === undefined) {
@@ -38,18 +39,27 @@ export const useMedia = (query: string, defaultState?: boolean) => {
   return state
 }
 
-export const useCachedInputState = <T>(original: T) => {
-  const [state, setState] = useState<T>(original)
+export const useBufferedState = <T, S = T>(
+  original: T,
+  transform?: (value: T) => S
+): [state: S, setState: (current: S) => S] => {
+  const [state, setState] = useState<S | T>(
+    () => transform?.(original) ?? original
+  )
   const prevOriginal = useRef(original)
 
   useIsomorphicLayoutEffect(() => {
-    if (prevOriginal.current === original) return
+    if (
+      prevOriginal.current === original ||
+      shallowEquals(prevOriginal.current, original)
+    )
+      return
 
     prevOriginal.current = original
-    setState(original)
+    setState(transform?.(original) ?? original)
   }, [original])
 
-  return [state, setState] as const
+  return [state, setState] as any
 }
 
 export const useDebouncedFunk = <T extends (...args: any[]) => unknown>(

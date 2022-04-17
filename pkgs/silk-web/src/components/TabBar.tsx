@@ -1,5 +1,6 @@
 import { styleWhen, useFunk } from '@hanakla/arma'
 import { FC, ReactNode } from 'react'
+import { css } from 'styled-components'
 import { tm } from '🙌/utils/theme'
 
 export const TabBar = ({ children }: { children: ReactNode }) => {
@@ -33,11 +34,12 @@ export const Tab: FC<{
       onClick={handleClickTab}
     >
       <span
-        css={`
+        css={css`
           display: inline-block;
           padding: 4px;
           border-bottom: 1px solid transparent;
-          ${styleWhen(active)`
+          ${active &&
+          css`
             border-bottom-color: ${({ theme }) => theme.color.text5};
           `}
         `}

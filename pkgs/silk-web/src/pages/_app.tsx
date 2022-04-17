@@ -8,8 +8,10 @@ import { Restart } from '@styled-icons/remix-line'
 import { GlobalStyle } from '../components/GlobalStyle'
 import { ErrorBoundary } from 'react-error-boundary'
 import { appWithFleur } from '../lib/fleur'
+import { LysContext } from '@fleur/lys'
 
-const fastclick = process.browser ? require('fastclick') : null
+const fastclick = typeof window !== 'undefined' ? require('fastclick') : null
+typeof window !== 'undefined' ? require('doubletouch-to-dblclick') : null
 
 function MyApp({ Component, pageProps }: AppProps) {
   useEffect(() => {
@@ -18,11 +20,13 @@ function MyApp({ Component, pageProps }: AppProps) {
 
   return (
     <>
-      <GlobalStyle />
+      <LysContext>
+        <GlobalStyle />
 
-      <ErrorBoundary FallbackComponent={ErrorFallback}>
-        <Component {...pageProps} />
-      </ErrorBoundary>
+        <ErrorBoundary FallbackComponent={ErrorFallback}>
+          <Component {...pageProps} />
+        </ErrorBoundary>
+      </LysContext>
     </>
   )
 }

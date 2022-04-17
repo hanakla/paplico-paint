@@ -1,4 +1,9 @@
+import { MouseEvent } from 'react'
+
 export const DOMUtils = {
+  isChildren: (inspect: Element | EventTarget | null, self: Element | null) => {
+    return (self !== inspect && self?.contains(inspect as Element)) ?? false
+  },
   childrenOrSelf: (
     inspectTarget: Element | EventTarget | null,
     self: Element | null
@@ -14,6 +19,13 @@ export const DOMUtils = {
       ((target as Element).matches(selector) ||
         (target as Element).closest(selector))
     )
+  },
+  getClickedPosisionInElement(e: MouseEvent) {
+    const rect = e.currentTarget.getBoundingClientRect()
+    return {
+      x: e.pageX - rect.left + window.scrollX,
+      y: e.pageY - rect.top + window.scrollY,
+    }
   },
   // selectFile: async ({
   //   extensions,

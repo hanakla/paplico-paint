@@ -17,8 +17,8 @@ exports:
 vectorColorPicker:
   noFill: Fill none
   modes:
-    solid: Solid
-    linearGradient: Linear gradient
+    solid: Color
+    gradient: Gradient
 
 layerType:
   filter: Filter layer
@@ -48,3 +48,12 @@ filterOptions:
   '@silk-core/chromatic-aberration':
     distance: Distance
     angleDeg: Angle
+  '@silk-core/halftone':
+    shape: Shape
+    shapes:
+      dot: Dot
+      ellipse: Ellipse
+      line: Line
+      square: Square
+    radius: Radius
+    scatter: Scatter

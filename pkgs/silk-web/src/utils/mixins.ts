@@ -56,3 +56,23 @@ export const focusRing = css`
     box-shadow: 0 0 0 2px ${rgba('#3694f6', 0.8)};
   }
 `
+
+export const checkerBoard = ({ size }: { size: number }) => css`
+  background: linear-gradient(
+      45deg,
+      rgba(0, 0, 0, 0.2) 25%,
+      transparent 25%,
+      transparent 75%,
+      rgba(0, 0, 0, 0.2) 75%
+    ),
+    linear-gradient(
+      45deg,
+      rgba(0, 0, 0, 0.2) 25%,
+      transparent 25%,
+      transparent 75%,
+      rgba(0, 0, 0, 0.2) 75%
+    );
+  /* background-color: transparent; */
+  background-size: ${size}px ${size}px;
+  background-position: 0 0, ${size / 2}px ${size / 2}px;
+`

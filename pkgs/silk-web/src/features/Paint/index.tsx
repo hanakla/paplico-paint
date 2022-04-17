@@ -8,14 +8,23 @@ import {
 } from '@hanakla/arma'
 import {
   ChangeEvent,
+  memo,
   MouseEvent,
   RefObject,
   TouchEvent,
   useEffect,
+  useMemo,
   useRef,
+  useState,
 } from 'react'
-import { useClickAway, useDrop, useToggle, useUpdate } from 'react-use'
-import { useGesture } from 'react-use-gesture'
+import {
+  useClickAway,
+  useDrop,
+  useDropArea,
+  useToggle,
+  useUpdate,
+} from 'react-use'
+import { useGesture, useDrag } from 'react-use-gesture'
 import { autoPlacement, shift, useFloating } from '@floating-ui/react-dom'
 
 import {
@@ -27,10 +36,18 @@ import {
   SilkDOM,
   SilkHelper,
   SilkSerializer,
+  SilkCommands,
 } from 'silk-core'
 import { css } from 'styled-components'
 import useMeasure from 'use-measure'
-import { ArrowDropLeft, Moon, Share, Sun } from '@styled-icons/remix-fill'
+import {
+  Apps2,
+  ArrowDropLeft,
+  Moon,
+  Share,
+  Subtract,
+  Sun,
+} from '@styled-icons/remix-fill'
 import { Menu } from '@styled-icons/remix-line'
 import { useTranslation } from 'next-i18next'
 
@@ -52,14 +69,20 @@ import { rgba } from 'polished'
 import { darkTheme } from '🙌/utils/theme'
 import { Button } from '🙌/components/Button'
 import { media, narrow } from '🙌/utils/responsive'
-import { isEventIgnoringTarget } from './helpers'
+import { isEventIgnoringTarget, swapObjectBrushAndFill } from './helpers'
 import { Tooltip } from '🙌/components/Tooltip'
 import { NotifyOps, useNotifyConsumer } from '🙌/domains/Notify'
 import { SidebarPane } from '🙌/components/SidebarPane'
 import { BrushPresets } from './containers/BrushPresets'
 import { ThemeProp } from '🙌/utils/theme'
+import { Dropzone } from '🙌/components/Dropzone'
+import { DndContext, useDraggable } from '@dnd-kit/core'
+import { nanoid } from 'nanoid'
+import { CSS } from '@dnd-kit/utilities'
+import { FloatingWindow } from '🙌/components/FloatingWindow'
+import { exportProject } from '🙌/domains/EditorStable/exportProject'
 
-export function PaintPage({}) {
+export const PaintPage = memo(function PaintPage({}) {
   const { t } = useTranslation('app')
 
   const { executeOperation, getStore } = useFleurContext()
@@ -68,14 +91,12 @@ export function PaintPage({}) {
     activeLayer,
     currentTool,
     currentTheme,
-    currentBrushSetting,
     renderSetting,
   } = useStore((get) => ({
     currentDocument: EditorSelector.currentDocument(get),
     activeLayer: EditorSelector.activeLayer(get),
     currentTool: get(EditorStore).state.currentTool,
     currentTheme: get(EditorStore).state.currentTheme,
-    currentBrushSetting: EditorSelector.currentBrushSetting(get),
     renderSetting: get(EditorStore).state.renderSetting,
   }))
 
@@ -97,6 +118,7 @@ export function PaintPage({}) {
   const editorBound = useMeasure(editAreaRef)
   const rerender = useUpdate()
   const [sidebarOpened, sidebarToggle] = useToggle(!isNarrowMedia)
+  const [stream, setStream] = useState<MediaStream | null>(null)
   const [saveMessage] = useNotifyConsumer('save', 1)
   // const sidebarStyles = useSpring({
   //   width: isNarrowMedia === false || sidebarOpened ? 200 : 32,
@@ -139,10 +161,7 @@ export function PaintPage({}) {
   const handleClickExport = useFunk(async () => {
     if (!currentDocument) return
 
-    const bin = SilkSerializer.exportDocument(
-      currentDocument as SilkDOM.Document
-    )!
-    const blob = new Blob([bin], { type: 'application/octet-stream' })
+    const { blob } = exportProject(currentDocument, getStore)
     const url = URL.createObjectURL(blob)
 
     if (typeof window.showSaveFilePicker === 'undefined') {
@@ -209,7 +228,7 @@ export function PaintPage({}) {
     executeOperation(EditorOps.setTheme, 'light')
   })
 
-  const dragState = useDrop({ onFiles: handleOnDrop })
+  const [bindDrop, dragState] = useDropArea({ onFiles: handleOnDrop })
   // const tapBind = useTap(handleTapEditArea)
 
   useFunkyGlobalMouseTrap(['ctrl+s', 'command+s'], (e) => {
@@ -258,29 +277,33 @@ export function PaintPage({}) {
     })
   })
 
+  useFunkyGlobalMouseTrap(['/'], () => {
+    const path = EditorSelector.activeLayerPath(getStore)
+    const o = EditorSelector.activeObject(getStore)
+    const target = EditorSelector.vectorColorTarget(getStore)
+
+    if (!path || !o) return
+
+    executeOperation(
+      EditorOps.runCommand,
+      new SilkCommands.VectorLayer.PatchObjectAttr({
+        objectUid: o.uid,
+        pathToTargetLayer: path,
+        patch: target === 'fill' ? { fill: null } : { brush: null },
+      })
+    )
+  })
+
   useFunkyGlobalMouseTrap(['shift+x'], () => {
     executeOperation(EditorOps.updateActiveObject, (o) => {
-      const fill = o.fill
-      o.fill = o.brush
-        ? { type: 'fill', color: o.brush.color, opacity: o.brush.opacity }
-        : null
-      o.brush = fill
-        ? {
-            brushId: currentBrushSetting.brushId ?? SilkBrushes.Brush.id,
-            color:
-              fill.type === 'fill'
-                ? { ...fill.color }
-                : { ...fill.colorPoints[0].color },
-            opacity: fill.opacity,
-            size: 1,
-          }
-        : null
+      swapObjectBrushAndFill(o, { fallbackBrushId: SilkBrushes.Brush.id })
     })
   })
 
   useGesture(
     {
       onPinch: ({ delta: [d, r] }) => {
+        console.log('pinch')
         executeOperation(EditorOps.setCanvasTransform, {
           scale: (prev) => Math.max(0.1, prev + d / 400),
         })
@@ -337,6 +360,46 @@ export function PaintPage({}) {
       const vector = SilkDOM.VectorLayer.create({
         visible: true,
       })
+
+      {
+        const path = SilkDOM.Path.create({
+          points: [
+            { x: 0, y: 0, in: null, out: null },
+            { x: 200, y: 500, in: null, out: null },
+            { x: 600, y: 500, in: null, out: null },
+            {
+              x: 1000,
+              y: 1000,
+              in: null,
+              out: null,
+            },
+          ],
+          closed: true,
+        })
+
+        const obj = SilkDOM.VectorObject.create({ x: 0, y: 0, path })
+
+        obj.brush = {
+          brushId: SilkBrushes.ScatterBrush.id,
+          color: { r: 0, g: 0, b: 0 },
+          opacity: 1,
+          size: 2,
+        }
+
+        obj.fill = {
+          type: 'linear-gradient',
+          opacity: 1,
+          start: { x: -100, y: -100 },
+          end: { x: 100, y: 100 },
+          colorStops: [
+            { color: { r: 0, g: 1, b: 1, a: 1 }, position: 0 },
+            { color: { r: 1, g: 0.2, b: 0.1, a: 1 }, position: 1 },
+          ],
+        }
+
+        vector.objects.push(obj)
+      }
+
       const text = SilkDOM.TextLayer.create({})
       const filter = SilkDOM.FilterLayer.create({})
       const group = SilkDOM.GroupLayer.create({
@@ -352,18 +415,25 @@ export function PaintPage({}) {
       reference.x = 20
 
       vector.filters.push(
+        // SilkDOM.Filter.create({
+        //   filterId: '@silk-core/gauss-blur',
+        //   visible: true,
+        //   settings: engine.current.toolRegistry.getFilterInstance(
+        //     '@silk-core/gauss-blur'
+        //   )!.initialConfig,
+        // }),
+        // SilkDOM.Filter.create({
+        //   filterId: '@silk-core/chromatic-aberration',
+        //   visible: true,
+        //   settings: engine.current.toolRegistry.getFilterInstance(
+        //     '@silk-core/chromatic-aberration'
+        //   )!.initialConfig,
+        // }),
         SilkDOM.Filter.create({
-          filterId: '@silk-core/gauss-blur',
+          filterId: '@silk-core/halftone',
           visible: true,
           settings: engine.current.toolRegistry.getFilterInstance(
-            '@silk-core/gauss-blur'
-          )!.initialConfig,
-        }),
-        SilkDOM.Filter.create({
-          filterId: '@silk-core/chromatic-aberration',
-          visible: true,
-          settings: engine.current.toolRegistry.getFilterInstance(
-            '@silk-core/chromatic-aberration'
+            '@silk-core/halftone'
           )!.initialConfig,
         })
       )
@@ -376,13 +446,13 @@ export function PaintPage({}) {
       document.layers.unshift(reference)
 
       // await executeOperation(EditorOps.createSession, document)
-      await executeOperation(EditorOps.setActiveLayer, [layer.uid])
+      await executeOperation(EditorOps.setActiveLayer, [vector.uid])
 
       await executeOperation(EditorOps.setFill, {
         type: 'linear-gradient',
-        colorPoints: [
-          { color: { r: 0, g: 255, b: 255, a: 1 }, position: 0 },
-          { color: { r: 128, g: 255, b: 200, a: 1 }, position: 1 },
+        colorStops: [
+          { color: { r: 0, g: 1, b: 1, a: 1 }, position: 0 },
+          { color: { r: 0.5, g: 1, b: 0.8, a: 1 }, position: 1 },
         ],
         start: { x: -100, y: -100 },
         end: { x: 100, y: 100 },
@@ -397,6 +467,9 @@ export function PaintPage({}) {
     window.addEventListener('contextmenu', (e) => {
       e.preventDefault()
     })
+
+    const stream = canvasRef.current!.captureStream(5)
+    setStream(stream)
 
     rerender()
 
@@ -454,8 +527,11 @@ export function PaintPage({}) {
           background-color: ${({ theme }) => theme.color.background1};
           color: ${({ theme }) => theme.color.text2};
         `}
-        tabIndex={-1}
+        {...bindDrop}
       >
+        <ReferenceImageWindow />
+        <CanvasPreviewWindow stream={stream} />
+
         {/* <div
           css={`
             position: absolute;
@@ -813,9 +889,9 @@ export function PaintPage({}) {
       </div>
     </EngineContextProvider>
   )
-}
+})
 
-function PaintCanvas({
+const PaintCanvas = memo(function PaintCanvas({
   canvasRef,
 }: {
   canvasRef: RefObject<HTMLCanvasElement>
@@ -859,4 +935,77 @@ function PaintCanvas({
       />
     </div>
   )
-}
+})
+
+const ReferenceImageWindow = memo(function ReferenceImageWindow() {
+  const [opened, toggleOpened] = useToggle(false)
+  const [referenceImage, setReferenceImage] = useState<string | null>(null)
+  const [referencePosition, setReferencePosition] = useState({ x: 200, y: 0 })
+
+  const handleDropReference = useFunk(async (files: File[]) => {
+    if (referenceImage != null) URL.revokeObjectURL(referenceImage)
+
+    const { image, url } = await loadImageFromBlob(files[0])
+    setReferenceImage(url)
+  })
+
+  return (
+    <FloatingWindow title="Reference">
+      {referenceImage ? (
+        <img
+          css={`
+            max-width: 100%;
+            user-select: none;
+            pointer-events: none;
+          `}
+          src={referenceImage}
+        />
+      ) : (
+        <Dropzone
+          css={`
+            padding: 16px 0;
+            text-align: center;
+          `}
+          onFilesDrop={handleDropReference}
+        >
+          リファレンス画像を選ぶ
+        </Dropzone>
+      )}
+    </FloatingWindow>
+  )
+})
+
+const CanvasPreviewWindow = memo(function CanvasPreviewWindow({
+  stream,
+}: {
+  stream: MediaProvider | null
+}) {
+  const videoRef = useRef<HTMLVideoElement | null>(null)
+
+  const [mirror, toggleMirror] = useToggle(false)
+
+  useEffect(() => {
+    videoRef.current!.srcObject = stream
+  }, [stream])
+
+  return (
+    <FloatingWindow title="Preview">
+      <label>
+        <input type="checkbox" checked={mirror} onChange={toggleMirror} />
+        左右反転
+      </label>
+      <video
+        css={`
+          width: 100%;
+        `}
+        ref={videoRef}
+        style={{
+          transform: mirror ? 'scaleX(-1)' : undefined,
+        }}
+        autoPlay
+        playsInline
+        disablePictureInPicture
+      />
+    </FloatingWindow>
+  )
+})

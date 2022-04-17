@@ -1,8 +1,15 @@
-import { ChangeEvent, MouseEvent, ReactNode, useEffect, useRef } from 'react'
+import {
+  ChangeEvent,
+  memo,
+  MouseEvent,
+  ReactNode,
+  useEffect,
+  useRef,
+} from 'react'
 import { SilkCommands, SilkDOM, SilkHelper } from 'silk-core'
-import { useClickAway, useToggle } from 'react-use'
+import { useClickAway, useToggle, useUpdate } from 'react-use'
 import { loadImageFromBlob, selectFile, useFunk } from '@hanakla/arma'
-import { rgba } from 'polished'
+import { opacify, rgba } from 'polished'
 import { usePopper } from 'react-popper'
 import { Add, Brush, Filter3, Guide, Shape } from '@styled-icons/remix-fill'
 import { css } from 'styled-components'
@@ -48,11 +55,15 @@ import { CSS } from '@dnd-kit/utilities'
 import { PropsOf } from '🙌/utils/types'
 import { contextMenu } from 'react-contexify'
 import { Tooltip2 } from '🙌/components/Tooltip2'
-import { useCachedInputState, useDebouncedFunk, useFleur } from '🙌/utils/hooks'
+import { useBufferedState, useDebouncedFunk, useFleur } from '🙌/utils/hooks'
+import { shallowEquals } from '🙌/utils/object'
+import { useHover } from 'react-use-gesture'
+import { createSlice, useLysSliceRoot, useLysSlice } from '@fleur/lys'
 
-export function LayerView() {
+export const LayerView = memo(function LayerView() {
   const { t } = useTranslation('app')
 
+  const rerender = useUpdate()
   const { executeOperation } = useFleurContext()
   const { activeLayer, activeLayerPath, currentDocument, layers } = useStore(
     (get) => ({
@@ -62,14 +73,13 @@ export function LayerView() {
       currentDocument: EditorSelector.currentDocument(get),
     })
   )
+  const [layeViewState, layerViewActions] = useLysSliceRoot(layerViewSlice)
 
   const [layerTypeOpened, toggleLayerTypeOpened] = useToggle(false)
   const layerTypeOpenerRef = useRef<HTMLDivElement | null>(null)
   const layerTypeDropdownRef = useRef<HTMLUListElement | null>(null)
 
-  const [layerName, setLayerName] = useCachedInputState(activeLayer?.name)
-
-  const contextMenu = useContextMenu('LAYER_ITEM_MENU')
+  const [layerName, setLayerName] = useBufferedState(activeLayer?.name)
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 4 } })
@@ -203,6 +213,15 @@ export function LayerView() {
   )
 
   const container = useFunk((children: ReactNode) => <div>{children}</div>)
+
+  useEffect(() => {
+    const doc = currentDocument
+
+    doc?.on('layersChanged', rerender)
+    return () => {
+      doc?.off('layersChanged', rerender)
+    }
+  }, [currentDocument?.uid])
 
   const flatLayers = flattenLayers(layers)
 
@@ -403,30 +422,36 @@ export function LayerView() {
           /> */}
     </SidebarPane>
   )
-}
+})
 
-const SortableLayerItem = ({
-  layer: { layer, path, depth },
-}: // onContextMenu,
-{
-  layer: { path: string[]; layer: SilkDOM.LayerTypes; depth: number }
-  // onContextMenu: (e: MouseEvent<HTMLDivElement>, layerPath: string[]) => void
-}) => {
-  const contextMenu = useContextMenu()
-  const { attributes, listeners, setNodeRef, transform, transition } =
-    useSortable({ id: layer.uid })
+const SortableLayerItem = memo(
+  ({
+    layer: { layer, path, depth },
+  }: // onContextMenu,
+  {
+    layer: { path: string[]; layer: SilkDOM.LayerTypes; depth: number }
+    // onContextMenu: (e: MouseEvent<HTMLDivElement>, layerPath: string[]) => void
+  }) => {
+    const contextMenu = useContextMenu()
+    const { attributes, listeners, setNodeRef, transform, transition } =
+      useSortable({ id: layer.uid })
 
-  const style = {
-    transform: CSS.Transform.toString(transform),
-    transition,
-  }
+    const style = {
+      transform: CSS.Transform.toString(transform),
+      transition,
+    }
 
-  const { t } = useTranslation('app')
-  const theme = useTheme()
+    const { t } = useTranslation('app')
+    const theme = useTheme()
 
-  const { execute } = useFleur()
-  const { activeLayer, activeLayerPath, thumbnailUrlOfLayer, activeObjectId } =
-    useStore((get) => ({
+    const { execute } = useFleur()
+    const [layeViewState, layerViewActions] = useLysSlice(layerViewSlice)
+    const {
+      activeLayer,
+      activeLayerPath,
+      thumbnailUrlOfLayer,
+      activeObjectId,
+    } = useStore((get) => ({
       activeLayer: EditorSelector.activeLayer(get),
       activeLayerPath: EditorSelector.activeLayerPath(get),
       currentDocument: EditorSelector.currentDocument(get),
@@ -434,344 +459,398 @@ const SortableLayerItem = ({
       activeObjectId: get(EditorStore).state.activeObjectId,
     }))
 
-  const [objectsOpened, toggleObjectsOpened] = useToggle(false)
+    const [objectsOpened, toggleObjectsOpened] = useToggle(false)
 
-  const rootRef = useRef<HTMLDivElement | null>(null)
+    const rootRef = useRef<HTMLDivElement | null>(null)
 
-  const handleToggleVisibility = useFunk(() => {
-    execute(
-      EditorOps.runCommand,
-      new SilkCommands.Layer.PatchLayerAttr({
-        patch: { visible: !layer.visible },
-        pathToTargetLayer: [...path, layer.uid],
-      })
-    )
-  })
-
-  const handleChangeActiveLayer = useFunk((e: MouseEvent<HTMLDivElement>) => {
-    if (
-      DOMUtils.closestOrSelf(e.target, '[data-ignore-click]') ||
-      DOMUtils.closestOrSelf(e.target, '[data-ignore-layer-click]')
-    )
-      return
-
-    execute(EditorOps.setActiveLayer, [...path, layer.uid])
-  })
-
-  const handleChangeActiveLayerToReferenceTarget = useFunk(
-    (e: MouseEvent<SVGElement>) => {
-      if (
-        DOMUtils.closestOrSelf(e.target, '[data-ignore-click]') ||
-        DOMUtils.closestOrSelf(e.target, '[data-ignore-layer-click]') ||
-        layer.layerType !== 'reference'
-      )
-        return
-
-      e.stopPropagation()
-
-      execute(
-        EditorOps.setActiveLayerToReferenceTarget,
-        layer.referencedLayerId
-      )
-    }
-  )
-
-  const handleClickObject = useFunk(
-    ({ currentTarget }: MouseEvent<HTMLDivElement>) => {
-      execute(
-        EditorOps.setActiveObject,
-        currentTarget.dataset.objectId ?? null,
-        activeLayerPath
-      )
-    }
-  )
-
-  const handleClickDeleteObject = useFunk((_, data) => {
-    if (layer.layerType !== 'vector') return
-
-    const idx = layer.objects.findIndex((obj) => obj.uid === data.objectId)
-    if (idx === -1) return
-
-    layer.update((layer) => {
-      layer.objects.splice(idx, 1)
-    })
-  })
-
-  const handleChangeLayerName = useFunk(
-    ({ currentTarget }: ChangeEvent<HTMLInputElement>) => {
+    const handleToggleVisibility = useFunk(() => {
       execute(
         EditorOps.runCommand,
         new SilkCommands.Layer.PatchLayerAttr({
-          patch: { name: currentTarget.value },
+          patch: { visible: !layer.visible },
           pathToTargetLayer: [...path, layer.uid],
         })
       )
-    }
-  )
+    })
 
-  const handleContextMenu = useFunk((e: MouseEvent<HTMLDivElement>) => {
-    contextMenu.show(e, { props: { layerPath: [...path, layer.uid] } })
-  })
+    const handleChangeActiveLayer = useFunk((e: MouseEvent<HTMLDivElement>) => {
+      if (
+        DOMUtils.closestOrSelf(e.target, '[data-ignore-click]') ||
+        DOMUtils.closestOrSelf(e.target, '[data-ignore-layer-click]')
+      )
+        return
 
-  const handleClickConvertToSubstance = useFunk(() => {
-    execute(EditorOps.convertToSubstance, [...path, layer.uid])
-  })
+      execute(EditorOps.setActiveLayer, [...path, layer.uid])
+    })
 
-  const handleClickDeleteLayer = useFunk(({ props }: LayerContextMenuParam) => {
-    execute(EditorOps.deleteLayer, props!.layerPath)
-  })
+    const handleChangeActiveLayerToReferenceTarget = useFunk(
+      (e: MouseEvent<SVGElement>) => {
+        if (
+          DOMUtils.closestOrSelf(e.target, '[data-ignore-click]') ||
+          DOMUtils.closestOrSelf(e.target, '[data-ignore-layer-click]') ||
+          layer.layerType !== 'reference'
+        )
+          return
 
-  useMouseTrap(
-    rootRef,
-    [
-      {
-        key: ['del', 'backspace'],
-        handler: () => {
-          executeOperation(EditorOps.deleteLayer, layer.uid)
+        e.stopPropagation()
+
+        execute(
+          EditorOps.setActiveLayerToReferenceTarget,
+          layer.referencedLayerId
+        )
+      }
+    )
+
+    const handleClickObject = useFunk(
+      ({ currentTarget }: MouseEvent<HTMLDivElement>) => {
+        execute(
+          EditorOps.setActiveObject,
+          currentTarget.dataset.objectId ?? null,
+          activeLayerPath
+        )
+      }
+    )
+
+    const handleClickDeleteObject = useFunk((_, data) => {
+      if (layer.layerType !== 'vector') return
+
+      const idx = layer.objects.findIndex((obj) => obj.uid === data.objectId)
+      if (idx === -1) return
+
+      layer.update((layer) => {
+        layer.objects.splice(idx, 1)
+      })
+    })
+
+    const handleChangeLayerName = useFunk(
+      ({ currentTarget }: ChangeEvent<HTMLInputElement>) => {
+        execute(
+          EditorOps.runCommand,
+          new SilkCommands.Layer.PatchLayerAttr({
+            patch: { name: currentTarget.value },
+            pathToTargetLayer: [...path, layer.uid],
+          })
+        )
+      }
+    )
+
+    const handleContextMenu = useFunk((e: MouseEvent<HTMLDivElement>) => {
+      contextMenu.show(e, { props: { layerPath: [...path, layer.uid] } })
+    })
+
+    const handleClickConvertToSubstance = useFunk(() => {
+      execute(EditorOps.convertToSubstance, [...path, layer.uid])
+    })
+
+    const handleClickMakeReferenceLayer = useFunk(
+      ({ props }: LayerContextMenuParam) => {
+        const layer = SilkDOM.ReferenceLayer.create({
+          referencedLayerId: props!.layerPath.slice(-1)[0],
+        })
+
+        execute(
+          EditorOps.runCommand,
+          new SilkCommands.Document.AddLayer({
+            layer,
+            aboveOnLayerId: props!.layerPath.slice(-1)[0],
+          })
+        )
+      }
+    )
+
+    const handleClickDeleteLayer = useFunk(
+      ({ props }: LayerContextMenuParam) => {
+        execute(EditorOps.deleteLayer, props!.layerPath)
+      }
+    )
+
+    useMouseTrap(
+      rootRef,
+      [
+        {
+          key: ['del', 'backspace'],
+          handler: () => {
+            execute(EditorOps.deleteLayer, [...path, layer.uid])
+          },
         },
-      },
-    ],
-    [layer]
-  )
+      ],
+      [layer]
+    )
 
-  useEffect(() => {
-    // layer.on('updated', rerender)
-    // return () => layer.off('updated', rerender)
-  }, [layer.uid])
+    const bindReferenceHover = useHover(({ hovering }) => {
+      if (layer.layerType !== 'reference') return
 
-  return (
-    <div ref={setNodeRef} style={style} {...attributes} {...listeners}>
-      <div
-        ref={combineRef(rootRef)}
-        css={`
-          cursor: default;
-          margin-left: ${depth * 16}px;
-        `}
-        onClick={handleChangeActiveLayer}
-        onContextMenu={handleContextMenu}
-        tabIndex={-1}
-      >
+      layerViewActions.set({
+        hoveredReferenceTargetUid: hovering ? layer.referencedLayerId : null,
+      })
+    })
+
+    // useEffect(() => {
+    //   layer.on('updated', rerender)
+    //   return () => layer.off('updated', rerender)
+    // }, [layer.uid])
+
+    return (
+      <div ref={setNodeRef} style={style} {...attributes} {...listeners}>
         <div
+          ref={combineRef(rootRef)}
           css={`
-            display: flex;
-            gap: 4px;
-            width: 100%;
-            padding: 2px;
-            align-items: center;
+            cursor: default;
+            margin-left: ${depth * 16}px;
           `}
-          style={{
-            backgroundColor:
-              activeLayer?.uid === layer.uid
-                ? theme.surface.sidebarListActive
-                : '',
-            color:
-              activeLayer?.uid === layer.uid
-                ? theme.text.sidebarListActive
-                : '',
-          }}
+          onClick={handleChangeActiveLayer}
+          onContextMenu={handleContextMenu}
+          tabIndex={-1}
         >
           <div
             css={`
-              flex: none;
-              width: 12px;
-            `}
-          >
-            {layer.layerType === 'vector' && (
-              <ArrowDownS
-                css={`
-                  width: 12px;
-                `}
-                style={{
-                  transform: objectsOpened ? 'rotateZ(180deg)' : 'rotateZ(0)',
-                }}
-                onClick={toggleObjectsOpened}
-              />
-            )}
-          </div>
-
-          <div
-            css={css`
-              color: ${({ theme }) => theme.colors.white10};
+              display: flex;
+              gap: 4px;
+              width: 100%;
+              padding: 2px;
+              align-items: center;
             `}
             style={{
-              ...(layer.visible ? {} : { opacity: 0.5 }),
+              // prettier-ignore
+              backgroundColor:
+                activeLayer?.uid === layer.uid
+                  ? theme.surface.sidebarListActive
+                : layeViewState.isReferencerHovered(layer.uid)
+                  ? theme.exactColors.orange10
+                : '',
+              color:
+                activeLayer?.uid === layer.uid
+                  ? theme.text.sidebarListActive
+                  : '',
             }}
-            onClick={handleToggleVisibility}
-            data-ignore-click
           >
-            {layer.visible ? (
-              <Eye
-                css={`
-                  width: 16px;
-                  vertical-align: bottom;
-                `}
-              />
-            ) : (
-              <EyeClose
-                css={`
-                  width: 16px;
-                  vertical-align: bottom;
-                `}
-              />
-            )}
-          </div>
-
-          <img
-            css={`
-              background: linear-gradient(
-                  45deg,
-                  rgba(0, 0, 0, 0.2) 25%,
-                  transparent 25%,
-                  transparent 75%,
-                  rgba(0, 0, 0, 0.2) 75%
-                ),
-                linear-gradient(
-                  45deg,
-                  rgba(0, 0, 0, 0.2) 25%,
-                  transparent 25%,
-                  transparent 75%,
-                  rgba(0, 0, 0, 0.2) 75%
-                );
-              /* background-color: transparent; */
-              background-size: 4px 4px;
-              background-position: 0 0, 2px 2px;
-              width: 16px;
-              height: 16px;
-              flex: none;
-            `}
-            src={
-              thumbnailUrlOfLayer(layer.uid) ??
-              'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII='
-            }
-          />
-
-          <div
-            css={`
-              width: 16px;
-              flex: none;
-              padding: 0 2px;
-            `}
-          >
-            <Tooltip2
-              placement="right"
-              content={t(`layerType.${layer.layerType}`)}
-            >
-              {layer.layerType === 'filter' && (
-                <Filter3
-                  css={`
-                    font-size: 16px;
-                  `}
-                />
-              )}
-              {layer.layerType === 'raster' && (
-                <Brush
-                  css={`
-                    font-size: 16px;
-                  `}
-                />
-              )}
-              {layer.layerType === 'text' &&
-                // <Text
-                //   css={`
-                //     font-size: 16px;
-                //   `}
-                // />
-                'T'}
-              {layer.layerType === 'vector' && (
-                <Shape
-                  css={`
-                    font-size: 16px;
-                  `}
-                />
-              )}
-              {layer.layerType === 'reference' && (
-                <Guide
-                  css={`
-                    font-size: 16px;
-                    border-bottom: 1px solid currentColor;
-                    cursor: pointer;
-                  `}
-                  onClick={handleChangeActiveLayerToReferenceTarget}
-                />
-              )}
-            </Tooltip2>
-          </div>
-
-          <div
-            css={`
-              ${centering({ x: false, y: true })}
-              text-overflow: ellipsis;
-              white-space: nowrap;
-              overflow-x: hidden;
-              overflow-y: auto;
-              ::-webkit-scrollbar {
-                display: none;
-              }
-            `}
-          >
-            <FakeInput
+            <div
               css={`
-                font-size: 12px;
-                pointer-events: none;
-                background: transparent;
-                &::placeholder {
-                  color: #9e9e9e;
-                }
+                flex: none;
+                width: 12px;
               `}
-              value={layer.name}
-              placeholder={`<${t(`layerType.${layer.layerType}`)}>`}
-              onChange={handleChangeLayerName}
-              disabled
-            />
-          </div>
-        </div>
-
-        {layer.layerType === 'vector' && (
-          <div
-            css={`
-              flex-basis: 100%;
-              overflow: hidden;
-            `}
-            style={{
-              height: objectsOpened ? 'auto' : 0,
-            }}
-          >
-            {layer.objects.map((object) => (
-              <>
-                <div
+            >
+              {layer.layerType === 'vector' && (
+                <ArrowDownS
                   css={`
-                    padding: 6px 8px;
-                    margin-left: 16px;
+                    width: 12px;
                   `}
                   style={{
-                    backgroundColor:
-                      activeObjectId == object.uid
-                        ? theme.surface.sidebarListActive
-                        : undefined,
+                    transform: objectsOpened ? 'rotateZ(180deg)' : 'rotateZ(0)',
                   }}
-                  data-object-id={object.uid}
-                  onClick={handleClickObject}
-                  data-ignore-layer-click
-                >
-                  パス
-                </div>
-              </>
-            ))}
-          </div>
-        )}
-      </div>
+                  onClick={toggleObjectsOpened}
+                />
+              )}
+            </div>
 
-      <ContextMenu id={contextMenu.id}>
-        <ContextMenuItem
-          hidden={layer.layerType !== 'reference'}
-          onClick={handleClickConvertToSubstance}
-        >
-          レイヤーに変換
-        </ContextMenuItem>
-        <ContextMenuItem onClick={handleClickDeleteLayer}>削除</ContextMenuItem>
-      </ContextMenu>
-    </div>
-  )
-}
+            <div
+              css={css`
+                color: ${({ theme }) => theme.colors.white10};
+              `}
+              style={{
+                ...(layer.visible ? {} : { opacity: 0.5 }),
+              }}
+              onClick={handleToggleVisibility}
+              data-ignore-click
+            >
+              {layer.visible ? (
+                <Eye
+                  css={`
+                    width: 16px;
+                    vertical-align: bottom;
+                  `}
+                />
+              ) : (
+                <EyeClose
+                  css={`
+                    width: 16px;
+                    vertical-align: bottom;
+                  `}
+                />
+              )}
+            </div>
+
+            <img
+              css={`
+                background: linear-gradient(
+                    45deg,
+                    rgba(0, 0, 0, 0.2) 25%,
+                    transparent 25%,
+                    transparent 75%,
+                    rgba(0, 0, 0, 0.2) 75%
+                  ),
+                  linear-gradient(
+                    45deg,
+                    rgba(0, 0, 0, 0.2) 25%,
+                    transparent 25%,
+                    transparent 75%,
+                    rgba(0, 0, 0, 0.2) 75%
+                  );
+                /* background-color: transparent; */
+                background-size: 4px 4px;
+                background-position: 0 0, 2px 2px;
+                width: 16px;
+                height: 16px;
+                flex: none;
+              `}
+              src={
+                thumbnailUrlOfLayer(layer.uid) ??
+                'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII='
+              }
+            />
+
+            <div
+              css={`
+                width: 16px;
+                flex: none;
+                padding: 0 2px;
+              `}
+            >
+              <Tooltip2
+                placement="right"
+                content={t(`layerType.${layer.layerType}`)}
+              >
+                {layer.layerType === 'filter' && (
+                  <Filter3
+                    css={`
+                      font-size: 16px;
+                    `}
+                  />
+                )}
+                {layer.layerType === 'raster' && (
+                  <Brush
+                    css={`
+                      font-size: 16px;
+                    `}
+                  />
+                )}
+                {layer.layerType === 'text' &&
+                  // <Text
+                  //   css={`
+                  //     font-size: 16px;
+                  //   `}
+                  // />
+                  'T'}
+                {layer.layerType === 'vector' && (
+                  <Shape
+                    css={`
+                      font-size: 16px;
+                    `}
+                  />
+                )}
+                {layer.layerType === 'reference' && (
+                  <Guide
+                    css={`
+                      font-size: 16px;
+                      border-bottom: 1px solid currentColor;
+                      cursor: pointer;
+                    `}
+                    onClick={handleChangeActiveLayerToReferenceTarget}
+                    {...bindReferenceHover()}
+                  />
+                )}
+              </Tooltip2>
+            </div>
+
+            <div
+              css={`
+                ${centering({ x: false, y: true })}
+                text-overflow: ellipsis;
+                white-space: nowrap;
+                overflow-x: hidden;
+                overflow-y: auto;
+                ::-webkit-scrollbar {
+                  display: none;
+                }
+              `}
+            >
+              <FakeInput
+                css={`
+                  font-size: 12px;
+                  pointer-events: none;
+                  background: transparent;
+                  &::placeholder {
+                    color: #9e9e9e;
+                  }
+                `}
+                value={layer.name}
+                placeholder={`<${t(`layerType.${layer.layerType}`)}>`}
+                onChange={handleChangeLayerName}
+                disabled
+              />
+            </div>
+          </div>
+
+          {layer.layerType === 'vector' && (
+            <div
+              css={`
+                flex-basis: 100%;
+                overflow: hidden;
+              `}
+              style={{
+                height: objectsOpened ? 'auto' : 0,
+              }}
+            >
+              {layer.objects.map((object) => (
+                <>
+                  <div
+                    css={`
+                      padding: 6px 8px;
+                      margin-left: 16px;
+                    `}
+                    style={{
+                      backgroundColor:
+                        activeObjectId == object.uid
+                          ? theme.surface.sidebarListActive
+                          : undefined,
+                    }}
+                    data-object-id={object.uid}
+                    onClick={handleClickObject}
+                    data-ignore-layer-click
+                  >
+                    パス
+                  </div>
+                </>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <ContextMenu id={contextMenu.id}>
+          <ContextMenuItem
+            hidden={layer.layerType !== 'reference'}
+            onClick={handleClickConvertToSubstance}
+          >
+            レイヤーに変換
+          </ContextMenuItem>
+          <ContextMenuItem
+            hidden={layer.layerType === 'reference'}
+            onClick={handleClickMakeReferenceLayer}
+          >
+            参照レイヤーをつくる
+          </ContextMenuItem>
+          <ContextMenuItem onClick={handleClickDeleteLayer}>
+            削除
+          </ContextMenuItem>
+        </ContextMenu>
+      </div>
+    )
+  },
+  (prev, next) =>
+    shallowEquals({ ...prev.layer.layer }, { ...next.layer.layer }) &&
+    prev.layer.depth === next.layer.depth &&
+    shallowEquals(prev.layer.path, next.layer.path)
+)
+
+const layerViewSlice = createSlice(
+  {
+    actions: {},
+    computed: {
+      isReferencerHovered: (state) => (layerUid: string) =>
+        layerUid === state.hoveredReferenceTargetUid,
+    },
+  },
+  () => ({ hoveredReferenceTargetUid: null as string | null })
+)
 
 type LayerContextMenuParam = ContextMenuParam<{ layerPath: string[] }>

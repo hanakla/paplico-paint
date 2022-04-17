@@ -3,7 +3,7 @@ import { Eye, EyeClose } from '@styled-icons/remix-fill'
 import arrayMove from 'array-move'
 import { useTranslation } from 'next-i18next'
 import { rgba } from 'polished'
-import { MouseEvent, useRef } from 'react'
+import { memo, MouseEvent, useRef } from 'react'
 import { usePopper } from 'react-popper'
 import {
   SortableContainer,
@@ -30,8 +30,9 @@ import { useFunk } from '@hanakla/arma'
 import { isEventIgnoringTarget } from '../helpers'
 import { SidebarPane } from '🙌/components/SidebarPane'
 import { reversedIndex } from '🙌/utils/array'
+import { offset, shift, useFloating } from '@floating-ui/react-dom'
 
-export const FilterView = () => {
+export const FilterView = memo(() => {
   const { t } = useTranslation('app')
 
   const { executeOperation, getStore } = useFleurContext()
@@ -44,23 +45,20 @@ export const FilterView = () => {
   )
 
   const [listOpened, toggleListOpened] = useToggle(false)
-  const addFilterListRef = useRef<HTMLDivElement | null>(null)
-  const addFilterListPopRef = useRef<HTMLUListElement | null>(null)
-  const addLayerListPopper = usePopper(
-    addFilterListRef.current,
-    addFilterListPopRef.current,
-    {
-      placement: 'bottom-end',
-      strategy: 'fixed',
-    }
-  )
+  const listfl = useFloating({
+    placement: 'bottom-end',
+    strategy: 'fixed',
+    middleware: [shift(), offset(4)],
+  })
 
   const handleClickOpenFilter = useFunk((e: MouseEvent<HTMLDivElement>) => {
+    // if (DOMUtils.isChildren( e.currentTarget)) return
     toggleListOpened()
   })
 
   const handleClickAddFilter = useFunk(
-    ({ currentTarget }: MouseEvent<HTMLLIElement>) => {
+    ({ currentTarget, nativeEvent }: MouseEvent<HTMLLIElement>) => {
+      nativeEvent.stopPropagation()
       toggleListOpened(false)
 
       if (!activeLayer) return
@@ -91,7 +89,7 @@ export const FilterView = () => {
     })
   })
 
-  useClickAway(addFilterListPopRef, (e) => {
+  useClickAway(listfl.refs.floating, (e) => {
     if (isEventIgnoringTarget(e.target)) return
     toggleListOpened(false)
   })
@@ -103,7 +101,7 @@ export const FilterView = () => {
           {t('layerFilter')}
 
           <div
-            ref={addFilterListRef}
+            ref={listfl.reference}
             css={`
               position: relative;
               margin-left: auto;
@@ -114,7 +112,7 @@ export const FilterView = () => {
 
             <Portal>
               <ul
-                ref={addFilterListPopRef}
+                ref={listfl.floating}
                 css={css`
                   position: fixed;
                   z-index: 1;
@@ -133,12 +131,13 @@ export const FilterView = () => {
                   }
                 `}
                 style={{
-                  ...addLayerListPopper.styles.popper,
+                  position: listfl.strategy,
+                  left: listfl.x ?? 0,
+                  top: listfl.y ?? 0,
                   ...(listOpened
                     ? { visibility: 'visible', pointerEvents: 'all' }
                     : { visibility: 'hidden', pointerEvents: 'none' }),
                 }}
-                {...addLayerListPopper.attributes.popper}
               >
                 {registeredFilters.map((filter) => (
                   <li
@@ -167,7 +166,7 @@ export const FilterView = () => {
       )}
     </SidebarPane>
   )
-}
+})
 
 const SortableFilterList = SortableContainer(function FilterList({
   layer,

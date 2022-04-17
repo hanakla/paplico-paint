@@ -2,20 +2,25 @@ import type {} from '../utils/styled-theme'
 import type {} from '../declarations'
 
 import 'react-contexify/dist/ReactContexify.css'
-import React, { useEffect, useMemo } from 'react'
-import { dark, light } from '@charcoal-ui/theme'
+import React, { memo, useEffect, useMemo } from 'react'
 import { serverSideTranslations } from 'next-i18next/serverSideTranslations'
 import { createGlobalStyle, ThemeProvider } from 'styled-components'
 import { useFleurContext, useStore } from '@fleur/react'
 import Head from 'next/head'
 import { useMedia } from '🙌/utils/hooks'
-import { lightTheme, darkTheme, ThemeType, tm } from '🙌/utils/theme'
+import {
+  darkWithCharcoal,
+  lightWithCharcoal,
+  ThemeType,
+  tm,
+} from '🙌/utils/theme'
 import i18nConfig from '../../next-i18next.config'
 import { narrow } from '🙌/utils/responsive'
 import { getStaticPropsWithFleur } from '🙌/lib/fleur'
 import { EditorOps, EditorStore } from '🙌/domains/EditorStable'
 import { PaintPage } from '🙌/features/Paint'
 import { HomeContent } from '🙌/features/Home'
+import { shallowEquals } from '🙌/utils/object'
 
 // Index.getInitialProps = async (ctx: FleurishNextPageContext) => {
 //   // await Promise.all([
@@ -37,7 +42,7 @@ const DefaultStyle = createGlobalStyle`
   }
 `
 
-const PageSwitch = () => {
+const PageSwitch = memo(function PageSwitch() {
   const isNarrowMedia = useMedia(`(max-width: ${narrow})`, false)
 
   const { executeOperation } = useFleurContext()
@@ -52,12 +57,7 @@ const PageSwitch = () => {
   }, [])
 
   const theme = useMemo(
-    () =>
-      Object.assign(
-        {},
-        currentTheme === 'dark' ? darkTheme : lightTheme,
-        currentTheme === 'dark' ? dark : light
-      ),
+    () => (currentTheme === 'dark' ? darkWithCharcoal : lightWithCharcoal),
     [currentTheme]
   )
 
@@ -73,7 +73,7 @@ const PageSwitch = () => {
       <>{editorPage === 'home' ? <HomeContent /> : <PaintPage />}</>
     </ThemeProvider>
   )
-}
+})
 
 export default function Index() {
   return <PageSwitch />

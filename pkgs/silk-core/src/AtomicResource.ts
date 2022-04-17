@@ -19,6 +19,7 @@ export class AtomicResource<T> {
         { resource: this.resource },
         { request: { owner, stack: new Error() }, current: this.currentOwner }
       )
+
       return defer.promise
     }
 
@@ -27,6 +28,11 @@ export class AtomicResource<T> {
     // console.trace()
     // console.groupEnd()
     this.currentOwner = { owner, stack: new Error() }
+
+    // setTimeout(() => {
+    //   this.isLocked && this.release(this.resource)
+    // }, 3000)
+
     return Promise.resolve(this.resource)
   }
 

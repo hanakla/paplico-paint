@@ -4,15 +4,18 @@ describe('Stroke', () => {
   it('get path', () => {
     const stroke = new Stroke()
     stroke.points.push(
-      [0, 0, 0.2],
-      [-10, 10, 0.4],
-      [40, 15, 0.9],
-      [-20, 20, 0.8],
-      [50, 50, 0.2]
+      [0, 0, 0.2, 0],
+      [-10, 10, 0.4, 2],
+      [40, 15, 0.9, 4],
+      [-20, 20, 0.8, 8],
+      [50, 50, 0.2, 16]
     )
 
     expect(stroke.splinedPath).toMatchInlineSnapshot(`
 Path {
+  "_cachedBounds": null,
+  "_cachedSvgPath": null,
+  "_isFreezed": false,
   "closed": false,
   "points": Array [
     Object {
@@ -72,6 +75,7 @@ Path {
       "y": 50,
     },
   ],
+  "randomSeed": 2357136044,
 }
 `)
   })

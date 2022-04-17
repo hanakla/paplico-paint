@@ -46,7 +46,7 @@ export class ChromaticAberrationFilter implements IFilter {
     this.program = gl.createProgram(FRAGMENT_SHADER)
   }
 
-  public render({
+  public async render({
     source,
     dest,
     gl,

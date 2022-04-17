@@ -17,8 +17,8 @@ exports:
 vectorColorPicker:
   noFill: 塗りなし
   modes:
-    solid: 塗りつぶし
-    linearGradient: グラデーション
+    solid: カラー
+    gradient: グラデーション
 
 layerType:
   filter: フィルターレイヤー
@@ -37,6 +37,7 @@ filters:
   '@silk-core/bloom': '発光'
   '@silk-core/gauss-blur': 'ガウスぼかし'
   '@silk-core/chromatic-aberration': '色収差'
+  '@silk-core/halftone': 'ハーフトーン'
 
 filterOptions:
   '@silk-core/bloom':
@@ -47,3 +48,12 @@ filterOptions:
   '@silk-core/chromatic-aberration':
     distance: 距離
     angleDeg: 角度
+  '@silk-core/halftone':
+    shape: 形状
+    shapes:
+      dot: 円
+      ellipse: 楕円
+      line: 線
+      square: 四角形
+    radius: 半径
+    scatter: 散らばり

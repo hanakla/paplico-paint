@@ -1,13 +1,13 @@
 import { createGlobalStyle, ThemeProvider } from 'styled-components'
-import { light, dark } from '@charcoal-ui/theme'
 import { useFunk } from '@hanakla/arma'
 import { useToggle } from 'react-use'
 import { ChangeEvent } from 'react'
 import { useFunkyGlobalMouseTrap } from '🙌/hooks/useMouseTrap'
+import { darkWithCharcoal, lightWithCharcoal } from '🙌/utils/theme'
 
 export default function Colors() {
   const [isLight, toggle] = useToggle(true)
-  const theme = isLight ? light : dark
+  const theme = isLight ? lightWithCharcoal : darkWithCharcoal
 
   const themeChanged = useFunk(
     ({ currentTarget }: ChangeEvent<HTMLInputElement>) =>
@@ -17,7 +17,7 @@ export default function Colors() {
   useFunkyGlobalMouseTrap(['x'], () => toggle())
 
   return (
-    <ThemeProvider theme={isLight ? light : dark}>
+    <ThemeProvider theme={theme}>
       <Global text={theme.color.text1} bg={theme.color.surface1} />
       <div
         css={`

@@ -19,7 +19,7 @@ import { EditorOps, EditorSelector, EditorStore } from '🙌/domains/EditorStabl
 import { useFunkyMouseTrap } from '🙌/hooks/useMouseTrap'
 import { assign } from '🙌/utils/object'
 import { deepClone } from '🙌/utils/clone'
-import { isEventIgnoringTarget } from '../../helpers'
+import { isEventIgnoringTarget, normalRgbToRgbArray } from '../../helpers'
 import { css } from 'styled-components'
 import { useFleur } from '🙌/utils/hooks'
 
@@ -425,19 +425,19 @@ const GradientControl = ({
   if (object?.fill?.type !== 'linear-gradient') return null
 
   const defId = `silk-ui-linear-gradient-${object.uid}`
+  const { start, end } = object.fill
+  const distance = { x: end.x - start.x, y: end.y - start.y }
 
   return (
     <>
       <defs>
         <linearGradient id={defId}>
-          {object.fill.colorPoints.map(
-            ({ color: { r, g, b, a }, position }) => (
-              <stop
-                offset={`${position * 100}%`}
-                stopColor={rgba(r, g, b, a)}
-              />
-            )
-          )}
+          {object.fill.colorStops.map(({ color, position }) => (
+            <stop
+              offset={`${position * 100}%`}
+              stopColor={rgba(...normalRgbToRgbArray(color), color.a)}
+            />
+          ))}
         </linearGradient>
       </defs>
 
@@ -452,7 +452,7 @@ const GradientControl = ({
           x2={objectBBox?.centerX + object.fill.end.x}
           y2={objectBBox?.centerY + object.fill.end.y}
           stroke="#fff"
-          strokeWidth={7 * zoom}
+          strokeWidth={6 * zoom}
           strokeLinecap="round"
         />
         <line
@@ -467,6 +467,16 @@ const GradientControl = ({
           strokeWidth={4 * zoom}
           strokeLinecap="round"
         />
+
+        {object.fill.colorStops.map((stop) => (
+          <circle
+            r={4 * zoom}
+            fill={rgba(...normalRgbToRgbArray(stop.color), stop.color.a)}
+            stroke="#fff"
+            cx={objectBBox?.centerX + start.x + distance.y * stop.position}
+            cy={objectBBox?.centerY + start.y + distance.y * stop.position}
+          />
+        ))}
       </g>
     </>
   )

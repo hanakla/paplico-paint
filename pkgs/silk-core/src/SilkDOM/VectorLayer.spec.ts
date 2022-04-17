@@ -7,11 +7,10 @@ describe('VectorLayer', () => {
 
       const transaction = layer.createTransaction()
       const source = { ...layer }
-      console.log(source)
+      // console.log(source)
 
       transaction.update((l) => {
         l.x = 10
-        // l.y = 20
       })
 
       expect(layer.x).not.toEqual(source.x)

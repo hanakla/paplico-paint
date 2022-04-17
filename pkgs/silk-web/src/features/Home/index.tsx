@@ -54,13 +54,7 @@ export const HomeContent = () => {
     const ext = extname(file.name)
 
     if (ext === '.silk') {
-      const doc = SilkSerializer.importDocument(
-        new Uint8Array(await file.arrayBuffer())
-      )
-
-      execute(EditorOps.setDocument, doc)
-      execute(EditorOps.createSession, doc)
-      execute(EditorOps.setEditorPage, 'app')
+      execute(EditorOps.loadDocumentFromFile, file)
     } else if (/^image\//.test(file.type)) {
       const { image, url } = await loadImageFromBlob(file)
       const layer = await SilkHelper.imageToLayer(image)

@@ -20,6 +20,7 @@ import { LocalStorage } from '🙌/infra/LocalStorage'
 import { any } from '🙌/utils/anyOf'
 import { shallowEquals } from '🙌/utils/object'
 import { log, trace, warn } from '🙌/utils/log'
+import { exportProject } from './EditorStable/exportProject'
 
 type EditorMode = 'pc' | 'sp' | 'tablet'
 type EditorPage = 'home' | 'app'
@@ -55,13 +56,14 @@ interface State {
   >
   activeSessionId: string | null
 
-  renderStrategy: RenderStrategies.DifferenceRender | null
-
-  currentFileHandler: FileSystemFileHandle | null
-
   currentTheme: 'dark' | 'light'
   editorMode: EditorMode
   editorPage: EditorPage
+
+  renderStrategy: RenderStrategies.DifferenceRender | null
+  currentFileHandler: FileSystemFileHandle | null
+
+  vectorColorTarget: 'fill' | 'stroke'
   canvasScale: number
   canvasPosition: { x: number; y: number }
 
@@ -79,8 +81,9 @@ interface State {
   clipboard: SilkDOM.VectorObject | null
 
   vectorLastUpdated: number
-
   selectedLayerUids: []
+  _lastRenderTime: number
+  _rerenderTimerId: number | null
 }
 
 const debouncing = debounce(
@@ -110,13 +113,14 @@ export const [EditorStore, EditorOps] = minOps('Editor', {
 
     currentTheme: 'light',
     editorMode: 'sp',
-    // editorPage: process.env.NODE_ENV === 'development' ? 'app' : 'home',
-    editorPage: 'home', // process.env.NODE_ENV === 'development' ? 'app' : 'home',
+    editorPage: process.env.NODE_ENV === 'development' ? 'app' : 'home',
+    // editorPage: 'home', // process.env.NODE_ENV === 'development' ? 'app' : 'home',
+
     canvasScale: 1,
     canvasPosition: { x: 0, y: 0 },
+    vectorColorTarget: 'fill',
 
     currentDocument: null,
-
     renderSetting: { disableAllFilters: false, updateThumbnail: true },
     currentTool: 'cursor',
     currentFill: null,
@@ -131,6 +135,8 @@ export const [EditorStore, EditorOps] = minOps('Editor', {
     vectorLastUpdated: 0,
 
     selectedLayerUids: [],
+    _lastRenderTime: 0,
+    _rerenderTimerId: null,
   }),
   ops: {
     async fetchSavedItems(x) {
@@ -149,12 +155,21 @@ export const [EditorStore, EditorOps] = minOps('Editor', {
           .sort((a, b) => +b.updatedAt - +a.updatedAt),
       })
     },
+    async loadDocumentFromFile(x, file) {
+      const { document: doc, extra } = SilkSerializer.importDocument(
+        new Uint8Array(await file.arrayBuffer())
+      )
+
+      await x.executeOperation(EditorOps.setDocument, doc)
+      await x.executeOperation(EditorOps.createSession, doc)
+      x.commit({ editorPage: 'app' })
+    },
     async loadDocumentFromIdb(x, documentUid: string) {
       const db = await connectIdb()
       const record = await db.get('projects', documentUid)
       if (!record) throw new Error('WHAT')
 
-      const document = SilkSerializer.importDocument(
+      const { document, extra } = SilkSerializer.importDocument(
         new Uint8Array(await record.bin.arrayBuffer())
       )
 
@@ -179,7 +194,7 @@ export const [EditorStore, EditorOps] = minOps('Editor', {
       session.renderSetting = x.state.renderSetting
 
       engine.on('rerender', () => {
-        // trace('Canvas rerendered')
+        trace('Canvas rerendered', Date.now())
       })
 
       session.on('activeLayerChanged', (s) => {
@@ -272,6 +287,22 @@ export const [EditorStore, EditorOps] = minOps('Editor', {
       )
         return
 
+      if (Date.now() - x.getState()._lastRenderTime < 300) {
+        console.log('buffered')
+        window.clearTimeout(x.getState()._rerenderTimerId ?? -1)
+
+        x.commit({
+          _rerenderTimerId: window.setTimeout(
+            () => x.executeOperation(EditorOps.rerenderCanvas),
+            300
+          ),
+        })
+
+        return
+      }
+
+      x.commit({ _lastRenderTime: Date.now() })
+
       x.state.engine.render(
         x.state.currentDocument as unknown as SilkDOM.Document,
         x.state.renderStrategy
@@ -285,10 +316,7 @@ export const [EditorStore, EditorOps] = minOps('Editor', {
         .currentDocument as unknown as SilkDOM.Document | null
       if (!document) return
 
-      const buffer = SilkSerializer.exportDocument(
-        document as unknown as SilkDOM.Document
-      ).buffer
-
+      const { buffer } = exportProject(document, x.getStore)
       autoSaveWorker?.postMessage({ buffer }, [buffer])
     },
     async createSession(x, document: SilkDOM.Document) {
@@ -351,6 +379,9 @@ export const [EditorStore, EditorOps] = minOps('Editor', {
         }
       })
     },
+    setVectorColorTarget(x, target: 'fill' | 'stroke') {
+      x.commit({ vectorColorTarget: target })
+    },
     // #endregion
 
     // #region Paint tools and Tool session
@@ -373,7 +404,7 @@ export const [EditorStore, EditorOps] = minOps('Editor', {
       if (activeLayerPath && activeObject && x.state.session) {
         x.state.session.runCommand(
           new SilkCommands.VectorLayer.PatchObjectAttr({
-            pathToTargetLayer: activeLayerPath,
+            pathToTargetLayer: x.unwrapReadonly(activeLayerPath),
             objectUid: activeObject.uid,
             patch: { brush: Object.assign({}, activeObject.brush, stroke) },
           })
@@ -753,6 +784,7 @@ export const EditorSelector = {
     // return sessions[activeSessionId].canvasPosition ?? { x: 0, y: 0 }
     return get(EditorStore).canvasPosition
   }),
+  vectorColorTarget: selector((get) => get(EditorStore).vectorColorTarget),
   // #endregon
 
   // #region Document

@@ -2,6 +2,7 @@ import type { CompositeMode } from './SilkDOM/IRenderable'
 import type * as SilkDOM from './SilkDOM/index'
 import { RasterLayer } from './SilkDOM/RasterLayer'
 import { createContext2D } from './Engine3_CanvasFactory'
+import { ColorStop } from './Value'
 
 export async function imageToLayer(img: HTMLImageElement) {
   const layer = RasterLayer.create({
@@ -42,6 +43,10 @@ export function mapPoints<T>(
   // }
 
   // return result
+}
+
+export function sortColorStopsByPositionAsc(colorStops: ColorStop[]) {
+  return colorStops.sort((a, b) => a.position - b.position)
 }
 
 export function validCompositeMode(value: string): value is CompositeMode {

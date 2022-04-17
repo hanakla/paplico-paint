@@ -1,9 +1,5 @@
 import { setCanvasSize } from '../utils'
-import {
-  FilterContext,
-  FilterInitializeContext,
-  IFilter,
-} from '../engine/IFilter'
+import { FilterContext, FilterInitContext, IFilter } from '../engine/IFilter'
 import { WebGLContext } from '../engine/WebGLContext'
 import { createContext2D } from '../Engine3_CanvasFactory'
 
@@ -57,7 +53,7 @@ export class GaussBlurFilter implements IFilter {
 
   private program: WebGLContext.ProgramSet | null = null
 
-  public async initialize(ctx: FilterInitializeContext) {
+  public async initialize(ctx: FilterInitContext) {
     this.program = ctx.gl.createProgram(FRAGMENT_SHADER_GAUSS)
   }
 

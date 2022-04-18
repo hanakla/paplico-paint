@@ -3,13 +3,15 @@ import type * as SilkDOM from './SilkDOM/index'
 import { RasterLayer } from './SilkDOM/RasterLayer'
 import { createContext2D } from './Engine3_CanvasFactory'
 import { ColorStop } from './Value'
+import { assign, setCanvasSize } from './utils'
 
 export async function imageToLayer(img: HTMLImageElement) {
   const layer = RasterLayer.create({
     width: img.width,
     height: img.height,
   })
-  const context = Object.assign(createContext2D(), {
+  const context = createContext2D()
+  setCanvasSize(context.canvas, {
     width: img.width,
     height: img.height,
   })

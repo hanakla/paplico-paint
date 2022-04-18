@@ -40,14 +40,7 @@ import {
 } from 'silk-core'
 import { css } from 'styled-components'
 import useMeasure from 'use-measure'
-import {
-  Apps2,
-  ArrowDropLeft,
-  Moon,
-  Share,
-  Subtract,
-  Sun,
-} from '@styled-icons/remix-fill'
+import { Moon, Sun } from '@styled-icons/remix-fill'
 import { Menu } from '@styled-icons/remix-line'
 import { useTranslation } from 'next-i18next'
 
@@ -81,6 +74,7 @@ import { nanoid } from 'nanoid'
 import { CSS } from '@dnd-kit/utilities'
 import { FloatingWindow } from '🙌/components/FloatingWindow'
 import { exportProject } from '🙌/domains/EditorStable/exportProject'
+import { LoadingLock } from '🙌/containers/LoadingLock'
 
 export const PaintPage = memo(function PaintPage({}) {
   const { t } = useTranslation('app')
@@ -430,10 +424,24 @@ export const PaintPage = memo(function PaintPage({}) {
         //   )!.initialConfig,
         // }),
         SilkDOM.Filter.create({
-          filterId: '@silk-core/halftone',
+          filterId: '@silk-core/noise',
+          visible: true,
+          settings:
+            engine.current.toolRegistry.getFilterInstance('@silk-core/noise')!
+              .initialConfig,
+        }),
+        SilkDOM.Filter.create({
+          filterId: '@silk-core/binarization',
           visible: true,
           settings: engine.current.toolRegistry.getFilterInstance(
-            '@silk-core/halftone'
+            '@silk-core/binarization'
+          )!.initialConfig,
+        }),
+        SilkDOM.Filter.create({
+          filterId: '@silk-core/low-reso',
+          visible: true,
+          settings: engine.current.toolRegistry.getFilterInstance(
+            '@silk-core/low-reso'
           )!.initialConfig,
         })
       )
@@ -516,6 +524,7 @@ export const PaintPage = memo(function PaintPage({}) {
 
   return (
     <EngineContextProvider value={engine.current!}>
+      <LoadingLock />
       <div
         ref={rootRef}
         css={css`
@@ -683,7 +692,9 @@ export const PaintPage = memo(function PaintPage({}) {
               transform: translateX(-50%);
 
               ${media.narrow`
-                bottom: 8px
+                bottom: 8px;
+                bottom: env(safe-area-inset-bottom);
+                width: 100%;
               `}
             `}
           >

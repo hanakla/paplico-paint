@@ -57,35 +57,23 @@ export class HalftoneFilter implements IFilter {
     )
     this.scene.add(mesh)
 
-    // const fxaaPass = new ShaderPass(FXAAShader)
-    // fxaaPass.uniforms.resolution.value.set(1 / size.width, 1 / size.height)
-    // fxaaPass.renderToScreen = true
-    // fxaaPass.material.transparent = true
-
     const composer = new EffectComposer(threeRenderer)
     composer.addPass(new RenderPass(this.scene, threeCamera))
-    // composer.addPass(fxaaPass)
 
-    console.log(settings)
     composer.addPass(
       new HalftonePass(size.width, size.height, {
         ...settings,
         blending: 1,
-        blendingMode: 3,
+        blendingMode: 1,
         disable: false,
       })
     )
 
     composer.render()
     const ctx = dest.getContext('2d')!
-    // ctx.clearRect(0, 0, size.width, size.height)
+    ctx.clearRect(0, 0, size.width, size.height)
     ctx.drawImage(threeRenderer.domElement, 0, 0)
 
     this.scene.remove(mesh)
   }
-}
-
-const normalizeDegree = (deg: number) => {
-  const norm = deg % 360
-  return norm < 0 ? norm + 360 : norm
 }

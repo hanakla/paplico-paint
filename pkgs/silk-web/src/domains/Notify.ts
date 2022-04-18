@@ -3,11 +3,18 @@ import { useFleurContext, useStore } from '@fleur/react'
 import { nanoid } from 'nanoid'
 import { useEffect } from 'react'
 
-export type Notify = {
-  area: 'save'
-  message: string
-  timeout: number
-}
+export type Notify =
+  | {
+      area: 'save'
+      message: string
+      timeout: number
+    }
+  | {
+      area: 'loadingLock'
+      timeout: 0
+      lock: boolean
+      message: string
+    }
 
 type State = {
   entries: (Notify & { id: string })[]

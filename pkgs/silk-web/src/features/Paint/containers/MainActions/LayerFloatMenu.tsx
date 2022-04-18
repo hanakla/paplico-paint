@@ -158,8 +158,9 @@ export const LayerFloatMenu = memo(
     return (
       <div
         ref={ref}
-        css={`
+        css={css`
           padding: 8px 4px;
+          color: ${({ theme }) => theme.exactColors.black10};
         `}
       >
         <div

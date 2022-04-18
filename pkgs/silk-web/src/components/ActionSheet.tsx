@@ -1,9 +1,16 @@
 import { Close, Polaroid } from '@styled-icons/remix-fill'
 import { rgba } from 'polished'
-import { DetailedHTMLProps, forwardRef, HTMLAttributes, ReactNode } from 'react'
+import {
+  DetailedHTMLProps,
+  forwardRef,
+  HTMLAttributes,
+  MouseEvent,
+  ReactNode,
+} from 'react'
 import { styleWhen, useFunk } from '@hanakla/arma'
 import { animated, useSpring } from 'react-spring'
 import { css, useTheme } from 'styled-components'
+import { DOMUtils } from '🙌/utils/dom'
 
 type Props = {
   opened: boolean
@@ -32,6 +39,11 @@ export const ActionSheet = forwardRef<HTMLDivElement, Props>(
       opacity: opened ? 1 : 0,
     })
 
+    const handleClickBackdrop = useFunk((e: MouseEvent<HTMLDivElement>) => {
+      if (!DOMUtils.isSameElement(e.target, e.currentTarget)) return
+      onClose()
+    })
+
     const handleClickClose = useFunk(() => {
       onClose()
     })
@@ -40,15 +52,17 @@ export const ActionSheet = forwardRef<HTMLDivElement, Props>(
       <div>
         {/* @ts-expect-error */}
         <animated.div
+          // backdrop
           css={`
             position: fixed;
             top: 0;
             left: 0;
             width: 100vw;
             height: 100vh;
-            background-color: ${rgba('#000', 0.1)};
+            background-color: ${rgba('#000', 0.2)};
           `}
           style={{ ...backdropStyle, pointerEvents: opened ? 'all' : 'none' }}
+          onClick={handleClickBackdrop}
         />
         <animated.div
           ref={ref}
@@ -147,8 +161,8 @@ export const ActionSheetItem = ({
         text-align: center;
         font-size: 16px;
 
-        + & {
-          border-top: 1px solid ${rgba('#000', 0.5)};
+        & + & {
+          border-top: 1px solid ${rgba('#333', 0.3)};
         }
       `}
       {...props}

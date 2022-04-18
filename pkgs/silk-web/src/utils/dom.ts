@@ -1,6 +1,13 @@
 import { MouseEvent } from 'react'
+import { assign } from './object'
 
 export const DOMUtils = {
+  isSameElement: (
+    inspect: Element | EventTarget | null,
+    target: Element | EventTarget | null
+  ) => {
+    return inspect === target && inspect !== null
+  },
   isChildren: (inspect: Element | EventTarget | null, self: Element | null) => {
     return (self !== inspect && self?.contains(inspect as Element)) ?? false
   },
@@ -26,6 +33,11 @@ export const DOMUtils = {
       x: e.pageX - rect.left + window.scrollX,
       y: e.pageY - rect.top + window.scrollY,
     }
+  },
+  domPointToSvgPoint: (svg: SVGSVGElement, point: { x: number; y: number }) => {
+    return assign(svg.createSVGPoint(), point).matrixTransform(
+      svg.getScreenCTM()!.inverse()
+    )
   },
   // selectFile: async ({
   //   extensions,

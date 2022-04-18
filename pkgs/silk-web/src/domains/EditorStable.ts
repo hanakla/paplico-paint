@@ -541,21 +541,23 @@ export const [EditorStore, EditorOps] = minOps('Editor', {
     },
     updateRasterLayer: (
       x,
-      layerId: string | null | undefined,
+      pathToLayer: string[] | null | undefined,
       proc: (layer: SilkDOM.RasterLayer) => void,
       { skipRerender = false }: { skipRerender?: boolean } = {}
     ) => {
       if (!x.state.currentDocument) return
 
       x.commit((d) => {
-        const layer = findLayer(
-          x.state.currentDocument as unknown as SilkDOM.Document,
-          layerId
-        )
-        if (layer?.layerType !== 'raster') return
+        if (!d.currentDocument || !pathToLayer) return
+
+        const layer = SilkDOMDigger.findLayer(d.currentDocument, pathToLayer, {
+          kind: 'raster',
+          strict: true,
+        })
 
         layer.update(proc)
-        layerId && d.renderStrategy!.markUpdatedLayerId(layerId)
+        pathToLayer &&
+          d.renderStrategy!.markUpdatedLayerId(pathToLayer.slice(-1)[0])
       })
 
       !skipRerender && x.executeOperation(EditorOps.rerenderCanvas)
@@ -784,6 +786,7 @@ export const EditorSelector = {
     // return sessions[activeSessionId].canvasPosition ?? { x: 0, y: 0 }
     return get(EditorStore).canvasPosition
   }),
+  currentTool: selector((get) => get(EditorStore).currentTool),
   vectorColorTarget: selector((get) => get(EditorStore).vectorColorTarget),
   // #endregon
 

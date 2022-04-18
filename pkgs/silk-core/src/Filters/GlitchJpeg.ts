@@ -9,9 +9,8 @@ export class GlitchJpeg implements IFilter {
 
   public get initialConfig() {
     return {
-      shape: 1,
-      radius: 20,
-      scatter: 0,
+      copies: 2,
+      quality: 1,
     }
   }
 
@@ -26,7 +25,7 @@ export class GlitchJpeg implements IFilter {
     dest,
     // gl,
     size,
-    settings,
+    settings: { copies, quality },
   }: FilterContext) {
     const ctx = dest.getContext('2d')!
 
@@ -38,14 +37,14 @@ export class GlitchJpeg implements IFilter {
 
     ctx!.drawImage(base, 0, 0)
 
-    for (let i = 0; i < 8; i++) {
+    for (let i = 0; i < copies; i++) {
       const image = await new Promise<HTMLImageElement>((r) => {
         ctx.canvas.toBlob(
           (blob) => {
             r(loadBlobImage(blob!))
           },
           'image/jpeg',
-          0.01
+          quality
         )
       })
 

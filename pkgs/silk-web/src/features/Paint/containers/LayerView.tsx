@@ -373,9 +373,9 @@ export const LayerView = memo(function LayerView() {
               {t('layerType.filter')}
             </li>
             <li data-layer-type="image" onClick={handleClickAddLayerItem}>
-              <label>
-                {t('addFromImage')}
-                <input
+              {/* <label> */}
+              {t('addFromImage')}
+              {/* <input
                   css={`
                     display: block;
                     width: 1px;
@@ -386,7 +386,7 @@ export const LayerView = memo(function LayerView() {
                   accept="'.png,.jpeg,.jpg"
                   onChange={handleChangeFile}
                 />
-              </label>
+              </label> */}
             </li>
           </ul>
         </Portal>

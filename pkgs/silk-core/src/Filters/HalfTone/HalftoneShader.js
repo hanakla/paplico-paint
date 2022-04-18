@@ -226,7 +226,7 @@ const HalftoneShader = {
 				if ( greyscale ) {
 					r = g = b = (r + b + g) / 3.0;
 				}
-				gl_FragColor = vec4( r, g, b, 1 );
+				gl_FragColor = vec4( r, g, b, ( r + g + b ) / 3.0 );
 			} else {
 				gl_FragColor = texture2D( tDiffuse, vUV );
 			}

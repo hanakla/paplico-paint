@@ -29,6 +29,9 @@ import { ChromaticAberrationFilter } from '../Filters/ChromaticAberration'
 import { GaussBlurFilter } from '../Filters/GaussBlur'
 import { HalftoneFilter } from '../Filters/HalfTone'
 import { GlitchJpeg } from '../Filters/GlitchJpeg'
+import { NoiseFilter } from '../Filters/Noise'
+import { BinarizationFilter } from '../Filters/Binarization'
+import { LowResoFilter } from '../Filters/LowReso'
 
 type EngineEvents = {
   rerender: void
@@ -54,6 +57,9 @@ export class SilkEngine3 {
       silk.toolRegistry.registerFilter(GaussBlurFilter),
       silk.toolRegistry.registerFilter(ChromaticAberrationFilter),
       silk.toolRegistry.registerFilter(HalftoneFilter),
+      silk.toolRegistry.registerFilter(NoiseFilter),
+      silk.toolRegistry.registerFilter(BinarizationFilter),
+      silk.toolRegistry.registerFilter(LowResoFilter),
     ])
 
     return silk
@@ -220,6 +226,9 @@ export class SilkEngine3 {
       this.camera.bottom = -document.height / 2.0
       this.camera.updateProjectionMatrix()
 
+      // After clear, release resource for rendering
+      this.atomicThreeRenderer.release(renderer)
+
       await strategy.render(this, document, exportCtx)
 
       return {
@@ -252,7 +261,8 @@ export class SilkEngine3 {
         },
       }
     } finally {
-      this.atomicThreeRenderer.release(renderer)
+      this.atomicThreeRenderer.isLocked &&
+        this.atomicThreeRenderer.release(renderer)
       this.atomicRender.release(lock)
     }
   }
@@ -405,12 +415,10 @@ export class SilkEngine3 {
           if (brush == null)
             throw new Error(`Unregistered brush ${object.brush.brushId}`)
 
-          const stroke = Stroke.fromPath(object.path)
-
           await this.renderPath(
             mergeToNew(object.brush, { specific: {} }),
             new PlainInk(),
-            stroke.path,
+            object.path,
             bufferCtx
           )
         }

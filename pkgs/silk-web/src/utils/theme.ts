@@ -30,12 +30,14 @@ const baseColors = {
   whiteFade50: 'hsla(0, 0%, 96.1%, 0.56)',
   whiteFade60: 'hsla(0, 0%, 96.1%, 0.68)',
   whiteFade70: 'hsla(0, 0%, 96.1%, 0.80)',
+  whiteFade80: 'hsla(0, 0%, 96.1%, 0.92)',
   blueFade40: 'hsla(207.9, 91%, 61%, 0.42)',
   blueFade50: 'hsla(207.9, 91%, 61%, 0.56)',
   blue50: 'hsl(207.9, 91%, 61%)',
   red50: 'hsl(342.9, 82.8%, 63.3%)',
   focusRing: '#3694f6',
   orange10: 'hsla(41.9, 66.8%, 52.7%, .12)',
+  success: '#00c853',
 }
 
 const lightColor: typeof baseColors = {

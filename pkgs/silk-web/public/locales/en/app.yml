@@ -9,6 +9,12 @@ addFromImage: Add from Image file
 export: Export
 untitled: Untitled
 
+appMenu:
+  saving: Saving...
+  saved: Save completed!
+  exporting: Rendering...
+  exported: Rendering completed!
+
 exports:
   autoSaved: File was autosaved!
   saved: File was saved!
@@ -37,6 +43,10 @@ filters:
   '@silk-core/bloom': 'Bloom'
   '@silk-core/gauss-blur': 'Gauss blur'
   '@silk-core/chromatic-aberration': 'Chromatic Aberration'
+  '@silk-core/halftone': 'Half tone'
+  '@silk-core/binarization': 'Binarization'
+  '@silk-core/glitch-jpeg': 'Jpegify'
+  '@silk-core/low-reso': Mozaic
 
 filterOptions:
   '@silk-core/bloom':
@@ -57,3 +67,12 @@ filterOptions:
       square: Square
     radius: Radius
     scatter: Scatter
+  '@silk-core/binarization':
+    threshold: Threshold
+  '@silk-core/glitch-jpeg':
+    copies: Copies
+    quality: Image quality
+  '@silk-core/low-reso':
+    sameBlocks: 縦と横の解像度を同じにする
+    levelX: Holizontal blocks
+    levelY: Vetical blocks

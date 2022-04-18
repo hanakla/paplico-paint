@@ -1,7 +1,7 @@
 import { useFleurContext } from '@fleur/react'
 import { useFunk } from '@hanakla/arma'
 import { useTranslation } from 'next-i18next'
-import { memo, ReactNode } from 'react'
+import { ChangeEvent, memo, ReactNode } from 'react'
 import { SilkDOM } from 'silk-core'
 import { DeltaRange } from '🙌/components/DeltaRange'
 import { SelectBox } from '🙌/components/SelectBox'
@@ -25,6 +25,15 @@ export const FilterSettings = ({ layer, filter }: Props) => {
     }
     case '@silk-core/halftone': {
       return <Halftone layer={layer} filter={filter} />
+    }
+    case '@silk-core/binarization': {
+      return <Binarization layer={layer} filter={filter} />
+    }
+    case '@silk-core/glitch-jpeg': {
+      return <GlitchJpeg layer={layer} filter={filter} />
+    }
+    case '@silk-core/low-reso': {
+      return <LowReso layer={layer} filter={filter} />
     }
     default: {
       return <>🤔</>
@@ -268,6 +277,159 @@ const Halftone = ({ layer, filter }: Props) => {
   )
 }
 
+const GlitchJpeg = ({ layer, filter }: Props) => {
+  const { execute } = useFleur()
+
+  const handleChangeCopies = useFunk(
+    ({ currentTarget }: ChangeEvent<HTMLInputElement>) => {
+      execute(EditorOps.updateFilter, layer.uid, filter.uid, (filter) => {
+        filter.settings.copies = currentTarget.valueAsNumber
+      })
+    }
+  )
+
+  const handleChangeQuality = useFunk(
+    ({ currentTarget }: ChangeEvent<HTMLInputElement>) => {
+      execute(EditorOps.updateFilter, layer.uid, filter.uid, (filter) => {
+        filter.settings.quality = currentTarget.valueAsNumber / 100
+      })
+    }
+  )
+
+  return (
+    <div>
+      <Column
+        nameKey="copies"
+        filter={filter}
+        value={roundString(filter.settings.copies, 0)}
+      >
+        <input
+          type="range"
+          min={0}
+          max={32}
+          step={1}
+          value={filter.settings.copies}
+          onChange={handleChangeCopies}
+        />
+      </Column>
+      <Column
+        nameKey="quality"
+        filter={filter}
+        value={roundString(filter.settings.quality * 100, 0)}
+      >
+        <input
+          type="range"
+          min={0}
+          max={100}
+          step={1}
+          value={filter.settings.quality * 100}
+          onChange={handleChangeQuality}
+        />
+      </Column>
+    </div>
+  )
+}
+
+const Binarization = ({ layer, filter }: Props) => {
+  const { execute } = useFleur()
+
+  const handleChangeThreshold = useFunk(
+    ({ currentTarget }: ChangeEvent<HTMLInputElement>) => {
+      execute(EditorOps.updateFilter, layer.uid, filter.uid, (filter) => {
+        filter.settings.level = currentTarget.valueAsNumber
+      })
+    }
+  )
+
+  return (
+    <div>
+      <Column
+        nameKey="level"
+        filter={filter}
+        value={roundString(filter.settings.level, 0)}
+      >
+        <input
+          type="range"
+          min={0}
+          max={255}
+          step={1}
+          value={filter.settings.level}
+          onChange={handleChangeThreshold}
+        />
+      </Column>
+    </div>
+  )
+}
+
+const LowReso = ({ layer, filter }: Props) => {
+  const { execute } = useFleur()
+
+  const handleChangeSameBlocks = useFunk(
+    ({ currentTarget }: ChangeEvent<HTMLInputElement>) => {
+      execute(EditorOps.updateFilter, layer.uid, filter.uid, (filter) => {
+        filter.settings.sameBlocks = currentTarget.checked
+      })
+    }
+  )
+
+  const handleChangeLevelX = useFunk(
+    ({ currentTarget }: ChangeEvent<HTMLInputElement>) => {
+      execute(EditorOps.updateFilter, layer.uid, filter.uid, (filter) => {
+        filter.settings.levelX = currentTarget.valueAsNumber
+      })
+    }
+  )
+
+  const handleChangeLevelY = useFunk(
+    ({ currentTarget }: ChangeEvent<HTMLInputElement>) => {
+      execute(EditorOps.updateFilter, layer.uid, filter.uid, (filter) => {
+        filter.settings.levelY = currentTarget.valueAsNumber
+      })
+    }
+  )
+
+  return (
+    <div>
+      <Column nameKey="sameBlocks" filter={filter}>
+        <input
+          type="checkbox"
+          checked={filter.settings.sameBlocks}
+          onChange={handleChangeSameBlocks}
+        />
+      </Column>
+      <Column
+        nameKey="levelX"
+        filter={filter}
+        value={roundString(filter.settings.levelX, 1)}
+      >
+        <input
+          type="range"
+          min={1}
+          max={256}
+          step={1}
+          value={filter.settings.levelX}
+          onChange={handleChangeLevelX}
+        />
+      </Column>
+      <Column
+        nameKey="levelY"
+        filter={filter}
+        value={roundString(filter.settings.levelY, 1)}
+      >
+        <input
+          type="range"
+          min={1}
+          max={256}
+          step={1}
+          value={filter.settings.levelY}
+          onChange={handleChangeLevelY}
+          disabled={filter.settings.sameBlocks}
+        />
+      </Column>
+    </div>
+  )
+}
+
 const Column = memo(
   ({
     nameKey,
@@ -285,10 +447,8 @@ const Column = memo(
     return (
       <div
         css={`
-          padding: 2px 0;
-
           & + & {
-            margin-top: 8px;
+            margin-top: 4px;
           }
         `}
       >

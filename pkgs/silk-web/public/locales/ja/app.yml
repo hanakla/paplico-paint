@@ -9,6 +9,12 @@ addFromImage: 画像ファイルから追加
 export: 保存する
 untitled: タイトル未設定
 
+appMenu:
+  saving: '保存しています…'
+  saved: '保存しました！'
+  exporting: '書き出し中…'
+  exported: '書き出しました！'
+
 exports:
   autoSaved: 自動保存されています
   saved: 保存しました！
@@ -38,6 +44,9 @@ filters:
   '@silk-core/gauss-blur': 'ガウスぼかし'
   '@silk-core/chromatic-aberration': '色収差'
   '@silk-core/halftone': 'ハーフトーン'
+  '@silk-core/binarization': 二値化
+  '@silk-core/glitch-jpeg': JPEGアンティーク
+  '@silk-core/low-reso': モザイク
 
 filterOptions:
   '@silk-core/bloom':
@@ -57,3 +66,13 @@ filterOptions:
       square: 四角形
     radius: 半径
     scatter: 散らばり
+  '@silk-core/binarization':
+    level: レベル
+    # threshold: しきい値
+  '@silk-core/glitch-jpeg':
+    copies: コピー回数
+    quality: 画質
+  '@silk-core/low-reso':
+    sameBlocks: 縦と横の解像度を同じにする
+    levelX: 横の解像度
+    levelY: 縦の解像度

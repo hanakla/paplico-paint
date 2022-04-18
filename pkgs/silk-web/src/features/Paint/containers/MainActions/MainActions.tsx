@@ -21,7 +21,7 @@ import { SilkBrushes, SilkValue } from 'silk-core'
 import { useTranslation } from 'next-i18next'
 import { useClickAway, useToggle } from 'react-use'
 import { Brush, Close, Eraser, Pencil, Stack } from '@styled-icons/remix-line'
-import { Cursor } from '@styled-icons/remix-fill'
+import { Cursor, Menu } from '@styled-icons/remix-fill'
 import { css, useTheme } from 'styled-components'
 import { Portal } from '🙌/components/Portal'
 import { FloatMenu } from '🙌/components/FloatMenu'
@@ -30,7 +30,7 @@ import { useDrag } from 'react-use-gesture'
 import { DOMUtils } from '🙌/utils/dom'
 import { pick } from '🙌/utils/object'
 import { EditorOps, EditorSelector, EditorStore } from '🙌/domains/EditorStable'
-import { useFunk } from '@hanakla/arma'
+import { letDownload, useFunk } from '@hanakla/arma'
 import {
   arrow,
   autoPlacement,
@@ -46,6 +46,15 @@ import { GradientSlider } from '🙌/components/GradientSlider'
 import { tm } from '🙌/utils/theme'
 import { deepClone } from '🙌/utils/clone'
 import { SilkWebMath } from '🙌/utils/SilkWebMath'
+import { media } from '🙌/utils/responsive'
+import { centering } from '🙌/utils/mixins'
+import {
+  ActionSheet,
+  ActionSheetItem,
+  ActionSheetItemGroup,
+} from '🙌/components/ActionSheet'
+import { exportProject } from '🙌/domains/EditorStable/exportProject'
+import { NotifyOps } from '🙌/domains/Notify'
 
 export const MainActions = memo(function MainActions() {
   const theme = useTheme()
@@ -79,6 +88,7 @@ export const MainActions = memo(function MainActions() {
         }
       : { r: 30, g: 30, b: 30 }
   )
+  const [appMenuOpened, toggleAppMenuOpened] = useToggle(false)
   const [pickerOpened, toggleColorPicker] = useToggle(false)
   const [brushOpened, toggleBrush] = useToggle(false)
   const [layersOpened, toggleLayers] = useToggle(false)
@@ -86,6 +96,10 @@ export const MainActions = memo(function MainActions() {
 
   const [brushSize, setBrushSize] = useState(1)
   const [brushOpacity, setBrushOpacity] = useState(1)
+
+  const handleCloseAppMenu = useFunk(() => {
+    toggleAppMenuOpened(false)
+  })
 
   const handleChangeColor: ColorChangeHandler = useFunk((color) => {
     setColor(color.rgb)
@@ -164,6 +178,8 @@ export const MainActions = memo(function MainActions() {
     }
   )
 
+  const appMenuOpenerRef = useRef<HTMLDivElement | null>(null)
+
   const brushRef = useRef<HTMLDivElement | null>(null)
   const brushPopRef = useRef<HTMLDivElement | null>(null)
   const brushPopper = usePopper(brushRef.current, brushPopRef.current, {
@@ -208,6 +224,11 @@ export const MainActions = memo(function MainActions() {
       layersFloat.update
     )
   }, [layersFloat.refs.reference.current, layersFloat.refs.floating.current, layersFloat.update])
+
+  useClickAway(appMenuOpenerRef, (e) => {
+    if (DOMUtils.isChildren(e.target, e.currentTarget)) return
+    toggleAppMenuOpened(false)
+  })
 
   useClickAway(colorPickerPopRef, (e) => {
     if (DOMUtils.childrenOrSelf(e.target, colorPickerPopRef.current)) return
@@ -267,17 +288,22 @@ export const MainActions = memo(function MainActions() {
 
   return (
     <div
-      css={`
+      css={css`
         display: flex;
         gap: 8px;
         padding: 8px 16px;
         margin-bottom: env(safe-area-inset-bottom);
-        background-color: ${({ theme }) => theme.exactColors.whiteFade50};
+        background-color: ${({ theme }) => theme.color.surface2};
         border-radius: 100px;
-        color: ${({ theme }) => theme.exactColors.black40};
+        color: ${({ theme }) => theme.color.text1};
         border: 1px solid #aaa;
         white-space: nowrap;
         touch-action: manipulation;
+
+        ${media.narrow`
+          border-radius: 0;
+          padding-bottom: 24px;
+        `}
       `}
     >
       <div
@@ -287,13 +313,27 @@ export const MainActions = memo(function MainActions() {
         `}
       >
         <div
+          ref={appMenuOpenerRef}
           css={`
+            ${centering()}
+            width: 36px;
+            height: 36px;
+          `}
+        >
+          <Menu width={24} onClick={toggleAppMenuOpened} />
+
+          <AppMenu opened={appMenuOpened} onClose={handleCloseAppMenu} />
+        </div>
+
+        <div
+          css={css`
             display: flex;
             align-items: center;
             justify-content: center;
             width: 36px;
             height: 36px;
-            border: 1px solid #000;
+            border: 1px solid;
+            border-color: ${({ theme }) => theme.color.surface8};
             border-radius: 64px;
           `}
           {...bindBrushSizeDrag()}
@@ -301,10 +341,11 @@ export const MainActions = memo(function MainActions() {
           {(Math.round(brushSize * 10) / 10).toString(10)}
         </div>
         <div
-          css={`
+          css={css`
             width: 36px;
             height: 36px;
-            border: 1px solid #000;
+            border: 1px solid;
+            border-color: ${({ theme }) => theme.color.surface8};
             border-radius: 64px;
             overflow: hidden;
 
@@ -413,7 +454,7 @@ export const MainActions = memo(function MainActions() {
                 width: 20px;
                 height: 20px;
                 /* border-radius: 100px; */
-                border: 4px solid transparent;
+                border: 2px solid transparent;
                 vertical-align: middle;
                 box-shadow: 0 0 0 2px #dbdbdb, 0 0 2px 1px rgba(0, 0, 0, 0.4);
               `}
@@ -442,7 +483,7 @@ export const MainActions = memo(function MainActions() {
                 width: 20px;
                 height: 20px;
                 /* border-radius: 100px; */
-                border: 1px solid #dbdbdb;
+                border: 2px solid #dbdbdb;
                 vertical-align: middle;
                 box-shadow: 0 0 2px 1px rgba(0, 0, 0, 0.4);
               `}
@@ -479,12 +520,12 @@ export const MainActions = memo(function MainActions() {
       </div>
 
       <div
-        css={`
+        css={css`
           display: flex;
           height: 36px;
           gap: 0;
           border-radius: 100px;
-          border: 1px solid ${rgba('#000', 0.3)};
+          border: 1px solid ${({ theme }) => theme.color.surface7};
           overflow: hidden;
 
           div:first-of-type {
@@ -497,12 +538,15 @@ export const MainActions = memo(function MainActions() {
         `}
       >
         <div
-          css="padding:4px; border-radius: 60px 0 0 60px; transition: background-color .2s ease-in-out;"
+          css={`
+            ${centering()}
+            padding: 4px;
+            border-radius: 60px 0 0 60px;
+            transition: background-color 0.2s ease-in-out;
+          `}
           style={{
             backgroundColor:
-              currentTool === 'cursor'
-                ? theme.exactColors.blackFade30
-                : 'transparent',
+              currentTool === 'cursor' ? theme.color.surface6 : 'transparent',
           }}
           onClick={handleChangeToCursorMode}
         >
@@ -511,11 +555,16 @@ export const MainActions = memo(function MainActions() {
 
         {activeLayer?.layerType === 'vector' && (
           <div
-            css="padding:4px; border-radius: 0; transition: background-color .2s ease-in-out;"
+            css={`
+              ${centering()}
+              padding:4px;
+              border-radius: 0;
+              transition: background-color 0.2s ease-in-out;
+            `}
             style={{
               backgroundColor:
                 currentTool === 'shape-pen'
-                  ? theme.exactColors.blackFade30
+                  ? theme.color.surface6
                   : 'transparent',
             }}
             onClick={handleChangeToShapePenMode}
@@ -526,12 +575,15 @@ export const MainActions = memo(function MainActions() {
 
         <div
           ref={brushRef}
-          css="padding:4px; border-radius: 0; transition: background-color .2s ease-in-out;"
+          css={`
+            ${centering()}
+            padding:4px;
+            border-radius: 0;
+            transition: background-color 0.2s ease-in-out;
+          `}
           style={{
             backgroundColor:
-              currentTool === 'draw'
-                ? theme.exactColors.blackFade30
-                : 'transparent',
+              currentTool === 'draw' ? theme.color.surface6 : 'transparent',
           }}
           onClick={handleChangeToPencilMode}
         >
@@ -540,12 +592,15 @@ export const MainActions = memo(function MainActions() {
 
         {activeLayer?.layerType === 'raster' && (
           <div
-            css="padding: 4px; border-radius: 0 60px 60px 0; transition: background-color .2s ease-in-out;"
+            css={`
+              ${centering()}
+              padding: 4px;
+              border-radius: 0 60px 60px 0;
+              transition: background-color 0.2s ease-in-out;
+            `}
             style={{
               backgroundColor:
-                currentTool === 'erase'
-                  ? theme.exactColors.blackFade30
-                  : 'transparent',
+                currentTool === 'erase' ? theme.color.surface6 : 'transparent',
             }}
             onClick={handleChangeToEraceMode}
           >
@@ -670,25 +725,6 @@ export const MainActions = memo(function MainActions() {
         </div>
       </div>
       {/* )} */}
-
-      {/* <div
-        css={`
-          position: relative;
-          display: flex;
-          justify-content: center;
-          align-items: center;
-          height: 36px;
-        `}
-      >
-        <Menu
-          css={`
-            width: 24px;
-            border-radius: 60px;
-          `}
-        />
-
-        <AnotherMenus />
-      </div> */}
     </div>
   )
 })
@@ -727,6 +763,136 @@ const BrushItem = memo(
       >
         {name}
       </li>
+    )
+  }
+)
+
+const AppMenu = memo(
+  ({ opened, onClose }: { opened: boolean; onClose: () => void }) => {
+    const { t } = useTranslation('app')
+    const { execute, getStore } = useFleur()
+
+    const { engine, currentTheme, currentDocument } = useStore((get) => ({
+      engine: get(EditorStore).state.engine,
+      currentTheme: EditorSelector.currentTheme(get),
+      currentDocument: EditorSelector.currentDocument(get),
+    }))
+
+    const fl = useFloating({
+      placement: 'top',
+      middleware: [shift({ padding: 8 })],
+    })
+
+    const handleClickChangeTheme = useFunk(() => {
+      execute(EditorOps.setTheme, currentTheme === 'dark' ? 'light' : 'dark')
+      onClose()
+    })
+
+    const handleClickSave = useFunk(() => {
+      if (!currentDocument) return
+
+      execute(NotifyOps.create, {
+        area: 'loadingLock',
+        lock: true,
+        message: t('appMenu.saving'),
+        timeout: 0,
+      })
+
+      const { blob } = exportProject(currentDocument, getStore)
+      const url = URL.createObjectURL(blob)
+      letDownload(
+        url,
+        !currentDocument.title
+          ? `${t('untitled')}.silk`
+          : `${currentDocument.title}.silk`
+      )
+
+      onClose()
+
+      window.setTimeout(() => {
+        execute(NotifyOps.create, {
+          area: 'loadingLock',
+          lock: false,
+          message: t('appMenu.saved'),
+          timeout: 0,
+        })
+      }, /* フィードバックが早すぎると何が起きたかわからないので */ 1000)
+
+      window.setTimeout(() => URL.revokeObjectURL(url), 3000)
+    })
+
+    const handleClickExportAs = useFunk(async () => {
+      if (!currentDocument || !engine) return
+
+      execute(NotifyOps.create, {
+        area: 'loadingLock',
+        lock: true,
+        message: t('appMenu.exporting'),
+        timeout: 0,
+      })
+
+      const exporter = await engine.renderAndExport(currentDocument)
+      const blob = await exporter.export('image/png')
+      const url = URL.createObjectURL(blob)
+      letDownload(
+        url,
+        !currentDocument.title
+          ? `${t('untitled')}.png`
+          : `${currentDocument.title}.png`
+      )
+
+      onClose()
+
+      window.setTimeout(() => {
+        execute(NotifyOps.create, {
+          area: 'loadingLock',
+          lock: false,
+          message: t('appMenu.exported'),
+          timeout: 0,
+        })
+      }, /* フィードバックが早すぎると何が起きたかわからないので */ 1000)
+
+      window.setTimeout(() => {
+        URL.revokeObjectURL(url)
+      }, 3000)
+    })
+
+    useEffect(() => {
+      fl.refs.reference.current = fl.refs.floating.current!.parentElement
+
+      if (!fl.refs.reference.current || !fl.refs.floating.current) return
+      return autoUpdate(
+        fl.refs.reference.current,
+        fl.refs.floating.current,
+        fl.update
+      )
+    })
+
+    return (
+      <div ref={fl.floating}>
+        <Portal>
+          <ActionSheet opened={opened} onClose={onClose} fill={false}>
+            <ActionSheetItemGroup>
+              <ActionSheetItem onClick={handleClickChangeTheme}>
+                テーマ切り替え
+              </ActionSheetItem>
+            </ActionSheetItemGroup>
+
+            <ActionSheetItemGroup>
+              <ActionSheetItem onClick={handleClickSave}>
+                ファイルを保存
+              </ActionSheetItem>
+              <ActionSheetItem onClick={handleClickExportAs}>
+                画像に書き出し
+              </ActionSheetItem>
+            </ActionSheetItemGroup>
+
+            <ActionSheetItemGroup>
+              <ActionSheetItem onClick={onClose}>キャンセル</ActionSheetItem>
+            </ActionSheetItemGroup>
+          </ActionSheet>
+        </Portal>
+      </div>
     )
   }
 )

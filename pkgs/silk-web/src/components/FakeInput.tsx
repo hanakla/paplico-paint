@@ -24,7 +24,7 @@ export const FakeInput = forwardRef<
         color: ${({ theme }) => theme.colors.black60};
 
         &::placeholder {
-          color: ${({ theme }) => theme.colors.blackFade50};
+          color: ${({ theme }) => theme.colors.whiteFade50};
         }
 
         ${media.narrow`

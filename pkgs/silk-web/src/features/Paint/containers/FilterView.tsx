@@ -197,7 +197,6 @@ const SortableFilterList = SortableContainer(function FilterList({
       ref={rootRef}
       css={css`
         flex: 1;
-        background-color: ${({ theme }) => theme.colors.black50};
         outline: none;
       `}
       tabIndex={-1}
@@ -279,7 +278,6 @@ const SortableFilterItem = SortableElement(function FilterItem({
         z-index: 1; /* Sortしたときに隠れちゃう(絶望)ので */
         display: flex;
         flex-wrap: wrap;
-        background-color: ${({ theme }) => theme.colors.black50};
         color: ${({ theme }) => theme.text.white};
       `}
       onClick={handleClick}

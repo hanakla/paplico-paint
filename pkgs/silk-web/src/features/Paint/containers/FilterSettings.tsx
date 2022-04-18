@@ -4,6 +4,7 @@ import { useTranslation } from 'next-i18next'
 import { ChangeEvent, memo, ReactNode } from 'react'
 import { SilkDOM } from 'silk-core'
 import { DeltaRange } from '🙌/components/DeltaRange'
+import { RangeInput } from '🙌/components/RangeInput'
 import { SelectBox } from '🙌/components/SelectBox'
 import { EditorOps } from '🙌/domains/EditorStable'
 import { useFleur } from '🙌/utils/hooks'
@@ -303,7 +304,7 @@ const GlitchJpeg = ({ layer, filter }: Props) => {
         filter={filter}
         value={roundString(filter.settings.copies, 0)}
       >
-        <input
+        <RangeInput
           type="range"
           min={0}
           max={32}
@@ -317,7 +318,7 @@ const GlitchJpeg = ({ layer, filter }: Props) => {
         filter={filter}
         value={roundString(filter.settings.quality * 100, 0)}
       >
-        <input
+        <RangeInput
           type="range"
           min={0}
           max={100}
@@ -348,7 +349,7 @@ const Binarization = ({ layer, filter }: Props) => {
         filter={filter}
         value={roundString(filter.settings.level, 0)}
       >
-        <input
+        <RangeInput
           type="range"
           min={0}
           max={255}
@@ -402,8 +403,7 @@ const LowReso = ({ layer, filter }: Props) => {
         filter={filter}
         value={roundString(filter.settings.levelX, 1)}
       >
-        <input
-          type="range"
+        <RangeInput
           min={1}
           max={256}
           step={1}
@@ -416,8 +416,7 @@ const LowReso = ({ layer, filter }: Props) => {
         filter={filter}
         value={roundString(filter.settings.levelY, 1)}
       >
-        <input
-          type="range"
+        <RangeInput
           min={1}
           max={256}
           step={1}

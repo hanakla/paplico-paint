@@ -598,7 +598,7 @@ export const PaintPage = memo(function PaintPage({}) {
             align-items: center;
             justify-content: center;
             overflow: hidden;
-            background-color: ${rgba('#11111A', 0.1)};
+            background-color: ${rgba('#11111A', 0.3)};
           `}
           style={{
             // prettier-ignore

@@ -38,7 +38,7 @@ import {
   SilkSerializer,
   SilkCommands,
 } from 'silk-core'
-import { css } from 'styled-components'
+import { css, useTheme } from 'styled-components'
 import useMeasure from 'use-measure'
 import { Moon, Sun } from '@styled-icons/remix-fill'
 import { Menu } from '@styled-icons/remix-line'
@@ -78,6 +78,7 @@ import { LoadingLock } from '🙌/containers/LoadingLock'
 
 export const PaintPage = memo(function PaintPage({}) {
   const { t } = useTranslation('app')
+  const theme = useTheme()
 
   const { executeOperation, getStore } = useFleurContext()
   const {
@@ -539,43 +540,9 @@ export const PaintPage = memo(function PaintPage({}) {
         {...bindDrop}
       >
         <ReferenceImageWindow />
+
         <CanvasPreviewWindow stream={stream} />
 
-        {/* <div
-          css={`
-            position: absolute;
-            top: 0;
-            left: 0;
-            z-index: 1;
-            display: flex;
-            width: 100%;
-            padding: 8px;
-            background-color: ${({ theme }: ThemeProp) => theme.color.surface2};
-          `}
-        >
-          <div>
-            <ArrowDropLeft
-              css={`
-                width: 24px;
-              `}
-            />
-          </div>
-
-          <Button
-            css={`
-              margin-left: auto;
-            `}
-            kind="primary"
-            outline
-            circled
-          >
-            <Share
-              css={`
-                width: 24px;
-              `}
-            />
-          </Button>
-        </div> */}
         <>
           <div
             css={`
@@ -637,9 +604,9 @@ export const PaintPage = memo(function PaintPage({}) {
             // prettier-ignore
             cursor:
               currentTool === 'cursor' ? 'default' :
-              currentTool === 'draw' ? 'url(cursors/pencil.svg), auto' :
-              currentTool === 'erase' ? 'url(cursors/eraser.svg), auto' :
-              currentTool === 'shape-pen' ? 'url(cursors/pencil-line.svg), auto':
+              currentTool === 'draw' ? `${theme.cursors.pencil}, auto` : // 'url(cursors/pencil.svg), auto' :
+              currentTool === 'erase' ? `${theme.cursors.eraser}, auto` : // 'url(cursors/eraser.svg), auto' :
+              currentTool === 'shape-pen' ? `${theme.cursors.pencilLine}, auto` : // 'url(cursors/pencil-line.svg), auto':
               'default',
           }}
         >

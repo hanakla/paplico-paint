@@ -21,10 +21,10 @@ export const FakeInput = forwardRef<
         outline: none;
         font-size: inherit;
         background-color: ${({ theme }) => theme.colors.whiteFade10};
-        color: ${({ theme }) => theme.color.text1};
+        color: ${({ theme }) => theme.colors.black60};
 
         &::placeholder {
-          color: ${({ theme }) => theme.color.text2};
+          color: ${({ theme }) => theme.colors.blackFade50};
         }
 
         ${media.narrow`

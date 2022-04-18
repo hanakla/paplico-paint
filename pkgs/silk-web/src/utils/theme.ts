@@ -65,12 +65,14 @@ const lightColor: typeof baseColors = {
   whiteFade50: 'hsla(215, 8%, 10.2%, 0.56)',
   whiteFade60: 'hsla(215, 8%, 10.2%, 0.68)',
   whiteFade70: 'hsla(215, 8%, 10.2%, 0.80)',
+  whiteFade80: 'hsla(215, 8%, 10.2%, 0.92)',
   blueFade40: 'hsla(207.9, 91%, 61%, 0.42)',
   blueFade50: 'hsla(207.9, 91%, 61%, 0.56)',
   blue50: 'hsl(207.9, 91%, 61%)',
   red50: 'hsl(342.9, 82.8%, 63.3%)',
   focusRing: '#3694f6',
   orange10: 'hsla(41.9, 66.8%, 52.7%, .12)',
+  success: '#00c853',
 }
 
 // Default
@@ -107,6 +109,11 @@ export const darkTheme = {
   },
   colors: baseColors,
   exactColors: baseColors,
+  cursors: {
+    pencil: 'url(/cursors/pencil-light.svg)',
+    eraser: 'url(/cursors/eraser-light.svg)',
+    pencilLine: 'url(/cursors/pencil-line-light.svg)',
+  },
 }
 
 export const lightTheme = {
@@ -142,6 +149,11 @@ export const lightTheme = {
   },
   colors: lightColor,
   exactColors: baseColors,
+  cursors: {
+    pencil: 'url(/cursors/pencil-light.svg)',
+    eraser: 'url(/cursors/eraser-light.svg)',
+    pencilLine: 'url(/cursors/pencil-line-light.svg)',
+  },
 }
 
 export const lightWithCharcoal = Object.assign({}, lightTheme, light)

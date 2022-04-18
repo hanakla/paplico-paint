@@ -301,6 +301,8 @@ export const MainActions = memo(function MainActions() {
         touch-action: manipulation;
 
         ${media.narrow`
+          border: none;
+          border-top: 1px solid #aaa;
           border-radius: 0;
           padding-bottom: 24px;
         `}

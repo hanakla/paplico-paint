@@ -366,7 +366,8 @@ const SortableLayerItem = ({
   const actionSheetRef = useRef<HTMLDivElement | null>(null)
 
   const handleClick = useFunk((e: MouseEvent<HTMLDivElement>) => {
-    if (DOMUtils.closestOrSelf(e.target, '[data-ignore-click]')) return
+    if (DOMUtils.closestOrSelf(e.target, '[data-sortable-layer-ignore-click]'))
+      return
     execute(EditorOps.setActiveLayer, [...path, layer.uid])
   })
 
@@ -491,7 +492,7 @@ const SortableLayerItem = ({
           align-items: center;
         `}
         onClick={handleClickLayerConfig}
-        data-ignore-click
+        data-sortable-layer-ignore-click
       >
         {layer.filters.length > 0 ? (
           <MagicFill
@@ -514,7 +515,7 @@ const SortableLayerItem = ({
           justify-content: center;
           align-items: center;
         `}
-        data-ignore-click
+        data-sortable-layer-ignore-click
         {...attributes}
         {...listeners}
       >

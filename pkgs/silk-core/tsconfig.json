@@ -5,8 +5,8 @@
     }
   },
   "compilerOptions": {
+    "outDir": "./dist",
     "target": "ES2015",
-    "baseUrl": "./src",
     "downlevelIteration": true,
     "lib": ["dom", "dom.iterable", "esnext"],
     "allowJs": true,
@@ -20,6 +20,5 @@
     "isolatedModules": true,
     "strict": true
   },
-  "files": ["src/index.ts"],
-  "include": ["src/**/*.ts"]
+  "files": ["src/index.ts"]
 }

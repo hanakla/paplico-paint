@@ -20,12 +20,19 @@ import 'dayjs/locale/ja'
 import { useRouter } from 'next/router'
 import { useFleur } from '🙌/utils/hooks'
 import { Button } from '🙌/components/Button'
+import {
+  ContextMenuParam,
+  useContextMenu,
+  ContextMenu,
+  ContextMenuItem,
+} from '🙌/components/ContextMenu'
 dayjs.extend(relativeTime)
 
 export const HomeContent = () => {
   const theme = useTheme()
   const { t } = useTranslation('index-home')
   const { locale } = useRouter()
+  const contextMenu = useContextMenu()
 
   const [displayItems, setDisplayItems] = useState(12)
 
@@ -99,6 +106,20 @@ export const HomeContent = () => {
   const handleClickMoreSavedItems = useFunk(() => {
     setDisplayItems((s) => s + 6)
   })
+
+  const handleItemContextMenu = useFunk((e: MouseEvent<HTMLLIElement>) => {
+    contextMenu.show(e, {
+      props: { documentUid: e.currentTarget.dataset.documentUid },
+    })
+  })
+
+  const handleClickRemoveDocument = useFunk(
+    (e: ContextMenuParam<{ documentUid: string }>) => {
+      if (confirm(t('removeDocumentConfirm'))) {
+        execute(EditorOps.removeSavedDocment, e.props.documentUid)
+      }
+    }
+  )
 
   const [bindDrop, dropState] = useDropArea({
     onFiles: ([file]) => {
@@ -289,6 +310,7 @@ export const HomeContent = () => {
                   `}
                   data-document-uid={item.uid}
                   onClick={handleClickSavedItem}
+                  onContextMenu={handleItemContextMenu}
                 >
                   <div
                     role="img"
@@ -416,6 +438,18 @@ export const HomeContent = () => {
             </div>
           </div>
         </div>
+
+        <ContextMenu id={contextMenu.id}>
+          <ContextMenuItem onClick={handleClickRemoveDocument}>
+            <span
+              css={`
+                ${tm((o) => [o.font.assertive.bold])}
+              `}
+            >
+              ドキュメントを削除
+            </span>
+          </ContextMenuItem>
+        </ContextMenu>
       </div>
     </div>
   )

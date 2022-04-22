@@ -21,6 +21,7 @@ import {
   useClickAway,
   useDrop,
   useDropArea,
+  useInterval,
   useToggle,
   useUpdate,
 } from 'react-use'
@@ -37,6 +38,7 @@ import {
   SilkHelper,
   SilkSerializer,
   SilkCommands,
+  SilkCanvasFactory,
 } from 'silk-core'
 import { css, useTheme } from 'styled-components'
 import useMeasure from 'use-measure'
@@ -57,7 +59,7 @@ import { useMedia } from '🙌/utils/hooks'
 import { ControlsOverlay } from './containers/ControlsOverlay'
 import { MainActions } from '../Paint/containers/MainActions/MainActions'
 import { DebugView } from './containers/DebugView'
-import { centering } from '🙌/utils/mixins'
+import { centering, checkerBoard } from '🙌/utils/mixins'
 import { rgba } from 'polished'
 import { darkTheme } from '🙌/utils/theme'
 import { Button } from '🙌/components/Button'
@@ -75,6 +77,7 @@ import { CSS } from '@dnd-kit/utilities'
 import { FloatingWindow } from '🙌/components/FloatingWindow'
 import { exportProject } from '🙌/domains/EditorStable/exportProject'
 import { LoadingLock } from '🙌/containers/LoadingLock'
+import { log } from '../../utils/log'
 
 export const PaintPage = memo(function PaintPage({}) {
   const { t } = useTranslation('app')
@@ -298,12 +301,12 @@ export const PaintPage = memo(function PaintPage({}) {
   useGesture(
     {
       onPinch: ({ delta: [d, r] }) => {
-        console.log('pinch')
         executeOperation(EditorOps.setCanvasTransform, {
           scale: (prev) => Math.max(0.1, prev + d / 400),
         })
         // setRotate(rotate => rotate + r)
       },
+
       // onDrag: ({ delta: [deltaX, deltaY], event }) => {
       //   // if (!event.to)
       //   // console.log(event.touches)
@@ -347,8 +350,9 @@ export const PaintPage = memo(function PaintPage({}) {
         executeOperation(EditorOps.setActiveLayer, [document.layers[0].uid])
       }
     } else {
+      if (EditorSelector.currentDocument(getStore) != null) return
+
       const document = SilkDOM.Document.create({ width: 1000, height: 1000 })
-      // session.setDocument(document)
       executeOperation(EditorOps.setDocument, document)
 
       const layer = SilkDOM.RasterLayer.create({ width: 1000, height: 1000 })
@@ -381,16 +385,17 @@ export const PaintPage = memo(function PaintPage({}) {
           size: 2,
         }
 
-        obj.fill = {
-          type: 'linear-gradient',
-          opacity: 1,
-          start: { x: -100, y: -100 },
-          end: { x: 100, y: 100 },
-          colorStops: [
-            { color: { r: 0, g: 1, b: 1, a: 1 }, position: 0 },
-            { color: { r: 1, g: 0.2, b: 0.1, a: 1 }, position: 1 },
-          ],
-        }
+        obj.fill = null
+        // obj.fill = {
+        //   type: 'linear-gradient',
+        //   opacity: 1,
+        //   start: { x: -100, y: -100 },
+        //   end: { x: 100, y: 100 },
+        //   colorStops: [
+        //     { color: { r: 0, g: 1, b: 1, a: 1 }, position: 0 },
+        //     { color: { r: 1, g: 0.2, b: 0.1, a: 1 }, position: 1 },
+        //   ],
+        // }
 
         vector.objects.push(obj)
       }
@@ -409,7 +414,8 @@ export const PaintPage = memo(function PaintPage({}) {
       })
       reference.x = 20
 
-      vector.filters.push(
+      vector.filters
+        .push
         // SilkDOM.Filter.create({
         //   filterId: '@silk-core/gauss-blur',
         //   visible: true,
@@ -424,28 +430,28 @@ export const PaintPage = memo(function PaintPage({}) {
         //     '@silk-core/chromatic-aberration'
         //   )!.initialConfig,
         // }),
-        SilkDOM.Filter.create({
-          filterId: '@silk-core/noise',
-          visible: true,
-          settings:
-            engine.current.toolRegistry.getFilterInstance('@silk-core/noise')!
-              .initialConfig,
-        }),
-        SilkDOM.Filter.create({
-          filterId: '@silk-core/binarization',
-          visible: true,
-          settings: engine.current.toolRegistry.getFilterInstance(
-            '@silk-core/binarization'
-          )!.initialConfig,
-        }),
-        SilkDOM.Filter.create({
-          filterId: '@silk-core/low-reso',
-          visible: true,
-          settings: engine.current.toolRegistry.getFilterInstance(
-            '@silk-core/low-reso'
-          )!.initialConfig,
-        })
-      )
+        // SilkDOM.Filter.create({
+        //   filterId: '@silk-core/noise',
+        //   visible: true,
+        //   settings:
+        //     engine.current.toolRegistry.getFilterInstance('@silk-core/noise')!
+        //       .initialConfig,
+        // }),
+        // SilkDOM.Filter.create({
+        //   filterId: '@silk-core/binarization',
+        //   visible: true,
+        //   settings: engine.current.toolRegistry.getFilterInstance(
+        //     '@silk-core/binarization'
+        //   )!.initialConfig,
+        // }),
+        // SilkDOM.Filter.create({
+        //   filterId: '@silk-core/low-reso',
+        //   visible: true,
+        //   settings: engine.current.toolRegistry.getFilterInstance(
+        //     '@silk-core/low-reso'
+        //   )!.initialConfig,
+        // })
+        ()
 
       document.layers.push(layer)
       document.layers.push(vector)
@@ -484,6 +490,24 @@ export const PaintPage = memo(function PaintPage({}) {
 
     return () => {}
   }, [])
+
+  useInterval(() => {
+    if (process.env.NODE_ENV === 'development') {
+      const bytes =
+        getStore(EditorStore).state.session?.getDocumentUsedMemoryBytes() ?? 0
+
+      log(
+        `Document holding bytes: ${byteToMiB(bytes)} MiB${
+          performance.memory
+            ? `, Heap: ${byteToMiB(
+                performance.memory!.usedJSHeapSize
+              )} MiB / ${byteToMiB(performance.memory.jsHeapSizeLimit)} MiB`
+            : ''
+        }, Canvas holdings ${byteToMiB(SilkCanvasFactory.getCanvasBytes())} MiB
+        `
+      )
+    }
+  }, 4000)
 
   useEffect(() => {
     const handleCanvasWheel = (e: WheelEvent) => {
@@ -557,6 +581,7 @@ export const PaintPage = memo(function PaintPage({}) {
                 width: sidebarOpened ? 200 : 32,
               }}
               closed={!sidebarOpened}
+              side="left"
             >
               <div
                 css={`
@@ -659,8 +684,7 @@ export const PaintPage = memo(function PaintPage({}) {
               transform: translateX(-50%);
 
               ${media.narrow`
-                bottom: 8px;
-                bottom: env(safe-area-inset-bottom);
+                bottom: 0;
                 width: 100%;
               `}
             `}
@@ -688,6 +712,7 @@ export const PaintPage = memo(function PaintPage({}) {
               width: sidebarOpened ? 200 : 32,
             }}
             closed={!sidebarOpened}
+            side="right"
           >
             <SidebarPane heading={t('colorHistory')}>まだないよ</SidebarPane>
 
@@ -885,8 +910,14 @@ const PaintCanvas = memo(function PaintCanvas({
 
   useEffect(() => {
     if (!session || !engine || !renderStrategy) return
-    canvasHandler.current = new CanvasHandler(canvasRef.current!)
+    const handler = (canvasHandler.current = new CanvasHandler(
+      canvasRef.current!
+    ))
     canvasHandler.current.connect(session, renderStrategy, engine)
+
+    return () => {
+      handler.dispose()
+    }
   }, [session, renderStrategy, engine])
 
   useEffect(() => {
@@ -906,6 +937,7 @@ const PaintCanvas = memo(function PaintCanvas({
       <canvas
         css={`
           background-color: white;
+          ${checkerBoard({ size: 8, opacity: 0.1 })}
           box-shadow: 0 0 16px rgba(0, 0, 0, 0.1);
         `}
         data-is-paint-canvas="yup"
@@ -987,3 +1019,5 @@ const CanvasPreviewWindow = memo(function CanvasPreviewWindow({
     </FloatingWindow>
   )
 })
+
+const byteToMiB = (byte: number) => Math.round((byte / 1024 / 1024) * 100) / 100

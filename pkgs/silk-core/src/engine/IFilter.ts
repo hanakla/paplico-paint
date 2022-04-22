@@ -1,3 +1,4 @@
+import { LayerTypes } from '../SilkDOM'
 import { Camera, WebGLRenderer } from 'three'
 import { WebGLContext } from './WebGLContext'
 
@@ -9,6 +10,7 @@ export type FilterContext = {
   gl: WebGLContext
   threeRenderer: WebGLRenderer
   threeCamera: Camera
+  sourceLayer: LayerTypes
   source: HTMLCanvasElement
   dest: HTMLCanvasElement
   size: { width: number; height: number }

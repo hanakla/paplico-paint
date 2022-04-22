@@ -199,6 +199,30 @@ export class SilkSession extends Emitter<Events> {
     }
   }
 
+  public getDocumentUsedMemoryBytes() {
+    let sumBytes = 0
+
+    if (this.document) {
+      const traverse = (layers: readonly LayerTypes[]) => {
+        for (const layer of layers) {
+          switch (layer.layerType) {
+            case 'raster': {
+              console.log()
+              sumBytes += layer.bitmap.byteLength
+              break
+            }
+          }
+
+          if ('layers' in layer) traverse(layer.layers)
+        }
+      }
+
+      traverse(this.document.layers)
+    }
+
+    return sumBytes
+  }
+
   public dispose() {
     this.emit('disposed')
   }

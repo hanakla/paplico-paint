@@ -1,11 +1,11 @@
-import { LayerTypes } from 'SilkDOM'
 import { v4 } from 'uuid'
 
+import { LayerTypes } from './index'
 import { Emitter } from '../Engine3_Emitter'
 import { assign } from '../utils'
 import { deserializeLayer } from './desrializeLayer'
 import { Filter } from './Filter'
-import { CompositeMode, ILayer, LayerEvents } from './IRenderable'
+import { CompositeMode, ILayer, LayerEvents } from './ILayer'
 
 type Events = LayerEvents<GroupLayer>
 

@@ -19,8 +19,8 @@ export const GlobalStyle = createGlobalStyle`
   }
 
   html, body , #__next {
-    width: 100%;
-    height: 100%;
+    width: 100vw;
+    height: 100vh;
     font-size: 12px;
     line-height: 14px;
     /* overflow: hidden; */

@@ -4,7 +4,6 @@ import arrayMove from 'array-move'
 import { useTranslation } from 'next-i18next'
 import { rgba } from 'polished'
 import { memo, MouseEvent, useRef } from 'react'
-import { usePopper } from 'react-popper'
 import {
   SortableContainer,
   SortableElement,
@@ -14,11 +13,7 @@ import { useClickAway, useToggle } from 'react-use'
 import { useTheme } from 'styled-components'
 import { css } from 'styled-components'
 import { SilkDOM } from 'silk-core'
-import {
-  ContextMenu,
-  ContextMenuArea,
-  ContextMenuItem,
-} from '🙌/components/ContextMenu'
+import { ContextMenu, ContextMenuItem } from '🙌/components/ContextMenu'
 import { Portal } from '🙌/components/Portal'
 import { useMouseTrap } from '🙌/hooks/useMouseTrap'
 import { DOMUtils } from '🙌/utils/dom'
@@ -81,11 +76,12 @@ export const FilterView = memo(() => {
     if (!activeLayer || !activeLayerPath) return
 
     executeOperation(EditorOps.updateLayer, activeLayerPath, (layer) => {
-      arrayMove.mutate(
-        layer.filters,
-        reversedIndex(activeLayer.filters, sort.oldIndex),
-        reversedIndex(activeLayer.filters, sort.newIndex)
-      )
+      // arrayMove.mutate(
+      //   layer.filters,
+      //   reversedIndex(activeLayer.filters, sort.oldIndex),
+      //   reversedIndex(activeLayer.filters, sort.newIndex)
+      // )
+      arrayMove.mutate(layer.filters, sort.oldIndex, sort.newIndex)
     })
   })
 
@@ -158,7 +154,7 @@ export const FilterView = memo(() => {
       {activeLayer && (
         <SortableFilterList
           layer={activeLayer}
-          filters={[...activeLayer.filters].reverse()}
+          filters={activeLayer.filters}
           onSortEnd={handleFilterSortEnd}
           distance={2}
           lockAxis={'y'}

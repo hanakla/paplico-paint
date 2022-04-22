@@ -6,18 +6,18 @@ import {
   MeshBasicMaterial,
   PlaneBufferGeometry,
   Scene,
-  Texture,
-  TextureLoader,
   ImageBitmapLoader,
   Vector2,
   Path as ThreePath,
   Object3D,
   Color,
   CanvasTexture,
+  InstancedBufferAttribute,
 } from 'three'
 import { lerp } from '../SilkMath'
 import * as Textures from './ScatterTexture/assets'
 import { mergeToNew } from '../utils'
+import { logImage } from '../DebugHelper'
 
 const _object = new Object3D()
 const _translate2d = new Vector2()
@@ -27,7 +27,9 @@ export declare namespace ScatterBrush {
     texture: keyof typeof Textures
     divisions: number
     scatterRange: number
-    fadeForce: number
+    randomRotation: number
+    fadeWeight: number
+    enterExitWeight: number
   }
 }
 
@@ -45,10 +47,12 @@ export class ScatterBrush implements IBrush {
 
   public getInitialSpecificConfig(): ScatterBrush.ScatterSetting {
     return {
-      texture: 'pencil',
+      texture: 'fadeBrush',
       divisions: 1000,
       scatterRange: 0.5,
-      fadeForce: 1,
+      randomRotation: 0,
+      fadeWeight: 1,
+      enterExitWeight: 0,
     }
   }
 
@@ -66,14 +70,63 @@ export class ScatterBrush implements IBrush {
           )
         )
 
+        await logImage(bitmap, `ScatterBrush-${key}`)
+
         const texture = new CanvasTexture(bitmap)
 
         this.materials[key] = new MeshBasicMaterial({
           // map: texture,
           // color: 0xffffff,
+
           transparent: true,
           alphaMap: texture,
         })
+
+        //     this.materials[key] = new RawShaderMaterial({
+        //       // map: texture,
+        //       // color: 0xffffff,
+        //       uniforms: {
+        //         texture: { value: texture },
+        //       },
+        //       depthTest: true,
+        //       depthWrite: true,
+        //       vertexShader: `
+        //         precision mediump float;
+
+        //         uniform mat4 modelViewMatrix;
+        //         uniform mat4 projectionMatrix;
+
+        //         attribute vec3 position;
+        //         attribute vec2 uv;
+
+        //         varying vec2 vUv;
+
+        //         void main() {
+        //           vUv = uv;
+        //           gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+        //         }
+        //       `,
+        //       fragmentShader: `
+        //         precision mediump float;
+
+        //         // uniform sampler2D texture;
+        //         // uniform mat4 viewMatrix;
+
+        //         // varying vec4 vColor;
+        //         // varying vec2 vUv;
+
+        //         void main(void) {
+        //           // vec3 color = texture2D(texture, vUv).rgb;
+        //           // gl_FragColor = vec4(color, color.r);
+
+        //           gl_FragColor = vec4(.0, .0, .0, 1);
+        //         }
+        //       `,
+
+        //       // transparent: true,
+        //       // alphaMap: texture,
+        //     })
+        //   })
       })
     )
 
@@ -93,6 +146,8 @@ export class ScatterBrush implements IBrush {
       this.getInitialSpecificConfig(),
       brushSetting.specific
     )
+    console.log(specific, brushSetting.specific)
+
     const { color } = brushSetting
 
     const path = new ThreePath()
@@ -120,10 +175,17 @@ export class ScatterBrush implements IBrush {
     }
 
     const material = this.materials[specific.texture]
+    material.needsUpdate = true
     material.color.set(new Color(color.r, color.g, color.b))
 
+    // material.onBeforeCompile = (shader) => {
+    //   console.log({ shader })
+    // }
+
     const counts = Math.ceil(path.getLength() * specific.divisions)
+    const opacities = new Float32Array(counts)
     const mesh = new InstancedMesh(this.geometry, material, counts)
+
     this.scene.add(mesh)
 
     const seed = fastRandom(inputPath.randomSeed)
@@ -151,12 +213,16 @@ export class ScatterBrush implements IBrush {
       const pressureWeight = 0.2 + inputPath.getPressureAt(frac) * 0.8
 
       _object.scale.set(
-        brushSetting.size * pressureWeight * fadeWeight,
-        brushSetting.size * pressureWeight * fadeWeight,
+        brushSetting.size *
+          pressureWeight *
+          Math.max(1, fadeWeight * specific.enterExitWeight),
+        brushSetting.size *
+          pressureWeight *
+          Math.max(1, fadeWeight * specific.enterExitWeight),
         1
       )
 
-      _object.rotation.z = seed.nextFloat() * 360
+      _object.rotation.z = seed.nextFloat() * 360 * specific.randomRotation
 
       const tangent = path.getTangentAt(frac).normalize()
       const angle = Math.atan2(tangent.x, tangent.y)
@@ -171,8 +237,14 @@ export class ScatterBrush implements IBrush {
       _object.updateMatrix()
 
       mesh.setMatrixAt(idx, _object.matrix)
+      opacities[idx] = fadeWeight
     }
 
+    this.geometry.setAttribute(
+      'opacities',
+      new InstancedBufferAttribute(opacities, 1)
+    )
+    this.geometry.attributes.opacities.needsUpdate = true
     renderer.render(this.scene, camera)
 
     ctx.globalAlpha = brushSetting.opacity

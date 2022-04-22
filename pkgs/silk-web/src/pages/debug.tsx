@@ -65,6 +65,7 @@ export default function Debug() {
             opacity: 1,
             size: 2,
           }
+          obj.brush = null
 
           obj.fill = {
             type: 'linear-gradient',
@@ -83,7 +84,7 @@ export default function Debug() {
         vector.filters.push(
           SilkDOM.Filter.create({
             filterId: '@silk-core/chromatic-aberration',
-            visible: true,
+            visible: false,
             settings: {
               ...engine.toolRegistry.getFilterInstance(
                 '@silk-core/chromatic-aberration'
@@ -93,10 +94,17 @@ export default function Debug() {
           }),
           SilkDOM.Filter.create({
             filterId: '@silk-core/gauss-blur',
-            visible: true,
+            visible: false,
             settings: engine.toolRegistry.getFilterInstance(
               '@silk-core/gauss-blur'
             )!.initialConfig,
+          }),
+          SilkDOM.Filter.create({
+            filterId: '@silk-core/outline',
+            visible: true,
+            settings:
+              engine.toolRegistry.getFilterInstance('@silk-core/outline')!
+                .initialConfig,
           })
         )
 

@@ -40,7 +40,7 @@ import {
   useFloating,
 } from '@floating-ui/react-dom'
 import { Tab, TabBar } from '🙌/components/TabBar'
-import { useFleur } from '🙌/utils/hooks'
+import { useBufferedState, useFleur } from '🙌/utils/hooks'
 import { colorStopsToCssGradient, normalRGBAToRGBA } from '../../helpers'
 import { GradientSlider } from '🙌/components/GradientSlider'
 import { tm } from '🙌/utils/theme'
@@ -94,8 +94,11 @@ export const MainActions = memo(function MainActions() {
   const [layersOpened, toggleLayers] = useToggle(false)
   const [vectorFillColorOpened, toggleVectorFillColorOpened] = useToggle(false)
 
-  const [brushSize, setBrushSize] = useState(1)
-  const [brushOpacity, setBrushOpacity] = useState(1)
+  console.log(brushSetting)
+  const [brushSize, setBrushSize] = useBufferedState(brushSetting?.size ?? 0)
+  const [brushOpacity, setBrushOpacity] = useBufferedState(
+    brushSetting?.opacity ?? 1
+  )
 
   const handleCloseAppMenu = useFunk(() => {
     toggleAppMenuOpened(false)
@@ -292,7 +295,7 @@ export const MainActions = memo(function MainActions() {
         display: flex;
         gap: 8px;
         padding: 8px 16px;
-        margin-bottom: env(safe-area-inset-bottom);
+        /* margin-bottom: env(safe-area-inset-bottom); */
         background-color: ${({ theme }) => theme.color.surface2};
         border-radius: 100px;
         color: ${({ theme }) => theme.color.text1};
@@ -305,6 +308,7 @@ export const MainActions = memo(function MainActions() {
           border-top: 1px solid #aaa;
           border-radius: 0;
           padding-bottom: 24px;
+          padding-bottom: max(env(safe-area-inset-bottom, 24px), 24px);
         `}
       `}
     >
@@ -548,7 +552,7 @@ export const MainActions = memo(function MainActions() {
           `}
           style={{
             backgroundColor:
-              currentTool === 'cursor' ? theme.color.surface6 : 'transparent',
+              currentTool === 'cursor' ? theme.color.surface4 : 'transparent',
           }}
           onClick={handleChangeToCursorMode}
         >
@@ -566,7 +570,7 @@ export const MainActions = memo(function MainActions() {
             style={{
               backgroundColor:
                 currentTool === 'shape-pen'
-                  ? theme.color.surface6
+                  ? theme.color.surface4
                   : 'transparent',
             }}
             onClick={handleChangeToShapePenMode}
@@ -585,7 +589,7 @@ export const MainActions = memo(function MainActions() {
           `}
           style={{
             backgroundColor:
-              currentTool === 'draw' ? theme.color.surface6 : 'transparent',
+              currentTool === 'draw' ? theme.color.surface4 : 'transparent',
           }}
           onClick={handleChangeToPencilMode}
         >
@@ -602,7 +606,7 @@ export const MainActions = memo(function MainActions() {
             `}
             style={{
               backgroundColor:
-                currentTool === 'erase' ? theme.color.surface6 : 'transparent',
+                currentTool === 'erase' ? theme.color.surface4 : 'transparent',
             }}
             onClick={handleChangeToEraceMode}
           >
@@ -650,12 +654,6 @@ export const MainActions = memo(function MainActions() {
                 name="スキャッター"
                 brushId={SilkBrushes.ScatterBrush.id}
                 active={brushSetting?.brushId === SilkBrushes.ScatterBrush.id}
-                onSelect={handleChangeBrush}
-              />
-              <BrushItem
-                name="テスト筆"
-                brushId={SilkBrushes.ExampleBrush.id}
-                active={brushSetting?.brushId === SilkBrushes.ExampleBrush.id}
                 onSelect={handleChangeBrush}
               />
             </ul>
@@ -785,6 +783,11 @@ const AppMenu = memo(
       middleware: [shift({ padding: 8 })],
     })
 
+    const handleClickBackToHome = useFunk(() => {
+      execute(EditorOps.setEditorPage, 'home')
+      execute(EditorOps.disposeEngineAndSession, null)
+    })
+
     const handleClickChangeTheme = useFunk(() => {
       execute(EditorOps.setTheme, currentTheme === 'dark' ? 'light' : 'dark')
       onClose()
@@ -859,6 +862,17 @@ const AppMenu = memo(
       }, 3000)
     })
 
+    const handleClickReload = useFunk(async () => {
+      execute(NotifyOps.create, {
+        area: 'loadingLock',
+        lock: true,
+        message: 'リロード中',
+        timeout: 0,
+      })
+
+      window.location.reload()
+    })
+
     useEffect(() => {
       fl.refs.reference.current = fl.refs.floating.current!.parentElement
 
@@ -873,8 +887,18 @@ const AppMenu = memo(
     return (
       <div ref={fl.floating}>
         <Portal>
-          <ActionSheet opened={opened} onClose={onClose} fill={false}>
+          <ActionSheet
+            css={css`
+              color: ${({ theme }) => theme.colors.blue50};
+            `}
+            opened={opened}
+            onClose={onClose}
+            fill={false}
+          >
             <ActionSheetItemGroup>
+              <ActionSheetItem onClick={handleClickBackToHome}>
+                ホームへ戻る
+              </ActionSheetItem>
               <ActionSheetItem onClick={handleClickChangeTheme}>
                 テーマ切り替え
               </ActionSheetItem>
@@ -888,6 +912,14 @@ const AppMenu = memo(
                 画像に書き出し
               </ActionSheetItem>
             </ActionSheetItemGroup>
+
+            {process.env.NODE_ENV === 'development' && (
+              <ActionSheetItemGroup>
+                <ActionSheetItem onClick={handleClickReload}>
+                  リロード
+                </ActionSheetItem>
+              </ActionSheetItemGroup>
+            )}
 
             <ActionSheetItemGroup>
               <ActionSheetItem onClick={onClose}>キャンセル</ActionSheetItem>

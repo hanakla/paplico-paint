@@ -1,4 +1,4 @@
-import { ILayer, LayerEvents } from './IRenderable'
+import { ILayer, LayerEvents } from './ILayer'
 import { v4 } from 'uuid'
 import { Filter } from './Filter'
 import { assign, deepClone } from '../utils'

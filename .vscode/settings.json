@@ -5,6 +5,7 @@
     "**/*.code-search": true,
     "**/.next": true
   },
+  "typescript.preferences.importModuleSpecifier": "relative",
   "[glsl]": {
     "editor.formatOnSave": false
   }

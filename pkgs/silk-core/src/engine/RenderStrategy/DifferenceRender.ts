@@ -4,7 +4,7 @@ import { Document, LayerTypes } from '../../SilkDOM'
 import { deepClone, setCanvasSize } from '../../utils'
 import { IRenderStrategy } from './IRenderStrategy'
 import { AtomicResource } from '../../AtomicResource'
-import { CompositeMode } from '../../SilkDOM/IRenderable'
+import { CompositeMode } from '../../SilkDOM/ILayer'
 import { SilkDOMDigger } from '../../SilkDOMDigger'
 
 type Override = {
@@ -49,6 +49,17 @@ export class DifferenceRender implements IRenderStrategy {
 
   public setLayerOverride(override: Override | null) {
     this.overrides = override
+  }
+
+  public async dispose() {
+    const ctx = await this.bufferCtx.enjure()
+
+    // Freeing memory for Safari
+    // See: https://stackoverflow.com/questions/52532614/total-canvas-memory-use-exceeds-the-maximum-limit-safari-12
+    setCanvasSize(ctx.canvas, 0, 0)
+    setCanvasSize(this.previewCtx.canvas, 0, 0)
+
+    this.bufferCtx = null!
   }
 
   public async render(
@@ -169,6 +180,7 @@ export class DifferenceRender implements IRenderStrategy {
             throw new Error(`Filter not found (id:${filter.filterId})`)
 
           await engine.applyFilter(destCtx, bufferCtx, instance, {
+            layer: layer,
             size: { width: document.width, height: document.height },
             filterSettings: deepClone(filter.settings),
           })
@@ -228,6 +240,7 @@ export class DifferenceRender implements IRenderStrategy {
           throw new Error(`Filter not found (id:${filter.filterId})`)
 
         await engine.applyFilter(bufferCtx, bufferCtx, instance, {
+          layer,
           size: { width: document.width, height: document.height },
           filterSettings: deepClone(filter.settings),
         })
@@ -256,48 +269,44 @@ export class DifferenceRender implements IRenderStrategy {
     setTimeout(async () => {
       return
 
-      const bufferCtx = await this.bufferCtx.enjure({ owner: this })
-      setCanvasSize(bufferCtx.canvas, 100, 100)
+      // const bufferCtx = await this.bufferCtx.enjure({ owner: this })
+      // setCanvasSize(bufferCtx.canvas, 100, 100)
 
-      try {
-        for (const entry of layerBitmaps) {
-          if (
-            entry.layer.layerType !== 'raster' &&
-            entry.layer.layerType !== 'vector'
-          )
-            return
-          if (!entry.image) return
-          if (entry.needsUpdate === false) return
+      // try {
+      //   for (const entry of layerBitmaps) {
+      //     if (
+      //       entry.layer.layerType !== 'raster' &&
+      //       entry.layer.layerType !== 'vector'
+      //     )
+      //       return
+      //     if (!entry.image) return
+      //     if (entry.needsUpdate === false) return
 
-          const { width, height } = document.getLayerSize(entry.layer)
-          setCanvasSize(this.previewCtx.canvas, width, height)
-          this.previewCtx.clearRect(0, 0, width, height)
+      //     const { width, height } = document.getLayerSize(entry.layer)
+      //     setCanvasSize(this.previewCtx.canvas, width, height)
+      //     this.previewCtx.clearRect(0, 0, width, height)
 
-          bufferCtx.clearRect(
-            0,
-            0,
-            bufferCtx.canvas.width,
-            bufferCtx.canvas.height
-          )
+      //     bufferCtx.clearRect(
+      //       0,
+      //       0,
+      //       bufferCtx.canvas.width,
+      //       bufferCtx.canvas.height
+      //     )
 
-          this.previewCtx.putImageData(entry.image, 0, 0)
-          bufferCtx.drawImage(this.previewCtx.canvas, 0, 0, 100, 100)
+      //     this.previewCtx.putImageData(entry.image, 0, 0)
+      //     bufferCtx.drawImage(this.previewCtx.canvas, 0, 0, 100, 100)
 
-          const blob = await new Promise<Blob | null>((r) =>
-            bufferCtx.canvas.toBlob(r, 'image/png')
-          )
+      //     const blob = await new Promise<Blob | null>((r) =>
+      //       bufferCtx.canvas.toBlob(r, 'image/png')
+      //     )
 
-          if (this.previews[entry.layer.uid])
-            URL.revokeObjectURL(this.previews[entry.layer.uid])
-          this.previews[entry.layer.uid] = URL.createObjectURL(blob!)
-        }
-      } finally {
-        this.bufferCtx.release(bufferCtx)
-      }
+      //     if (this.previews[entry.layer.uid])
+      //       URL.revokeObjectURL(this.previews[entry.layer.uid])
+      //     this.previews[entry.layer.uid] = URL.createObjectURL(blob!)
+      //   }
+      // } finally {
+      //   this.bufferCtx.release(bufferCtx)
+      // }
     }, 100)
-  }
-
-  public dispose() {
-    this.bufferCtx = null!
   }
 }

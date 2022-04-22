@@ -84,7 +84,12 @@ export const generateBrushThumbnail = async (
   {
     size,
     brushSize,
-  }: { size: { width: number; height: number }; brushSize: number }
+    specific,
+  }: {
+    size: { width: number; height: number }
+    brushSize: number
+    specific: Record<string, any> | null
+  }
 ) => {
   const ctx = document.createElement('canvas').getContext('2d')!
   assign(ctx.canvas, size)
@@ -116,7 +121,7 @@ export const generateBrushThumbnail = async (
       color: { r: 0, g: 0, b: 0 },
       opacity: 1,
       size: brushSize,
-      specific: {},
+      specific,
     },
     new SilkInks.PlainInk(),
     path,

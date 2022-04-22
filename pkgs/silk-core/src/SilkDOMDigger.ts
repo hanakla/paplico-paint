@@ -7,8 +7,9 @@ import {
   FilterLayer,
   GroupLayer,
   VectorObject,
+  TextLayer,
+  ReferenceLayer,
 } from './SilkDOM'
-import { ReferenceLayer } from 'SilkDOM/ReferenceLayer'
 
 // prettier-ignore
 type FilterLayerType<K extends LayerTypes['layerType']> =
@@ -17,6 +18,7 @@ type FilterLayerType<K extends LayerTypes['layerType']> =
   : K extends 'filter' ? FilterLayer
   : K extends 'group' ? GroupLayer
   : K extends 'reference' ? ReferenceLayer
+  : K extends 'text' ? TextLayer
   : LayerTypes
 
 interface Digger {
@@ -24,7 +26,7 @@ interface Digger {
   findLayer<K extends LayerTypes['layerType'], S extends boolean | undefined>(
     document: { layers: readonly LayerTypes[] },
     path: readonly string[],
-    query?: { kind?: K, strict?: S }
+    query?: { kind?: K | Array<K>, strict?: S }
   ): FilterLayerType<K> | (S extends true ? never : null)
 
   findLayerParent(
@@ -38,7 +40,7 @@ interface Digger {
   >(
     document: { layers: readonly LayerTypes[] },
     layerUid: string,
-    query?: { kind?: K; strict?: S }
+    query?: { kind?: K | Array<K>; strict?: S }
   ): FilterLayerType<K> | (S extends true ? never : null)
 
   findObjectInLayer<S extends boolean | undefined>(
@@ -48,17 +50,31 @@ interface Digger {
     option?: { strict?: S }
   ): VectorObject | (S extends true ? never : Nullish)
 
+  findParentLayers<S extends boolean | undefined>(
+    document: { layers: readonly LayerTypes[] },
+    layerUid: string,
+    { strict }: { strict?: S }
+  ): { path: string[]; layers: LayerTypes[] } | (S extends true ? never : null)
+
   getPathToLayer<S extends boolean | undefined>(
     document: { layers: readonly LayerTypes[] },
     layerUid: string,
     query?: { strict?: S }
-  ): string[] | (S extends true ? Nullish : never)
+  ): string[] | (S extends true ? never : Nullish)
 
   traverseLayers<K extends LayerTypes['layerType']>(
     document: { layers: readonly LayerTypes[] },
     query: { kind?: K },
     proc: (l: FilterLayerType<K>) => void | { stop: true }
   ): void
+}
+
+const matchLayerType = <K extends LayerTypes['layerType']>(
+  layerType: LayerTypes['layerType'],
+  kind: K | Array<K>
+) => {
+  const normKind = Array.isArray(kind) ? kind : [kind]
+  return normKind.includes(layerType as any)
 }
 
 export const SilkDOMDigger: Digger = {
@@ -79,8 +95,8 @@ export const SilkDOMDigger: Digger = {
 
     // prettier-ignore
     target = target == null ? null
-      : (kind != null && target.layerType !== kind ? null
-          : target)
+      : kind != null && !matchLayerType(target.layerType, kind) ? null
+      : target
 
     if (strict && target == null)
       throw new Error(`Layer not found: ${path.join('->')}`)
@@ -109,7 +125,10 @@ export const SilkDOMDigger: Digger = {
     let target: LayerTypes | Nullish = null
 
     SilkDOMDigger.traverseLayers(document, {}, (layer) => {
-      if (layer.uid === uid && (kind == null || layer.layerType === kind)) {
+      if (
+        layer.uid === uid &&
+        (kind == null || matchLayerType(layer.layerType, kind))
+      ) {
         target = layer
         return { stop: true }
       }
@@ -168,5 +187,29 @@ export const SilkDOMDigger: Digger = {
       )
 
     return object as any
+  },
+
+  findParentLayers(document, layerUid, { strict } = {}) {
+    const traverse = (
+      container: readonly LayerTypes[],
+      current: string[] = [],
+      layers: LayerTypes[] = []
+    ): { path: string[]; layers: LayerTypes[] } | null => {
+      for (const l of container) {
+        if (l.uid === layerUid) return { path: current, layers }
+
+        if ('layers' in l) {
+          return traverse(l.layers, [...current, l.uid], [...layers, l])
+        }
+      }
+
+      return null
+    }
+
+    const result = traverse(document.layers)
+    if (strict && result == null)
+      throw new Error(`Layer not found (in findParentLayers): ${layerUid}`)
+
+    return result as any
   },
 }

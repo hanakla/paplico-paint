@@ -57,20 +57,26 @@ export const focusRing = css`
   }
 `
 
-export const checkerBoard = ({ size }: { size: number }) => css`
-  background: linear-gradient(
+export const checkerBoard = ({
+  size,
+  opacity = 0.2,
+}: {
+  size: number
+  opacity?: number
+}) => css`
+  background-image: linear-gradient(
       45deg,
-      rgba(0, 0, 0, 0.2) 25%,
+      rgba(0, 0, 0, ${opacity}) 25%,
       transparent 25%,
       transparent 75%,
-      rgba(0, 0, 0, 0.2) 75%
+      rgba(0, 0, 0, ${opacity}) 75%
     ),
     linear-gradient(
       45deg,
-      rgba(0, 0, 0, 0.2) 25%,
+      rgba(0, 0, 0, ${opacity}) 25%,
       transparent 25%,
       transparent 75%,
-      rgba(0, 0, 0, 0.2) 75%
+      rgba(0, 0, 0, ${opacity}) 75%
     );
   /* background-color: transparent; */
   background-size: ${size}px ${size}px;

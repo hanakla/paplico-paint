@@ -1,6 +1,6 @@
 import { SilkDOMDigger } from '../../SilkDOMDigger'
 import { ICommand } from '../ICommand'
-import { LayerProperties } from '../../SilkDOM/IRenderable'
+import { LayerProperties } from '../../SilkDOM/ILayer'
 import { Document } from '../../SilkDOM'
 import { assign, pick } from '../../utils'
 

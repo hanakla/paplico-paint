@@ -1,6 +1,5 @@
-import { minOps, selector } from '@fleur/fleur'
+import { action, actions, minOps, selector } from '@fleur/fleur'
 import arrayMove from 'array-move'
-import { debounce } from 'debounce'
 import { nanoid } from 'nanoid'
 import {
   SilkSession,
@@ -17,8 +16,8 @@ import {
 import { BrushSetting } from '🙌/../silk-core/dist/Value'
 import { connectIdb } from '🙌/infra/indexeddb'
 import { LocalStorage } from '🙌/infra/LocalStorage'
-import { any } from '🙌/utils/anyOf'
-import { shallowEquals } from '🙌/utils/object'
+import { the } from '🙌/utils/anyOf'
+import { assign, shallowEquals } from '🙌/utils/object'
 import { log, trace, warn } from '🙌/utils/log'
 import { exportProject } from './EditorStable/exportProject'
 
@@ -67,6 +66,8 @@ interface State {
   canvasScale: number
   canvasPosition: { x: number; y: number }
 
+  selectedLayerUids: string[]
+
   renderSetting: Silk3.RenderSetting
   currentDocument: SilkDOM.Document | null
   currentTool: Tool
@@ -81,23 +82,18 @@ interface State {
   clipboard: SilkDOM.VectorObject | null
 
   vectorLastUpdated: number
-  selectedLayerUids: []
   _lastRenderTime: number
   _rerenderTimerId: number | null
 }
-
-const debouncing = debounce(
-  <T extends (...args: A) => void, A extends Array<any>>(proc: T) => {
-    // console.log(proc, args)
-    return (...args: A) => proc(...args)
-  },
-  100
-)
 
 const autoSaveWorker =
   typeof window === 'undefined'
     ? null
     : new Worker(new URL('./EditorStable/autoSaveWorker', import.meta.url))
+
+export const EditorActions = actions('Editor', {
+  clearLayerSelection: action<{}>(),
+})
 
 export const [EditorStore, EditorOps] = minOps('Editor', {
   initialState: (): State => ({
@@ -155,6 +151,14 @@ export const [EditorStore, EditorOps] = minOps('Editor', {
           .sort((a, b) => +b.updatedAt - +a.updatedAt),
       })
     },
+    async removeSavedDocment(x, uid: string) {
+      const db = await connectIdb()
+      x.finally(() => db.close())
+
+      await db.delete('projects', uid)
+      await x.executeOperation(EditorOps.fetchSavedItems)
+    },
+
     async loadDocumentFromFile(x, file) {
       const { document: doc, extra } = SilkSerializer.importDocument(
         new Uint8Array(await file.arrayBuffer())
@@ -193,9 +197,9 @@ export const [EditorStore, EditorOps] = minOps('Editor', {
       session.pencilMode = 'none'
       session.renderSetting = x.state.renderSetting
 
-      engine.on('rerender', () => {
-        trace('Canvas rerendered', Date.now())
-      })
+      // engine.on('rerender', () => {
+      //   trace('Canvas rerendered', Date.now())
+      // })
 
       session.on('activeLayerChanged', (s) => {
         if (shallowEquals(x.getState().activeLayerPath, s.activeLayer?.uid))
@@ -224,6 +228,21 @@ export const [EditorStore, EditorOps] = minOps('Editor', {
         d.renderStrategy = strategy as RenderStrategies.DifferenceRender
 
         session.document ??= d.currentDocument
+
+        if (d.currentDocument) {
+          engine.render(d.currentDocument, strategy)
+        }
+      })
+    },
+    disposeEngineAndSession: (x) => {
+      x.commit((d) => {
+        d.engine?.dispose()
+        d.session?.dispose()
+        d.renderStrategy?.dispose()
+
+        d.engine = null
+        d.session = null
+        d.renderStrategy = null
       })
     },
     restorePreferences(x) {
@@ -261,19 +280,20 @@ export const [EditorStore, EditorOps] = minOps('Editor', {
 
       x.executeOperation(EditorOps.rerenderCanvas)
     },
-    setTool: (x, tool: Tool) => {
+    setTool: (x, nextTool: Tool) => {
+      // Avoid to vector tool on non vector layer
       if (
         EditorSelector.activeLayer(x.getStore)?.layerType !== 'vector' &&
-        any(tool).in('shape-pen', 'point-cursor')
+        the(nextTool).in('shape-pen', 'point-cursor')
       ) {
         return
       }
 
       x.commit((d) => {
-        d.currentTool = tool
+        d.currentTool = nextTool
 
-        if (tool === 'draw' || tool === 'erase') {
-          d.session!.pencilMode = tool
+        if (nextTool === 'draw' || nextTool === 'erase') {
+          d.session!.pencilMode = nextTool
         } else {
           d.session!.pencilMode = 'none'
         }
@@ -287,23 +307,23 @@ export const [EditorStore, EditorOps] = minOps('Editor', {
       )
         return
 
-      if (Date.now() - x.getState()._lastRenderTime < 300) {
-        console.log('buffered')
-        window.clearTimeout(x.getState()._rerenderTimerId ?? -1)
+      // if (Date.now() - x.getState()._lastRenderTime < 300) {
+      //   console.log('buffered')
+      //   window.clearTimeout(x.getState()._rerenderTimerId ?? -1)
 
-        x.commit({
-          _rerenderTimerId: window.setTimeout(
-            () => x.executeOperation(EditorOps.rerenderCanvas),
-            300
-          ),
-        })
+      //   x.commit({
+      //     _rerenderTimerId: window.setTimeout(
+      //       () => x.executeOperation(EditorOps.rerenderCanvas),
+      //       300
+      //     ),
+      //   })
 
-        return
-      }
+      //   return
+      // }
 
-      x.commit({ _lastRenderTime: Date.now() })
+      // x.commit({ _lastRenderTime: Date.now() })
 
-      x.state.engine.render(
+      x.state.engine.lazyRender(
         x.state.currentDocument as unknown as SilkDOM.Document,
         x.state.renderStrategy
       )
@@ -316,8 +336,50 @@ export const [EditorStore, EditorOps] = minOps('Editor', {
         .currentDocument as unknown as SilkDOM.Document | null
       if (!document) return
 
-      const { buffer } = exportProject(document, x.getStore)
-      autoSaveWorker?.postMessage({ buffer }, [buffer])
+      if (typeof OffscreenCanvas !== 'undefined') {
+        const { buffer } = exportProject(document, x.getStore)
+        autoSaveWorker?.postMessage({ buffer }, [buffer])
+      } else {
+        const db = await connectIdb()
+
+        try {
+          const { blob } = exportProject(document, x.getStore)
+          const prev = await db.get('projects', document.uid)
+
+          const image = await (
+            await x.state.engine.renderAndExport(document)
+          ).export('image/png')
+
+          const bitmap = await createImageBitmap(image)
+          const canvas = window.document.createElement('canvas')
+          assign(canvas, {
+            width: Math.floor(bitmap.width / 2),
+            height: Math.floor(bitmap.height / 2),
+          })
+
+          const ctx = canvas.getContext('2d')!
+          ctx.clearRect(0, 0, canvas.width, canvas.height)
+          ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height)
+
+          await db.put('projects', {
+            uid: document.uid,
+            title: document.title,
+            bin: blob,
+            hasSavedOnce: prev?.hasSavedOnce ?? false,
+            thumbnail: await new Promise<Blob>((resolve) => {
+              canvas.toBlob((blob) => {
+                if (!blob) throw new Error('Failed to toBlob')
+                resolve(blob)
+              }, 'image/png')
+            }),
+            updatedAt: new Date(),
+          })
+
+          console.log('ok')
+        } finally {
+          db.close()
+        }
+      }
     },
     async createSession(x, document: SilkDOM.Document) {
       const session = await SilkSession.create()
@@ -382,6 +444,12 @@ export const [EditorStore, EditorOps] = minOps('Editor', {
     setVectorColorTarget(x, target: 'fill' | 'stroke') {
       x.commit({ vectorColorTarget: target })
     },
+
+    setLayerSelection(x, mod: (uids: string[]) => string[]) {
+      x.commit((d) => {
+        d.selectedLayerUids = mod(d.selectedLayerUids)
+      })
+    },
     // #endregion
 
     // #region Paint tools and Tool session
@@ -392,8 +460,24 @@ export const [EditorStore, EditorOps] = minOps('Editor', {
       x.commit({ currentStroke: stroke })
     },
     setBrushSetting(x, setting: Partial<BrushSetting>) {
-      x.commit((draft) => {
-        draft.session!.setBrushSetting(setting)
+      x.commit((d) => {
+        d.session!.setBrushSetting(setting)
+
+        if (
+          d.session?.activeLayer?.layerType === 'vector' &&
+          d.activeObjectId != null
+        ) {
+          x.executeOperation(
+            EditorOps.runCommand,
+            new SilkCommands.VectorLayer.PatchObjectAttr({
+              pathToTargetLayer: x.unwrapReadonly(x.state.activeLayerPath!),
+              objectUid: x.state.activeObjectId!,
+              patch: {
+                brush: d.session.brushSetting,
+              },
+            })
+          )
+        }
       })
     },
 
@@ -424,6 +508,7 @@ export const [EditorStore, EditorOps] = minOps('Editor', {
         draft.activeObjectId = objectUid ?? null
         draft.activeObjectPointIndices = []
         draft.selectedFilterIds = {}
+        draft.selectedLayerUids = []
       })
     },
     setActiveLayerToReferenceTarget: (x, layerUid, objectUid?: string) => {
@@ -747,6 +832,11 @@ export const [EditorStore, EditorOps] = minOps('Editor', {
     },
     // #endregion
   },
+  listens: (lx) => [
+    lx(EditorActions.clearLayerSelection, (d) => {
+      d.selectedLayerUids = []
+    }),
+  ],
 })
 
 export const EditorSelector = {
@@ -758,6 +848,7 @@ export const EditorSelector = {
       color: { r: 26, g: 26, b: 26 },
       opacity: 1,
       size: 1,
+      specific: null,
     })
   ),
 
@@ -788,6 +879,8 @@ export const EditorSelector = {
   }),
   currentTool: selector((get) => get(EditorStore).currentTool),
   vectorColorTarget: selector((get) => get(EditorStore).vectorColorTarget),
+
+  selectedLayerUids: selector((get) => get(EditorStore).selectedLayerUids),
   // #endregon
 
   // #region Document
@@ -885,5 +978,3 @@ const findLayerIndex = (
 // const debouned = debounce((f: () => void) => {
 //   f()
 // }, 100)
-
-console.log(debouncing((x: any) => {}) as any)

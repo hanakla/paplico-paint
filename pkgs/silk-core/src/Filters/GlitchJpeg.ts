@@ -1,4 +1,5 @@
 import { FilterContext, FilterInitContext, IFilter } from '../engine/IFilter'
+import { workerSafeCanvasToBlob } from '../SilkHelpers'
 
 export class GlitchJpeg implements IFilter {
   public static readonly id = '@silk-core/glitch-jpeg'
@@ -29,24 +30,19 @@ export class GlitchJpeg implements IFilter {
   }: FilterContext) {
     const ctx = dest.getContext('2d')!
 
-    const base = await new Promise<HTMLImageElement>((r) => {
-      source.toBlob((blob) => {
-        r(loadBlobImage(blob!))
-      })
-    })
+    const base = await loadBlobImage(
+      await workerSafeCanvasToBlob(source, { type: 'image/png' })
+    )
 
     ctx!.drawImage(base, 0, 0)
 
     for (let i = 0; i < copies; i++) {
-      const image = await new Promise<HTMLImageElement>((r) => {
-        ctx.canvas.toBlob(
-          (blob) => {
-            r(loadBlobImage(blob!))
-          },
-          'image/jpeg',
-          quality
-        )
-      })
+      const image = await loadBlobImage(
+        await workerSafeCanvasToBlob(ctx.canvas, {
+          type: 'image/jpeg',
+          quality,
+        })
+      )
 
       ctx.clearRect(0, 0, size.width, size.height)
       ctx.drawImage(image, 0, 0)
@@ -59,13 +55,6 @@ const normalizeDegree = (deg: number) => {
   return norm < 0 ? norm + 360 : norm
 }
 
-const loadBlobImage = (blob: Blob) => {
-  return new Promise<HTMLImageElement>((r) => {
-    const img = new Image()
-    img.onload = () => {
-      r(img)
-      URL.revokeObjectURL(img.src)
-    }
-    img.src = URL.createObjectURL(blob)
-  })
+const loadBlobImage = async (blob: Blob) => {
+  return await createImageBitmap(blob)
 }

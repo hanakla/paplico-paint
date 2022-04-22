@@ -22,6 +22,7 @@ import {
   ContextMenu,
   ContextMenuItem,
   ContextMenuParam,
+  Separator,
   useContextMenu,
 } from '🙌/components/ContextMenu'
 import { combineRef } from '🙌/utils/react'
@@ -34,7 +35,6 @@ import { useTheme } from 'styled-components'
 import { useFleurContext, useStore } from '@fleur/react'
 import { EditorOps, EditorSelector, EditorStore } from '🙌/domains/EditorStable'
 import { calcLayerMove, flattenLayers, isEventIgnoringTarget } from '../helpers'
-import { reversedIndex } from '🙌/utils/array'
 import { SidebarPane } from '🙌/components/SidebarPane'
 import { tm } from '🙌/utils/theme'
 import {
@@ -59,6 +59,7 @@ import { useBufferedState, useDebouncedFunk, useFleur } from '🙌/utils/hooks'
 import { shallowEquals } from '🙌/utils/object'
 import { useHover } from 'react-use-gesture'
 import { createSlice, useLysSliceRoot, useLysSlice } from '@fleur/lys'
+import { CommandOps } from '../../../domains/Commands'
 
 export const LayerView = memo(function LayerView() {
   const { t } = useTranslation('app')
@@ -276,6 +277,7 @@ export const LayerView = memo(function LayerView() {
                 { value: 'multiply', label: t('compositeModes.multiply') },
                 { value: 'screen', label: t('compositeModes.screen') },
                 { value: 'overlay', label: t('compositeModes.overlay') },
+                { value: 'clipper', label: t('compositeModes.clipper') },
               ]}
               value={activeLayer.compositeMode}
               onChange={handleChangeCompositeMode}
@@ -451,12 +453,14 @@ const SortableLayerItem = memo(
       activeLayerPath,
       thumbnailUrlOfLayer,
       activeObjectId,
+      selectedLayerUids,
     } = useStore((get) => ({
       activeLayer: EditorSelector.activeLayer(get),
       activeLayerPath: EditorSelector.activeLayerPath(get),
       currentDocument: EditorSelector.currentDocument(get),
       thumbnailUrlOfLayer: EditorSelector.thumbnailUrlOfLayer(get),
       activeObjectId: get(EditorStore).state.activeObjectId,
+      selectedLayerUids: EditorSelector.selectedLayerUids(get),
     }))
 
     const [objectsOpened, toggleObjectsOpened] = useToggle(false)
@@ -473,14 +477,25 @@ const SortableLayerItem = memo(
       )
     })
 
-    const handleChangeActiveLayer = useFunk((e: MouseEvent<HTMLDivElement>) => {
+    const handleClickRoot = useFunk((e: MouseEvent<HTMLDivElement>) => {
       if (
         DOMUtils.closestOrSelf(e.target, '[data-ignore-click]') ||
         DOMUtils.closestOrSelf(e.target, '[data-ignore-layer-click]')
       )
         return
 
-      execute(EditorOps.setActiveLayer, [...path, layer.uid])
+      if (e.shiftKey || e.metaKey || e.ctrlKey) {
+        execute(EditorOps.setLayerSelection, (uids) => {
+          if (uids.includes(layer.uid)) {
+            return uids.filter((uid) => uid !== layer.uid)
+          } else {
+            return [...uids, layer.uid]
+          }
+        })
+      } else {
+        execute(EditorOps.setLayerSelection, () => [layer.uid])
+        execute(EditorOps.setActiveLayer, [...path, layer.uid])
+      }
     })
 
     const handleChangeActiveLayerToReferenceTarget = useFunk(
@@ -511,17 +526,6 @@ const SortableLayerItem = memo(
       }
     )
 
-    const handleClickDeleteObject = useFunk((_, data) => {
-      if (layer.layerType !== 'vector') return
-
-      const idx = layer.objects.findIndex((obj) => obj.uid === data.objectId)
-      if (idx === -1) return
-
-      layer.update((layer) => {
-        layer.objects.splice(idx, 1)
-      })
-    })
-
     const handleChangeLayerName = useFunk(
       ({ currentTarget }: ChangeEvent<HTMLInputElement>) => {
         execute(
@@ -536,6 +540,10 @@ const SortableLayerItem = memo(
 
     const handleContextMenu = useFunk((e: MouseEvent<HTMLDivElement>) => {
       contextMenu.show(e, { props: { layerPath: [...path, layer.uid] } })
+    })
+
+    const handleClickConvertToGroup = useFunk(() => {
+      execute(CommandOps.convertToGroups)
     })
 
     const handleClickConvertToSubstance = useFunk(() => {
@@ -598,7 +606,7 @@ const SortableLayerItem = memo(
             cursor: default;
             margin-left: ${depth * 16}px;
           `}
-          onClick={handleChangeActiveLayer}
+          onClick={handleClickRoot}
           onContextMenu={handleContextMenu}
           tabIndex={-1}
         >
@@ -613,10 +621,9 @@ const SortableLayerItem = memo(
             style={{
               // prettier-ignore
               backgroundColor:
-                activeLayer?.uid === layer.uid
-                  ? theme.surface.sidebarListActive
-                : layeViewState.isReferencerHovered(layer.uid)
-                  ? theme.exactColors.orange10
+                activeLayer?.uid === layer.uid ? theme.surface.sidebarListActive
+                : selectedLayerUids.includes(layer.uid) ? rgba(theme.surface.sidebarListActive, .2)
+                : layeViewState.isReferencerHovered(layer.uid) ? theme.exactColors.orange10
                 : '',
               color:
                 activeLayer?.uid === layer.uid
@@ -817,6 +824,15 @@ const SortableLayerItem = memo(
         </div>
 
         <ContextMenu id={contextMenu.id}>
+          {selectedLayerUids.length >= 1 &&
+            selectedLayerUids.includes(layer.uid) && (
+              <>
+                <ContextMenuItem onClick={handleClickConvertToGroup}>
+                  選択したレイヤーをグループ化
+                </ContextMenuItem>
+                <Separator />
+              </>
+            )}
           <ContextMenuItem
             hidden={layer.layerType !== 'reference'}
             onClick={handleClickConvertToSubstance}

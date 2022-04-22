@@ -1,7 +1,12 @@
-import { Emitter } from 'Engine3_Emitter'
-import { ISilkDOMElement } from './ISilkDOMElement'
+import { type Emitter } from '../Engine3_Emitter'
+import { type ISilkDOMElement } from './ISilkDOMElement'
 
-export type CompositeMode = 'normal' | 'multiply' | 'screen' | 'overlay'
+export type CompositeMode =
+  | 'normal'
+  | 'multiply'
+  | 'screen'
+  | 'overlay'
+  | 'clipper'
 
 export type LayerEvents<T extends ILayer> = {
   updated: T
@@ -24,8 +29,8 @@ export type LayerProperties = {
 }
 
 export interface ILayer
-  extends Emitter<LayerEvents<any>>,
-    LayerProperties,
+  // Emitter<LayerEvents<any>>,
+  extends LayerProperties,
     ISilkDOMElement {
   update(proc: (layer: this) => void): void
 

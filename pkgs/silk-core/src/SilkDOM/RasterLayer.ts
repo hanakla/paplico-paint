@@ -1,4 +1,4 @@
-import { CompositeMode, ILayer } from './IRenderable'
+import { CompositeMode, ILayer } from './ILayer'
 import { v4 } from 'uuid'
 import { assign, fakeRejectedPromise } from '../utils'
 import { Filter } from './Filter'

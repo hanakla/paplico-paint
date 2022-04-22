@@ -13,7 +13,7 @@ precision mediump float;
 uniform sampler2D source;
 uniform float   size;
 uniform vec2    resolution;
-varying vec2    vTexCoord;
+varying vec2    vUv;
 
 const float Pi = 6.28318530718;
 const float directions = 16.0;
@@ -23,8 +23,8 @@ void main() {
   // float Pi = 6.28318530718; // Pi*2
 
   vec2 radius = 40.0 / resolution.xy;
-  vec2 uv = vTexCoord;
-  vec4 color = texture2D(source, vTexCoord);
+  vec2 uv = vUv;
+  vec4 color = texture2D(source, vUv);
 
   for(float d = 0.0; d < Pi; d += Pi / directions)
   {
@@ -36,7 +36,7 @@ void main() {
 
   color /= quality * directions - 15.0;
   gl_FragColor = color;
-  // gl_FragColor = texture2D(source, vTexCoord);
+  // gl_FragColor = texture2D(source, vUv);
 }
 `
 

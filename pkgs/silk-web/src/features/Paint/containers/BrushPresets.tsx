@@ -32,14 +32,25 @@ export function BrushPresets() {
       >
         <BrushItem
           brushId={SilkBrushes.Brush.id}
-          previewBrushSize={20}
-          preset={{ brushId: SilkBrushes.Brush.id, size: 2 }}
+          preset={{ brushId: SilkBrushes.Brush.id, size: 20 }}
           onSelected={handleSelectBrush}
         />
         <BrushItem
           brushId={SilkBrushes.ScatterBrush.id}
-          previewBrushSize={20}
-          preset={{ brushId: SilkBrushes.ScatterBrush.id, size: 2 }}
+          preset={{
+            brushId: SilkBrushes.ScatterBrush.id,
+            size: 20,
+            specific: { texture: 'fadeBrush' },
+          }}
+          onSelected={handleSelectBrush}
+        />
+        <BrushItem
+          brushId={SilkBrushes.ScatterBrush.id}
+          preset={{
+            brushId: SilkBrushes.ScatterBrush.id,
+            size: 20,
+            specific: { texture: 'pencil' },
+          }}
           onSelected={handleSelectBrush}
         />
       </div>
@@ -49,16 +60,16 @@ export function BrushPresets() {
 
 const BrushItem = ({
   brushId,
-  previewBrushSize: brushSize,
   preset,
   onSelected,
 }: {
   brushId: string
-  previewBrushSize: number
   preset: Partial<SilkValue.BrushSetting>
   onSelected: (setting: Partial<SilkValue.BrushSetting>) => void
 }) => {
   const engine = useStore((get) => get(EditorStore).state.engine)
+
+  const brushSize = preset.size ?? 20
 
   const handleDoubleClick = useFunk(() => {
     onSelected(preset)
@@ -68,6 +79,7 @@ const BrushItem = ({
     if (!engine) return null
     return await generateBrushThumbnail(engine, brushId, {
       brushSize,
+      specific: preset.specific ?? null,
       size: {
         width: 40,
         height: 40,

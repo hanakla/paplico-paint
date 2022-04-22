@@ -12,4 +12,7 @@ export type CurrentBrushSetting = {
   }
   /** 0 to 1 */
   opacity: number
+
+  /** Brush renderer specific settings */
+  specific: Record<string, any> | null
 }

@@ -45,6 +45,7 @@ export class VectorObject implements ISilkDOMElement, VectorObject.Attributes {
       color: { r: 0, g: 0, b: 0 },
       size: 1,
       opacity: 1,
+      specific: null,
     },
     fill = {
       type: 'fill',

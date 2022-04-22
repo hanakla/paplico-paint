@@ -3,13 +3,20 @@ import { ICommand } from '../ICommand'
 
 export class Transaction implements ICommand {
   private commands: ICommand[]
+  private document!: Document
 
   constructor({ commands }: { commands: ICommand[] }) {
     this.commands = commands
   }
 
+  public doAndAddCommand(command: ICommand) {
+    command.do(this.document)
+    this.commands.push(command)
+  }
+
   async do(document: Document) {
-    for (const cmd of this.commands) await cmd.do(document)
+    // for (const cmd of this.commands) await cmd.do(document)
+    this.document = document
   }
 
   async undo(document: Document): Promise<void> {

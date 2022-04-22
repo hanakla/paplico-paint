@@ -1,4 +1,4 @@
-import { assign } from 'utils'
+import { assign } from '../../utils'
 import { IColor } from './IColor'
 
 export class ReferenceColor implements IColor {

@@ -162,22 +162,24 @@ assign(lightWithCharcoal.color, {
   surface2: '#f1f1f1',
   surface3: '#e2e2e2',
   surface4: '#bbbbbb',
-  surface6: '#828181',
-  surface7: '#5c5c5c',
-  surface8: '#393939',
-  surface9: '#212121',
+
+  surface6: '#f9f9f9',
+  surface7: '#f1f1f1',
+  surface8: '#e2e2e2',
+  surface9: '#bbbbbb',
 })
 
 export const darkWithCharcoal = Object.assign({}, darkTheme, dark)
 assign(darkWithCharcoal.color, {
   surface1: '#060606',
   surface2: '#2a2a2a',
-  surface3: '#373737',
-  surface4: '#4c4c4c',
-  surface6: '#7d7e7e',
-  surface7: '#a3a3a3',
-  surface8: '#c6c6c6',
-  surface9: '#dedede',
+  surface3: '#4a4a4a',
+  surface4: '#606060',
+
+  surface6: lightWithCharcoal.color.surface1,
+  surface7: lightWithCharcoal.color.surface2,
+  surface8: lightWithCharcoal.color.surface3,
+  surface9: lightWithCharcoal.color.surface4,
 })
 
 export type ThemeType = typeof darkTheme & CharcoalTheme

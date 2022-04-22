@@ -64,12 +64,6 @@ const PageSwitch = memo(function PageSwitch() {
   return (
     <ThemeProvider theme={theme}>
       <DefaultStyle />
-      <Head>
-        <meta
-          name="viewport"
-          content="viewport-fit=cover, width=device-width, initial-scale=1"
-        />
-      </Head>
       <>{editorPage === 'home' ? <HomeContent /> : <PaintPage />}</>
     </ThemeProvider>
   )

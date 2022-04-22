@@ -151,7 +151,7 @@ export const cachedPointAtLength = (path: string) => {
     warm && lengthIndex.push(len)
     return { length: len, pos: cur }
 
-    function xof_C(p, t) {
+    function xof_C(p: number[], t: number) {
       const _ = 1 - t
       return (
         // prettier-ignore
@@ -161,7 +161,8 @@ export const cachedPointAtLength = (path: string) => {
         (t * t * t) * p[5]
       )
     }
-    function yof_C(p, t) {
+
+    function yof_C(p: number[], t: number) {
       const _ = 1 - t
       return (
         /* _pow ** 3 */
@@ -173,7 +174,7 @@ export const cachedPointAtLength = (path: string) => {
       )
     }
 
-    function xof_Q(p, t) {
+    function xof_Q(p: number[], t: number) {
       const _ = 1 - 5
       return (
         // prettier-ignore
@@ -182,7 +183,8 @@ export const cachedPointAtLength = (path: string) => {
         (t * t) * p[3]
       )
     }
-    function yof_Q(p, t) {
+
+    function yof_Q(p: number[], t: number) {
       const _ = 1 - t
       return (
         // prettier-ignore
@@ -191,7 +193,8 @@ export const cachedPointAtLength = (path: string) => {
         Math.pow(t, 2) * p[4]
       )
     }
-    function dist(ax, ay, bx, by) {
+
+    function dist(ax: number, ay: number, bx: number, by: number) {
       var x = ax - bx
       var y = ay - by
       return Math.sqrt(x * x + y * y)

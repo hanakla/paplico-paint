@@ -38,6 +38,7 @@ compositeModes:
   multiply: Multiply
   screen: Screen
   overlay: Overlay
+  clipper: Clip
 
 filters:
   '@silk-core/bloom': 'Bloom'
@@ -47,6 +48,7 @@ filters:
   '@silk-core/binarization': 'Binarization'
   '@silk-core/glitch-jpeg': 'Jpegify'
   '@silk-core/low-reso': Mozaic
+  '@silk-core/outline': Outline
 
 filterOptions:
   '@silk-core/bloom':
@@ -76,3 +78,6 @@ filterOptions:
     sameBlocks: 縦と横の解像度を同じにする
     levelX: Holizontal blocks
     levelY: Vetical blocks
+  '@silk-core/outline':
+    thickness: Thickness
+    color: Color

@@ -1,4 +1,4 @@
-import { Document, LayerTypes } from 'SilkDOM'
+import { Document, LayerTypes } from '../../SilkDOM'
 import { ICommand } from '../ICommand'
 
 export class DocumentAddLayer implements ICommand {

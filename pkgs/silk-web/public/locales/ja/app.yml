@@ -38,6 +38,7 @@ compositeModes:
   multiply: 乗算
   screen: スクリーン
   overlay: オーバーレイ
+  clipper: 切り抜き
 
 filters:
   '@silk-core/bloom': '発光'
@@ -47,6 +48,7 @@ filters:
   '@silk-core/binarization': 二値化
   '@silk-core/glitch-jpeg': JPEGアンティーク
   '@silk-core/low-reso': モザイク
+  '@silk-core/outline': 縁取り
 
 filterOptions:
   '@silk-core/bloom':
@@ -76,3 +78,6 @@ filterOptions:
     sameBlocks: 縦と横の解像度を同じにする
     levelX: 横の解像度
     levelY: 縦の解像度
+  '@silk-core/outline':
+    thickness: 太さ
+    color: 色

@@ -95,8 +95,6 @@ export class Document
     } else {
       return { width: this.width, height: this.height }
     }
-
-    return { width: 0, height: 0 }
   }
 
   public serialize() {

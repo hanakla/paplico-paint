@@ -82,6 +82,11 @@ export class CanvasHandler extends Emitter<Events> {
         layer.lock === false &&
         layer.visible === true)
 
+    session.on('documentChanged', (s) => {
+      if (s.document == null) return
+      setCanvasSize(this.strokeCtx.canvas, s.document)
+    })
+
     this.on('strokeStart', async () => {
       const { activeLayer } = session
       if (
@@ -117,11 +122,7 @@ export class CanvasHandler extends Emitter<Events> {
       this.strokeCtx.clearRect(0, 0, size.width, size.height)
 
       await engine.renderPath(
-        mergeToNew(session.brushSetting, {
-          specific: session.getSpecificBrushSetting(
-            session.brushSetting.brushId
-          ),
-        }),
+        session.brushSetting,
         session.currentInk,
         stroke.splinedPath,
         this.strokeCtx
@@ -145,11 +146,7 @@ export class CanvasHandler extends Emitter<Events> {
       this.strokeCtx.clearRect(0, 0, size.width, size.height)
 
       await engine.renderPath(
-        mergeToNew(session.brushSetting, {
-          specific: session.getSpecificBrushSetting(
-            session.brushSetting.brushId
-          ),
-        }),
+        session.brushSetting,
         session.currentInk,
         stroke.splinedPath,
         this.strokeCtx
@@ -190,7 +187,7 @@ export class CanvasHandler extends Emitter<Events> {
 
       strategy.markUpdatedLayerId(activeLayer.uid)
       strategy.setLayerOverride(null)
-      await engine.render(session.document, strategy)
+      await engine.lazyRender(session.document, strategy)
       this.mitt.emit('canvasUpdated')
     })
 
@@ -200,9 +197,9 @@ export class CanvasHandler extends Emitter<Events> {
   }
 
   public dispose() {
-    // this.canvas.removeEventListener('pointerdown', this.#handleMouseDown)
-    // this.canvas.removeEventListener('pointermove', this.#handleMouseMove)
-    // this.canvas.removeEventListener('pointerup', this.#handleMouseUp)
+    this.canvas.removeEventListener('pointerdown', this.#handleMouseDown)
+    this.canvas.removeEventListener('pointermove', this.#handleMouseMove)
+    this.canvas.removeEventListener('pointerup', this.#handleMouseUp)
 
     this.canvas.removeEventListener('touchstart', this.#handleTouchStart)
     this.canvas.removeEventListener('touchmove', this.#handleTouchMove)
@@ -213,12 +210,7 @@ export class CanvasHandler extends Emitter<Events> {
     this.currentStroke = new Stroke()
     this.currentStroke.startTime = e.timeStamp
     this.currentStroke.updatePoints((points) => {
-      points.push([
-        e.offsetX,
-        e.offsetY,
-        e.pointerType === 'mouse' ? 1 : e.pressure,
-        0,
-      ])
+      points.push([e.offsetX, e.offsetY, e.pressure, 0])
     })
 
     this._stroking = true

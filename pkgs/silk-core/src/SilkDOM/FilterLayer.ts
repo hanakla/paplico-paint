@@ -1,6 +1,6 @@
 import { v4 } from 'uuid'
 
-import { ILayer, LayerEvents } from './IRenderable'
+import { ILayer, LayerEvents } from './ILayer'
 import { assign } from '../utils'
 import { Filter } from './Filter'
 import { Emitter } from '../Engine3_Emitter'

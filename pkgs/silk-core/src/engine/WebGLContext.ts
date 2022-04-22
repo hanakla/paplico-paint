@@ -42,9 +42,11 @@ precision highp float;
 attribute vec2 position;
 attribute vec2 coord;
 varying vec2 vTexCoord;
+varying vec2 vUv;
 
 void main(void) {
     vTexCoord = coord;
+    vUv = coord;
     gl_Position = vec4(position, 0.0, 1.0);
 }
 `

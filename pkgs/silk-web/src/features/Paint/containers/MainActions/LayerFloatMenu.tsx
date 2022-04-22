@@ -56,6 +56,7 @@ import {
 import { calcLayerMove, FlatLayerEntry, flattenLayers } from '../../helpers'
 import { CSS } from '@dnd-kit/utilities'
 import { useFleur } from '🙌/utils/hooks'
+import { Checkbox } from '🙌/components/Checkbox'
 
 export const LayerFloatMenu = memo(
   forwardRef<HTMLDivElement, {}>((_, ref) => {
@@ -357,10 +358,13 @@ const SortableLayerItem = ({
     useSortable({ id: layer.uid })
 
   const { execute } = useFleur()
-  const { activeLayer, thumbnailUrlOfLayer } = useStore((get) => ({
-    activeLayer: EditorSelector.activeLayer(get),
-    thumbnailUrlOfLayer: EditorSelector.thumbnailUrlOfLayer(get),
-  }))
+  const { activeLayer, thumbnailUrlOfLayer, selectedLayerUids } = useStore(
+    (get) => ({
+      activeLayer: EditorSelector.activeLayer(get),
+      thumbnailUrlOfLayer: EditorSelector.thumbnailUrlOfLayer(get),
+      selectedLayerUids: EditorSelector.selectedLayerUids(get),
+    })
+  )
 
   const [actionSheetOpened, setActionSheetOpen] = useToggle(false)
   const actionSheetRef = useRef<HTMLDivElement | null>(null)
@@ -368,6 +372,7 @@ const SortableLayerItem = ({
   const handleClick = useFunk((e: MouseEvent<HTMLDivElement>) => {
     if (DOMUtils.closestOrSelf(e.target, '[data-sortable-layer-ignore-click]'))
       return
+
     execute(EditorOps.setActiveLayer, [...path, layer.uid])
   })
 
@@ -380,6 +385,19 @@ const SortableLayerItem = ({
   const handleClickLayerConfig = useFunk((e: MouseEvent) => {
     e.stopPropagation()
     setActionSheetOpen()
+  })
+
+  const handleClickLayerCheck = useFunk((e: ChangeEvent<HTMLInputElement>) => {
+    e.preventDefault()
+    e.stopPropagation()
+
+    execute(EditorOps.setLayerSelection, (uids) => {
+      if (e.currentTarget.checked) {
+        return [...uids, layer.uid]
+      } else {
+        return uids.filter((uid) => uid !== layer.uid)
+      }
+    })
   })
 
   const handleSheetClose = useFunk(() => {
@@ -416,6 +434,11 @@ const SortableLayerItem = ({
       }}
       onClick={handleClick}
     >
+      <Checkbox
+        checked={selectedLayerUids.includes(layer.uid)}
+        onClick={DOMUtils.stopPropagationHandler}
+        onChange={handleClickLayerCheck}
+      />
       <img
         css={`
           background: linear-gradient(

@@ -19,7 +19,7 @@ import { SilkWebMath } from '🙌/utils/SilkWebMath'
 import { nanoid } from 'nanoid'
 import { useFunk } from '@hanakla/arma'
 import { DOMUtils } from '🙌/utils/dom'
-import { any } from '🙌/utils/anyOf'
+import { the } from '🙌/utils/anyOf'
 import { checkerBoard } from '🙌/utils/mixins'
 
 type Props = {
@@ -65,7 +65,7 @@ export const GradientSlider = ({
   })
 
   const handleKeyDown = useFunk((e: KeyboardEvent<HTMLDivElement>) => {
-    if (!any(e.key).in('Delete', 'Backspace')) return
+    if (!the(e.key).in('Delete', 'Backspace')) return
 
     const index = +e.currentTarget.dataset.index!
     const nextColorStops = deepClone(stops)

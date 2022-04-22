@@ -1,8 +1,11 @@
 import { useFleurContext } from '@fleur/react'
+import { autoUpdate, offset, shift, useFloating } from '@floating-ui/react-dom'
 import { useFunk } from '@hanakla/arma'
 import { useTranslation } from 'next-i18next'
-import { ChangeEvent, memo, ReactNode } from 'react'
-import { SilkDOM } from 'silk-core'
+import { ChangeEvent, memo, MouseEvent, ReactNode, useEffect } from 'react'
+import { ChromePicker, ColorChangeHandler } from 'react-color'
+import { useClickAway, useToggle } from 'react-use'
+import { SilkDOM, SilkValue } from 'silk-core'
 import { DeltaRange } from '🙌/components/DeltaRange'
 import { RangeInput } from '🙌/components/RangeInput'
 import { SelectBox } from '🙌/components/SelectBox'
@@ -10,6 +13,8 @@ import { EditorOps } from '🙌/domains/EditorStable'
 import { useFleur } from '🙌/utils/hooks'
 import { centering } from '🙌/utils/mixins'
 import { roundString } from '🙌/utils/StringUtils'
+import { Portal } from '../../../components/Portal'
+import { DOMUtils } from '../../../utils/dom'
 
 type Props = { layer: SilkDOM.LayerTypes; filter: SilkDOM.Filter }
 
@@ -35,6 +40,9 @@ export const FilterSettings = ({ layer, filter }: Props) => {
     }
     case '@silk-core/low-reso': {
       return <LowReso layer={layer} filter={filter} />
+    }
+    case '@silk-core/outline': {
+      return <Outline layer={layer} filter={filter} />
     }
     default: {
       return <>🤔</>
@@ -429,6 +437,53 @@ const LowReso = ({ layer, filter }: Props) => {
   )
 }
 
+const Outline = ({ layer, filter }: Props) => {
+  const { execute } = useFleur()
+
+  const handleChangeThickness = useFunk(
+    ({ currentTarget }: ChangeEvent<HTMLInputElement>) => {
+      execute(EditorOps.updateFilter, layer.uid, filter.uid, (filter) => {
+        filter.settings.thickness = currentTarget.valueAsNumber
+      })
+    }
+  )
+
+  const handleChangeColor = useFunk((color: any) => {
+    execute(EditorOps.updateFilter, layer.uid, filter.uid, (filter) => {
+      filter.settings.color = color
+    })
+  })
+
+  return (
+    <div>
+      <Column
+        nameKey="thickness"
+        filter={filter}
+        value={filter.settings.thickness}
+      >
+        <RangeInput
+          min={1}
+          max={256}
+          step={1}
+          value={filter.settings.thickness}
+          onChange={handleChangeThickness}
+        />
+      </Column>
+      <Column nameKey="color" filter={filter}>
+        <ColorInput
+          value={{
+            r: filter.settings.color.r,
+            g: filter.settings.color.g,
+            b: filter.settings.color.b,
+            a: filter.settings.color.a,
+          }}
+          onChange={handleChangeColor}
+        />
+      </Column>
+    </div>
+  )
+}
+
 const Column = memo(
   ({
     nameKey,
@@ -484,6 +539,112 @@ const Column = memo(
             </div>
           )}
         </div>
+      </div>
+    )
+  }
+)
+
+const ColorInput = memo(
+  ({
+    alpha,
+    value,
+    onChange,
+  }:
+    | {
+        alpha: true
+        value: { r: number; g: number; b: number; a: number }
+        onChange: (value: {
+          r: number
+          g: number
+          b: number
+          a: number
+        }) => void
+      }
+    | {
+        alpha?: false
+        value: { r: number; g: number; b: number }
+        onChange: (value: { r: number; g: number; b: number }) => void
+      }) => {
+    const [open, toggleOpen] = useToggle(false)
+    const fl = useFloating({
+      strategy: 'fixed',
+      placement: 'right',
+      middleware: [shift(), offset(4)],
+    })
+
+    const handleClick = useFunk((e: MouseEvent<HTMLDivElement>) => {
+      if (!DOMUtils.isSameElement(e.target, e.currentTarget)) return
+      toggleOpen()
+    })
+
+    const handleChange = useFunk<ColorChangeHandler>(({ rgb }) => {
+      onChange(
+        (alpha
+          ? {
+              r: rgb.r / 255,
+              g: rgb.g / 255,
+              b: rgb.b / 255,
+              a: rgb.a!,
+            }
+          : {
+              r: rgb.r / 255,
+              g: rgb.g / 255,
+              b: rgb.b / 255,
+            }) as any
+      )
+    })
+
+    useEffect(() => {
+      if (!fl.refs.reference.current || !fl.refs.floating.current) return
+
+      return autoUpdate(
+        fl.refs.reference.current,
+        fl.refs.floating.current,
+        fl.update
+      )
+    }, [fl.refs.reference, fl.refs.floating, fl.update])
+
+    useClickAway(fl.refs.floating, () => {
+      toggleOpen(false)
+    })
+
+    return (
+      <div
+        ref={fl.reference}
+        css={`
+          width: 16px;
+          height: 16px;
+        `}
+        style={{
+          backgroundColor: `rgb(${value.r * 255}, ${value.g * 255}, ${
+            value.b * 255
+          })`,
+        }}
+        onClick={handleClick}
+      >
+        <Portal>
+          <div
+            ref={fl.floating}
+            style={{
+              position: fl.strategy,
+              left: fl.x ?? 0,
+              top: fl.y ?? 0,
+              ...(open
+                ? { opacity: 1, pointerEvents: 'all' }
+                : { opacity: 0, pointerEvents: 'none' }),
+            }}
+          >
+            <ChromePicker
+              color={{
+                r: value.r * 255,
+                g: value.g * 255,
+                b: value.b * 255,
+              }}
+              disableAlpha={!alpha}
+              onChange={handleChange}
+            />
+          </div>
+        </Portal>
       </div>
     )
   }

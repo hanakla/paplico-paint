@@ -1,4 +1,4 @@
-import type { CompositeMode } from './SilkDOM/IRenderable'
+import type { CompositeMode } from './SilkDOM/ILayer'
 import type * as SilkDOM from './SilkDOM/index'
 import { RasterLayer } from './SilkDOM/RasterLayer'
 import { createContext2D } from './Engine3_CanvasFactory'
@@ -58,4 +58,23 @@ export function validCompositeMode(value: string): value is CompositeMode {
     value === 'screen' ||
     value === 'overlay'
   )
+}
+
+export function workerSafeCanvasToBlob(
+  canvas: HTMLCanvasElement | OffscreenCanvas,
+  { type, quality }: { type: string; quality?: number }
+): Promise<Blob> {
+  if (canvas instanceof OffscreenCanvas) {
+    return canvas.convertToBlob({ type, quality })
+  } else {
+    return new Promise<Blob>((resolver) => {
+      canvas.toBlob(
+        (blob) => {
+          resolver(blob!)
+        },
+        type,
+        quality
+      )
+    })
+  }
 }

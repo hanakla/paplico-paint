@@ -1,15 +1,17 @@
 import { forwardRef, ReactNode, CSSProperties } from 'react'
 import { css } from 'styled-components'
+import { tm } from '🙌/utils/theme'
 
 type Props = {
   className?: string
   children?: ReactNode
   style?: CSSProperties
   closed?: boolean
+  side: 'left' | 'right'
 }
 
 export const Sidebar = forwardRef<HTMLDivElement, Props>(
-  ({ className, style, closed, children }, ref) => {
+  ({ className, style, closed, side, children }, ref) => {
     return (
       <div
         ref={ref}
@@ -21,6 +23,13 @@ export const Sidebar = forwardRef<HTMLDivElement, Props>(
           max-width: 200px;
           overflow: hidden;
           background-color: ${({ theme }) => theme.color.surface3};
+          ${tm((o) => [
+            side === 'left'
+              ? o.border.default.right
+              : side === 'right'
+              ? o.border.default.left
+              : null,
+          ])}
         `}
         className={className}
       >

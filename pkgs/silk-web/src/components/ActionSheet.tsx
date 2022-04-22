@@ -14,13 +14,14 @@ import { DOMUtils } from '🙌/utils/dom'
 
 type Props = {
   opened: boolean
+  className?: string
   children?: ReactNode
   fill?: boolean
   onClose: () => void
 }
 
 export const ActionSheet = forwardRef<HTMLDivElement, Props>(
-  ({ opened, fill = true, children, onClose }, ref) => {
+  ({ opened, fill = true, children, className, onClose }, ref) => {
     const theme = useTheme()
     const styles = useSpring({
       config: {
@@ -59,7 +60,7 @@ export const ActionSheet = forwardRef<HTMLDivElement, Props>(
             left: 0;
             width: 100vw;
             height: 100vh;
-            background-color: ${rgba('#000', 0.2)};
+            background-color: ${rgba('#000', 0.5)};
           `}
           style={{ ...backdropStyle, pointerEvents: opened ? 'all' : 'none' }}
           onClick={handleClickBackdrop}
@@ -86,8 +87,9 @@ export const ActionSheet = forwardRef<HTMLDivElement, Props>(
           style={{
             ...styles,
             pointerEvents: opened ? 'all' : 'none',
-            backgroundColor: fill ? theme.color.surface1 : 'transparent',
+            backgroundColor: fill ? theme.color.surface9 : 'transparent',
           }}
+          className={className}
         >
           <div
             css={`
@@ -160,6 +162,7 @@ export const ActionSheetItem = ({
         padding: 20px;
         text-align: center;
         font-size: 16px;
+        font-weight: 400;
 
         & + & {
           border-top: 1px solid ${rgba('#333', 0.3)};

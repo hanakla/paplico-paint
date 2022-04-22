@@ -16,6 +16,12 @@ export class FullRender implements IRenderStrategy {
     return 1
   }
 
+  public async dispose() {
+    // Freeing memory for Safari
+    // See: https://stackoverflow.com/questions/52532614/total-canvas-memory-use-exceeds-the-maximum-limit-safari-12
+    setCanvasSize(this.bufferCtx.canvas, 0, 0)
+  }
+
   public async render(
     engine: SilkEngine3,
     document: Document,
@@ -122,6 +128,7 @@ export class FullRender implements IRenderStrategy {
             throw new Error(`Filter not found (id:${filter.filterId})`)
 
           await engine.applyFilter(destCtx, bufferCtx, instance, {
+            layer,
             size: { width: document.width, height: document.height },
             filterSettings: deepClone(filter.settings),
           })
@@ -173,6 +180,7 @@ export class FullRender implements IRenderStrategy {
           throw new Error(`Filter not found (id:${filter.filterId})`)
 
         await engine.applyFilter(bufferCtx, bufferCtx, instance, {
+          layer,
           size: { width: document.width, height: document.height },
           filterSettings: deepClone(filter.settings),
         })

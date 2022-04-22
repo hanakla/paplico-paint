@@ -2,7 +2,7 @@ import {
   ILayer,
   LayerEvents,
   LayerProperties as LayerAttributes,
-} from './IRenderable'
+} from './ILayer'
 import { v4 } from 'uuid'
 import { VectorObject } from './VectorObject'
 import { Filter } from './Filter'

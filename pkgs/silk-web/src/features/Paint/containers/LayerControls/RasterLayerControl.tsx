@@ -4,6 +4,7 @@ import { useDrag } from 'react-use-gesture'
 import { EditorOps, EditorSelector } from '🙌/domains/EditorStable'
 import { DOMUtils } from '🙌/utils/dom'
 import { useFleur } from '🙌/utils/hooks'
+import { useLayerWatch } from '../../hooks'
 
 export const RasterLayerControl = () => {
   const { execute } = useFleur()
@@ -26,18 +27,24 @@ export const RasterLayerControl = () => {
 
   const bbox = currentDocument?.getLayerSize(activeLayer!) ?? null
 
-  const bindDrag = useDrag(({ xy }) => {
+  const bindDrag = useDrag(({ initial, xy }) => {
     if (currentTool !== 'cursor') return
 
     execute(EditorOps.updateRasterLayer, activeLayerPath, (layer) => {
+      const initP = DOMUtils.domPointToSvgPoint(rootRef.current!, {
+        x: initial[0],
+        y: initial[1],
+      })
       const point = DOMUtils.domPointToSvgPoint(rootRef.current!, {
         x: xy[0],
         y: xy[1],
       })
-      layer.x = point.x
-      layer.y = point.y
+      layer.x = point.x - initP.x
+      layer.y = point.y - initP.y
     })
   })
+
+  useLayerWatch(activeLayer)
 
   if (activeLayer?.layerType !== 'raster' || !bbox || !currentDocument)
     return null
@@ -49,20 +56,23 @@ export const RasterLayerControl = () => {
       width={currentDocument.width}
       height={currentDocument.height}
       viewBox={`0 0 ${currentDocument.width} ${currentDocument.height}`}
+      overflow="visible"
     >
-      <rect
-        css={`
-          fill: none;
-          stroke: #0ff;
-          stroke-width: 2px;
-          pointer-events: visiblePainted;
-        `}
-        x={activeLayer.x}
-        y={activeLayer.x}
-        width={bbox?.width}
-        height={bbox?.height}
-        {...bindDrag()}
-      />
+      {currentTool === 'cursor' && (
+        <rect
+          css={`
+            fill: transparent;
+            stroke: #0ff;
+            stroke-width: 3px;
+            pointer-events: visiblePainted;
+          `}
+          x={activeLayer.x}
+          y={activeLayer.y}
+          width={bbox?.width}
+          height={bbox?.height}
+          {...bindDrag()}
+        />
+      )}
     </svg>
   )
 }

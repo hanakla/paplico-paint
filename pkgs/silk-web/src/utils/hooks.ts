@@ -39,6 +39,7 @@ export const useMedia = (query: string, defaultState?: boolean) => {
   return state
 }
 
+/** useState, but update state on original value changed */
 export const useBufferedState = <T, S = T>(
   original: T,
   transform?: (value: T) => S

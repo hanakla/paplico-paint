@@ -1,26 +1,21 @@
 import * as THREE from 'three'
 import mitt, { Emitter } from 'mitt'
 import getBound from 'svg-path-bounds'
+import { debounce } from 'debounce'
 
 import { Brush, ScatterBrush } from '../Brushes'
-import { Document, Path, VectorLayer } from '../SilkDOM'
+import { Document, LayerTypes, Path, VectorLayer } from '../SilkDOM'
 import { deepClone, mergeToNew, setCanvasSize } from '../utils'
 import { CurrentBrushSetting as _CurrentBrushSetting } from './CurrentBrushSetting'
 import { IRenderStrategy } from './RenderStrategy/IRenderStrategy'
 import { ToolRegistry } from './Engine3_ToolRegistry'
-import { Stroke } from './Stroke'
 import { PlainInk } from '../Inks/PlainInk'
 import { WebGLContext } from './WebGLContext'
 import { IFilter } from './IFilter'
-import { CompositeMode } from '../SilkDOM/IRenderable'
+import { CompositeMode } from '../SilkDOM/ILayer'
 import { FullRender } from './RenderStrategy/FullRender'
-import {
-  createCanvas,
-  createContext2D,
-  createWebGLContext,
-} from '../Engine3_CanvasFactory'
+import { createCanvas, createContext2D } from '../Engine3_CanvasFactory'
 import { BrushSetting } from '../Value'
-import { IBrush } from './IBrush'
 import { IInk } from '../Inks/IInk'
 import { AtomicResource } from '../AtomicResource'
 
@@ -32,6 +27,7 @@ import { GlitchJpeg } from '../Filters/GlitchJpeg'
 import { NoiseFilter } from '../Filters/Noise'
 import { BinarizationFilter } from '../Filters/Binarization'
 import { LowResoFilter } from '../Filters/LowReso'
+import { OutlineFilter } from '../Filters/Outline'
 
 type EngineEvents = {
   rerender: void
@@ -60,6 +56,7 @@ export class SilkEngine3 {
       silk.toolRegistry.registerFilter(NoiseFilter),
       silk.toolRegistry.registerFilter(BinarizationFilter),
       silk.toolRegistry.registerFilter(LowResoFilter),
+      silk.toolRegistry.registerFilter(OutlineFilter),
     ])
 
     return silk
@@ -157,6 +154,26 @@ export class SilkEngine3 {
     // document.body.appendChild(renderer.domElement)
   }
 
+  public dispose() {
+    this.atomicRender.enjure({ owner: this })
+    this.atomicStrokeRender.enjure({ owner: this })
+
+    // Freeing memory for Safari
+
+    this.atomicThreeRenderer.enjure({ owner: this }).then((renderer) => {
+      setCanvasSize(renderer.domElement, 0, 0)
+      renderer.dispose()
+    })
+
+    this.atomicBufferCtx.enjure().then((ctx) => {
+      setCanvasSize(ctx.canvas, 0, 0)
+    })
+
+    this.atomicPreDestCtx.enjure().then((ctx) => {
+      setCanvasSize(ctx.canvas, 0, 0)
+    })
+  }
+
   public setCachedBitmap(document: Document, layerId: string) {
     const caches = SilkEngine3.layerBitmapCache.get(document) ?? {}
     caches[layerId] = {}
@@ -166,6 +183,8 @@ export class SilkEngine3 {
   public getCachedBitmap(document: Document, layerId: string) {
     return SilkEngine3.layerBitmapCache.get(document)?.[layerId]
   }
+
+  public lazyRender = debounce(this.render.bind(this), 300)
 
   public async render(document: Document, strategy: IRenderStrategy) {
     const lock = await this.atomicRender.enjure({ owner: this })
@@ -268,7 +287,7 @@ export class SilkEngine3 {
   }
 
   public async renderPath(
-    brushSetting: BrushSetting & { specific: Record<string, any> | null },
+    brushSetting: BrushSetting,
     ink: IInk,
     path: Path,
     destCtx: CanvasRenderingContext2D
@@ -286,7 +305,7 @@ export class SilkEngine3 {
 
     const renderer = await this.atomicThreeRenderer.enjure({ owner: this })
 
-    renderer.setSize(destCtx.canvas.width, destCtx.canvas.height)
+    renderer.setSize(destCtx.canvas.width, destCtx.canvas.height, false)
     renderer.setClearColor(0x000000, 0)
     renderer.clear()
 
@@ -440,6 +459,7 @@ export class SilkEngine3 {
     dest: CanvasRenderingContext2D,
     filter: IFilter,
     options: {
+      layer: LayerTypes
       size: {
         width: number
         height: number
@@ -452,7 +472,7 @@ export class SilkEngine3 {
 
     const renderer = await this.atomicThreeRenderer.enjure({ owner: this })
 
-    renderer.setSize(dest.canvas.width, dest.canvas.height)
+    renderer.setSize(dest.canvas.width, dest.canvas.height, false)
     renderer.setClearColor(0xffffff, 0)
     renderer.clear()
 
@@ -467,6 +487,7 @@ export class SilkEngine3 {
         gl: this.gl,
         threeRenderer: renderer,
         threeCamera: this.camera,
+        sourceLayer: options.layer,
         source: source.canvas,
         dest: dest.canvas,
         size: options.size,
@@ -494,7 +515,9 @@ export class SilkEngine3 {
     compositeTo.save()
 
     compositeTo.globalCompositeOperation =
-      mode === 'normal' ? 'source-over' : mode
+      mode === 'destination-out'
+        ? mode
+        : layerCompositeModeToCanvasCompositeMode(mode)
 
     compositeTo.globalAlpha = Math.max(0, Math.min(opacity / 100, 1))
     compositeTo.drawImage(layerImage.canvas, 0, 0)
@@ -502,3 +525,14 @@ export class SilkEngine3 {
     compositeTo.restore()
   }
 }
+
+const layerCompositeModeToCanvasCompositeMode = (mode: CompositeMode) =>
+  ((
+    {
+      normal: 'source-over',
+      clipper: 'destination-in',
+      multiply: 'multiply',
+      overlay: 'overlay',
+      screen: 'screen',
+    } as { [k in CompositeMode]: GlobalCompositeOperation }
+  )[mode])

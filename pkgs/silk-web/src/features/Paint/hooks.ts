@@ -1,6 +1,8 @@
 import { useStore } from '@fleur/react'
 import { letDownload, match, useFunk } from '@hanakla/arma'
 import { useTranslation } from 'next-i18next'
+import { useEffect } from 'react'
+import { useUpdate } from 'react-use'
 import { SilkDOM, SilkSerializer } from 'silk-core'
 import { EditorOps, EditorSelector, EditorStore } from '🙌/domains/EditorStable'
 import { NotifyOps } from '🙌/domains/Notify'
@@ -77,4 +79,13 @@ export const useSilkExporter = () => {
       setTimeout(() => URL.revokeObjectURL(url), 10000)
     }),
   }
+}
+
+export const useLayerWatch = (layer: SilkDOM.LayerTypes | null | undefined) => {
+  const rerender = useUpdate()
+
+  useEffect(() => {
+    layer?.on('updated', rerender)
+    return () => layer?.off('updated', rerender)
+  }, [layer?.uid, rerender])
 }

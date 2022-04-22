@@ -2,7 +2,7 @@ import { v4 } from 'uuid'
 import { Emitter } from '../Engine3_Emitter'
 import { assign } from '../utils'
 import { Filter } from './Filter'
-import { CompositeMode, ILayer, LayerEvents } from './IRenderable'
+import { CompositeMode, ILayer, LayerEvents } from './ILayer'
 
 export class ReferenceLayer
   extends Emitter<LayerEvents<ReferenceLayer>>

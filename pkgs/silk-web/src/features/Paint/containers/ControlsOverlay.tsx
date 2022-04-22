@@ -35,8 +35,13 @@ export const ControlsOverlay = ({
       viewBox={`0 0 ${currentDocument.width} ${currentDocument.height}`}
       x={editorBound.width / 2 - (currentDocument.width * canvasScale) / 2}
       y={editorBound.height / 2 - (currentDocument.height * canvasScale) / 2}
+      overflow="visible"
     >
-      <g transform={`rotate(0) translate(${x} ${y})`} origin="center">
+      <g
+        data-devmemo="Canvas transform group"
+        transform={`rotate(0) translate(${x} ${y})`}
+        origin="center"
+      >
         {/* {activeLayer?.layerType === 'raster' && bbox && (
           // <div
           //   css={`

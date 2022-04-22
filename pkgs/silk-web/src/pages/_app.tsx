@@ -6,9 +6,10 @@ import { useEffect } from 'react'
 import { useRouter } from 'next/router'
 import { Restart } from '@styled-icons/remix-line'
 import { GlobalStyle } from '../components/GlobalStyle'
-import { ErrorBoundary } from 'react-error-boundary'
+import { ErrorBoundary, FallbackProps } from 'react-error-boundary'
 import { appWithFleur } from '../lib/fleur'
 import { LysContext } from '@fleur/lys'
+import Head from 'next/head'
 
 const fastclick = typeof window !== 'undefined' ? require('fastclick') : null
 typeof window !== 'undefined' ? require('doubletouch-to-dblclick') : null
@@ -20,6 +21,12 @@ function MyApp({ Component, pageProps }: AppProps) {
 
   return (
     <>
+      <Head>
+        <meta
+          name="viewport"
+          content="width=device-width, initial-scale=1.0, viewport-fit=cover"
+        />
+      </Head>
       <LysContext>
         <GlobalStyle />
 
@@ -38,9 +45,10 @@ MyApp.getInitialProps = async (context: AppContext) => {
   return { ...appProps }
 }
 
-const ErrorFallback = () => {
+const ErrorFallback = ({ error, resetErrorBoundary }: FallbackProps) => {
   useEffect(() => {
-    // setTimeout(() => window.location.reload(), 1000)
+    console.error('Error Fallback', error)
+    setTimeout(() => resetErrorBoundary(), 1000)
   }, [])
 
   return (

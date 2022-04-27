@@ -29,10 +29,11 @@ interface Digger {
     query?: { kind?: K | Array<K>, strict?: S }
   ): FilterLayerType<K> | (S extends true ? never : null)
 
-  findLayerParent(
+  findLayerParent<S extends boolean | undefined>(
     document: Document,
-    path: readonly string[]
-  ): Document | GroupLayer
+    path: readonly string[],
+    option?: { strict?: S }
+  ): (Document | GroupLayer) | (S extends true ? never : null)
 
   findLayerRecursive<
     K extends LayerTypes['layerType'],
@@ -50,6 +51,14 @@ interface Digger {
     option?: { strict?: S }
   ): VectorObject | (S extends true ? never : Nullish)
 
+  findObjectInThisLayer<S extends boolean | undefined>(
+    layer: VectorLayer,
+    objectUid: string,
+    option?: { strict?: S }
+  ):
+    | { index: number; object: VectorObject }
+    | (S extends true ? never : Nullish)
+
   findParentLayers<S extends boolean | undefined>(
     document: { layers: readonly LayerTypes[] },
     layerUid: string,
@@ -64,7 +73,7 @@ interface Digger {
 
   traverseLayers<K extends LayerTypes['layerType']>(
     document: { layers: readonly LayerTypes[] },
-    query: { kind?: K },
+    query: { kind?: K | Array<K> },
     proc: (l: FilterLayerType<K>) => void | { stop: true }
   ): void
 }
@@ -103,22 +112,28 @@ export const SilkDOMDigger: Digger = {
 
     return target as any
   },
-  findLayerParent: (document, path) => {
+  findLayerParent: (document, path, { strict } = {}) => {
     let prev: Document | GroupLayer | null = document
     let parent: any = null
-    // let target = document.layers.find((l) => l.uid === first)
 
     for (const part of path) {
       const layer: LayerTypes | undefined = prev?.layers.find(
         (l) => l.uid === part
       )
-      if (!layer) return null
+
+      if (!layer) {
+        parent = null
+        break
+      }
 
       parent = prev
       prev = 'layers' in layer ? layer : null
     }
 
-    if (parent == null) return null
+    if (parent == null) {
+      if (strict) throw new Error(`Layer not found: ${path.join('->')}`)
+    }
+
     return parent as any
   },
   findLayerRecursive(document, uid, { kind, strict } = {}) {
@@ -142,7 +157,7 @@ export const SilkDOMDigger: Digger = {
   traverseLayers(document, { kind } = {}, proc) {
     const traverse = (layers: readonly LayerTypes[]) => {
       for (const layer of layers) {
-        if (kind != null && layer.layerType !== kind) continue
+        if (kind != null && matchLayerType(layer.layerType, kind)) continue
 
         const result = proc(layer as any)
         if (result?.stop) return
@@ -187,6 +202,18 @@ export const SilkDOMDigger: Digger = {
       )
 
     return object as any
+  },
+
+  findObjectInThisLayer(layer, objectUid, { strict } = {}) {
+    const index = layer.objects.findIndex((o) => o.uid === objectUid)
+
+    if (index === -1) {
+      if (strict)
+        throw new Error(`VectorObject not found in ${layer.uid}: ${objectUid}`)
+      else return null
+    }
+
+    return { index, object: layer.objects[index] } as any
   },
 
   findParentLayers(document, layerUid, { strict } = {}) {

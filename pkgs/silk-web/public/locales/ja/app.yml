@@ -9,11 +9,25 @@ addFromImage: 画像ファイルから追加
 export: 保存する
 untitled: タイトル未設定
 
-appMenu:
-  saving: '保存しています…'
-  saved: '保存しました！'
-  exporting: '書き出し中…'
-  exported: '書き出しました！'
+mainActions:
+  gradientLength: 長さ
+  gradientAngle: 角度
+
+vectorControl:
+  context:
+    moveup: 順序を上に移動
+    movedown: 順序を下に移動
+
+notify:
+  home:
+    opening: アイテムを開いています
+  exitSession:
+    saving: 保存しています…
+  appMenu:
+    saving: '保存しています…'
+    saved: '保存しました！'
+    exporting: '書き出し中…'
+    exported: '書き出しました！'
 
 exports:
   autoSaved: 自動保存されています
@@ -32,6 +46,7 @@ layerType:
   raster: 通常レイヤー
   text: テキストレイヤー
   reference: 参照レイヤー
+  group: グループ
 
 compositeModes:
   normal: 通常
@@ -81,3 +96,15 @@ filterOptions:
   '@silk-core/outline':
     thickness: 太さ
     color: 色
+
+layerView:
+  object:
+    path: '<パス>'
+    context:
+      remove: オブジェクトを削除
+
+brushPresets:
+  circle: 円ブラシ
+  fade: フェードブラシ
+  pencil: ペンシル
+  'pencil-inout': 入り抜きペン

@@ -7,7 +7,6 @@ import {
   SilkDOM,
   SilkValue,
   RenderStrategies,
-  IRenderStrategy,
   SilkSerializer,
   SilkDOMDigger,
   SilkCommands,
@@ -20,14 +19,19 @@ import { the } from '🙌/utils/anyOf'
 import { assign, shallowEquals } from '🙌/utils/object'
 import { log, trace, warn } from '🙌/utils/log'
 import { exportProject } from './EditorStable/exportProject'
+import { NotifyOps } from './Notify'
 
 type EditorMode = 'pc' | 'sp' | 'tablet'
 type EditorPage = 'home' | 'app'
 type Tool = 'cursor' | 'shape-pen' | 'draw' | 'erase' | 'point-cursor'
+
+/** Indicate current editing path  */
 type VectorStroking = {
   objectId: string
   selectedPointIndex: number
+  /** Is select point is first */
   isHead: boolean
+  /** Is select point is last */
   isTail: boolean
 }
 
@@ -68,8 +72,9 @@ interface State {
 
   selectedLayerUids: string[]
 
-  renderSetting: Silk3.RenderSetting
   currentDocument: SilkDOM.Document | null
+  documentFetchStatus: Record<string, { found: boolean | null }>
+  renderSetting: Silk3.RenderSetting
   currentTool: Tool
   currentFill: SilkValue.FillSetting | null
   currentStroke: SilkValue.BrushSetting | null
@@ -109,14 +114,15 @@ export const [EditorStore, EditorOps] = minOps('Editor', {
 
     currentTheme: 'light',
     editorMode: 'sp',
-    editorPage: process.env.NODE_ENV === 'development' ? 'app' : 'home',
-    // editorPage: 'home', // process.env.NODE_ENV === 'development' ? 'app' : 'home',
+    // editorPage: process.env.NODE_ENV === 'development' ? 'app' : 'home',
+    editorPage: 'home', // process.env.NODE_ENV === 'development' ? 'app' : 'home',
 
     canvasScale: 1,
     canvasPosition: { x: 0, y: 0 },
     vectorColorTarget: 'fill',
 
     currentDocument: null,
+    documentFetchStatus: Object.create(null),
     renderSetting: { disableAllFilters: false, updateThumbnail: true },
     currentTool: 'cursor',
     currentFill: null,
@@ -164,21 +170,24 @@ export const [EditorStore, EditorOps] = minOps('Editor', {
         new Uint8Array(await file.arrayBuffer())
       )
 
-      await x.executeOperation(EditorOps.setDocument, doc)
+      x.commit((d) => (d.documentFetchStatus[doc.uid] = { found: null }))
+
       await x.executeOperation(EditorOps.createSession, doc)
       x.commit({ editorPage: 'app' })
     },
     async loadDocumentFromIdb(x, documentUid: string) {
       const db = await connectIdb()
       const record = await db.get('projects', documentUid)
-      if (!record) throw new Error('WHAT')
+      if (!record) {
+        x.commit((d) => (d.documentFetchStatus[documentUid] = { found: false }))
+        return
+      }
 
       const { document, extra } = SilkSerializer.importDocument(
         new Uint8Array(await record.bin.arrayBuffer())
       )
 
-      await x.executeOperation(EditorOps.setDocument, document)
-      x.commit({ editorPage: 'app' })
+      await x.executeOperation(EditorOps.createSession, document)
     },
 
     // #region Engine & Session
@@ -186,55 +195,45 @@ export const [EditorStore, EditorOps] = minOps('Editor', {
       x,
       {
         engine,
-        session,
-        strategy,
       }: {
         engine: Silk3
-        session: SilkSession
-        strategy: IRenderStrategy
       }
     ) => {
-      session.pencilMode = 'none'
-      session.renderSetting = x.state.renderSetting
-
       // engine.on('rerender', () => {
       //   trace('Canvas rerendered', Date.now())
       // })
 
-      session.on('activeLayerChanged', (s) => {
-        if (shallowEquals(x.getState().activeLayerPath, s.activeLayer?.uid))
-          return
+      x.commit({ engine })
 
-        x.commit({
-          activeLayerPath: s.activeLayer?.uid ? [s.activeLayer?.uid] : null,
-          activeObjectId: null,
-          activeObjectPointIndices: [],
+      x.executeOperation(EditorOps.rerenderCanvas)
+    },
+    async disposeEngineAndSession(
+      x,
+      opt: { withSave?: boolean; withNotify?: boolean } = {}
+    ) {
+      if (opt.withSave) {
+        await x.executeOperation(EditorOps.saveCurrentDocumentToIdb)
+      }
+
+      if (opt.withNotify) {
+        await x.executeOperation(NotifyOps.create, {
+          area: 'loadingLock',
+          messageKey: 'exitSession.saving',
+          lock: true,
+          timeout: 0,
+        })
+      }
+
+      x.finally(() => {
+        if (!opt.withNotify) return
+        x.executeOperation(NotifyOps.create, {
+          area: 'loadingLock',
+          messageKey: '',
+          lock: false,
+          timeout: 0,
         })
       })
 
-      session.on('renderSettingChanged', (s) => {
-        const { currentDocument, renderStrategy } = x.getState()
-        if (!currentDocument || !renderStrategy) return
-
-        engine.render(
-          currentDocument as unknown as SilkDOM.Document,
-          renderStrategy
-        )
-      })
-
-      x.commit((d) => {
-        d.engine = engine
-        d.session = session
-        d.renderStrategy = strategy as RenderStrategies.DifferenceRender
-
-        session.document ??= d.currentDocument
-
-        if (d.currentDocument) {
-          engine.render(d.currentDocument, strategy)
-        }
-      })
-    },
-    disposeEngineAndSession: (x) => {
       x.commit((d) => {
         d.engine?.dispose()
         d.session?.dispose()
@@ -243,6 +242,8 @@ export const [EditorStore, EditorOps] = minOps('Editor', {
         d.engine = null
         d.session = null
         d.renderStrategy = null
+        d.canvasScale = 1
+        d.canvasPosition = { x: 0, y: 0 }
       })
     },
     restorePreferences(x) {
@@ -250,24 +251,19 @@ export const [EditorStore, EditorOps] = minOps('Editor', {
         d.currentTheme = LocalStorage.get('theme', 'light')
       })
     },
-    async setDocument(x, document: SilkDOM.Document | null) {
-      document?.on('layersChanged', () => {
-        x.commit({})
-      })
+    // async setDocument(x, document: SilkDOM.Document | null) {
+    //   x.commit({ currentDocument: document, currentFileHandler: null })
 
-      x.commit({ currentDocument: document, currentFileHandler: null })
+    //   x.commit((d) => {
+    //     if (!d.session) return
 
-      x.commit((d) => {
-        if (!d.session) return
+    //     d.session!.setDocument(document)
+    //     d.activeLayerPath = document?.activeLayerPath ?? null
 
-        d.session!.setDocument(document)
-        // TODO
-        d.activeLayerPath = [document?.activeLayerId!] ?? null
-
-        if (document && d.renderStrategy)
-          d.engine?.render(document, d.renderStrategy)
-      })
-    },
+    //     if (document && d.renderStrategy)
+    //       d.engine?.render(document, d.renderStrategy)
+    //   })
+    // },
     setCurrentFileHandler: (x, handler: FileSystemFileHandle) => {
       x.commit({ currentFileHandler: handler })
     },
@@ -300,33 +296,14 @@ export const [EditorStore, EditorOps] = minOps('Editor', {
       })
     },
     rerenderCanvas: (x) => {
-      if (
-        !x.state.engine ||
-        !x.state.currentDocument ||
-        !x.state.renderStrategy
-      )
-        return
+      const state = x.getState()
 
-      // if (Date.now() - x.getState()._lastRenderTime < 300) {
-      //   console.log('buffered')
-      //   window.clearTimeout(x.getState()._rerenderTimerId ?? -1)
+      if (!state.engine || !state.session) return
 
-      //   x.commit({
-      //     _rerenderTimerId: window.setTimeout(
-      //       () => x.executeOperation(EditorOps.rerenderCanvas),
-      //       300
-      //     ),
-      //   })
+      const session = state.session as unknown as SilkSession
+      if (!session.document) return
 
-      //   return
-      // }
-
-      // x.commit({ _lastRenderTime: Date.now() })
-
-      x.state.engine.lazyRender(
-        x.state.currentDocument as unknown as SilkDOM.Document,
-        x.state.renderStrategy
-      )
+      state.engine.lazyRender(session.document, session.renderStrategy)
     },
     async autoSave(x, documentUid: string) {
       if (!x.state.engine) return
@@ -340,54 +317,81 @@ export const [EditorStore, EditorOps] = minOps('Editor', {
         const { buffer } = exportProject(document, x.getStore)
         autoSaveWorker?.postMessage({ buffer }, [buffer])
       } else {
-        const db = await connectIdb()
+        await x.executeOperation(EditorOps.saveCurrentDocumentToIdb)
+      }
+    },
+    async saveCurrentDocumentToIdb(x) {
+      if (!x.state.engine) return
+      if (!x.state.currentDocument) return
 
-        try {
-          const { blob } = exportProject(document, x.getStore)
-          const prev = await db.get('projects', document.uid)
+      const document = x.state.currentDocument as unknown as SilkDOM.Document
 
-          const image = await (
-            await x.state.engine.renderAndExport(document)
-          ).export('image/png')
+      const db = await connectIdb()
+      x.finally(() => db.close())
 
-          const bitmap = await createImageBitmap(image)
-          const canvas = window.document.createElement('canvas')
-          assign(canvas, {
-            width: Math.floor(bitmap.width / 2),
-            height: Math.floor(bitmap.height / 2),
-          })
+      try {
+        const { blob } = exportProject(document, x.getStore)
+        const prev = await db.get('projects', document.uid)
 
-          const ctx = canvas.getContext('2d')!
-          ctx.clearRect(0, 0, canvas.width, canvas.height)
-          ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height)
+        const image = await (
+          await x.state.engine.renderAndExport(document)
+        ).export('image/png')
 
-          await db.put('projects', {
-            uid: document.uid,
-            title: document.title,
-            bin: blob,
-            hasSavedOnce: prev?.hasSavedOnce ?? false,
-            thumbnail: await new Promise<Blob>((resolve) => {
-              canvas.toBlob((blob) => {
-                if (!blob) throw new Error('Failed to toBlob')
-                resolve(blob)
-              }, 'image/png')
-            }),
-            updatedAt: new Date(),
-          })
+        const bitmap = await createImageBitmap(image)
+        const canvas = window.document.createElement('canvas')
+        assign(canvas, {
+          width: Math.floor(bitmap.width / 2),
+          height: Math.floor(bitmap.height / 2),
+        })
 
-          console.log('ok')
-        } finally {
-          db.close()
-        }
+        const ctx = canvas.getContext('2d')!
+        ctx.clearRect(0, 0, canvas.width, canvas.height)
+        ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height)
+
+        await db.put('projects', {
+          uid: document.uid,
+          title: document.title,
+          bin: blob,
+          hasSavedOnce: prev?.hasSavedOnce ?? false,
+          thumbnail: await new Promise<Blob>((resolve) => {
+            canvas.toBlob((blob) => {
+              if (!blob) throw new Error('Failed to toBlob')
+              resolve(blob)
+            }, 'image/png')
+          }),
+          updatedAt: new Date(),
+        })
+      } finally {
+        db.close()
       }
     },
     async createSession(x, document: SilkDOM.Document) {
       const session = await SilkSession.create()
       const renderStrategy = new RenderStrategies.DifferenceRender()
 
+      session.pencilMode = 'draw'
       session.setDocument(document)
+      session.setActiveLayer(document.activeLayerPath)
       session.setBrushSetting({ color: { r: 0.3, g: 0.3, b: 0.3 } })
       session.setRenderStrategy(renderStrategy)
+
+      // session.on('activeLayerChanged', (s) => {
+      //   if (shallowEquals(x.getState().activeLayerPath, s.activeLayer?.uid))
+      //     return
+
+      //   x.commit({
+      //     activeLayerPath: s.activeLayer?.uid ? [s.activeLayer?.uid] : null,
+      //     activeObjectId: null,
+      //     activeObjectPointIndices: [],
+      //   })
+      // })
+
+      // session.on('renderSettingChanged', (s) => {
+      //   const { currentDocument, renderStrategy } = x.getState()
+      //   if (!currentDocument || !renderStrategy) return
+
+      //   x.executeOperation(EditorOps.rerenderCanvas)
+      // })
 
       x.commit((d) => {
         const sid = nanoid()
@@ -403,7 +407,14 @@ export const [EditorStore, EditorOps] = minOps('Editor', {
         }
 
         d.activeSessionId = sid
+
+        d.currentDocument = document
+        d.renderStrategy = renderStrategy
+        d.currentFileHandler = null
+        d.documentFetchStatus[document.uid] = { found: true }
       })
+
+      x.executeOperation(EditorOps.rerenderCanvas)
     },
     // #endregion Engine & Session
 
@@ -499,7 +510,7 @@ export const [EditorStore, EditorOps] = minOps('Editor', {
     },
 
     setActiveLayer: (x, path: string[], objectUid?: string) => {
-      if (shallowEquals(path, [x.state.session?.activeLayerId])) return
+      if (shallowEquals(path, x.state.session?.activeLayerPath)) return
 
       x.commit((draft) => {
         draft.session?.setActiveLayer(path)
@@ -530,19 +541,18 @@ export const [EditorStore, EditorOps] = minOps('Editor', {
       })
     },
 
-    setActiveObject: (
+    async setActiveObject(
       x,
       objectId: string | null,
-      layerPath: string[] | null = null
-    ) => {
+      pathToLayer: string[] | null = null
+    ) {
+      if (pathToLayer != null) {
+        await x.executeOperation(EditorOps.setActiveLayer, pathToLayer)
+      }
+
       x.commit((d) => {
         if (d.activeObjectId !== objectId) {
           d.activeObjectPointIndices = []
-        }
-
-        if (layerPath != null) {
-          d.session?.setActiveLayer(layerPath)
-          d.activeLayerPath = layerPath
         }
 
         d.activeObjectId = objectId
@@ -694,12 +704,12 @@ export const [EditorStore, EditorOps] = minOps('Editor', {
     ) => {
       x.commit((d) => {
         if (!d.session) return
-        if (d.session.activeLayer?.layerType !== 'vector') return
-
-        const layerId = d.session?.activeLayerId
-        layerId && d.renderStrategy!.markUpdatedLayerId(layerId)
 
         const { activeLayer } = d.session
+        if (activeLayer?.layerType !== 'vector') return
+
+        d.renderStrategy!.markUpdatedLayerId(activeLayer.uid)
+
         const object = activeLayer.objects.find(
           (obj) => obj.uid === d.activeObjectId
         )
@@ -760,36 +770,7 @@ export const [EditorStore, EditorOps] = minOps('Editor', {
         if (!object) throw new Error(`Object(id: ${objectOrId}) not found`)
         object.path.points.splice(segmentIndex, 0, point)
 
-        d.renderStrategy?.markUpdatedLayerId(d.session.activeLayerId!)
-      })
-
-      x.executeOperation(EditorOps.rerenderCanvas)
-    },
-    deleteLayer: (x, layerPath: string[] | null | undefined) => {
-      if (!layerPath) return
-
-      x.commit((d) => {
-        if (!d.session?.document) return
-
-        const { document } = d.session
-        if (document.layers.length === 1) return
-
-        const targetUid = layerPath.slice(-1)[0]
-        const parent = SilkDOMDigger.findLayerParent(document, layerPath)
-        const idx = parent.layers.findIndex((l) => l.uid === targetUid)
-
-        parent.update((l) => {
-          l.layers.splice(idx, 1)
-        })
-
-        // ActiveLayerがなくなると画面がアになるので……
-        // TODO
-        // const nextActiveLayer =
-        //   document.layers[idx - 1] ?? document.layers.slice(-1)
-        // if (layerPath === d.activeLayerId) {
-        //   d.session.activeLayerId = nextActiveLayer.uid
-        //   d.activeLayerId = nextActiveLayer.uid
-        // }
+        d.renderStrategy?.markUpdatedLayerId(activeLayer.uid!)
       })
 
       x.executeOperation(EditorOps.rerenderCanvas)
@@ -925,6 +906,11 @@ export const EditorSelector = {
 
   currentSession: selector((get) => get(EditorStore).session),
   currentDocument: selector((get) => get(EditorStore).session?.document),
+  documentFetchStatusFor: selector(
+    (get, uid: string) =>
+      get(EditorStore).documentFetchStatus[uid] ?? { found: null }
+  ),
+
   activeLayer: selector((get) => get(EditorStore).session?.activeLayer),
   activeLayerPath: selector((get) => get(EditorStore).activeLayerPath),
   activeObject: selector((get): SilkDOM.VectorObject | null => {
@@ -974,7 +960,3 @@ const findLayerIndex = (
 
   return index
 }
-
-// const debouned = debounce((f: () => void) => {
-//   f()
-// }, 100)

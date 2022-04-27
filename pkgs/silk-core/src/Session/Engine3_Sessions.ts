@@ -20,6 +20,7 @@ type Events = {
   brushChanged: SilkSession
   brushSettingChanged: SilkSession
   renderSettingChanged: SilkSession
+  historyChanged: SilkSession
   disposed: void
 }
 
@@ -47,11 +48,13 @@ export class SilkSession extends Emitter<Events> {
 
   protected _currentInk: IInk = new RandomInk()
   protected _activeLayer: LayerTypes | null = null
+  protected _activeLayerPath: string[] | null = null
   protected _brushSetting: CurrentBrushSetting = {
     brushId: Brush.id,
     size: 1,
     color: { r: 0, g: 0, b: 0 },
     opacity: 1,
+    specific: {},
   }
   protected _pluginSpecificBrushSettings: {
     [blushId: string]: Record<string, any>
@@ -108,14 +111,22 @@ export class SilkSession extends Emitter<Events> {
     return (this._pluginSpecificBrushSettings[brushId] as any) ?? null
   }
 
-  public setActiveLayer(path: string | string[] | null) {
-    this._activeLayer =
-      path && this.document
+  public setActiveLayer(path: string[] | null) {
+    if (!path) {
+      this._activeLayer = null
+      this._activeLayerPath = null
+    } else {
+      this._activeLayer = this.document
         ? SilkDOMDigger.findLayer(
             this.document,
             Array.isArray(path) ? path : [path]
           )
         : null
+    }
+
+    if (this._activeLayer) {
+      this._activeLayerPath = path
+    }
 
     this.emit('activeLayerChanged', this)
   }
@@ -128,14 +139,20 @@ export class SilkSession extends Emitter<Events> {
     this.commandHistory.push(com)
     this.commandHistory = this.commandHistory.slice(-this.historyLimit)
     this.redoHistory = []
+
+    this.emit('historyChanged', this)
   }
 
   public async undo() {
     if (!this.document) return
 
     const [cmd] = this.commandHistory.splice(-1)
+    if (!cmd) return
+
     await cmd.undo(this.document)
     this.redoHistory.push(cmd)
+
+    this.emit('historyChanged', this)
 
     return cmd
   }
@@ -144,8 +161,12 @@ export class SilkSession extends Emitter<Events> {
     if (!this.document) return
 
     const [cmd] = this.redoHistory.splice(-1)
+    if (!cmd) return
+
     await cmd.redo(this.document)
     this.commandHistory.push(cmd)
+
+    this.emit('historyChanged', this)
 
     return cmd
   }
@@ -154,17 +175,8 @@ export class SilkSession extends Emitter<Events> {
     return this._activeLayer
   }
 
-  /** @deprecated */
-  public get activeLayerId(): string | undefined | null {
-    return this._activeLayer?.uid
-  }
-
-  /** @deprecated */
-  public set activeLayerId(value: string | undefined | null) {
-    this._activeLayer =
-      this.document?.layers.find((layer) => layer.uid === value) ?? null
-
-    this.emit('activeLayerChanged', this)
+  public get activeLayerPath() {
+    return this._activeLayerPath
   }
 
   public get pencilMode() {

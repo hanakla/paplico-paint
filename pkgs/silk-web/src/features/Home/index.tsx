@@ -26,21 +26,49 @@ import {
   ContextMenu,
   ContextMenuItem,
 } from '🙌/components/ContextMenu'
+import { NotifyOps } from '../../domains/Notify'
 dayjs.extend(relativeTime)
 
 export const HomeContent = () => {
-  const theme = useTheme()
   const { t } = useTranslation('index-home')
-  const { locale } = useRouter()
-  const contextMenu = useContextMenu()
+  const { locale, ...router } = useRouter()
+  const theme = useTheme()
 
+  const contextMenu = useContextMenu()
   const [displayItems, setDisplayItems] = useState(12)
 
-  const { execute } = useFleur()
+  const { execute, getStore } = useFleur()
   const { savedItems, currentTheme } = useStore((get) => ({
     savedItems: EditorSelector.savedItems(get),
     currentTheme: get(EditorStore).state.currentTheme,
   }))
+
+  const loadingNotification = (fn: () => void) => {
+    let timerId: number
+
+    execute(NotifyOps.create, {
+      area: 'loadingLock',
+      messageKey: 'home.opening',
+      timeout: 0,
+      lock: true,
+    })
+
+    timerId = window.setInterval(() => {
+      console.log(getStore(EditorStore).state.editorPage)
+      if (getStore(EditorStore).state.editorPage !== 'app') return
+
+      execute(NotifyOps.create, {
+        area: 'loadingLock',
+        messageKey: 'home.opened',
+        timeout: 0,
+        lock: false,
+      })
+
+      window.clearInterval(timerId)
+    })
+
+    setTimeout(() => fn(), 100)
+  }
 
   const handleClickItem = useFunk(
     async ({ currentTarget: { dataset } }: MouseEvent<HTMLDivElement>) => {
@@ -49,11 +77,36 @@ export const HomeContent = () => {
 
       const doc = SilkDOM.Document.create({ width, height })
       const layer = SilkDOM.RasterLayer.create({ width, height })
-      doc.addLayer(layer)
-      doc.activeLayerId = layer.uid
+      const bgLayer = SilkDOM.VectorLayer.create({})
+      bgLayer.objects.push(
+        SilkDOM.VectorObject.create({
+          x: 0,
+          y: 0,
+          path: SilkDOM.Path.create({
+            points: [
+              { x: 0, y: 0, in: null, out: null },
+              { x: width, y: 0, in: null, out: null },
+              { x: width, y: height, in: null, out: null },
+              { x: 0, y: height, in: null, out: null },
+            ],
+            closed: true,
+          }),
+          brush: null,
+          fill: {
+            type: 'fill',
+            color: { r: 1, g: 1, b: 1 },
+            opacity: 1,
+          },
+        })
+      )
+      doc.addLayer(bgLayer)
+      doc.addLayer(layer, { aboveLayerId: bgLayer.uid })
+      doc.activeLayerPath = [layer.uid]
 
-      execute(EditorOps.setDocument, doc)
-      execute(EditorOps.setEditorPage, 'app')
+      loadingNotification(() => {
+        execute(EditorOps.createSession, doc)
+        execute(EditorOps.setEditorPage, 'app')
+      })
     }
   )
 
@@ -74,9 +127,10 @@ export const HomeContent = () => {
       })
       doc.addLayer(layer)
 
-      execute(EditorOps.setDocument, doc)
-      execute(EditorOps.createSession, doc)
-      execute(EditorOps.setEditorPage, 'app')
+      loadingNotification(() => {
+        execute(EditorOps.createSession, doc)
+        execute(EditorOps.setEditorPage, 'app')
+      })
     }
   })
 
@@ -99,7 +153,13 @@ export const HomeContent = () => {
 
   const handleClickSavedItem = useFunk(
     ({ currentTarget }: MouseEvent<HTMLLIElement>) => {
-      execute(EditorOps.loadDocumentFromIdb, currentTarget.dataset.documentUid!)
+      loadingNotification(() => {
+        execute(
+          EditorOps.loadDocumentFromIdb,
+          currentTarget.dataset.documentUid!
+        )
+        execute(EditorOps.setEditorPage, 'app')
+      })
     }
   )
 
@@ -116,7 +176,7 @@ export const HomeContent = () => {
   const handleClickRemoveDocument = useFunk(
     (e: ContextMenuParam<{ documentUid: string }>) => {
       if (confirm(t('removeDocumentConfirm'))) {
-        execute(EditorOps.removeSavedDocment, e.props.documentUid)
+        execute(EditorOps.removeSavedDocment, e.props!.documentUid)
       }
     }
   )

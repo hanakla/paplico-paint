@@ -1,4 +1,5 @@
 import { CheckboxCircle } from '@styled-icons/remix-fill'
+import { useTranslation } from 'next-i18next'
 import { rgba } from 'polished'
 import { useEffect, useState } from 'react'
 import { css } from 'styled-components'
@@ -8,6 +9,7 @@ import { centering } from '🙌/utils/mixins'
 import { tm } from '🙌/utils/theme'
 
 export const LoadingLock = () => {
+  const { t } = useTranslation('app')
   const [notify] = useNotifyConsumer('loadingLock', 1)
   const [visible, setVisible] = useState(false)
   const [complete, setComplete] = useState(false)
@@ -16,7 +18,7 @@ export const LoadingLock = () => {
   useEffect(() => {
     if (!notify || notify.area !== 'loadingLock') return
 
-    setMessage(notify.message)
+    setMessage(notify.messageKey === '' ? '' : t(`notify.${notify.messageKey}`))
 
     if (notify.lock) {
       setVisible(true)

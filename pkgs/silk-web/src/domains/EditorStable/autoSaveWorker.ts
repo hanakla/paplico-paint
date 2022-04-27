@@ -9,6 +9,8 @@ const engineInit = Silk3.create({ canvas: canvas as any })
 self.addEventListener('message', async (e) => {
   if (e.data.warm) return
 
+  console.log('auto save requested')
+
   const buffer = e.data.buffer as ArrayBuffer
   const { document, extra } = SilkSerializer.importDocument(
     new Uint8Array(buffer)

@@ -2,6 +2,8 @@ import { Document, LayerTypes } from '../../SilkDOM'
 import { ICommand } from '../ICommand'
 
 export class DocumentAddLayer implements ICommand {
+  public readonly name = 'DocumentAddLayer'
+
   private layer: LayerTypes
   private aboveOnLayerId: string | null | undefined
 

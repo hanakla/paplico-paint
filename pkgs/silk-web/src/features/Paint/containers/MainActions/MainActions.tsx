@@ -1,8 +1,8 @@
 import {
+  ChangeEvent,
   memo,
   MouseEvent,
   MutableRefObject,
-  Ref,
   useEffect,
   useRef,
   useState,
@@ -17,14 +17,15 @@ import {
 import { Alpha, Hue, Saturation } from 'react-color/lib/components/common'
 import { rgba, readableColor, rgb } from 'polished'
 import { usePopper } from 'react-popper'
-import { SilkBrushes, SilkValue } from 'silk-core'
+import { SilkBrushes, SilkCommands, SilkValue } from 'silk-core'
 import { useTranslation } from 'next-i18next'
 import { useClickAway, useToggle } from 'react-use'
 import { Brush, Close, Eraser, Pencil, Stack } from '@styled-icons/remix-line'
 import { Cursor, Menu } from '@styled-icons/remix-fill'
+import { Cursor as CursorLine } from '@styled-icons/remix-line'
 import { css, useTheme } from 'styled-components'
 import { Portal } from '🙌/components/Portal'
-import { FloatMenu } from '🙌/components/FloatMenu'
+import { FloatMenu, FloatMenuArrow } from '🙌/components/FloatMenu'
 import { LayerFloatMenu } from './LayerFloatMenu'
 import { useDrag } from 'react-use-gesture'
 import { DOMUtils } from '🙌/utils/dom'
@@ -40,8 +41,17 @@ import {
   useFloating,
 } from '@floating-ui/react-dom'
 import { Tab, TabBar } from '🙌/components/TabBar'
-import { useBufferedState, useFleur } from '🙌/utils/hooks'
-import { colorStopsToCssGradient, normalRGBAToRGBA } from '../../helpers'
+import {
+  useAutoUpdateFloating,
+  useBufferedState,
+  useDelayedLeave,
+  useFleur,
+} from '🙌/utils/hooks'
+import {
+  colorStopsToCssGradient,
+  normalRGBAToRGBA,
+  normalRgbToRgbArray,
+} from '../../helpers'
 import { GradientSlider } from '🙌/components/GradientSlider'
 import { tm } from '🙌/utils/theme'
 import { deepClone } from '🙌/utils/clone'
@@ -55,6 +65,12 @@ import {
 } from '🙌/components/ActionSheet'
 import { exportProject } from '🙌/domains/EditorStable/exportProject'
 import { NotifyOps } from '🙌/domains/Notify'
+import { RangeInput } from '🙌/components/RangeInput'
+import { useTransactionCommand, useObjectWatch } from '../../hooks'
+import { Tooltip2 } from '🙌/components/Tooltip2'
+import { the } from '../../../../utils/anyOf'
+import { useRouter } from 'next/router'
+import { BrushPresets } from '../BrushPresets'
 
 export const MainActions = memo(function MainActions() {
   const theme = useTheme()
@@ -89,12 +105,11 @@ export const MainActions = memo(function MainActions() {
       : { r: 30, g: 30, b: 30 }
   )
   const [appMenuOpened, toggleAppMenuOpened] = useToggle(false)
-  const [pickerOpened, toggleColorPicker] = useToggle(false)
+  const [pickerOpened, toggleBrushColorPicker] = useToggle(false)
   const [brushOpened, toggleBrush] = useToggle(false)
   const [layersOpened, toggleLayers] = useToggle(false)
   const [vectorFillColorOpened, toggleVectorFillColorOpened] = useToggle(false)
 
-  console.log(brushSetting)
   const [brushSize, setBrushSize] = useBufferedState(brushSetting?.size ?? 0)
   const [brushOpacity, setBrushOpacity] = useBufferedState(
     brushSetting?.opacity ?? 1
@@ -145,13 +160,9 @@ export const MainActions = memo(function MainActions() {
     execute(EditorOps.setTool, 'erase')
   })
 
-  const handleChangeBrush = useFunk((id: string) => {
-    execute(EditorOps.setBrushSetting, { brushId: id })
-  })
-
   const handleClickColor = useFunk((e: MouseEvent<HTMLDivElement>) => {
     if (colorPickerPopRef.current!.contains(e.target as HTMLElement)) return
-    toggleColorPicker()
+    toggleBrushColorPicker()
   })
 
   const handleClickLayerIcon = useFunk((e: MouseEvent<HTMLDivElement>) => {
@@ -183,50 +194,36 @@ export const MainActions = memo(function MainActions() {
 
   const appMenuOpenerRef = useRef<HTMLDivElement | null>(null)
 
-  const brushRef = useRef<HTMLDivElement | null>(null)
-  const brushPopRef = useRef<HTMLDivElement | null>(null)
-  const brushPopper = usePopper(brushRef.current, brushPopRef.current, {
-    strategy: 'fixed',
-    placement: 'top-start',
-  })
-
-  const layerRef = useRef<HTMLDivElement | null>(null)
-  const layerPopRef = useRef<HTMLDivElement | null>(null)
-
-  const layersArrowRef = useRef<HTMLDivElement | null>(null)
-  const layersFloat = useFloating({
-    strategy: 'absolute',
+  const brushesArrowRef = useRef<HTMLDivElement | null>(null)
+  const brushesFl = useFloating({
     placement: 'top',
+    strategy: 'fixed',
     middleware: [
-      // arrow({ element: layersArrowRef }),
       offset(12),
       shift({ padding: 8 }),
-      autoPlacement({ alignment: 'start', allowedPlacements: ['top'] }),
+      arrow({ element: brushesArrowRef }),
     ],
   })
 
+  const layersArrowRef = useRef<HTMLDivElement | null>(null)
+  const layersFl = useFloating({
+    strategy: 'absolute',
+    placement: 'top',
+    middleware: [
+      offset(12),
+      shift({ padding: 8 }),
+      autoPlacement({ alignment: 'start', allowedPlacements: ['top'] }),
+      arrow({ element: layersArrowRef }),
+    ],
+  })
+
+  const brushColorRootRef = useRef<HTMLDivElement | null>(null)
   const colorPickerPopRef = useRef<HTMLDivElement | null>(null)
 
   const vectorColorRootRef = useRef<HTMLDivElement | null>(null)
 
-  const vectorColorPopper = usePopper(layerRef.current, layerPopRef.current, {
-    strategy: 'fixed' ?? '',
-    placement: 'top-start',
-  })
-
-  useEffect(() => {
-    if (
-      !layersFloat.refs.reference.current ||
-      !layersFloat.refs.floating.current
-    )
-      return
-
-    return autoUpdate(
-      layersFloat.refs.reference.current,
-      layersFloat.refs.floating.current,
-      layersFloat.update
-    )
-  }, [layersFloat.refs.reference.current, layersFloat.refs.floating.current, layersFloat.update])
+  useAutoUpdateFloating(brushesFl)
+  useAutoUpdateFloating(layersFl)
 
   useClickAway(appMenuOpenerRef, (e) => {
     if (DOMUtils.isChildren(e.target, e.currentTarget)) return
@@ -235,18 +232,24 @@ export const MainActions = memo(function MainActions() {
 
   useClickAway(colorPickerPopRef, (e) => {
     if (DOMUtils.childrenOrSelf(e.target, colorPickerPopRef.current)) return
-    if (pickerOpened) toggleColorPicker(false)
+    if (pickerOpened) toggleBrushColorPicker(false)
   })
 
-  useClickAway(brushPopRef, (e) => {
-    if (DOMUtils.childrenOrSelf(e.target, brushRef.current)) return
+  useClickAway(brushesFl.refs.floating, (e) => {
+    if (
+      DOMUtils.childrenOrSelf(
+        e.target,
+        brushesFl.refs.reference.current as HTMLElement | null
+      )
+    )
+      return
     if (brushOpened) toggleBrush(false)
   })
 
   useClickAway(
-    layersFloat.refs.reference as MutableRefObject<HTMLElement>,
+    layersFl.refs.reference as MutableRefObject<HTMLElement>,
     (e) => {
-      if (DOMUtils.childrenOrSelf(e.target, layersFloat.refs.floating.current))
+      if (DOMUtils.childrenOrSelf(e.target, layersFl.refs.floating.current))
         return
 
       // console.log(e.target, layersFloat.refs.floating.current)
@@ -254,6 +257,14 @@ export const MainActions = memo(function MainActions() {
     }
   )
   // useClickAway(vectorColorPickerPopRef, () => toggleVectorColorOpened(false))
+
+  useDelayedLeave(brushColorRootRef, 1000, () => {
+    toggleBrushColorPicker(false)
+  })
+
+  useDelayedLeave(vectorColorRootRef, 1000, () => {
+    toggleVectorFillColorOpened(false)
+  })
 
   const bindBrushSizeDrag = useDrag(({ delta, first, last, event }) => {
     if (first) {
@@ -264,7 +275,8 @@ export const MainActions = memo(function MainActions() {
       document.exitPointerLock?.()
     }
 
-    const changed = delta[0] * 0.2
+    const changed = delta[0] < 0 ? delta[0] * 1.2 : delta[0] * 0.4
+
     setBrushSize((size) => {
       const next = Math.max(0, size + changed)
       execute(EditorOps.setBrushSetting, { size: next })
@@ -296,10 +308,10 @@ export const MainActions = memo(function MainActions() {
         gap: 8px;
         padding: 8px 16px;
         /* margin-bottom: env(safe-area-inset-bottom); */
-        background-color: ${({ theme }) => theme.color.surface2};
+        background-color: ${({ theme }) => theme.color.surface3};
         border-radius: 100px;
         color: ${({ theme }) => theme.color.text1};
-        border: 1px solid #aaa;
+        border: 1px solid ${({ theme }) => theme.color.surface7};
         white-space: nowrap;
         touch-action: manipulation;
 
@@ -333,6 +345,7 @@ export const MainActions = memo(function MainActions() {
 
         <div
           css={css`
+            position: relative;
             display: flex;
             align-items: center;
             justify-content: center;
@@ -341,10 +354,28 @@ export const MainActions = memo(function MainActions() {
             border: 1px solid;
             border-color: ${({ theme }) => theme.color.surface8};
             border-radius: 64px;
+            overflow: hidden;
           `}
           {...bindBrushSizeDrag()}
         >
-          {(Math.round(brushSize * 10) / 10).toString(10)}
+          <div
+            css={`
+              position: absolute;
+              top: 50%;
+              left: 50%;
+              transform: translate(-50%, -50%);
+              background-color: #000;
+              border-radius: 100px;
+            `}
+            style={{ width: brushSize, height: brushSize }}
+          />
+          <div
+            css={`
+              mix-blend-mode: difference;
+            `}
+          >
+            {(Math.round(brushSize * 10) / 10).toString(10)}
+          </div>
         </div>
         <div
           css={css`
@@ -405,14 +436,14 @@ export const MainActions = memo(function MainActions() {
       >
         {activeLayer?.layerType === 'raster' ? (
           <div
+            ref={brushColorRootRef}
             css={`
               display: inline-block;
-              position: relative;
-              width: 32px;
-              height: 32px;
+              width: 36px;
+              height: 36px;
               border: 2px solid #dbdbdb;
               vertical-align: middle;
-              box-shadow: 0 0 2px 1px rgba(0, 0, 0, 0.4);
+              /* box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.4); */
             `}
             style={{ backgroundColor: rgba(color.r, color.g, color.b, 1) }}
             onClick={handleClickColor}
@@ -420,6 +451,7 @@ export const MainActions = memo(function MainActions() {
             <div
               ref={colorPickerPopRef}
               style={{
+                position: 'relative',
                 ...(pickerOpened
                   ? { opacity: 1, pointerEvents: 'all' }
                   : { opacity: 0, pointerEvents: 'none' }),
@@ -460,17 +492,20 @@ export const MainActions = memo(function MainActions() {
                 width: 20px;
                 height: 20px;
                 /* border-radius: 100px; */
-                border: 2px solid transparent;
+                border: 3px solid transparent;
                 vertical-align: middle;
-                box-shadow: 0 0 0 2px #dbdbdb, 0 0 2px 1px rgba(0, 0, 0, 0.4);
+                // prettier-ignore
+                box-shadow:
+                  inset 0 0 0 1px #eee,
+                  inset 0 0 0 2px #333,
+                  0 0 0 1px #eee,
+                  0 0 0 2px #333;
               `}
               style={{
                 zIndex: vectorColorTarget === 'stroke' ? 1 : 0,
                 borderColor: currentVectorBrush
                   ? rgba(
-                      currentVectorBrush.color.r,
-                      currentVectorBrush.color.g,
-                      currentVectorBrush.color.b,
+                      ...normalRgbToRgbArray(currentVectorBrush.color),
                       currentVectorBrush.opacity
                     )
                   : undefined,
@@ -489,9 +524,9 @@ export const MainActions = memo(function MainActions() {
                 width: 20px;
                 height: 20px;
                 /* border-radius: 100px; */
-                border: 2px solid #dbdbdb;
+                border: 1px solid #333;
                 vertical-align: middle;
-                box-shadow: 0 0 2px 1px rgba(0, 0, 0, 0.4);
+                box-shadow: inset 0 0 0 1px #eee;
               `}
               style={{
                 zIndex: vectorColorTarget === 'fill' ? 1 : 0,
@@ -551,12 +586,17 @@ export const MainActions = memo(function MainActions() {
             transition: background-color 0.2s ease-in-out;
           `}
           style={{
-            backgroundColor:
-              currentTool === 'cursor' ? theme.color.surface4 : 'transparent',
+            backgroundColor: the(currentTool).in('cursor', 'point-cursor')
+              ? theme.color.surface4
+              : 'transparent',
           }}
           onClick={handleChangeToCursorMode}
         >
-          <Cursor css="width:24px; vertical-align:bottom;" />
+          {currentTool === 'point-cursor' ? (
+            <CursorLine width={24} />
+          ) : (
+            <Cursor css="width:24px; vertical-align:bottom;" />
+          )}
         </div>
 
         {activeLayer?.layerType === 'vector' && (
@@ -580,7 +620,7 @@ export const MainActions = memo(function MainActions() {
         )}
 
         <div
-          ref={brushRef}
+          ref={brushesFl.reference}
           css={`
             ${centering()}
             padding:4px;
@@ -593,7 +633,7 @@ export const MainActions = memo(function MainActions() {
           }}
           onClick={handleChangeToPencilMode}
         >
-          <Brush css="width:24px; vertical-align:bottom;" />
+          <Brush width={24} />
         </div>
 
         {activeLayer?.layerType === 'raster' && (
@@ -615,55 +655,29 @@ export const MainActions = memo(function MainActions() {
         )}
 
         <Portal>
-          <div
-            ref={brushPopRef}
-            css={css`
-              margin-left: -16px;
-              margin-bottom: 16px;
-              background-color: ${({ theme }) => theme.surface.floatWhite};
-              border-radius: 4px;
-
-              &::before {
-                content: '';
-                display: inline-block;
-                position: absolute;
-                top: 100%;
-                left: 50%;
-                transform: translateX(-50%);
-                border: 6px solid;
-                border-color: ${({ theme }) => theme.surface.floatWhite}
-                  transparent transparent transparent;
-              }
-            `}
-            data-todo-brush-selector
+          <FloatMenu
+            ref={brushesFl.floating}
             style={{
-              ...brushPopper.styles.popper,
+              position: brushesFl.strategy,
+              left: brushesFl.x ?? 0,
+              top: brushesFl.y ?? 0,
               ...(brushOpened
                 ? { opacity: 1, pointerEvents: 'all' }
                 : { opacity: 0, pointerEvents: 'none' }),
             }}
           >
-            <ul>
-              <BrushItem
-                name="普通筆"
-                brushId={SilkBrushes.Brush.id}
-                active={brushSetting?.brushId === SilkBrushes.Brush.id}
-                onSelect={handleChangeBrush}
-              />
-              <BrushItem
-                name="スキャッター"
-                brushId={SilkBrushes.ScatterBrush.id}
-                active={brushSetting?.brushId === SilkBrushes.ScatterBrush.id}
-                onSelect={handleChangeBrush}
-              />
-            </ul>
-          </div>
+            <BrushPresets />
+            <FloatMenuArrow
+              ref={brushesArrowRef}
+              style={{ left: brushesFl.middlewareData.arrow?.x ?? 0 }}
+            />
+          </FloatMenu>
         </Portal>
       </div>
 
       {/* {isNarrowMedia && ( */}
       <div
-        ref={layersFloat.reference}
+        ref={layersFl.reference}
         css={`
           position: relative;
           display: flex;
@@ -688,7 +702,7 @@ export const MainActions = memo(function MainActions() {
 
         <div data-ignore-click>
           <FloatMenu
-            ref={layersFloat.floating}
+            ref={layersFl.floating}
             css={`
               width: 300px;
             `}
@@ -696,29 +710,16 @@ export const MainActions = memo(function MainActions() {
               ...(layersOpened
                 ? { opacity: 1, pointerEvents: 'all' }
                 : { opacity: 0, pointerEvents: 'none' }),
-              position: layersFloat.strategy,
-              top: layersFloat.y ?? '',
-              left: layersFloat.x ?? '',
+              position: layersFl.strategy,
+              top: layersFl.y ?? '',
+              left: layersFl.x ?? '',
             }}
           >
-            <LayerFloatMenu ref={layerPopRef} />
-
-            <div
+            <LayerFloatMenu />
+            <FloatMenuArrow
               ref={layersArrowRef}
-              css={css`
-                display: inline-block;
-                position: absolute;
-                /* top: 100%;
-             left: 50%;
-             transform: translateX(-50%); */
-                border: 6px solid;
-                border-color: ${({ theme }) => theme.surface.floatWhite}
-                  transparent transparent transparent;
-              `}
               style={{
-                position: 'absolute',
-                top: layersFloat.middlewareData.arrow?.y ?? 0,
-                left: layersFloat.middlewareData.arrow?.x ?? 0,
+                left: layersFl.middlewareData.arrow?.x ?? 0,
               }}
             />
           </FloatMenu>
@@ -770,6 +771,7 @@ const BrushItem = memo(
 const AppMenu = memo(
   ({ opened, onClose }: { opened: boolean; onClose: () => void }) => {
     const { t } = useTranslation('app')
+    const { push } = useRouter()
     const { execute, getStore } = useFleur()
 
     const { engine, currentTheme, currentDocument } = useStore((get) => ({
@@ -785,7 +787,7 @@ const AppMenu = memo(
 
     const handleClickBackToHome = useFunk(() => {
       execute(EditorOps.setEditorPage, 'home')
-      execute(EditorOps.disposeEngineAndSession, null)
+      execute(EditorOps.disposeEngineAndSession, { withSave: true })
     })
 
     const handleClickChangeTheme = useFunk(() => {
@@ -799,7 +801,7 @@ const AppMenu = memo(
       execute(NotifyOps.create, {
         area: 'loadingLock',
         lock: true,
-        message: t('appMenu.saving'),
+        messageKey: 'appMenu.saving',
         timeout: 0,
       })
 
@@ -818,7 +820,7 @@ const AppMenu = memo(
         execute(NotifyOps.create, {
           area: 'loadingLock',
           lock: false,
-          message: t('appMenu.saved'),
+          messageKey: 'appMenu.saved',
           timeout: 0,
         })
       }, /* フィードバックが早すぎると何が起きたかわからないので */ 1000)
@@ -832,7 +834,7 @@ const AppMenu = memo(
       execute(NotifyOps.create, {
         area: 'loadingLock',
         lock: true,
-        message: t('appMenu.exporting'),
+        messageKey: 'appMenu.exporting',
         timeout: 0,
       })
 
@@ -950,11 +952,13 @@ const VectorColorPicker = memo(
       currentVectorFill,
       defaultVectorBrush,
       activeObject,
+      activeLayerPath,
     } = useStore((get) => ({
       currentVectorBrush: EditorSelector.currentVectorBrush(get),
       currentVectorFill: EditorSelector.currentVectorFill(get),
       defaultVectorBrush: EditorSelector.defaultVectorBrush(get),
       activeObject: EditorSelector.activeObject(get),
+      activeLayerPath: EditorSelector.activeLayerPath(get),
     }))
 
     // const targetSurface = target === 'fill' ? activeObject.fill?.type : activeObject!.brush
@@ -983,6 +987,21 @@ const VectorColorPicker = memo(
           }
     )
 
+    const [gradientLength, setGradientLength] = useBufferedState(() => {
+      if (activeObject?.fill?.type !== 'linear-gradient') return 0
+
+      const fill = activeObject?.fill
+      return SilkWebMath.distanceOfPoint(fill.start, fill.end)
+    })
+
+    const [gradientAngle, setGradientAngle] = useBufferedState(() => {
+      if (activeObject?.fill?.type !== 'linear-gradient') return 0
+
+      const fill = activeObject?.fill
+      const rad = SilkWebMath.angleOfPoints(fill.start, fill.end)
+      return SilkWebMath.normalizeDegree(SilkWebMath.radToDeg(rad) + 180)
+    })
+
     const arrowRef = useRef<HTMLDivElement | null>(null)
     const fl = useFloating({
       placement: 'top',
@@ -993,6 +1012,11 @@ const VectorColorPicker = memo(
         arrow({ element: arrowRef }),
       ],
     })
+
+    const [showGradLen, toggleShowGradLen] = useToggle(false)
+    const [showGradAngle, toggleShowGradAngle] = useToggle(false)
+
+    const cmdTransaction = useTransactionCommand()
 
     const handleClickTab = useFunk((nextTab) => {
       setTab(nextTab)
@@ -1111,6 +1135,113 @@ const VectorColorPicker = memo(
       setFillColor(normalRGBAToRGBA(color))
     })
 
+    const handleChangeGradientLength = useFunk(
+      ({ currentTarget }: ChangeEvent<HTMLInputElement>) => {
+        if (!activeLayerPath || activeObject?.fill?.type !== 'linear-gradient')
+          return
+
+        setGradientLength(currentTarget.valueAsNumber)
+        toggleShowGradLen(true)
+        cmdTransaction.startIfNotStarted()
+
+        const length = currentTarget.valueAsNumber / 2
+        const fill = deepClone({ ...activeObject.fill })
+
+        const rad = SilkWebMath.angleOfPoints(fill.start, fill.end)
+        const pointS = SilkWebMath.pointByAngleAndDistance({
+          angle: rad,
+          distance: length,
+          base: { x: 0, y: 0 },
+        })
+
+        const pointE = SilkWebMath.pointByAngleAndDistance({
+          angle: SilkWebMath.degToRad(
+            SilkWebMath.deg(SilkWebMath.radToDeg(rad) + 180)
+          ),
+          distance: length,
+          base: { x: 0, y: 0 },
+        })
+
+        fill.start = pointS
+        fill.end = pointE
+
+        cmdTransaction.doAndAdd(
+          new SilkCommands.VectorLayer.PatchObjectAttr({
+            pathToTargetLayer: activeLayerPath,
+            objectUid: activeObject.uid,
+            patch:
+              target === 'fill'
+                ? {
+                    fill,
+                  }
+                : {},
+          })
+        )
+      }
+    )
+
+    const handleCompleteGradientLength = useFunk(() => {
+      toggleShowGradLen(false)
+      cmdTransaction.commit()
+    })
+
+    const handleChangeGradientAngle = useFunk(
+      ({ currentTarget }: ChangeEvent<HTMLInputElement>) => {
+        if (!activeLayerPath || activeObject?.fill?.type !== 'linear-gradient')
+          return
+
+        toggleShowGradAngle(true)
+        setGradientAngle(currentTarget.valueAsNumber)
+        cmdTransaction.startIfNotStarted()
+
+        const nextFill = deepClone({ ...activeObject.fill })
+        const rad = SilkWebMath.degToRad(
+          SilkWebMath.deg(currentTarget.valueAsNumber)
+        )
+        const length = SilkWebMath.distanceOfPoint(nextFill.start, nextFill.end)
+
+        const pointS = SilkWebMath.pointByAngleAndDistance({
+          angle: rad,
+          distance: length / 2,
+          base: { x: 0, y: 0 },
+        })
+
+        const pointE = SilkWebMath.pointByAngleAndDistance({
+          angle: SilkWebMath.degToRad(
+            SilkWebMath.deg(SilkWebMath.radToDeg(rad) + 180)
+          ),
+          distance: length / 2,
+          base: { x: 0, y: 0 },
+        })
+
+        nextFill.start = pointS
+        nextFill.end = pointE
+
+        // console.log({
+        //   expect: currentTarget.valueAsNumber,
+        //   act: SilkWebMath.radToDeg(SilkWebMath.angleOfPoints(pointS, pointE)),
+        // })
+
+        cmdTransaction.doAndAdd(
+          new SilkCommands.VectorLayer.PatchObjectAttr({
+            pathToTargetLayer: activeLayerPath,
+            objectUid: activeObject.uid,
+            patch:
+              target === 'fill'
+                ? {
+                    fill: nextFill,
+                  }
+                : {},
+          })
+        )
+      }
+    )
+
+    const handleCompleteGradientAngle = useFunk(() => {
+      toggleShowGradAngle(false)
+      cmdTransaction.commit()
+    })
+
     useEffect(() => {
       fl.reference(fl.refs.floating.current!.parentElement)
 
@@ -1118,12 +1249,15 @@ const VectorColorPicker = memo(
       autoUpdate(fl.refs.reference.current, fl.refs.floating.current, fl.update)
     }, [fl.refs.floating.current])
 
+    useObjectWatch(activeObject)
+
     return (
       <div
         ref={fl.floating}
-        css={`
+        css={css`
           border-radius: 4px;
-          ${tm((o) => [o.bg.surface3, o.border.default])}
+          filter: drop-shadow(0 0 1px ${({ theme }) => theme.colors.surface6});
+          ${tm((o) => [o.bg.surface2])}
         `}
         style={{
           position: fl.strategy,
@@ -1143,11 +1277,75 @@ const VectorColorPicker = memo(
               `}
             >
               {currentVectorFill.type === 'linear-gradient' && (
-                <GradientSlider
-                  colorStops={currentVectorFill.colorStops}
-                  onChange={handleChangeGradient}
-                  onChangeSelectIndices={handleChangeGradientIndices}
-                />
+                <>
+                  <GradientSlider
+                    colorStops={currentVectorFill.colorStops}
+                    onChange={handleChangeGradient}
+                    onChangeSelectIndices={handleChangeGradientIndices}
+                  />
+
+                  <label
+                    css={`
+                      position: relative;
+                      ${centering()}
+                      padding: 4px 8px;
+                    `}
+                  >
+                    <span
+                      css={`
+                        display: inline-block;
+                        margin-right: 8px;
+                      `}
+                    >
+                      {t('mainActions.gradientLength')}
+                    </span>
+                    <RangeInput
+                      min={0}
+                      max={1000}
+                      step={0.1}
+                      value={gradientLength}
+                      onChange={handleChangeGradientLength}
+                      onChangeComplete={handleCompleteGradientLength}
+                    />
+
+                    <Tooltip2
+                      placement="right-end"
+                      strategy="absolute"
+                      show={showGradLen}
+                      content={<>{gradientLength}</>}
+                    />
+                  </label>
+                  <label
+                    css={`
+                      position: relative;
+                      ${centering()}
+                      padding: 4px 8px;
+                    `}
+                  >
+                    <span
+                      css={`
+                        display: inline-block;
+                        margin-right: 8px;
+                      `}
+                    >
+                      {t('mainActions.gradientAngle')}
+                    </span>
+                    <RangeInput
+                      min={0}
+                      max={360}
+                      step={0.1}
+                      value={gradientAngle}
+                      onChange={handleChangeGradientAngle}
+                      onChangeComplete={handleCompleteGradientAngle}
+                    />
+                    <Tooltip2
+                      placement="right-end"
+                      strategy="absolute"
+                      show={showGradAngle}
+                      content={<>{gradientAngle}</>}
+                    />
+                  </label>
+                </>
               )}
 
               <CustomColorPicker
@@ -1202,7 +1400,7 @@ const VectorColorPicker = memo(
               top: 100%;
               border: 6px solid transparent;
               border-color: ${({ theme }) =>
-                `${theme.color.surface6} transparent transparent transparent`};
+                `${theme.color.surface2} transparent transparent transparent`};
             `}
             style={{
               left: fl.middlewareData.arrow?.x ?? 0,

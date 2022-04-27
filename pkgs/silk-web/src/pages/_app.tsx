@@ -1,20 +1,34 @@
-import '../lib/polyfill'
+import '🙌/lib/polyfill'
 
 import App, { AppProps, AppContext } from 'next/app'
 import { appWithTranslation } from 'next-i18next'
-import { useEffect } from 'react'
-import { useRouter } from 'next/router'
+import { useEffect, useMemo } from 'react'
 import { Restart } from '@styled-icons/remix-line'
-import { GlobalStyle } from '../components/GlobalStyle'
 import { ErrorBoundary, FallbackProps } from 'react-error-boundary'
 import { appWithFleur } from '../lib/fleur'
 import { LysContext } from '@fleur/lys'
+import { useStore } from '@fleur/react'
 import Head from 'next/head'
+
+import { LoadingLock } from '🙌/containers/LoadingLock'
+import { GlobalStyle } from '🙌/components/GlobalStyle'
+import { darkWithCharcoal, lightWithCharcoal } from '🙌/utils/theme'
+import { EditorStore } from '🙌/domains/EditorStable'
+import { ThemeProvider } from 'styled-components'
 
 const fastclick = typeof window !== 'undefined' ? require('fastclick') : null
 typeof window !== 'undefined' ? require('doubletouch-to-dblclick') : null
 
 function MyApp({ Component, pageProps }: AppProps) {
+  const { currentTheme } = useStore((get) => ({
+    currentTheme: get(EditorStore).state.currentTheme,
+  }))
+
+  const theme = useMemo(
+    () => (currentTheme === 'dark' ? darkWithCharcoal : lightWithCharcoal),
+    [currentTheme]
+  )
+
   useEffect(() => {
     fastclick?.attach(document.body)
   }, [])
@@ -27,13 +41,16 @@ function MyApp({ Component, pageProps }: AppProps) {
           content="width=device-width, initial-scale=1.0, viewport-fit=cover"
         />
       </Head>
-      <LysContext>
-        <GlobalStyle />
+      <ThemeProvider theme={theme}>
+        <LysContext>
+          <GlobalStyle />
 
-        <ErrorBoundary FallbackComponent={ErrorFallback}>
-          <Component {...pageProps} />
-        </ErrorBoundary>
-      </LysContext>
+          <ErrorBoundary FallbackComponent={ErrorFallback}>
+            <LoadingLock />
+            <Component {...pageProps} />
+          </ErrorBoundary>
+        </LysContext>
+      </ThemeProvider>
     </>
   )
 }

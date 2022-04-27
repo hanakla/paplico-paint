@@ -9,11 +9,23 @@ addFromImage: Add from Image file
 export: Export
 untitled: Untitled
 
-appMenu:
-  saving: Saving...
-  saved: Save completed!
-  exporting: Rendering...
-  exported: Rendering completed!
+mainActions:
+  gradientLength: Length
+  gradientAngle: Angle
+
+vectorControl:
+  context:
+    moveup: Bring up
+    movedown: Bring down
+
+notify:
+  exitSession:
+    saving: Saving...
+  appMenu:
+    saving: Saving...
+    saved: Save completed!
+    exporting: Rendering...
+    exported: Rendering completed!
 
 exports:
   autoSaved: File was autosaved!
@@ -32,6 +44,7 @@ layerType:
   raster: Normal layer
   text: Text layer
   reference: Referenced
+  group: Group
 
 compositeModes:
   normal: Normal
@@ -81,3 +94,15 @@ filterOptions:
   '@silk-core/outline':
     thickness: Thickness
     color: Color
+
+layerView:
+  object:
+    path: '<Path>'
+    context:
+      remove: Remove object
+
+brushPresets:
+  circle: Circle
+  fade: Fade
+  pencil: Pencil
+  'pencil-inout': Pencil in / out

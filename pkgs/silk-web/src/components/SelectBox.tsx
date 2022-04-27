@@ -1,11 +1,11 @@
 import { ThemeProp } from '@charcoal-ui/styled'
+import { autoUpdate, Placement, useFloating } from '@floating-ui/react-dom'
 import { useFunk } from '@hanakla/arma'
-import { Placement } from '@popperjs/core'
 import { ArrowDownS, Check } from '@styled-icons/remix-line'
 import { rgba, transparentize } from 'polished'
 import { useMemo, MouseEvent, useRef, useEffect } from 'react'
 import { usePopper } from 'react-popper'
-import { useToggle } from 'react-use'
+import { useClickAway, useToggle } from 'react-use'
 import { css } from 'styled-components'
 
 export const SelectBox = ({
@@ -14,6 +14,7 @@ export const SelectBox = ({
   value,
   placement = 'top-start',
   placeholder,
+  disabled,
   onChange,
 }: {
   value?: string | null | undefined
@@ -21,15 +22,19 @@ export const SelectBox = ({
   className?: string
   placement?: Placement
   placeholder?: string
+  disabled?: boolean
   onChange: (value: string) => void
 }) => {
   const [listOpened, toggleListOpened] = useToggle(false)
-  const rootRef = useRef<HTMLDivElement | null>(null)
-  const listRef = useRef<HTMLDivElement | null>(null)
 
-  const compositeModePopper = usePopper(rootRef.current, listRef.current, {
+  const listFl = useFloating({
     strategy: 'fixed',
     placement,
+  })
+
+  const handleClickBox = useFunk(() => {
+    if (disabled) return
+    toggleListOpened()
   })
 
   const handleItemClick = useFunk((e: MouseEvent<HTMLDivElement>) => {
@@ -45,13 +50,20 @@ export const SelectBox = ({
   )
 
   useEffect(() => {
-    if (!listOpened) return
-    setTimeout(() => compositeModePopper.forceUpdate?.(), 100)
-  }, [listOpened])
+    if (!listFl.refs.reference.current || !listFl.refs.floating.current) return
+
+    return autoUpdate(
+      listFl.refs.reference.current,
+      listFl.refs.floating.current,
+      listFl.update
+    )
+  }, [listFl.refs.reference, listFl.refs.floating, listFl.update, listOpened])
+
+  useClickAway(listFl.refs.floating, () => toggleListOpened(false))
 
   return (
     <div
-      ref={rootRef}
+      ref={listFl.reference}
       css={css`
         position: relative;
         display: inline-block;
@@ -67,7 +79,7 @@ export const SelectBox = ({
         }
       `}
       className={className}
-      onClick={toggleListOpened}
+      onClick={handleClickBox}
     >
       {currentItem?.label ?? (
         <span
@@ -91,7 +103,7 @@ export const SelectBox = ({
 
       {/* <Portal> */}
       <div
-        ref={listRef}
+        ref={listFl.floating}
         css={css`
           width: max-content;
           background-color: ${({ theme }) => rgba(theme.color.background2, 1)};
@@ -100,17 +112,18 @@ export const SelectBox = ({
           overflow: hidden;
         `}
         style={{
+          position: listFl.strategy,
+          left: listFl.x ?? 0,
+          top: listFl.y ?? 0,
           ...(listOpened
             ? { visibility: 'visible', pointerEvents: 'all' }
             : { visibility: 'hidden', pointerEvents: 'none' }),
-          ...compositeModePopper.styles.popper,
         }}
-        {...compositeModePopper.attributes.popper}
       >
         {items.map((item, idx) => (
           <div
             key={idx}
-            css={`
+            css={css`
               padding: 8px 4px;
               padding-right: 8px;
 

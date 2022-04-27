@@ -1,11 +1,10 @@
 import * as THREE from 'three'
 import mitt, { Emitter } from 'mitt'
 import getBound from 'svg-path-bounds'
-import { debounce } from 'debounce'
 
 import { Brush, ScatterBrush } from '../Brushes'
 import { Document, LayerTypes, Path, VectorLayer } from '../SilkDOM'
-import { deepClone, mergeToNew, setCanvasSize } from '../utils'
+import { deepClone, mergeToNew, setCanvasSize, debounce } from '../utils'
 import { CurrentBrushSetting as _CurrentBrushSetting } from './CurrentBrushSetting'
 import { IRenderStrategy } from './RenderStrategy/IRenderStrategy'
 import { ToolRegistry } from './Engine3_ToolRegistry'
@@ -74,10 +73,13 @@ export class SilkEngine3 {
   // protected thumbnailCanvas: HTMLCanvasElement
   // protected thumbnailCtx: CanvasRenderingContext2D
   // protected gl: WebGLContext
-  protected atomicRender = new AtomicResource({ __render: true })
-  protected atomicStrokeRender = new AtomicResource({
-    __strokeToken: true,
-  })
+  protected atomicRender = new AtomicResource({ __render: true }, 'render')
+  protected atomicStrokeRender = new AtomicResource(
+    {
+      __strokeToken: true,
+    },
+    'stroke'
+  )
   protected atomicBufferCtx: AtomicResource<CanvasRenderingContext2D>
   // protected atomicRerender: AtomicResource<any>
 
@@ -131,7 +133,7 @@ export class SilkEngine3 {
     this.off = this.mitt.off.bind(this.mitt)
 
     const buffer = createContext2D()
-    this.atomicBufferCtx = new AtomicResource(buffer!)
+    this.atomicBufferCtx = new AtomicResource(buffer!, 'buffer')
 
     this.gl = new WebGLContext()
     this.toolRegistry = new ToolRegistry(this.gl)
@@ -145,8 +147,8 @@ export class SilkEngine3 {
     })
     renderer.setClearColor(0xffffff, 0)
 
-    this.atomicThreeRenderer = new AtomicResource(renderer)
-    this.atomicPreDestCtx = new AtomicResource(createContext2D())
+    this.atomicThreeRenderer = new AtomicResource(renderer, 'threeRenderer')
+    this.atomicPreDestCtx = new AtomicResource(createContext2D(), 'predest')
 
     this.camera = new THREE.OrthographicCamera(0, 0, 0, 0, 0, 1000)
     // this.scene = new THREE.Scene()
@@ -435,7 +437,7 @@ export class SilkEngine3 {
             throw new Error(`Unregistered brush ${object.brush.brushId}`)
 
           await this.renderPath(
-            mergeToNew(object.brush, { specific: {} }),
+            object.brush,
             new PlainInk(),
             object.path,
             bufferCtx

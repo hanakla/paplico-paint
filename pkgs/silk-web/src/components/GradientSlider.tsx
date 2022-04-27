@@ -132,7 +132,7 @@ export const GradientSlider = ({
   return (
     <div
       css={`
-        padding: 24px 12px 4px;
+        padding: 24px 8px 4px;
       `}
     >
       <div

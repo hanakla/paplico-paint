@@ -8,6 +8,8 @@ import {
 } from '../../SilkDOM'
 
 export class ReferenceConvertToSubstance implements ICommand {
+  public readonly name = 'ReferenceConvertToSubstance'
+
   private referenceLayer: ReferenceLayer
   private sourceLayer!: LayerTypes
   private clonedLayer!: LayerTypes

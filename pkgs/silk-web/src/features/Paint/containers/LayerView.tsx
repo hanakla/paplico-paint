@@ -8,8 +8,13 @@ import {
 } from 'react'
 import { SilkCommands, SilkDOM, SilkHelper } from 'silk-core'
 import { useClickAway, useToggle, useUpdate } from 'react-use'
-import { loadImageFromBlob, selectFile, useFunk } from '@hanakla/arma'
-import { opacify, rgba } from 'polished'
+import {
+  loadImageFromBlob,
+  selectFile,
+  useFunk,
+  useObjectState,
+} from '@hanakla/arma'
+import { rgba } from 'polished'
 import { usePopper } from 'react-popper'
 import { Add, Brush, Filter3, Guide, Shape } from '@styled-icons/remix-fill'
 import { css } from 'styled-components'
@@ -34,7 +39,12 @@ import { useMouseTrap } from '🙌/hooks/useMouseTrap'
 import { useTheme } from 'styled-components'
 import { useFleurContext, useStore } from '@fleur/react'
 import { EditorOps, EditorSelector, EditorStore } from '🙌/domains/EditorStable'
-import { calcLayerMove, flattenLayers, isEventIgnoringTarget } from '../helpers'
+import {
+  calcLayerMove,
+  FlatLayerEntry,
+  flattenLayers,
+  isEventIgnoringTarget,
+} from '../helpers'
 import { SidebarPane } from '🙌/components/SidebarPane'
 import { tm } from '🙌/utils/theme'
 import {
@@ -60,6 +70,7 @@ import { shallowEquals } from '🙌/utils/object'
 import { useHover } from 'react-use-gesture'
 import { createSlice, useLysSliceRoot, useLysSlice } from '@fleur/lys'
 import { CommandOps } from '../../../domains/Commands'
+import { useLayerWatch } from '../hooks'
 
 export const LayerView = memo(function LayerView() {
   const { t } = useTranslation('app')
@@ -79,8 +90,6 @@ export const LayerView = memo(function LayerView() {
   const [layerTypeOpened, toggleLayerTypeOpened] = useToggle(false)
   const layerTypeOpenerRef = useRef<HTMLDivElement | null>(null)
   const layerTypeDropdownRef = useRef<HTMLUListElement | null>(null)
-
-  const [layerName, setLayerName] = useBufferedState(activeLayer?.name)
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 4 } })
@@ -166,52 +175,14 @@ export const LayerView = memo(function LayerView() {
     if (!moves) return
 
     executeOperation(
-      EditorOps.moveLayer,
-      moves.sourcePath,
-      moves.oldIndex,
-      moves.newIndex
-    )
-  })
-
-  const handleChangeLayerName = useFunk(
-    ({ currentTarget }: ChangeEvent<HTMLInputElement>) => {
-      if (!activeLayerPath) return
-
-      setLayerName(currentTarget.value)
-      commitChangeLayerName(activeLayerPath, currentTarget.value)
-    }
-  )
-
-  const commitChangeLayerName = useDebouncedFunk(
-    (path: string[], layerName: string) => {
-      executeOperation(
-        EditorOps.runCommand,
-        new SilkCommands.Layer.PatchLayerAttr({
-          patch: { name: layerName },
-          pathToTargetLayer: path,
-        })
-      )
-    },
-    1000
-  )
-
-  const handleChangeCompositeMode = useFunk((value: string) => {
-    executeOperation(
-      EditorOps.updateLayer,
-      activeLayerPath,
-      (layer) => (layer.compositeMode = value as any)
-    )
-  })
-
-  const handleChangeOpacity = useFunk(
-    ({ currentTarget }: ChangeEvent<HTMLInputElement>) => {
-      if (!activeLayer) return
-
-      executeOperation(EditorOps.updateLayer, activeLayerPath, (layer) => {
-        layer.opacity = currentTarget.valueAsNumber
+      EditorOps.runCommand,
+      new SilkCommands.Layer.MoveLayer({
+        sourcePath: moves.sourcePath,
+        targetGroupPath: moves.targetParentPath,
+        targetIndex: moves.targetIndex,
       })
-    }
-  )
+    )
+  })
 
   const container = useFunk((children: ReactNode) => <div>{children}</div>)
 
@@ -224,7 +195,13 @@ export const LayerView = memo(function LayerView() {
     }
   }, [currentDocument?.uid])
 
-  const flatLayers = flattenLayers(layers)
+  const [collapsed, setCollapsed] = useObjectState<Record<string, boolean>>({})
+  const flatLayers = flattenLayers(layers, (entry) => {
+    return (
+      entry.parentId == null ||
+      (entry.parentId != null && !(collapsed[entry.parentId] ?? true))
+    )
+  })
 
   return (
     <SidebarPane
@@ -241,85 +218,7 @@ export const LayerView = memo(function LayerView() {
       }
       container={container}
     >
-      {activeLayer && (
-        <div
-          css={css`
-            display: flex;
-            flex-flow: column;
-            gap: 8px;
-            padding: 8px;
-            padding-bottom: 14px;
-            ${tm((o) => [o.border.default.bottom])}
-          `}
-        >
-          <div>
-            <FakeInput
-              value={layerName}
-              placeholder={`<${t(`layerType.${activeLayer.layerType}`)}>`}
-              onChange={handleChangeLayerName}
-            />
-          </div>
-          <div>
-            <span
-              css={`
-                margin-right: 8px;
-              `}
-            >
-              {t('blend')}
-            </span>
-
-            <SelectBox
-              css={`
-                padding: 2px 4px;
-              `}
-              items={[
-                { value: 'normal', label: t('compositeModes.normal') },
-                { value: 'multiply', label: t('compositeModes.multiply') },
-                { value: 'screen', label: t('compositeModes.screen') },
-                { value: 'overlay', label: t('compositeModes.overlay') },
-                { value: 'clipper', label: t('compositeModes.clipper') },
-              ]}
-              value={activeLayer.compositeMode}
-              onChange={handleChangeCompositeMode}
-              placement="bottom-start"
-            />
-          </div>
-          <div
-            css={`
-              display: flex;
-              align-items: center;
-            `}
-          >
-            <span>{t('opacity')}</span>
-            <div
-              css={`
-                flex: 1;
-              `}
-            >
-              <input
-                css={`
-                  display: block;
-                  width: 100%;
-
-                  vertical-align: bottom;
-                  background: linear-gradient(
-                    to right,
-                    ${rgba('#fff', 0)},
-                    ${rgba('#fff', 1)}
-                  );
-                  ${rangeThumb}
-                `}
-                type="range"
-                min={0}
-                max={100}
-                step={0.1}
-                value={activeLayer.opacity}
-                onChange={handleChangeOpacity}
-              />
-            </div>
-          </div>
-        </div>
-      )}
+      <ActiveLayerPane />
 
       <div
         css={`
@@ -406,12 +305,25 @@ export const LayerView = memo(function LayerView() {
           onDragEnd={handleLayerDragEnd}
         >
           <SortableContext
-            items={flatLayers.map((l) => l.layer.uid)}
+            items={flatLayers.map((entry) => entry.id)}
             strategy={verticalListSortingStrategy}
           >
-            {flatLayers.map((layer) => (
-              <SortableLayerItem key={layer.layer.uid} layer={layer} />
-            ))}
+            {flatLayers.map((entry) =>
+              entry.type === 'layer' ? (
+                <SortableLayerItem
+                  key={entry.id}
+                  entry={entry}
+                  onToggleCollapse={(id) =>
+                    setCollapsed((state) => {
+                      state[id] = !(state[id] ?? true)
+                      console.log(state, id)
+                    })
+                  }
+                />
+              ) : (
+                <SortableObjectItem key={entry.id} entry={entry} />
+              )
+            )}
           </SortableContext>
         </DndContext>
       </div>
@@ -428,15 +340,23 @@ export const LayerView = memo(function LayerView() {
 
 const SortableLayerItem = memo(
   ({
-    layer: { layer, path, depth },
-  }: // onContextMenu,
-  {
-    layer: { path: string[]; layer: SilkDOM.LayerTypes; depth: number }
-    // onContextMenu: (e: MouseEvent<HTMLDivElement>, layerPath: string[]) => void
+    entry,
+    onToggleCollapse,
+  }: {
+    entry: FlatLayerEntry
+    onToggleCollapse: (id: string) => void
   }) => {
+    if (entry.type !== 'layer') return null
+
+    const { id, layer, parentPath, depth } = entry
+
     const contextMenu = useContextMenu()
     const { attributes, listeners, setNodeRef, transform, transition } =
-      useSortable({ id: layer.uid })
+      useSortable({
+        id: entry.id,
+        animateLayoutChanges: ({ isSorting, wasDragging }) =>
+          isSorting || wasDragging ? false : true,
+      })
 
     const style = {
       transform: CSS.Transform.toString(transform),
@@ -472,7 +392,7 @@ const SortableLayerItem = memo(
         EditorOps.runCommand,
         new SilkCommands.Layer.PatchLayerAttr({
           patch: { visible: !layer.visible },
-          pathToTargetLayer: [...path, layer.uid],
+          pathToTargetLayer: [...parentPath, layer.uid],
         })
       )
     })
@@ -494,7 +414,7 @@ const SortableLayerItem = memo(
         })
       } else {
         execute(EditorOps.setLayerSelection, () => [layer.uid])
-        execute(EditorOps.setActiveLayer, [...path, layer.uid])
+        execute(EditorOps.setActiveLayer, [...parentPath, layer.uid])
       }
     })
 
@@ -516,30 +436,20 @@ const SortableLayerItem = memo(
       }
     )
 
-    const handleClickObject = useFunk(
-      ({ currentTarget }: MouseEvent<HTMLDivElement>) => {
-        execute(
-          EditorOps.setActiveObject,
-          currentTarget.dataset.objectId ?? null,
-          activeLayerPath
-        )
-      }
-    )
-
     const handleChangeLayerName = useFunk(
       ({ currentTarget }: ChangeEvent<HTMLInputElement>) => {
         execute(
           EditorOps.runCommand,
           new SilkCommands.Layer.PatchLayerAttr({
             patch: { name: currentTarget.value },
-            pathToTargetLayer: [...path, layer.uid],
+            pathToTargetLayer: [...parentPath, layer.uid],
           })
         )
       }
     )
 
     const handleContextMenu = useFunk((e: MouseEvent<HTMLDivElement>) => {
-      contextMenu.show(e, { props: { layerPath: [...path, layer.uid] } })
+      contextMenu.show(e, { props: { layerPath: [...parentPath, layer.uid] } })
     })
 
     const handleClickConvertToGroup = useFunk(() => {
@@ -547,7 +457,7 @@ const SortableLayerItem = memo(
     })
 
     const handleClickConvertToSubstance = useFunk(() => {
-      execute(EditorOps.convertToSubstance, [...path, layer.uid])
+      execute(EditorOps.convertToSubstance, [...parentPath, layer.uid])
     })
 
     const handleClickMakeReferenceLayer = useFunk(
@@ -568,9 +478,19 @@ const SortableLayerItem = memo(
 
     const handleClickDeleteLayer = useFunk(
       ({ props }: LayerContextMenuParam) => {
-        execute(EditorOps.deleteLayer, props!.layerPath)
+        execute(
+          EditorOps.runCommand,
+          new SilkCommands.Layer.DeleteLayer({
+            pathToTargetLayer: props!.layerPath,
+          })
+        )
       }
     )
+
+    const handleClickCollapse = useFunk(() => {
+      toggleObjectsOpened()
+      onToggleCollapse(entry.id)
+    })
 
     useMouseTrap(
       rootRef,
@@ -578,7 +498,12 @@ const SortableLayerItem = memo(
         {
           key: ['del', 'backspace'],
           handler: () => {
-            execute(EditorOps.deleteLayer, [...path, layer.uid])
+            execute(
+              EditorOps.runCommand,
+              new SilkCommands.Layer.DeleteLayer({
+                pathToTargetLayer: [...parentPath, layer.uid],
+              })
+            )
           },
         },
       ],
@@ -593,10 +518,7 @@ const SortableLayerItem = memo(
       })
     })
 
-    // useEffect(() => {
-    //   layer.on('updated', rerender)
-    //   return () => layer.off('updated', rerender)
-    // }, [layer.uid])
+    useLayerWatch(layer)
 
     return (
       <div ref={setNodeRef} style={style} {...attributes} {...listeners}>
@@ -623,7 +545,7 @@ const SortableLayerItem = memo(
               backgroundColor:
                 activeLayer?.uid === layer.uid ? theme.surface.sidebarListActive
                 : selectedLayerUids.includes(layer.uid) ? rgba(theme.surface.sidebarListActive, .2)
-                : layeViewState.isReferencerHovered(layer.uid) ? theme.exactColors.orange10
+                : layeViewState.isReferencerHovered(layer.uid) ? theme.exactColors.orange20
                 : '',
               color:
                 activeLayer?.uid === layer.uid
@@ -637,7 +559,8 @@ const SortableLayerItem = memo(
                 width: 12px;
               `}
             >
-              {layer.layerType === 'vector' && (
+              {(layer.layerType === 'vector' ||
+                layer.layerType === 'group') && (
                 <ArrowDownS
                   css={`
                     width: 12px;
@@ -645,7 +568,7 @@ const SortableLayerItem = memo(
                   style={{
                     transform: objectsOpened ? 'rotateZ(180deg)' : 'rotateZ(0)',
                   }}
-                  onClick={toggleObjectsOpened}
+                  onClick={handleClickCollapse}
                 />
               )}
             </div>
@@ -788,7 +711,7 @@ const SortableLayerItem = memo(
             </div>
           </div>
 
-          {layer.layerType === 'vector' && (
+          {/* {layer.layerType === 'vector' && (
             <div
               css={`
                 flex-basis: 100%;
@@ -798,7 +721,7 @@ const SortableLayerItem = memo(
                 height: objectsOpened ? 'auto' : 0,
               }}
             >
-              {layer.objects.map((object) => (
+              {[...layer.objects].reverse().map((object) => (
                 <>
                   <div
                     css={`
@@ -813,6 +736,7 @@ const SortableLayerItem = memo(
                     }}
                     data-object-id={object.uid}
                     onClick={handleClickObject}
+                    onContextMenu={handleObjectContextMenu}
                     data-ignore-layer-click
                   >
                     パス
@@ -820,7 +744,7 @@ const SortableLayerItem = memo(
                 </>
               ))}
             </div>
-          )}
+          )} */}
         </div>
 
         <ContextMenu id={contextMenu.id}>
@@ -853,10 +777,254 @@ const SortableLayerItem = memo(
     )
   },
   (prev, next) =>
-    shallowEquals({ ...prev.layer.layer }, { ...next.layer.layer }) &&
-    prev.layer.depth === next.layer.depth &&
-    shallowEquals(prev.layer.path, next.layer.path)
+    shallowEquals({ ...prev.entry.layer }, { ...next.entry.layer }) &&
+    prev.entry.depth === next.entry.depth &&
+    shallowEquals(prev.entry.path, next.entry.path)
 )
+
+const SortableObjectItem = memo(({ entry }: { entry: FlatLayerEntry }) => {
+  if (entry.type !== 'object') return null
+  const { id, object, parentPath, depth } = entry
+
+  const { t } = useTranslation('app')
+  const theme = useTheme()
+  const { execute } = useFleur()
+  const { activeObject } = useStore((get) => ({
+    activeObject: EditorSelector.activeObject(get),
+  }))
+
+  const objectMenu = useContextMenu()
+
+  const { attributes, listeners, setNodeRef, transform, transition } =
+    useSortable({
+      id: entry.id,
+      animateLayoutChanges: ({ isSorting, wasDragging }) =>
+        isSorting || wasDragging ? false : true,
+    })
+
+  const handleClickObject = useFunk(
+    ({ currentTarget }: MouseEvent<HTMLDivElement>) => {
+      execute(
+        EditorOps.setActiveObject,
+        currentTarget.dataset.objectId ?? null,
+        parentPath
+      )
+    }
+  )
+
+  const handleObjectContextMenu = useFunk((e: MouseEvent<HTMLDivElement>) => {
+    e.stopPropagation()
+
+    objectMenu.show(e, {
+      props: {
+        layerPath: parentPath,
+        objectId: e.currentTarget.dataset.objectId!,
+      },
+    })
+  })
+
+  const handleClickDeleteObject = useFunk(
+    (e: ContextMenuParam<{ layerPath: string[]; objectId: string }>) => {
+      execute(
+        EditorOps.runCommand,
+        new SilkCommands.VectorLayer.DeleteObject({
+          pathToTargetLayer: parentPath,
+          objectUid: e.props!.objectId,
+        })
+      )
+    }
+  )
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+  }
+
+  return (
+    <>
+      <div
+        ref={setNodeRef}
+        css={`
+          padding: 6px 8px;
+          margin-left: 16px;
+        `}
+        style={{
+          ...style,
+          marginLeft: depth * 16,
+          backgroundColor:
+            activeObject?.uid === object.uid
+              ? theme.surface.sidebarListActive
+              : undefined,
+        }}
+        data-object-id={object.uid}
+        onClick={handleClickObject}
+        onContextMenu={handleObjectContextMenu}
+        {...attributes}
+        {...listeners}
+      >
+        {t('layerView.object.path')}
+      </div>
+
+      <ContextMenu id={objectMenu.id}>
+        <ContextMenuItem onClick={handleClickDeleteObject}>
+          {t('layerView.object.context.remove')}
+        </ContextMenuItem>
+      </ContextMenu>
+    </>
+  )
+})
+
+const ActiveLayerPane = memo(function ActiveLayerPane() {
+  const { t } = useTranslation('app')
+
+  const { execute } = useFleur()
+  const { activeLayer, activeLayerPath } = useStore((get) => ({
+    activeLayer: EditorSelector.activeLayer(get),
+    activeLayerPath: EditorSelector.activeLayerPath(get),
+  }))
+
+  useLayerWatch(activeLayer)
+
+  const [layerName, setLayerName] = useBufferedState(activeLayer?.name)
+
+  const handleChangeLayerName = useFunk(
+    ({ currentTarget }: ChangeEvent<HTMLInputElement>) => {
+      if (!activeLayerPath) return
+
+      setLayerName(currentTarget.value)
+      commitChangeLayerName(activeLayerPath, currentTarget.value)
+    }
+  )
+
+  const commitChangeLayerName = useDebouncedFunk(
+    (path: string[], layerName: string) => {
+      if (!activeLayerPath) return
+      execute(
+        EditorOps.runCommand,
+        new SilkCommands.Layer.PatchLayerAttr({
+          patch: { name: layerName },
+          pathToTargetLayer: path,
+        })
+      )
+    },
+    1000
+  )
+
+  const handleChangeCompositeMode = useFunk((value: string) => {
+    if (!activeLayerPath) return
+
+    execute(
+      EditorOps.updateLayer,
+      activeLayerPath,
+      (layer) => (layer.compositeMode = value as any)
+    )
+  })
+
+  const handleChangeOpacity = useFunk(
+    ({ currentTarget }: ChangeEvent<HTMLInputElement>) => {
+      if (!activeLayer) return
+
+      execute(EditorOps.updateLayer, activeLayerPath, (layer) => {
+        layer.opacity = currentTarget.valueAsNumber
+      })
+    }
+  )
+
+  return (
+    <div
+      css={css`
+        display: flex;
+        flex-flow: column;
+        gap: 8px;
+        padding: 8px;
+        padding-bottom: 14px;
+        ${tm((o) => [o.border.default.bottom])}
+      `}
+    >
+      <div>
+        <FakeInput
+          value={layerName}
+          placeholder={
+            activeLayer
+              ? `<${t(`layerType.${activeLayer.layerType}`)}>`
+              : '<未選択>'
+          }
+          onChange={handleChangeLayerName}
+        />
+      </div>
+      <div>
+        <span
+          css={`
+            margin-right: 8px;
+          `}
+        >
+          {t('blend')}
+        </span>
+
+        <SelectBox
+          css={`
+            padding: 2px 4px;
+          `}
+          items={[
+            ...(!activeLayer ? [{ value: '', label: '---' }] : []),
+            { value: 'normal', label: t('compositeModes.normal') },
+            { value: 'multiply', label: t('compositeModes.multiply') },
+            { value: 'screen', label: t('compositeModes.screen') },
+            { value: 'overlay', label: t('compositeModes.overlay') },
+            { value: 'clipper', label: t('compositeModes.clipper') },
+          ]}
+          value={activeLayer?.compositeMode ?? ''}
+          onChange={handleChangeCompositeMode}
+          placement="bottom-start"
+        />
+      </div>
+      <div
+        css={`
+          display: flex;
+          align-items: center;
+        `}
+      >
+        <span>{t('opacity')}</span>
+        <div
+          css={`
+            flex: 1;
+          `}
+        >
+          <input
+            css={`
+              display: block;
+              width: 100%;
+
+              vertical-align: bottom;
+              background: linear-gradient(
+                to right,
+                ${rgba('#fff', 0)},
+                ${rgba('#fff', 1)}
+              );
+              ${rangeThumb}
+            `}
+            type="range"
+            min={0}
+            max={100}
+            step={0.1}
+            value={activeLayer?.opacity ?? 100}
+            onChange={handleChangeOpacity}
+          />
+        </div>
+      </div>
+    </div>
+  )
+})
+
+const ObjectItem = memo(() => {
+  const { attributes, listeners, setNodeRef, transform, transition } =
+    useSortable({ id: layer.uid })
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+  }
+})
 
 const layerViewSlice = createSlice(
   {

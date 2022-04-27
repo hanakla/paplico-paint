@@ -5,7 +5,7 @@ export class AtomicResource<T> {
   private locked: boolean = false
   private currentOwner: { stack: Error; owner: any } | null = null
 
-  constructor(private resource: T) {}
+  constructor(private resource: T, private name?: string) {}
 
   public enjure({ owner }: { owner?: any } = {}): Promise<T> {
     if (this.locked) {
@@ -15,7 +15,7 @@ export class AtomicResource<T> {
       this.que.push(defer)
 
       console.warn(
-        'AtomicResource: Enjure enqueued in locked resource, it may cause deadlock.',
+        `AtomicResource(${this.name}): Enjure enqueued in locked resource, it may cause deadlock.`,
         { resource: this.resource },
         { request: { owner, stack: new Error() }, current: this.currentOwner }
       )

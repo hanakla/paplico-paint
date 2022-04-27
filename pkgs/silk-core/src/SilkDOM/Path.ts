@@ -12,6 +12,14 @@ import { lerp } from '../SilkMath'
 import { nanoid } from 'nanoid'
 
 export declare namespace Path {
+  export type Attributes = {
+    points: PathPoint[]
+    closed: boolean
+    randomSeed: number
+  }
+
+  export type SerializedAttibutes = Attributes
+
   export type StartPoint = { x: number; y: number }
 
   export type WeightPoint = [
@@ -72,7 +80,7 @@ export class Path implements ISilkDOMElement {
     return path
   }
 
-  public static deserialize(obj: any) {
+  public static deserialize(obj: Path.Attributes) {
     return assign(new Path(), {
       points: obj.points,
       closed: obj.closed,
@@ -266,7 +274,7 @@ export class Path implements ISilkDOMElement {
     })
   }
 
-  public serialize() {
+  public serialize(): Path.Attributes {
     return {
       points: deepClone(this.points),
       closed: this.closed,

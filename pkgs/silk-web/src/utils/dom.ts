@@ -8,7 +8,10 @@ export const DOMUtils = {
   ) => {
     return inspect === target && inspect !== null
   },
-  isChildren: (inspect: Element | EventTarget | null, self: Element | null) => {
+  isChildren: (
+    inspect: Element | EventTarget | null,
+    self: Element | EventTarget | null
+  ) => {
     return (self !== inspect && self?.contains(inspect as Element)) ?? false
   },
   childrenOrSelf: (
@@ -41,5 +44,8 @@ export const DOMUtils = {
   },
   stopPropagationHandler: (e: SyntheticEvent) => {
     e.stopPropagation()
+  },
+  preventDefaultHandler: (e: SyntheticEvent) => {
+    e.preventDefault()
   },
 }

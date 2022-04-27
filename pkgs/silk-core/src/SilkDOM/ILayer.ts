@@ -28,6 +28,11 @@ export type LayerProperties = {
   y: number
 }
 
+export declare namespace ILayer {
+  export type Attributes = LayerProperties
+  export type SerializedAttributes = LayerProperties
+}
+
 export interface ILayer
   // Emitter<LayerEvents<any>>,
   extends LayerProperties,

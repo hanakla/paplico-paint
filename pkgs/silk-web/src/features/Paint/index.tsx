@@ -13,49 +13,44 @@ import {
   RefObject,
   TouchEvent,
   useEffect,
-  useMemo,
   useRef,
   useState,
 } from 'react'
 import {
   useClickAway,
-  useDrop,
   useDropArea,
   useInterval,
   useToggle,
   useUpdate,
 } from 'react-use'
-import { useGesture, useDrag } from 'react-use-gesture'
+import { useGesture } from 'react-use-gesture'
 import { autoPlacement, shift, useFloating } from '@floating-ui/react-dom'
-
-import {
-  CanvasHandler,
-  RenderStrategies,
-  SilkSession,
-  Silk3,
-  SilkBrushes,
-  SilkDOM,
-  SilkHelper,
-  SilkSerializer,
-  SilkCommands,
-  SilkCanvasFactory,
-} from 'silk-core'
+import { useRouter } from 'next/router'
 import { css, useTheme } from 'styled-components'
 import useMeasure from 'use-measure'
 import { Moon, Sun } from '@styled-icons/remix-fill'
 import { Menu } from '@styled-icons/remix-line'
 import { useTranslation } from 'next-i18next'
+import { fit } from 'object-fit-math'
+
+import {
+  CanvasHandler,
+  Silk3,
+  SilkBrushes,
+  SilkDOM,
+  SilkHelper,
+  SilkCommands,
+  SilkCanvasFactory,
+  SilkSession,
+} from 'silk-core'
 
 import { Sidebar } from '🙌/components/Sidebar'
 import { FilterView } from './containers/FilterView'
 import { LayerView } from './containers/LayerView'
 import { EditorOps, EditorSelector, EditorStore } from '🙌/domains/EditorStable'
-import {
-  useFunkyGlobalMouseTrap,
-  useGlobalMouseTrap,
-} from '🙌/hooks/useMouseTrap'
+import { useFunkyGlobalMouseTrap } from '🙌/hooks/useMouseTrap'
 import { EngineContextProvider } from '🙌/lib/EngineContext'
-import { useMedia } from '🙌/utils/hooks'
+import { useFleur, useMedia, useMultiFingerTouch } from '🙌/utils/hooks'
 import { ControlsOverlay } from './containers/ControlsOverlay'
 import { MainActions } from '../Paint/containers/MainActions/MainActions'
 import { DebugView } from './containers/DebugView'
@@ -69,21 +64,20 @@ import { Tooltip } from '🙌/components/Tooltip'
 import { NotifyOps, useNotifyConsumer } from '🙌/domains/Notify'
 import { SidebarPane } from '🙌/components/SidebarPane'
 import { BrushPresets } from './containers/BrushPresets'
-import { ThemeProp } from '🙌/utils/theme'
 import { Dropzone } from '🙌/components/Dropzone'
-import { DndContext, useDraggable } from '@dnd-kit/core'
-import { nanoid } from 'nanoid'
-import { CSS } from '@dnd-kit/utilities'
+import { log } from '🙌/utils/log'
+import { DOMUtils } from '🙌/utils/dom'
 import { FloatingWindow } from '🙌/components/FloatingWindow'
 import { exportProject } from '🙌/domains/EditorStable/exportProject'
-import { LoadingLock } from '🙌/containers/LoadingLock'
-import { log } from '../../utils/log'
+import { combineRef } from '../../utils/react'
 
 export const PaintPage = memo(function PaintPage({}) {
   const { t } = useTranslation('app')
   const theme = useTheme()
+  const router = useRouter()
 
-  const { executeOperation, getStore } = useFleurContext()
+  const { executeOperation } = useFleurContext()
+  const { execute, getStore } = useFleur()
   const {
     currentDocument,
     activeLayer,
@@ -118,9 +112,6 @@ export const PaintPage = memo(function PaintPage({}) {
   const [sidebarOpened, sidebarToggle] = useToggle(!isNarrowMedia)
   const [stream, setStream] = useState<MediaStream | null>(null)
   const [saveMessage] = useNotifyConsumer('save', 1)
-  // const sidebarStyles = useSpring({
-  //   width: isNarrowMedia === false || sidebarOpened ? 200 : 32,
-  // })
 
   const handleOnDrop = useFunk(async (files: File[]) => {
     if (!currentDocument) return
@@ -140,13 +131,6 @@ export const PaintPage = memo(function PaintPage({}) {
       lastLayerId = layer.uid
     }
   })
-
-  const handleTapEditArea = useFunk(
-    ({ touches }: TouchEvent<HTMLDivElement>) => {
-      if (touches.length === 2) console.log('undo')
-      if (touches.length === 3) console.log('redo')
-    }
-  )
 
   const handleChangeDisableFilters = useFunk(
     ({ currentTarget }: ChangeEvent<HTMLInputElement>) => {
@@ -227,7 +211,6 @@ export const PaintPage = memo(function PaintPage({}) {
   })
 
   const [bindDrop, dragState] = useDropArea({ onFiles: handleOnDrop })
-  // const tapBind = useTap(handleTapEditArea)
 
   useFunkyGlobalMouseTrap(['ctrl+s', 'command+s'], (e) => {
     e.preventDefault()
@@ -243,12 +226,11 @@ export const PaintPage = memo(function PaintPage({}) {
   })
 
   useFunkyGlobalMouseTrap(['v'], () =>
-    executeOperation(
-      EditorOps.setTool,
-      currentTool === 'cursor' && activeLayer?.layerType === 'vector'
-        ? 'point-cursor'
-        : 'cursor'
-    )
+    executeOperation(EditorOps.setTool, 'cursor')
+  )
+
+  useFunkyGlobalMouseTrap(['a'], () =>
+    executeOperation(EditorOps.setTool, 'point-cursor')
   )
 
   useFunkyGlobalMouseTrap(['b'], () =>
@@ -298,6 +280,11 @@ export const PaintPage = memo(function PaintPage({}) {
     })
   })
 
+  const editorMultiTouchRef = useMultiFingerTouch((e) => {
+    if (e.fingers == 2) execute(EditorOps.undoCommand)
+    if (e.fingers == 3) execute(EditorOps.redoCommand)
+  })
+
   useGesture(
     {
       onPinch: ({ delta: [d, r] }) => {
@@ -329,31 +316,37 @@ export const PaintPage = memo(function PaintPage({}) {
       canvas: canvasRef.current!,
     })
 
-    const session = ((window as any)._session = await SilkSession.create())
-    session.setBrushSetting({ color: { r: 0.3, g: 0.3, b: 0.3 } })
+    Object.defineProperty(window, '_session', {
+      configurable: true,
+      get() {
+        return getStore(EditorStore).state.session
+      },
+    })
 
-    const strategy = new RenderStrategies.DifferenceRender()
-    session.setRenderStrategy(strategy)
+    // const session = ((window as any)._session = await SilkSession.create())
+    // session.setBrushSetting({ color: { r: 0.3, g: 0.3, b: 0.3 } })
+
+    // const strategy = new RenderStrategies.DifferenceRender()
+    // session.setRenderStrategy(strategy)
 
     executeOperation(EditorOps.initEngine, {
       engine: engine.current,
-      session,
-      strategy,
     })
+
     executeOperation(EditorOps.setBrushSetting, {
       brushId: SilkBrushes.ScatterBrush.id,
     })
 
     if (process.env.NODE_ENV !== 'development') {
-      const document = EditorSelector.currentDocument(getStore)
-      if (document) {
-        executeOperation(EditorOps.setActiveLayer, [document.layers[0].uid])
-      }
+      // const document = EditorSelector.currentDocument(getStore)
+      // if (document) {
+      //   executeOperation(EditorOps.setActiveLayer, [document.layers[0].uid])
+      // }
     } else {
       if (EditorSelector.currentDocument(getStore) != null) return
 
       const document = SilkDOM.Document.create({ width: 1000, height: 1000 })
-      executeOperation(EditorOps.setDocument, document)
+      executeOperation(EditorOps.createSession, document)
 
       const layer = SilkDOM.RasterLayer.create({ width: 1000, height: 1000 })
       const vector = SilkDOM.VectorLayer.create({
@@ -460,10 +453,10 @@ export const PaintPage = memo(function PaintPage({}) {
       document.layers.push(group)
       document.layers.unshift(reference)
 
-      // await executeOperation(EditorOps.createSession, document)
-      await executeOperation(EditorOps.setActiveLayer, [vector.uid])
+      executeOperation(EditorOps.createSession, document)
+      executeOperation(EditorOps.setActiveLayer, [vector.uid])
 
-      await executeOperation(EditorOps.setFill, {
+      executeOperation(EditorOps.setFill, {
         type: 'linear-gradient',
         colorStops: [
           { color: { r: 0, g: 1, b: 1, a: 1 }, position: 0 },
@@ -487,6 +480,7 @@ export const PaintPage = memo(function PaintPage({}) {
     setStream(stream)
 
     rerender()
+    executeOperation(EditorOps.rerenderCanvas)
 
     return () => {}
   }, [])
@@ -549,7 +543,6 @@ export const PaintPage = memo(function PaintPage({}) {
 
   return (
     <EngineContextProvider value={engine.current!}>
-      <LoadingLock />
       <div
         ref={rootRef}
         css={css`
@@ -615,7 +608,7 @@ export const PaintPage = memo(function PaintPage({}) {
         </>
 
         <div
-          ref={editAreaRef}
+          ref={combineRef(editAreaRef, editorMultiTouchRef)}
           css={css`
             position: relative;
             display: flex;
@@ -634,6 +627,7 @@ export const PaintPage = memo(function PaintPage({}) {
               currentTool === 'shape-pen' ? `${theme.cursors.pencilLine}, auto` : // 'url(cursors/pencil-line.svg), auto':
               'default',
           }}
+          onContextMenu={DOMUtils.preventDefaultHandler}
         >
           <div
             css={css`
@@ -900,25 +894,40 @@ const PaintCanvas = memo(function PaintCanvas({
   canvasRef: RefObject<HTMLCanvasElement>
 }) {
   const canvasHandler = useRef<CanvasHandler | null>(null)
-  const { session, engine, renderStrategy, scale, pos } = useStore((get) => ({
-    session: get(EditorStore).state.session,
-    engine: get(EditorStore).state.engine,
-    renderStrategy: get(EditorStore).state.renderStrategy,
-    scale: get(EditorStore).state.canvasScale,
-    pos: get(EditorStore).state.canvasPosition,
-  }))
+  const { currentDocument, session, engine, renderStrategy, scale, pos } =
+    useStore((get) => ({
+      currentDocument: EditorSelector.currentDocument(get),
+      session: get(EditorStore).state.session,
+      engine: get(EditorStore).state.engine,
+      renderStrategy: get(EditorStore).state.renderStrategy,
+      scale: get(EditorStore).state.canvasScale,
+      pos: get(EditorStore).state.canvasPosition,
+    }))
+
+  const measure = useMeasure(canvasRef)
 
   useEffect(() => {
-    if (!session || !engine || !renderStrategy) return
+    if (!session || !engine || !renderStrategy || !currentDocument) return
     const handler = (canvasHandler.current = new CanvasHandler(
       canvasRef.current!
     ))
-    canvasHandler.current.connect(session, renderStrategy, engine)
+
+    const size = fit(measure, currentDocument, 'contain')
+
+    if (currentDocument.width > currentDocument.height) {
+      // landscape
+      handler.scale = currentDocument.width / size.width
+    } else {
+      // portrait
+      handler.scale = currentDocument.height / size.height
+    }
+
+    handler.connect(session, renderStrategy, engine)
 
     return () => {
       handler.dispose()
     }
-  }, [session, renderStrategy, engine])
+  }, [session, engine, renderStrategy, currentDocument])
 
   useEffect(() => {
     if (!canvasHandler.current) return

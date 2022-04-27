@@ -4,30 +4,35 @@ import {
   autoUpdate,
   useFloating,
   Placement,
+  Strategy,
 } from '@floating-ui/react-dom'
 import { nanoid } from 'nanoid'
 import { ReactNode, useEffect, useMemo, useRef } from 'react'
-import { createGlobalStyle } from 'styled-components'
+import { createGlobalStyle, css } from 'styled-components'
 
 type Props = {
   content: ReactNode
-  children: ReactNode
+  children?: ReactNode
   show?: boolean
+  hoverToShow?: boolean
   placement?: Placement
+  strategy?: Strategy
 }
 
 export const Tooltip2 = ({
   content,
   children,
   show,
+  hoverToShow = true,
   placement = 'top',
+  strategy = 'fixed',
 }: Props) => {
   const id = useMemo(() => nanoid().replace(/-/gm, ''), [])
   const arrowRef = useRef<HTMLDivElement | null>(null)
 
   const fl = useFloating({
     placement,
-    strategy: 'fixed',
+    strategy,
     middleware: [
       autoPlacement({
         alignment: 'start',
@@ -53,8 +58,7 @@ export const Tooltip2 = ({
     <>
       <div
         css={`
-          position: fixed;
-          z-index: 1;
+          /* z-index: 1; */
           padding: 4px;
           background-color: #111;
           border-radius: 4px;
@@ -78,13 +82,21 @@ export const Tooltip2 = ({
             width: 8px;
             height: 8px;
             transform: rotate(45deg);
-            background-color: #111;
+            /* background-color: #111; */
+            border: 4px solid transparent;
           `}
           ref={arrowRef}
           role="none"
           style={{
             left: fl.middlewareData.arrow?.x ?? 0,
             top: fl.middlewareData.arrow?.y ?? 0,
+            borderColor:
+              // prettier-ignore
+              /top/.test(placement) ? 'transparent transparent #111 transparent'
+              : /right/.test(placement) ? 'transparent #111 transparent transparent'
+              : /bottom/.test(placement) ? '#111 transparent transparent transparent'
+              : /left/.test(placement) ? 'transparent transparent transparent #111'
+              : undefined,
           }}
         />
 
@@ -96,14 +108,18 @@ export const Tooltip2 = ({
           {content}
         </span>
       </div>
-      <Global id={id} show={show} />
+      <Global id={id} show={show} hoverToShow={hoverToShow} />
 
       {children}
     </>
   )
 }
 
-const Global = createGlobalStyle<{ id: string; show?: boolean }>`
+const Global = createGlobalStyle<{
+  id: string
+  show: boolean
+  hoverToShow: boolean
+}>`
 * > [data-tipid="${({ id }) => id}"] {
   opacity: 0;
   pointer-events: none;
@@ -112,7 +128,11 @@ const Global = createGlobalStyle<{ id: string; show?: boolean }>`
   opacity: ${({ show }) => (show ? 1 : 0)};
 }
 
-*:hover > [data-tipid="${({ id }) => id}"] {
-  opacity: 1;
-}
+  ${({ hoverToShow, id }) =>
+    hoverToShow &&
+    css`
+      *:hover > [data-tipid='${id}'] {
+        opacity: 1;
+      }
+    `}
 `

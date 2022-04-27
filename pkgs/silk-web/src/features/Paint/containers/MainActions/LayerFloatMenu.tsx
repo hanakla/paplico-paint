@@ -6,34 +6,18 @@ import {
   Eye,
   EyeClose,
   Menu,
-  More,
   Magic,
 } from '@styled-icons/remix-line'
 import { Magic as MagicFill } from '@styled-icons/remix-fill'
 import { useTranslation } from 'next-i18next'
 import { rgba } from 'polished'
-import {
-  ChangeEvent,
-  forwardRef,
-  memo,
-  MouseEvent,
-  useEffect,
-  useRef,
-  useState,
-} from 'react'
-import {
-  SortableContainer,
-  SortableElement,
-  SortableHandle,
-  SortEndHandler,
-} from 'react-sortable-hoc'
+import { ChangeEvent, forwardRef, memo, MouseEvent, useRef } from 'react'
 import { css, useTheme } from 'styled-components'
-import { SilkDOM } from 'silk-core'
-import { useFleurContext, useStore } from '@fleur/react'
+import { SilkCommands, SilkDOM } from 'silk-core'
+import { useStore } from '@fleur/react'
 import { useFunk } from '@hanakla/arma'
 
 import { Portal } from '🙌/components/Portal'
-import { useLayerControl } from '🙌/hooks/useLayers'
 import { centering, rangeThumb, silkScroll } from '🙌/utils/mixins'
 import { useClickAway, useToggle } from 'react-use'
 import { SelectBox } from '🙌/components/SelectBox'
@@ -57,17 +41,21 @@ import { calcLayerMove, FlatLayerEntry, flattenLayers } from '../../helpers'
 import { CSS } from '@dnd-kit/utilities'
 import { useFleur } from '🙌/utils/hooks'
 import { Checkbox } from '🙌/components/Checkbox'
+import { shallowEquals } from '🙌/utils/object'
 
 export const LayerFloatMenu = memo(
   forwardRef<HTMLDivElement, {}>((_, ref) => {
     const { t } = useTranslation('app')
 
     const { execute } = useFleur()
-    const { currentDocument, layers, activeLayer } = useStore((get) => ({
-      currentDocument: EditorSelector.currentDocument(get),
-      layers: EditorSelector.layers(get),
-      activeLayer: EditorSelector.activeLayer(get),
-    }))
+    const { currentDocument, layers, activeLayer, activeLayerPath } = useStore(
+      (get) => ({
+        currentDocument: EditorSelector.currentDocument(get),
+        layers: EditorSelector.layers(get),
+        activeLayer: EditorSelector.activeLayer(get),
+        activeLayerPath: EditorSelector.activeLayerPath(get),
+      })
+    )
 
     const [addLayerSheetOpened, toggleAddLayerSheetOpened] = useToggle(false)
 
@@ -139,9 +127,14 @@ export const LayerFloatMenu = memo(
     )
 
     const handleClickRemoveLayer = useFunk(() => {
-      if (!activeLayer) return
+      if (!activeLayerPath) return
 
-      execute(EditorOps.deleteLayer, [activeLayer.uid])
+      execute(
+        EditorOps.runCommand,
+        new SilkCommands.Layer.DeleteLayer({
+          pathToTargetLayer: activeLayerPath,
+        })
+      )
     })
 
     const addLayerSheetRef = useRef<HTMLDivElement | null>(null)
@@ -177,12 +170,16 @@ export const LayerFloatMenu = memo(
             onDragEnd={handleLayerDragEnd}
           >
             <SortableContext
-              items={flatLayers.map((l) => l.layer.uid)}
+              items={flatLayers
+                .filter((e) => e.type === 'layer')
+                .map((l) => l.layer.uid)}
               strategy={verticalListSortingStrategy}
             >
-              {flatLayers.map((layer) => (
-                <SortableLayerItem key={layer.layer.uid} layer={layer} />
-              ))}
+              {flatLayers
+                .filter((e) => e.type === 'layer')
+                .map((layer) => (
+                  <SortableLayerItem key={layer.layer.uid} entry={layer} />
+                ))}
             </SortableContext>
           </DndContext>
         </div>
@@ -347,340 +344,196 @@ export const LayerFloatMenu = memo(
   })
 )
 
-const SortableLayerItem = ({
-  layer: { layer, path, depth },
-}: {
-  layer: FlatLayerEntry
-}) => {
-  const { t } = useTranslation('app')
-  const theme = useTheme()
-  const { attributes, listeners, setNodeRef, transform, transition } =
-    useSortable({ id: layer.uid })
+const SortableLayerItem = memo(
+  ({ entry }: { entry: FlatLayerEntry }) => {
+    const { layer, parentPath, depth } = entry
 
-  const { execute } = useFleur()
-  const { activeLayer, thumbnailUrlOfLayer, selectedLayerUids } = useStore(
-    (get) => ({
-      activeLayer: EditorSelector.activeLayer(get),
-      thumbnailUrlOfLayer: EditorSelector.thumbnailUrlOfLayer(get),
-      selectedLayerUids: EditorSelector.selectedLayerUids(get),
-    })
-  )
-
-  const [actionSheetOpened, setActionSheetOpen] = useToggle(false)
-  const actionSheetRef = useRef<HTMLDivElement | null>(null)
-
-  const handleClick = useFunk((e: MouseEvent<HTMLDivElement>) => {
-    if (DOMUtils.closestOrSelf(e.target, '[data-sortable-layer-ignore-click]'))
-      return
-
-    execute(EditorOps.setActiveLayer, [...path, layer.uid])
-  })
-
-  const handleClickToggleVisible = useFunk((e: MouseEvent) => {
-    execute(EditorOps.updateLayer, [...path, layer.uid], (layer) => {
-      layer.visible = !layer.visible
-    })
-  })
-
-  const handleClickLayerConfig = useFunk((e: MouseEvent) => {
-    e.stopPropagation()
-    setActionSheetOpen()
-  })
-
-  const handleClickLayerCheck = useFunk((e: ChangeEvent<HTMLInputElement>) => {
-    e.preventDefault()
-    e.stopPropagation()
-
-    execute(EditorOps.setLayerSelection, (uids) => {
-      if (e.currentTarget.checked) {
-        return [...uids, layer.uid]
-      } else {
-        return uids.filter((uid) => uid !== layer.uid)
-      }
-    })
-  })
-
-  const handleSheetClose = useFunk(() => {
-    setActionSheetOpen(false)
-  })
-
-  useClickAway(actionSheetRef, (e) => {
-    // Reduce rerendering
-    if (actionSheetOpened) setActionSheetOpen(false)
-  })
-
-  const style = {
-    transform: CSS.Transform.toString(transform),
-    transition,
-  }
-
-  return (
-    <div
-      ref={setNodeRef}
-      css={css`
-        display: flex;
-        gap: 8px;
-        padding: 4px 8px;
-        user-select: none;
-        color: ${({ theme }) => theme.exactColors.black40};
-      `}
-      style={{
-        backgroundColor:
-          activeLayer?.uid === layer.uid
-            ? theme.colors.blueFade40
-            : 'transparent',
-        paddingLeft: 8 + depth * 24,
-        ...style,
-      }}
-      onClick={handleClick}
-    >
-      <Checkbox
-        checked={selectedLayerUids.includes(layer.uid)}
-        onClick={DOMUtils.stopPropagationHandler}
-        onChange={handleClickLayerCheck}
-      />
-      <img
-        css={`
-          background: linear-gradient(
-              45deg,
-              rgba(0, 0, 0, 0.2) 25%,
-              transparent 25%,
-              transparent 75%,
-              rgba(0, 0, 0, 0.2) 75%
-            ),
-            linear-gradient(
-              45deg,
-              rgba(0, 0, 0, 0.2) 25%,
-              transparent 25%,
-              transparent 75%,
-              rgba(0, 0, 0, 0.2) 75%
-            );
-          background-size: 8px 8px;
-          background-position: 0 0, 4px 4px;
-          width: 32px;
-          height: 32px;
-        `}
-        style={{}}
-        src={thumbnailUrlOfLayer(layer.uid)}
-      />
-      <div
-        css={`
-          display: flex;
-          justify-content: center;
-        `}
-        onClick={handleClickToggleVisible}
-      >
-        {layer.visible ? (
-          <Eye
-            css={`
-              width: 20px;
-            `}
-          />
-        ) : (
-          <EyeClose
-            css={`
-              width: 20px;
-            `}
-          />
-        )}
-      </div>
-      <div
-        css={`
-          display: flex;
-          flex-flow: column;
-          flex: 1;
-          overflow: hidden;
-        `}
-      >
-        <div
-          css={`
-            max-width: 100%;
-            white-space: nowrap;
-          `}
-        >
-          {layer.name === ''
-            ? `<${t(`layerType.${layer.layerType}`)}>`
-            : layer.name}
-        </div>
-        <div css="display: flex; gap: 4px;">
-          <span>{t(`compositeModes.${layer.compositeMode}`)}</span>
-          <span>{Math.round(layer.opacity)}%</span>
-        </div>
-      </div>
-
-      <div
-        css={`
-          display: flex;
-          justify-content: center;
-          align-items: center;
-        `}
-        onClick={handleClickLayerConfig}
-        data-sortable-layer-ignore-click
-      >
-        {layer.filters.length > 0 ? (
-          <MagicFill
-            css={`
-              width: 20px;
-            `}
-          />
-        ) : (
-          <Magic
-            css={`
-              width: 20px;
-            `}
-          />
-        )}
-      </div>
-
-      <div
-        css={`
-          display: flex;
-          justify-content: center;
-          align-items: center;
-        `}
-        data-sortable-layer-ignore-click
-        {...attributes}
-        {...listeners}
-      >
-        <span tabIndex={0}>
-          <Menu
-            css={`
-              width: 20px;
-            `}
-          />
-        </span>
-      </div>
-
-      <Portal>
-        <ActionSheet
-          ref={actionSheetRef}
-          opened={actionSheetOpened}
-          onClose={handleSheetClose}
-          fill
-        >
-          <div
-            css={`
-              display: flex;
-              flex-flow: column;
-            `}
-          >
-            <div
-              css={`
-                margin-bottom: 24px;
-              `}
-            >
-              フィルター -{' '}
-              <span
-                css={`
-                  max-width: 100px;
-                  white-space: nowrap;
-                  text-overflow: ellipsis;
-                `}
-              >
-                {layer.name}
-              </span>
-            </div>
-
-            <SortableFiltersList
-              css={`
-                flex: 1;
-                overflow: auto;
-              `}
-              layer={layer}
-              axis="y"
-              useDragHandle
-            />
-          </div>
-        </ActionSheet>
-      </Portal>
-    </div>
-  )
-}
-
-const SortableFiltersList = SortableContainer(
-  ({ layer, className }: { layer: SilkDOM.LayerTypes; className?: string }) => {
-    return (
-      <ul className={className}>
-        {layer.filters.map((filter, idx) => (
-          <SortableFilterItem
-            key={filter.uid}
-            index={idx}
-            layer={layer}
-            filter={filter}
-          />
-        ))}
-      </ul>
-    )
-  }
-)
-
-const SortableFilterItem = SortableElement(
-  ({
-    layer,
-    filter,
-  }: {
-    layer: SilkDOM.LayerTypes
-    filter: SilkDOM.Filter
-  }) => {
     const { t } = useTranslation('app')
+    const theme = useTheme()
+    const { attributes, listeners, setNodeRef, transform, transition } =
+      useSortable({ id: layer.uid })
 
     const { execute } = useFleur()
-    const { selectedFilterIds } = useStore((get) => ({
-      selectedFilterIds: get(EditorStore).state.selectedFilterIds,
-    }))
-    const active = selectedFilterIds[filter.uid]
+    const { activeLayer, thumbnailUrlOfLayer, selectedLayerUids } = useStore(
+      (get) => ({
+        activeLayer: EditorSelector.activeLayer(get),
+        thumbnailUrlOfLayer: EditorSelector.thumbnailUrlOfLayer(get),
+        selectedLayerUids: EditorSelector.selectedLayerUids(get),
+      })
+    )
+
+    const [actionSheetOpened, setActionSheetOpen] = useToggle(false)
+    const actionSheetRef = useRef<HTMLDivElement | null>(null)
 
     const handleClick = useFunk((e: MouseEvent<HTMLDivElement>) => {
-      if (DOMUtils.closestOrSelf(e.target, '[data-ignore-click]')) return
+      if (
+        DOMUtils.closestOrSelf(e.target, '[data-sortable-layer-ignore-click]')
+      )
+        return
 
-      execute(EditorOps.setSelectedFilterIds, { [filter.uid]: true })
+      execute(EditorOps.setActiveLayer, [...parentPath, layer.uid])
     })
 
-    const handleToggleVisibility = useFunk(() => {
-      execute(EditorOps.updateLayer, [layer.uid], (layer) => {
-        const targetFilter = layer.filters.find((f) => f.uid === filter.uid)
-        if (!targetFilter) return
-
-        targetFilter.visible = !targetFilter.visible
+    const handleClickToggleVisible = useFunk((e: MouseEvent) => {
+      execute(EditorOps.updateLayer, [...parentPath, layer.uid], (layer) => {
+        layer.visible = !layer.visible
       })
-
-      execute(EditorOps.rerenderCanvas)
     })
+
+    const handleClickLayerConfig = useFunk((e: MouseEvent) => {
+      e.stopPropagation()
+      setActionSheetOpen()
+    })
+
+    const handleClickLayerCheck = useFunk(
+      (e: ChangeEvent<HTMLInputElement>) => {
+        e.preventDefault()
+        e.stopPropagation()
+
+        execute(EditorOps.setLayerSelection, (uids) => {
+          if (e.currentTarget.checked) {
+            return [...uids, layer.uid]
+          } else {
+            return uids.filter((uid) => uid !== layer.uid)
+          }
+        })
+      }
+    )
+
+    const handleSheetClose = useFunk(() => {
+      setActionSheetOpen(false)
+    })
+
+    useClickAway(actionSheetRef, (e) => {
+      // Reduce rerendering
+      if (actionSheetOpened) setActionSheetOpen(false)
+    })
+
+    const style = {
+      transform: CSS.Transform.toString(transform),
+      transition,
+    }
 
     return (
       <div
-        css={`
+        ref={setNodeRef}
+        css={css`
           display: flex;
-          flex-wrap: wrap;
-          gap: 4px 16px;
-          padding: 8px 0;
-          padding-right: 8px;
-
-          & + & {
-            border-top: 1px solid ${rgba('#000', 0.1)};
-          }
+          gap: 2px;
+          padding: 4px 8px;
+          user-select: none;
+          color: ${({ theme }) => theme.exactColors.black40};
         `}
+        style={{
+          backgroundColor:
+            activeLayer?.uid === layer.uid
+              ? theme.colors.blueFade40
+              : 'transparent',
+          paddingLeft: 8 + depth * 24,
+          ...style,
+        }}
         onClick={handleClick}
       >
-        <div
+        <label
           css={`
             ${centering()}
+            padding: 0 4px;
           `}
-          onClick={handleToggleVisibility}
-          data-ignore-click
         >
-          {filter.visible ? (
+          <Checkbox
+            checked={selectedLayerUids.includes(layer.uid)}
+            onClick={DOMUtils.stopPropagationHandler}
+            onChange={handleClickLayerCheck}
+          />
+        </label>
+        <img
+          css={`
+            background: linear-gradient(
+                45deg,
+                rgba(0, 0, 0, 0.2) 25%,
+                transparent 25%,
+                transparent 75%,
+                rgba(0, 0, 0, 0.2) 75%
+              ),
+              linear-gradient(
+                45deg,
+                rgba(0, 0, 0, 0.2) 25%,
+                transparent 25%,
+                transparent 75%,
+                rgba(0, 0, 0, 0.2) 75%
+              );
+            background-size: 8px 8px;
+            background-position: 0 0, 4px 4px;
+            width: 32px;
+            height: 32px;
+          `}
+          style={{}}
+          src={thumbnailUrlOfLayer(layer.uid)}
+        />
+        <div
+          css={`
+            display: flex;
+            justify-content: center;
+          `}
+          onClick={handleClickToggleVisible}
+        >
+          {layer.visible ? (
             <Eye
               css={`
                 width: 20px;
-                vertical-align: bottom;
               `}
             />
           ) : (
             <EyeClose
               css={`
                 width: 20px;
-                vertical-align: bottom;
+              `}
+            />
+          )}
+        </div>
+        <div
+          css={`
+            display: flex;
+            flex-flow: column;
+            flex: 1;
+            overflow: hidden;
+          `}
+        >
+          <div
+            css={`
+              max-width: 100%;
+              white-space: nowrap;
+            `}
+          >
+            {layer.name === ''
+              ? `<${t(`layerType.${layer.layerType}`)}>`
+              : layer.name}
+          </div>
+          <div css="display: flex; gap: 4px;">
+            <span>{t(`compositeModes.${layer.compositeMode}`)}</span>
+            <span>{Math.round(layer.opacity)}%</span>
+          </div>
+        </div>
+
+        <div
+          css={`
+            display: flex;
+            justify-content: center;
+            align-items: center;
+          `}
+          onClick={handleClickLayerConfig}
+          data-sortable-layer-ignore-click
+        >
+          {layer.filters.length > 0 ? (
+            <MagicFill
+              css={`
+                width: 20px;
+              `}
+            />
+          ) : (
+            <Magic
+              css={`
+                width: 20px;
               `}
             />
           )}
@@ -688,40 +541,262 @@ const SortableFilterItem = SortableElement(
 
         <div
           css={`
-            ${centering()}
-          `}
-        >
-          {t(`filters.${filter.filterId}`)}
-        </div>
-
-        <div
-          css={`
             display: flex;
-            align-items: center;
             justify-content: center;
-            margin-left: auto;
+            align-items: center;
           `}
-          data-ignore-click
+          data-sortable-layer-ignore-click
+          {...attributes}
+          {...listeners}
         >
-          <FilterSortHandle />
+          <span tabIndex={0}>
+            <Menu
+              css={`
+                width: 20px;
+              `}
+            />
+          </span>
         </div>
 
-        {active && (
-          <div
-            css={`
-              flex-basis: 100%;
-              padding-left: 24px;
-            `}
+        <Portal>
+          <ActionSheet
+            ref={actionSheetRef}
+            opened={actionSheetOpened}
+            onClose={handleSheetClose}
+            fill
           >
-            <FilterSettings layer={layer} filter={filter}></FilterSettings>
-          </div>
-        )}
+            <div
+              css={`
+                margin-bottom: 24px;
+              `}
+            >
+              <span
+                css={`
+                  max-width: 100px;
+                  white-space: nowrap;
+                  text-overflow: ellipsis;
+                `}
+              >
+                {t('filter')}
+              </span>
+            </div>
+            <header
+              css={css`
+                display: flex;
+                gap: 8px;
+                padding-bottom: 8px;
+                border-bottom: 1px solid
+                  ${({ theme }) => theme.exactColors.blackFade30};
+              `}
+            >
+              <img
+                css={`
+                  background: linear-gradient(
+                      45deg,
+                      rgba(0, 0, 0, 0.2) 25%,
+                      transparent 25%,
+                      transparent 75%,
+                      rgba(0, 0, 0, 0.2) 75%
+                    ),
+                    linear-gradient(
+                      45deg,
+                      rgba(0, 0, 0, 0.2) 25%,
+                      transparent 25%,
+                      transparent 75%,
+                      rgba(0, 0, 0, 0.2) 75%
+                    );
+                  background-size: 8px 8px;
+                  background-position: 0 0, 4px 4px;
+                  width: 32px;
+                  height: 32px;
+                `}
+                src={thumbnailUrlOfLayer(layer.uid)}
+              />
+              <div
+                css={`
+                  display: flex;
+                  flex-flow: column;
+                  flex: 1;
+                  overflow: hidden;
+                `}
+              >
+                <div
+                  css={`
+                    max-width: 100%;
+                    white-space: nowrap;
+                  `}
+                >
+                  <span
+                    css={`
+                      display: inline-block;
+                      margin-right: 8px;
+                      font-weight: bold;
+                    `}
+                  >
+                    フィルター
+                  </span>
+                  {layer.name === ''
+                    ? `<${t(`layerType.${layer.layerType}`)}>`
+                    : layer.name}
+                </div>
+                <div css="display: flex; gap: 4px;">
+                  <span>{t(`compositeModes.${layer.compositeMode}`)}</span>
+                  <span>{Math.round(layer.opacity)}%</span>
+                </div>
+              </div>
+            </header>
+
+            <div
+              css={`
+                display: flex;
+                flex-flow: column;
+              `}
+            >
+              <SortableFiltersList
+                css={`
+                  flex: 1;
+                  overflow: auto;
+                `}
+                layer={layer}
+                axis="y"
+                useDragHandle
+              />
+            </div>
+          </ActionSheet>
+        </Portal>
       </div>
     )
-  }
+  },
+  (prev, next) => shallowEquals(prev.entry, next.entry)
 )
 
-const FilterSortHandle = SortableHandle(() => (
+const SortableFiltersList = ({
+  layer,
+  className,
+}: {
+  layer: SilkDOM.LayerTypes
+  className?: string
+}) => {
+  return (
+    <ul className={className}>
+      {layer.filters.map((filter, idx) => (
+        <SortableFilterItem
+          key={filter.uid}
+          index={idx}
+          layer={layer}
+          filter={filter}
+        />
+      ))}
+    </ul>
+  )
+}
+
+const SortableFilterItem = ({
+  layer,
+  filter,
+}: {
+  layer: SilkDOM.LayerTypes
+  filter: SilkDOM.Filter
+}) => {
+  const { t } = useTranslation('app')
+
+  const { execute } = useFleur()
+  const { selectedFilterIds } = useStore((get) => ({
+    selectedFilterIds: get(EditorStore).state.selectedFilterIds,
+  }))
+  const active = selectedFilterIds[filter.uid]
+
+  const handleClick = useFunk((e: MouseEvent<HTMLDivElement>) => {
+    if (DOMUtils.closestOrSelf(e.target, '[data-ignore-click]')) return
+
+    execute(EditorOps.setSelectedFilterIds, { [filter.uid]: true })
+  })
+
+  const handleToggleVisibility = useFunk(() => {
+    execute(EditorOps.updateLayer, [layer.uid], (layer) => {
+      const targetFilter = layer.filters.find((f) => f.uid === filter.uid)
+      if (!targetFilter) return
+
+      targetFilter.visible = !targetFilter.visible
+    })
+
+    execute(EditorOps.rerenderCanvas)
+  })
+
+  return (
+    <div
+      css={`
+        display: flex;
+        flex-wrap: wrap;
+        gap: 4px 16px;
+        padding: 8px 0;
+        padding-right: 8px;
+
+        & + & {
+          border-top: 1px solid ${rgba('#000', 0.1)};
+        }
+      `}
+      onClick={handleClick}
+    >
+      <div
+        css={`
+          ${centering()}
+        `}
+        onClick={handleToggleVisibility}
+        data-ignore-click
+      >
+        {filter.visible ? (
+          <Eye
+            css={`
+              width: 20px;
+              vertical-align: bottom;
+            `}
+          />
+        ) : (
+          <EyeClose
+            css={`
+              width: 20px;
+              vertical-align: bottom;
+            `}
+          />
+        )}
+      </div>
+
+      <div
+        css={`
+          ${centering()}
+        `}
+      >
+        {t(`filters.${filter.filterId}`)}
+      </div>
+
+      <div
+        css={`
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          margin-left: auto;
+        `}
+        data-ignore-click
+      >
+        <FilterSortHandle />
+      </div>
+
+      {active && (
+        <div
+          css={`
+            flex-basis: 100%;
+            padding-left: 24px;
+          `}
+        >
+          <FilterSettings layer={layer} filter={filter}></FilterSettings>
+        </div>
+      )}
+    </div>
+  )
+}
+
+const FilterSortHandle = () => (
   <span>
     <Menu
       css={`
@@ -730,4 +805,4 @@ const FilterSortHandle = SortableHandle(() => (
       `}
     />
   </span>
-))
+)

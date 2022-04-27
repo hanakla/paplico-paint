@@ -4,6 +4,8 @@ import { Document, VectorObject } from '../../SilkDOM'
 import { assign, pick } from '../../utils'
 
 export class VectorObjectPatchAttr implements ICommand {
+  public readonly name = 'VectorObjectPatchAttr'
+
   private patch: Partial<VectorObject.Attributes> = {}
   private pathToTargetLayer: string[]
   private targetObjectUid: string
@@ -38,8 +40,6 @@ export class VectorObjectPatchAttr implements ICommand {
       object as VectorObject.Attributes,
       Object.keys(this.patch) as any
     )
-
-    console.log(this.patch)
 
     object.update((l) => assign(l, this.patch))
   }

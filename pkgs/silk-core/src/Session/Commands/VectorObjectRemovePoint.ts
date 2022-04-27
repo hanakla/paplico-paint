@@ -3,6 +3,8 @@ import { ICommand } from '../ICommand'
 import { Document, Path } from '../../SilkDOM'
 
 export class VectorObjectRemovePoint implements ICommand {
+  public readonly name = 'VectorObjectRemovePoint'
+
   private indices: readonly number[] = []
   private pathToTargetLayer: readonly string[]
   private objectUid: string

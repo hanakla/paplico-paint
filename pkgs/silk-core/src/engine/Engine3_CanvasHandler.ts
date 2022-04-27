@@ -3,10 +3,9 @@ import { Emitter } from '../Engine3_Emitter'
 import { SilkSession } from '../Session/Engine3_Sessions'
 import { DifferenceRender } from './RenderStrategy/DifferenceRender'
 import { Stroke } from './Stroke'
-import { mergeToNew, deepClone, setCanvasSize } from '../utils'
+import { deepClone, setCanvasSize } from '../utils'
 import { LayerTypes, RasterLayer, VectorLayer, VectorObject } from '../SilkDOM'
 import { createContext2D } from '../Engine3_CanvasFactory'
-// import PointerTracker from 'pointer-tracker'
 import { Commands } from '../Session/Commands'
 import isIOS from 'is-ios'
 
@@ -132,7 +131,9 @@ export class CanvasHandler extends Emitter<Events> {
     })
 
     this.on('strokeComplete', async (stroke) => {
-      const { activeLayer } = session
+      const { activeLayer, activeLayerPath } = session
+
+      if (!activeLayerPath) return
       if (
         session.pencilMode === 'none' ||
         !session.document ||
@@ -145,41 +146,49 @@ export class CanvasHandler extends Emitter<Events> {
       setCanvasSize(this.compositeSourceCtx.canvas, size)
       this.strokeCtx.clearRect(0, 0, size.width, size.height)
 
-      await engine.renderPath(
-        session.brushSetting,
-        session.currentInk,
-        stroke.splinedPath,
-        this.strokeCtx
-      )
-
       if (activeLayer.layerType === 'raster') {
         this.compositeSourceCtx.drawImage(await activeLayer.imageBitmap, 0, 0)
+
+        await engine.renderPath(
+          session.brushSetting,
+          session.currentInk,
+          stroke.splinedPath,
+          this.strokeCtx
+        )
 
         engine.compositeLayers(this.strokeCtx, this.compositeSourceCtx, {
           mode: session.pencilMode === 'draw' ? 'normal' : 'destination-out',
           opacity: 100,
         })
 
-        await activeLayer.updateBitmap((bitmap) => {
-          bitmap.set(
-            this.compositeSourceCtx.getImageData(
-              0,
-              0,
-              activeLayer!.width,
-              activeLayer!.height
-            ).data
-          )
-        })
+        await session.runCommand(
+          new Commands.RasterLayer.UpdateBitmap({
+            pathToTargetLayer: activeLayerPath,
+            update: (bitmap) => {
+              bitmap.set(
+                this.compositeSourceCtx.getImageData(
+                  0,
+                  0,
+                  activeLayer!.width,
+                  activeLayer!.height
+                ).data
+              )
+            },
+          })
+        )
       } else if (activeLayer.layerType === 'vector') {
         session.runCommand(
           new Commands.VectorLayer.AddObject({
-            pathToTargetLayer: [activeLayer.uid],
+            pathToTargetLayer: activeLayerPath,
             object: VectorObject.create({
               x: 0,
               y: 0,
               path: stroke.splinedPath,
               fill: null,
-              brush: deepClone(session.brushSetting),
+              brush:
+                session.brushSetting == null
+                  ? null
+                  : deepClone(session.brushSetting),
             }),
           })
         )

@@ -36,7 +36,7 @@ const baseColors = {
   blue50: 'hsl(207.9, 91%, 61%)',
   red50: 'hsl(342.9, 82.8%, 63.3%)',
   focusRing: '#3694f6',
-  orange10: 'hsla(41.9, 66.8%, 52.7%, .12)',
+  orange20: 'hsla(41.9, 66.8%, 52.7%, .24)',
   success: '#00c853',
 }
 
@@ -71,7 +71,7 @@ const lightColor: typeof baseColors = {
   blue50: 'hsl(207.9, 91%, 61%)',
   red50: 'hsl(342.9, 82.8%, 63.3%)',
   focusRing: '#3694f6',
-  orange10: 'hsla(41.9, 66.8%, 52.7%, .12)',
+  orange20: 'hsla(41.9, 66.8%, 52.7%, .24)',
   success: '#00c853',
 }
 
@@ -163,10 +163,10 @@ assign(lightWithCharcoal.color, {
   surface3: '#e2e2e2',
   surface4: '#bbbbbb',
 
-  surface6: '#f9f9f9',
-  surface7: '#f1f1f1',
-  surface8: '#e2e2e2',
-  surface9: '#bbbbbb',
+  surface6: '#060606',
+  surface7: '#2a2a2a',
+  surface8: '#4a4a4a',
+  surface9: '#606060',
 })
 
 export const darkWithCharcoal = Object.assign({}, darkTheme, dark)
@@ -176,10 +176,10 @@ assign(darkWithCharcoal.color, {
   surface3: '#4a4a4a',
   surface4: '#606060',
 
-  surface6: lightWithCharcoal.color.surface1,
-  surface7: lightWithCharcoal.color.surface2,
-  surface8: lightWithCharcoal.color.surface3,
-  surface9: lightWithCharcoal.color.surface4,
+  surface6: '#f9f9f9',
+  surface7: '#f1f1f1',
+  surface8: '#e2e2e2',
+  surface9: '#bbbbbb',
 })
 
 export type ThemeType = typeof darkTheme & CharcoalTheme

@@ -5,6 +5,8 @@ import { Document } from '../../SilkDOM'
 import { assign, pick } from '../../utils'
 
 export class LayerPatchLayerAttr implements ICommand {
+  public readonly name = 'LayerPatchLayerAttr'
+
   private patch: Partial<LayerProperties> = {}
   private revertPatch: Partial<LayerProperties> = {}
   private pathToTargetLayer: string[]

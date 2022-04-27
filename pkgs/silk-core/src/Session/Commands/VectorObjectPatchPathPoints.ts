@@ -1,10 +1,11 @@
 import { SilkDOMDigger } from '../../SilkDOMDigger'
 import { ICommand } from '../ICommand'
 import { Document, Path, VectorObject } from '../../SilkDOM'
-import { assign, pick } from '../../utils'
 import * as jsondiff from 'jsondiffpatch'
 
 export class VectorObjectPatchPathPoints implements ICommand {
+  public readonly name = 'VectorObjectPatchPathPoints'
+
   private patcher: (path: Path.PathPoint[]) => void
   private pathToTargetLayer: string[]
   private targetObjectUid: string
@@ -18,7 +19,10 @@ export class VectorObjectPatchPathPoints implements ICommand {
   }: {
     pathToTargetLayer: string[]
     objectUid: string
-    patcher: (path: Path.PathPoint[]) => void
+    patcher: (
+      /** Mutable cloned points */
+      points: Path.PathPoint[]
+    ) => void
   }) {
     this.patcher = patcher
     this.pathToTargetLayer = pathToTargetLayer

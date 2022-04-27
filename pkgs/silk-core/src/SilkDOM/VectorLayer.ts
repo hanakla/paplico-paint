@@ -38,6 +38,7 @@ export class VectorLayer extends Emitter<Events> implements ILayer {
   public x: number = 0
   public y: number = 0
 
+  /** Compositing first to last (last is foreground) */
   public readonly objects: VectorObject[] = []
   public readonly filters: Filter[] = []
 

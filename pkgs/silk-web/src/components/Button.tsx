@@ -18,7 +18,8 @@ import { styleWhen, useFunk } from '@hanakla/arma'
 import { isEventIgnoringTarget } from '🙌/features/Paint/helpers'
 
 type Props = {
-  kind: 'normal' | 'primary'
+  kind?: 'normal' | 'primary'
+  size?: 'normal' | 'small'
   circled?: boolean
   outline?: boolean
   blocked?: boolean
@@ -31,7 +32,16 @@ type AllProps = Props &
 
 export const Button = forwardRef<HTMLButtonElement, AllProps>(
   (
-    { kind, circled, outline, children, blocked, popup, ...props }: AllProps,
+    {
+      kind = 'normal',
+      size = 'normal',
+      circled,
+      outline,
+      children,
+      blocked,
+      popup,
+      ...props
+    }: AllProps,
     ref
   ) => {
     const rootRef = useRef<HTMLButtonElement | null>(null)
@@ -60,7 +70,7 @@ export const Button = forwardRef<HTMLButtonElement, AllProps>(
           display: flex;
           justify-content: center;
           align-items: center;
-          padding: 4px 8px;
+          padding: 8px;
 
           appearance: none;
           text-align: center;
@@ -71,6 +81,7 @@ export const Button = forwardRef<HTMLButtonElement, AllProps>(
           ${styleWhen(!!blocked)`
             width: 100%;
           `}
+          ${size === 'small' && `padding: 4px 8px;`}
           ${!outline && kind === 'primary' && primary}
           ${outline && kind === 'primary' && primaryOutline}
           ${circled && circledStyle}
@@ -79,7 +90,7 @@ export const Button = forwardRef<HTMLButtonElement, AllProps>(
       >
         <div
           css={`
-            padding: 8px;
+            /* padding: 8px; */
           `}
         >
           {children}

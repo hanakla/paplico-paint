@@ -1,6 +1,7 @@
 import { useStore } from '@fleur/react'
 import { useRef } from 'react'
 import { useDrag } from 'react-use-gesture'
+import { SilkCommands } from 'silk-core'
 import { EditorOps, EditorSelector } from '🙌/domains/EditorStable'
 import { DOMUtils } from '🙌/utils/dom'
 import { useFleur } from '🙌/utils/hooks'
@@ -28,20 +29,27 @@ export const RasterLayerControl = () => {
   const bbox = currentDocument?.getLayerSize(activeLayer!) ?? null
 
   const bindDrag = useDrag(({ initial, xy }) => {
-    if (currentTool !== 'cursor') return
+    if (currentTool !== 'cursor' || !activeLayerPath) return
 
-    execute(EditorOps.updateRasterLayer, activeLayerPath, (layer) => {
-      const initP = DOMUtils.domPointToSvgPoint(rootRef.current!, {
-        x: initial[0],
-        y: initial[1],
-      })
-      const point = DOMUtils.domPointToSvgPoint(rootRef.current!, {
-        x: xy[0],
-        y: xy[1],
-      })
-      layer.x = point.x - initP.x
-      layer.y = point.y - initP.y
+    const initP = DOMUtils.domPointToSvgPoint(rootRef.current!, {
+      x: initial[0],
+      y: initial[1],
     })
+    const point = DOMUtils.domPointToSvgPoint(rootRef.current!, {
+      x: xy[0],
+      y: xy[1],
+    })
+
+    execute(
+      EditorOps.runCommand,
+      new SilkCommands.Layer.PatchLayerAttr({
+        pathToTargetLayer: activeLayerPath,
+        patch: {
+          x: point.x - initP.x,
+          y: point.y - initP.y,
+        },
+      })
+    )
   })
 
   useLayerWatch(activeLayer)

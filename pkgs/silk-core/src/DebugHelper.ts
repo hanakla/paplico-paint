@@ -23,14 +23,18 @@ export const logImage = async (
     setCanvasSize(canvas, img.width, img.height)
     canvas.getContext('2d')!.putImageData(img, 0, 0)
   } else if (
-    img instanceof OffscreenCanvas ||
+    (typeof OffscreenCanvas !== 'undefined' &&
+      img instanceof OffscreenCanvas) ||
     img instanceof HTMLCanvasElement ||
     img instanceof CanvasRenderingContext2D
   ) {
     canvas = 'canvas' in img ? img.canvas : img
   }
 
-  if (canvas instanceof OffscreenCanvas) {
+  if (
+    typeof OffscreenCanvas !== 'undefined' &&
+    canvas instanceof OffscreenCanvas
+  ) {
     const blob = await canvas.convertToBlob({ type: 'image/png' })
 
     const reader = new FileReader()
@@ -52,7 +56,7 @@ export const logImage = async (
     )
 
     blobUrl = URL.createObjectURL(blob)
-    imageUrl = canvas.toDataURL('image/png')
+    imageUrl = (canvas as HTMLCanvasElement).toDataURL('image/png')
   }
 
   console.groupCollapsed(

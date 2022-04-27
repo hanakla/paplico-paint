@@ -1,9 +1,9 @@
 import { useStore } from '@fleur/react'
 import { letDownload, match, useFunk } from '@hanakla/arma'
 import { useTranslation } from 'next-i18next'
-import { useEffect } from 'react'
+import { useEffect, useRef, useMemo } from 'react'
 import { useUpdate } from 'react-use'
-import { SilkDOM, SilkSerializer } from 'silk-core'
+import { SilkDOM, SilkSerializer, SilkCommands } from 'silk-core'
 import { EditorOps, EditorSelector, EditorStore } from '🙌/domains/EditorStable'
 import { NotifyOps } from '🙌/domains/Notify'
 import { useFleur } from '🙌/utils/hooks'
@@ -88,4 +88,38 @@ export const useLayerWatch = (layer: SilkDOM.LayerTypes | null | undefined) => {
     layer?.on('updated', rerender)
     return () => layer?.off('updated', rerender)
   }, [layer?.uid, rerender])
+}
+
+export const useObjectWatch = (
+  object: SilkDOM.VectorObject | null | undefined
+) => {
+  const rerender = useUpdate()
+
+  useEffect(() => {
+    object?.on('updated', rerender)
+    return () => object?.off('updated', rerender)
+  })
+}
+
+export const useTransactionCommand = () => {
+  const { execute } = useFleur()
+
+  const ref = useRef<SilkCommands.Transaction | null>(null)
+
+  return useMemo(
+    () => ({
+      startIfNotStarted: () => {
+        if (ref.current) return
+        ref.current = new SilkCommands.Transaction({ commands: [] })
+        execute(EditorOps.runCommand, ref.current)
+      },
+      doAndAdd: (command: SilkCommands.AnyCommandType) => {
+        ref.current?.doAndAddCommand(command)
+      },
+      commit: () => {
+        ref.current = null
+      },
+    }),
+    []
+  )
 }

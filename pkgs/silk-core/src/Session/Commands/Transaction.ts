@@ -2,6 +2,8 @@ import { Document } from '../../SilkDOM'
 import { ICommand } from '../ICommand'
 
 export class Transaction implements ICommand {
+  public readonly name = 'Transaction'
+
   private commands: ICommand[]
   private document!: Document
 

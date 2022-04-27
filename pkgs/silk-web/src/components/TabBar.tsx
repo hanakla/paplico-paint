@@ -3,14 +3,21 @@ import { FC, ReactNode } from 'react'
 import { css } from 'styled-components'
 import { tm } from '🙌/utils/theme'
 
-export const TabBar = ({ children }: { children: ReactNode }) => {
+export const TabBar = ({
+  children,
+  className,
+}: {
+  children: ReactNode
+  className?: string
+}) => {
   return (
     <div
       css={`
         display: flex;
-        ${tm((o) => [o.bg.surface6, o.font.text5])}
+        ${tm((o) => [o.font.text1])}
       `}
       role="tablist"
+      className={className}
     >
       {children}
     </div>
@@ -18,11 +25,11 @@ export const TabBar = ({ children }: { children: ReactNode }) => {
 }
 
 export const Tab: FC<{
-  tabName: string
-  active: boolean
-  onClick: (tabName: string) => void
+  tabName?: string
+  active?: boolean
+  onClick?: (tabName: string) => void
 }> = ({ tabName, active, onClick, children }) => {
-  const handleClickTab = useFunk(() => onClick(tabName))
+  const handleClickTab = useFunk(() => tabName && onClick?.(tabName))
 
   return (
     <div
@@ -38,10 +45,16 @@ export const Tab: FC<{
           display: inline-block;
           padding: 4px;
           border-bottom: 1px solid transparent;
+
           ${active &&
           css`
-            border-bottom-color: ${({ theme }) => theme.color.text5};
+            border-bottom-color: currentColor;
           `}
+
+          & > a {
+            color: inherit;
+            text-decoration: none;
+          }
         `}
       >
         {children}

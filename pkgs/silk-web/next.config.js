@@ -17,12 +17,20 @@ const config = {
   },
   pwa: {
     dest: 'public',
+    mode: 'production',
     runtimeCaching,
   },
   typescript: {
     ignoreBuildErrors: true,
   },
   webpack: (config, context) => {
+    config.experiments.asyncWebAssembly = true
+
+    config.module.rules.push({
+      test: /zstd\.wasm/,
+      type: 'asset/resource',
+    })
+
     config.resolve.alias = {
       ...config.resolve.alias,
       'silk-core': 'silk-core/src/index.ts',

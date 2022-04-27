@@ -13,7 +13,7 @@ export type Notify =
       area: 'loadingLock'
       timeout: 0
       lock: boolean
-      message: string
+      messageKey: string
     }
 
 type State = {

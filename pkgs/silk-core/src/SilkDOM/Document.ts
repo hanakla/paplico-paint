@@ -11,9 +11,25 @@ type DocumentEvents = {
   layersChanged: void
 }
 
+export declare namespace Document {
+  export type Attributes = {
+    uid: string
+    title: string
+    width: number
+    height: number
+    // layers:
+    activeLayerPath: string[] | null
+  }
+
+  export type SerializedAttributes = Attributes & {
+    layers: ReturnType<LayerTypes['serialize']>[]
+    globalColors: Record<string, RGBColor>
+  }
+}
+
 export class Document
   extends Emitter<DocumentEvents>
-  implements ISilkDOMElement
+  implements ISilkDOMElement, Document.Attributes
 {
   public static create({ width, height }: { width: number; height: number }) {
     const document = new Document()
@@ -22,13 +38,13 @@ export class Document
     return document
   }
 
-  public static deserialize(obj: any) {
+  public static deserialize(obj: Document.SerializedAttributes) {
     return assign(new Document(), {
       uid: obj.uid,
       title: obj.title,
       width: obj.width,
       height: obj.height,
-      activeLayerId: obj.activeLayerId,
+      activeLayerPath: obj.activeLayerPath,
       layers: obj.layers.map((layer: any) => deserializeLayer(layer)),
       globalColors: Object.entries(obj.globalColors).reduce(
         (a, [uid, color]) => {
@@ -44,9 +60,9 @@ export class Document
   public width: number = 0
   public height: number = 0
 
-  /** Compositing "next on current" */
+  /** Compositing first to last (last is foreground) */
   public layers: LayerTypes[] = []
-  public activeLayerId: string | null = null
+  public activeLayerPath: string[] | null = null
   public globalColors: { [uid: string]: RGBColor } = Object.create(null)
 
   public update(proc: (doc: this) => void) {
@@ -97,13 +113,13 @@ export class Document
     }
   }
 
-  public serialize() {
+  public serialize(): Document.SerializedAttributes {
     return {
       uid: this.uid,
       title: this.title,
       width: this.width,
       height: this.height,
-      activeLayerId: this.activeLayerId,
+      activeLayerPath: this.activeLayerPath,
       layers: this.layers.map((layer) => layer.serialize()),
       globalColors: Object.entries(this.globalColors).reduce(
         (a, [uid, color]) => {

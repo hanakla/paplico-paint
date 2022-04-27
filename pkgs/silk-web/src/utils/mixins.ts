@@ -57,6 +57,10 @@ export const focusRing = css`
   }
 `
 
+export const floatingDropshadow = css`
+  box-shadow: 0 0 5px ${rgba('#000', 0.5)};
+`
+
 export const checkerBoard = ({
   size,
   opacity = 0.2,

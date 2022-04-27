@@ -1,4 +1,5 @@
 createNew: あたらしい絵を描く
-openFile: 画像・ファイルを開く
-savedItems: 自動保存されたファイル
+openFile: 画像・アイテムを開く
+savedItems: 自動保存されたアイテム
 untitled: 名称未設定
+removeDocumentConfirm: 削除したアイテムは復元できません。マジで削除しますか？

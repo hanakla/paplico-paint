@@ -3,6 +3,8 @@ import { ICommand } from '../ICommand'
 import { Document, VectorObject } from '../../SilkDOM'
 
 export class VectorAddObject implements ICommand {
+  public readonly name = 'VectorAddObject'
+
   private object: VectorObject
   private pathToTargetLayer: string[]
 

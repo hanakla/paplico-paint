@@ -1,7 +1,8 @@
 import { useAsyncEffect } from '@hanakla/arma'
 import { GetServerSideProps } from 'next'
+import { useRouter } from 'next/router'
 import { rgba } from 'polished'
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import {
   CanvasHandler,
   RenderStrategies,
@@ -11,21 +12,33 @@ import {
   SilkSession,
 } from 'silk-core'
 
+import { Button } from '🙌/components/Button'
+import { Stack } from '🙌/components/Stack'
+import { DevLayout } from '🙌/layouts/DevLayout'
+import { centering } from '🙌/utils/mixins'
+
 export default function Debug() {
+  const router = useRouter()
   const ref = useRef<HTMLCanvasElement | null>(null)
+  const sessionRef = useRef<SilkSession | null>(null)
+  const benchRef = useRef<{ start: () => void; stop: () => void } | null>(null)
+  const [strategy, setStrategy] = useState<'difference' | 'full'>('difference')
 
   useAsyncEffect(async () => {
     setTimeout(async () => {
       const engine = ((window as any)._eninge = await Silk3.create({
         canvas: ref.current!,
       }))
-      const session = ((window as any)._session = await SilkSession.create())
+      const session =
+        (sessionRef.current =
+        (window as any)._session =
+          await SilkSession.create())
       session.renderStrategy = new RenderStrategies.DifferenceRender()
 
       session.pencilMode = 'draw'
       session.setBrushSetting({
         brushId: SilkBrushes.ScatterBrush.id,
-        size: 3,
+        size: 20,
         color: { r: 0.2, g: 0.2, b: 0.2 },
       })
 
@@ -41,7 +54,7 @@ export default function Debug() {
         const strategy = new RenderStrategies.FullRender()
         const vector = SilkDOM.VectorLayer.create({})
 
-        if (process.env.NODE_ENV === 'development') {
+        {
           const path = SilkDOM.Path.create({
             points: [
               { x: 0, y: 0, in: null, out: null },
@@ -64,6 +77,7 @@ export default function Debug() {
             color: { r: 0, g: 0, b: 0 },
             opacity: 1,
             size: 2,
+            specific: {},
           }
           obj.brush = null
 
@@ -84,7 +98,7 @@ export default function Debug() {
         vector.filters.push(
           SilkDOM.Filter.create({
             filterId: '@silk-core/chromatic-aberration',
-            visible: false,
+            visible: true,
             settings: {
               ...engine.toolRegistry.getFilterInstance(
                 '@silk-core/chromatic-aberration'
@@ -93,12 +107,21 @@ export default function Debug() {
             },
           }),
           SilkDOM.Filter.create({
-            filterId: '@silk-core/gauss-blur',
-            visible: false,
-            settings: engine.toolRegistry.getFilterInstance(
-              '@silk-core/gauss-blur'
-            )!.initialConfig,
+            filterId: '@silk-core/halftone',
+            visible: true,
+            settings: {
+              ...engine.toolRegistry.getFilterInstance('@silk-core/halftone')!
+                .initialConfig,
+              size: 100,
+            },
           }),
+          // SilkDOM.Filter.create({
+          //   filterId: '@silk-core/gauss-blur',
+          //   visible: true,
+          //   settings: engine.toolRegistry.getFilterInstance(
+          //     '@silk-core/gauss-blur'
+          //   )!.initialConfig,
+          // }),
           SilkDOM.Filter.create({
             filterId: '@silk-core/outline',
             visible: true,
@@ -111,7 +134,7 @@ export default function Debug() {
         document.addLayer(raster)
         document.addLayer(vector, { aboveLayerId: raster.uid })
         session.setDocument(document)
-        session.setActiveLayer([raster.uid])
+        session.setActiveLayer([vector.uid])
 
         ref.current!.width = document.width
         ref.current!.height = document.height
@@ -125,13 +148,101 @@ export default function Debug() {
           rerender: () => engine.render(document, strategy),
         })
       }
+
+      benchRef.current = {
+        start: () => {},
+        stop: () => {},
+      }
+
+      let frames = 0
+      let lastLogTime: number | null = null
+      let animId = -1
+
+      const render = async function (time: number) {
+        lastLogTime ??= time
+
+        await engine.render(session.document!, session.renderStrategy)
+        frames++
+
+        if (time - lastLogTime > 1000) {
+          console.log(
+            `current fps: ${frames} frames in ${time - lastLogTime}ms`
+          )
+          lastLogTime = time
+          frames = 0
+        }
+
+        animId = requestAnimationFrame(render)
+      }
+
+      benchRef.current = {
+        start: () => {
+          console.log('Benchmarking...')
+          requestAnimationFrame(render)
+        },
+        stop: () => cancelAnimationFrame(animId),
+      }
     }, 800)
 
     return () => {}
   }, [])
 
   return (
-    <div>
+    <DevLayout>
+      <div
+        css={`
+          display: flex;
+          gap: 8px;
+          padding: 8px;
+          flex-flow: row;
+        `}
+      >
+        <Stack
+          css={`
+            ${centering()}
+          `}
+          dir="horizontal"
+        >
+          <strong>モード</strong>
+          <Button
+            kind={strategy === 'difference' ? 'primary' : 'normal'}
+            onClick={() => {
+              setStrategy('difference')
+              sessionRef.current!.setRenderStrategy(
+                new RenderStrategies.DifferenceRender()
+              )
+            }}
+          >
+            DifferenceRender
+          </Button>
+          <Button
+            kind={strategy === 'full' ? 'primary' : 'normal'}
+            onClick={() => {
+              setStrategy('full')
+              sessionRef.current!.setRenderStrategy(
+                new RenderStrategies.FullRender()
+              )
+            }}
+          >
+            FullRender
+          </Button>
+        </Stack>
+
+        <Stack
+          css={`
+            ${centering()}
+          `}
+          dir="horizontal"
+        >
+          <strong>ベンチマーク</strong>
+          <Button kind="normal" onClick={() => benchRef.current!.start()}>
+            開始
+          </Button>
+          <Button kind="normal" onClick={() => benchRef.current!.stop()}>
+            停止
+          </Button>
+        </Stack>
+      </div>
       <canvas
         ref={ref}
         css={`
@@ -139,7 +250,7 @@ export default function Debug() {
           box-shadow: 0 0 4px ${rgba('#000', 0.4)};
         `}
       />
-    </div>
+    </DevLayout>
   )
 }
 

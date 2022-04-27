@@ -8,12 +8,22 @@ export const isEventIgnoringTarget = (target: EventTarget | null) => {
 }
 
 export type FlatLayerEntry = {
-  path: string[]
-  layer: SilkDOM.LayerTypes
-  depth: number
+  id: string
+  parentId: string | null
   index: number
-  parentIdx: number | null
-}
+  indexInParent: number
+  depth: number
+  parentPath: string[]
+} & (
+  | {
+      type: 'layer'
+      layer: SilkDOM.LayerTypes
+    }
+  | {
+      type: 'object'
+      object: SilkDOM.VectorObject
+    }
+)
 
 export const calcLayerMove = (
   flattenLayers: FlatLayerEntry[],
@@ -27,55 +37,146 @@ export const calcLayerMove = (
 ) => {
   if (!over || active.id === over.id) return
 
-  const indexOnFlatten = flattenLayers.findIndex(
-    (l) => l.layer.uid === active.id
-  )
-  const nextIndexOnFlatten = flattenLayers.findIndex(
-    (l) => l.layer.uid === over.id
-  )
+  const movedEntryIndex = flattenLayers.findIndex((l) => l.id === active.id)
+  const nextIndexOnFlatten = flattenLayers.findIndex((l) => l.id === over.id)
 
-  const entry = flattenLayers[indexOnFlatten]
+  const movedEntry = flattenLayers[movedEntryIndex]
+  const nextIndexEntry = flattenLayers[nextIndexOnFlatten]
 
-  const oldIndex = indexOnFlatten - (entry.parentIdx ?? 0)
-  const newIndex = nextIndexOnFlatten - (entry.parentIdx ?? 0)
+  const parentLayerIndex = findIndexFromLast(
+    flattenLayers,
+    { from: nextIndexOnFlatten },
+    (entry, index, list) => {
+      const next = list[index + 1]
+      return (
+        next != null && entry.depth !== next.depth && entry.type === 'layer'
+      )
+    }
+  )
+  const parent = parentLayerIndex ? flattenLayers[parentLayerIndex] : null
+
+  // console.log(movedEntry, nextIndexEntry, prevOfNext, {
+  //   flattenLayers,
+  //   parentLayerIndex,
+  //   parent: parentLayerIndex ? flattenLayers[parentLayerIndex] : null,
+  // })
+
+  // const oldIndex = oldIndexOnFlatten - (entry.parentIdx ?? 0)
+  // const newIndex = currentIndexOnFlatten - (entry.parentIdx ?? 0)
 
   // TODO: レイヤーをまたいだDnD
-  return { sourcePath: entry.path, oldIndex, newIndex }
+  // return { sourcePath: entry.parentPath, oldIndex, newIndex }
+
+  if (movedEntry.type === 'layer') {
+    if (
+      parent != null &&
+      (parent.type !== 'layer' || parent?.layer.layerType !== 'group')
+    )
+      return null
+
+    return {
+      sourcePath: [...movedEntry.parentPath, movedEntry.layer.uid],
+      targetParentPath:
+        parent?.type === 'layer'
+          ? [...parent.parentPath, parent.layer.uid]
+          : [],
+      targetIndex: nextIndexEntry.indexInParent,
+    }
+  }
+
+  return null
+}
+
+const findIndexFromLast = <T>(
+  arr: T[],
+  { from }: { from: number },
+  predicate: (v: T, index: number, list: T[]) => boolean
+) => {
+  for (let idx = from; idx >= 0; idx--) {
+    if (predicate(arr[idx], idx, arr)) return idx
+  }
+
+  return null
 }
 
 export const flattenLayers = (
-  layers: SilkDOM.LayerTypes[]
+  layers: SilkDOM.LayerTypes[],
+  filter: (entry: FlatLayerEntry) => boolean = () => true
 ): FlatLayerEntry[] => {
-  return layers
-    .map((l, idx) => {
-      return l.layerType === 'group'
-        ? // (),
-          [
-            // { path: [], layer: l, depth: 0, index: idx, parentIdx: null },
-            {
-              path: [],
-              layer: l,
-              depth: 0,
-              index: idx,
-              parentIdx: null,
-            },
-            ...l.layers.map((sl, subIdx) => ({
-              path: [l.uid],
-              layer: sl,
-              depth: 1,
-              index: subIdx,
-              parentIdx: idx,
-            })),
-          ]
-        : {
-            path: [],
-            layer: l,
-            depth: 0,
-            index: idx,
-            parentIdx: null,
-          }
+  const flatter = (
+    layers: SilkDOM.LayerTypes[],
+    parentPath: string[],
+    entries: FlatLayerEntry[]
+  ) => {
+    layers.forEach((layer, index) => {
+      const entry: FlatLayerEntry = {
+        id: layer.uid,
+        parentId: parentPath.slice(-1)[0],
+        type: 'layer',
+        layer,
+        parentPath,
+        indexInParent: index,
+        depth: parentPath.length,
+        index: entries.length,
+      }
+
+      entries.push(entry)
+
+      if (layer.layerType === 'group') {
+        flatter(layer.layers, [...parentPath, layer.uid], entries)
+      } else if (layer.layerType === 'vector') {
+        entries.push(
+          ...layer.objects.map((o, i) => ({
+            id: o.uid,
+            parentId: layer.uid,
+            indexInParent: i,
+            type: 'object' as const,
+            object: o,
+            parentPath: [...parentPath, layer.uid],
+            depth: parentPath.length + 1,
+            index: entries.length + 1 + i,
+          }))
+        )
+      }
     })
-    .flat(2)
+
+    return entries
+  }
+
+  return flatter(layers, [], [])
+    .filter(filter)
+    .map((entry, index) => assign(entry, { index }))
+
+  // return layers
+  //   .map((l, idx) => {
+  //     const self = {
+  //       parentPath: [],
+  //       layer: l,
+  //       depth: 0,
+  //       index: idx,
+  //       parentIdx: null,
+  //     }
+
+  //     return l.layerType === 'group'
+  //       ?
+  //         [
+  //           self,
+  //           ...l.layers.map((sl, subIdx) => ({
+  //             parentPath: [l.uid],
+  //             layer: sl,
+  //             depth: 1,
+  //             index: subIdx,
+  //             parentIdx: idx,
+  //           })),
+  //         ]
+  //       l.layerType === 'vector' ?
+  //       [
+  //         self,
+
+  //       ]
+  //       : self
+  //   })
+  //   .flat(2)
 }
 
 export const generateBrushThumbnail = async (
@@ -97,16 +198,16 @@ export const generateBrushThumbnail = async (
   const path = SilkDOM.Path.create({
     points: [
       {
-        x: size.width / 2,
+        x: size.width / 6,
         y: size.height / 2,
         in: null,
-        out: null,
+        out: { x: size.width / 2, y: size.height - size.height / 5 },
         pressure: 1,
       },
       {
-        x: size.width / 2,
+        x: size.width - size.width / 6,
         y: size.height / 2,
-        in: null,
+        in: { x: size.width - size.width / 2, y: size.height / 5 },
         out: null,
         pressure: 1,
       },

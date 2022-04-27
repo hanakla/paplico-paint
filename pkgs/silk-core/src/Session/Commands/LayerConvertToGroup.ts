@@ -5,6 +5,8 @@ import { Document, GroupLayer } from '../../SilkDOM'
 import { assign, pick } from '../../utils'
 
 export class LayerConvertToGroup implements ICommand {
+  public readonly name = 'LayerConvertToGroup'
+
   private groupingLayerPathes: string[][] = []
   private group!: GroupLayer
   private sourceLocation: {

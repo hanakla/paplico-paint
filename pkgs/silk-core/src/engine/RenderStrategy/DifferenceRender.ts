@@ -1,11 +1,17 @@
+import { fit, position } from 'object-fit-math'
 import { SilkEngine3 } from '../Engine3'
 import { createContext2D } from '../../Engine3_CanvasFactory'
 import { Document, LayerTypes } from '../../SilkDOM'
-import { deepClone, setCanvasSize } from '../../utils'
+import {
+  createKeyedRequestIdeCallback,
+  deepClone,
+  setCanvasSize,
+} from '../../utils'
 import { IRenderStrategy } from './IRenderStrategy'
 import { AtomicResource } from '../../AtomicResource'
-import { CompositeMode } from '../../SilkDOM/ILayer'
+import { CompositeMode, ILayer } from '../../SilkDOM/ILayer'
 import { SilkDOMDigger } from '../../SilkDOMDigger'
+import { workerSafeCanvasToBlob } from '../../SilkHelpers'
 
 type Override = {
   layerId: string
@@ -20,8 +26,11 @@ export class DifferenceRender implements IRenderStrategy {
   private overrides: Override | null = null
 
   private bufferCtx: AtomicResource<CanvasRenderingContext2D>
-  private previewCtx: CanvasRenderingContext2D
+  private atomicPreviewCtx: AtomicResource<CanvasRenderingContext2D>
+  private convertCtx = createContext2D()
   private previews: { [layerId: string]: string } = Object.create(null)
+
+  private keyedRequestIdleCallback = createKeyedRequestIdeCallback()
 
   constructor() {
     const bufferCtx = createContext2D()
@@ -30,8 +39,8 @@ export class DifferenceRender implements IRenderStrategy {
 
     const previewCtx = createContext2D()
     setCanvasSize(previewCtx.canvas, 100, 100)
-    this.previewCtx = previewCtx
-    previewCtx.canvas.id = 'preview-canvas-difference-render'
+    this.atomicPreviewCtx = new AtomicResource(previewCtx)
+    // previewCtx.canvas.id = 'preview-canvas-difference-render'
     // document.body.appendChild(previewCtx.canvas)
   }
 
@@ -57,7 +66,7 @@ export class DifferenceRender implements IRenderStrategy {
     // Freeing memory for Safari
     // See: https://stackoverflow.com/questions/52532614/total-canvas-memory-use-exceeds-the-maximum-limit-safari-12
     setCanvasSize(ctx.canvas, 0, 0)
-    setCanvasSize(this.previewCtx.canvas, 0, 0)
+    setCanvasSize((await this.atomicPreviewCtx.enjure()).canvas, 0, 0)
 
     this.bufferCtx = null!
   }
@@ -74,7 +83,7 @@ export class DifferenceRender implements IRenderStrategy {
     type LayerBitmapResult = {
       layer: LayerTypes
       needsUpdate: boolean
-      image: ImageData | null
+      image: ImageBitmap | null
       subResults?: Omit<LayerBitmapResult, 'subResults'>[]
     }
 
@@ -120,17 +129,31 @@ export class DifferenceRender implements IRenderStrategy {
           bitmap ??= await engine.renderVectorLayer(document, layer)
           this.bitmapCache.set(layer, bitmap)
 
+          let image = await createImageBitmap(
+            new ImageData(bitmap, document.width, document.height)
+          )
+
+          this.keyedRequestIdleCallback(layer.uid, () => {
+            this.setPreviewForLayer(layer, document, image)
+          })
+
           return {
             layer,
             needsUpdate: !!this.needsUpdateLayerIds[layer.uid],
-            image: new ImageData(bitmap, document.width, document.height),
+            image,
           }
         }
         case 'raster': {
+          const image = await layer.imageBitmap
+
+          this.keyedRequestIdleCallback(layer.uid, () => {
+            this.setPreviewForLayer(layer, document, image)
+          })
+
           return {
             layer,
             needsUpdate: !!this.needsUpdateLayerIds[layer.uid],
-            image: new ImageData(layer.bitmap, layer.width, layer.height),
+            image,
           }
         }
         case 'filter': {
@@ -140,6 +163,9 @@ export class DifferenceRender implements IRenderStrategy {
           return { layer, needsUpdate: false, image: null }
         }
         case 'reference': {
+          if (layer.uid === layer.referencedLayerId)
+            return { layer, needsUpdate: false, image: null }
+
           const referenced = referencedLayers.get(layer.uid)
           const result = referenced
             ? await getLayerBitmap(referenced, true)
@@ -222,7 +248,7 @@ export class DifferenceRender implements IRenderStrategy {
       if (image == null) return
 
       // TODO: layer.{x,y} 対応
-      bufferCtx.putImageData(image, layer.x, layer.y)
+      bufferCtx.drawImage(image, layer.x, layer.y)
 
       if (this.overrides?.layerId === layer.uid) {
         await engine.compositeLayers(this.overrides.context2d, bufferCtx, {
@@ -264,49 +290,75 @@ export class DifferenceRender implements IRenderStrategy {
     } finally {
       this.bufferCtx.release(bufferCtx)
     }
+  }
 
-    // Generate thumbnails
-    setTimeout(async () => {
-      return
+  private async setPreviewForLayer(
+    layer: LayerTypes,
+    document: Document,
+    bitmap: ImageBitmap
+  ) {
+    return
+    const ctx = await this.atomicPreviewCtx.enjure({ owner: this })
+    const c = ctx.canvas
 
-      // const bufferCtx = await this.bufferCtx.enjure({ owner: this })
-      // setCanvasSize(bufferCtx.canvas, 100, 100)
+    try {
+      const layerSize = document.getLayerSize(layer)
+      setCanvasSize(this.convertCtx.canvas, document.getLayerSize(layer))
+      this.convertCtx.drawImage(bitmap, 0, 0)
 
-      // try {
-      //   for (const entry of layerBitmaps) {
-      //     if (
-      //       entry.layer.layerType !== 'raster' &&
-      //       entry.layer.layerType !== 'vector'
-      //     )
-      //       return
-      //     if (!entry.image) return
-      //     if (entry.needsUpdate === false) return
+      const pos = position(c, layerSize, 'center', 'center')
+      const size = fit(c, layerSize, 'contain')
 
-      //     const { width, height } = document.getLayerSize(entry.layer)
-      //     setCanvasSize(this.previewCtx.canvas, width, height)
-      //     this.previewCtx.clearRect(0, 0, width, height)
+      ctx.clearRect(0, 0, c.width, c.height)
+      ctx.drawImage(
+        this.convertCtx.canvas,
+        pos.x,
+        pos.y,
+        size.width,
+        size.height
+      )
 
-      //     bufferCtx.clearRect(
-      //       0,
-      //       0,
-      //       bufferCtx.canvas.width,
-      //       bufferCtx.canvas.height
-      //     )
+      const blob = await workerSafeCanvasToBlob(c, { type: 'image/png' })
 
-      //     this.previewCtx.putImageData(entry.image, 0, 0)
-      //     bufferCtx.drawImage(this.previewCtx.canvas, 0, 0, 100, 100)
+      if (this.previews[layer.uid])
+        URL.revokeObjectURL(this.previews[layer.uid])
+      this.previews[layer.uid] = URL.createObjectURL(blob)
+    } finally {
+      this.atomicPreviewCtx.release(ctx)
+      setCanvasSize(this.convertCtx.canvas, 0, 0)
+    }
 
-      //     const blob = await new Promise<Blob | null>((r) =>
-      //       bufferCtx.canvas.toBlob(r, 'image/png')
-      //     )
-
-      //     if (this.previews[entry.layer.uid])
-      //       URL.revokeObjectURL(this.previews[entry.layer.uid])
-      //     this.previews[entry.layer.uid] = URL.createObjectURL(blob!)
-      //   }
-      // } finally {
-      //   this.bufferCtx.release(bufferCtx)
-      // }
-    }, 100)
+    // const bufferCtx = await this.bufferCtx.enjure({ owner: this })
+    // setCanvasSize(bufferCtx.canvas, 100, 100)
+    // try {
+    //   for (const entry of layerBitmaps) {
+    //     if (
+    //       entry.layer.layerType !== 'raster' &&
+    //       entry.layer.layerType !== 'vector'
+    //     )
+    //       return
+    //     if (!entry.image) return
+    //     if (entry.needsUpdate === false) return
+    //     const { width, height } = document.getLayerSize(entry.layer)
+    //     setCanvasSize(this.previewCtx.canvas, width, height)
+    //     this.previewCtx.clearRect(0, 0, width, height)
+    //     bufferCtx.clearRect(
+    //       0,
+    //       0,
+    //       bufferCtx.canvas.width,
+    //       bufferCtx.canvas.height
+    //     )
+    //     this.previewCtx.putImageData(entry.image, 0, 0)
+    //     bufferCtx.drawImage(this.previewCtx.canvas, 0, 0, 100, 100)
+    //     const blob = await new Promise<Blob | null>((r) =>
+    //       bufferCtx.canvas.toBlob(r, 'image/png')
+    //     )
+    //     if (this.previews[entry.layer.uid])
+    //       URL.revokeObjectURL(this.previews[entry.layer.uid])
+    //     this.previews[entry.layer.uid] = URL.createObjectURL(blob!)
+    //   }
+    // } finally {
+    //   this.bufferCtx.release(bufferCtx)
+    // }
   }
 }

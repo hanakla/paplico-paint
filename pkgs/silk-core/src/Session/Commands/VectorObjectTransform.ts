@@ -7,6 +7,8 @@ type Transform = {
 }
 
 export class VectorObjectTransform implements ICommand {
+  public readonly name = 'VectorObjectTransform'
+
   private objectUid: string
   private pathToTargetLayer: string[]
   private transform: Transform

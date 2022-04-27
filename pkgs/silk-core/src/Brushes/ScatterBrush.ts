@@ -14,7 +14,7 @@ import {
   CanvasTexture,
   InstancedBufferAttribute,
 } from 'three'
-import { lerp } from '../SilkMath'
+import { lerp, radToDeg } from '../SilkMath'
 import * as Textures from './ScatterTexture/assets'
 import { mergeToNew } from '../utils'
 import { logImage } from '../DebugHelper'
@@ -23,13 +23,18 @@ const _object = new Object3D()
 const _translate2d = new Vector2()
 
 export declare namespace ScatterBrush {
-  export type ScatterSetting = {
+  export type SpecificSetting = {
     texture: keyof typeof Textures
     divisions: number
     scatterRange: number
+    /** 0..1 */
     randomRotation: number
+    /** Influence of stroke fade. 0..1 */
     fadeWeight: number
-    enterExitWeight: number
+    /** Influence of stroke in / out weight. 0..1 */
+    inOutInfluence: number
+    /** 0..1 */
+    pressureInfluence: number
   }
 }
 
@@ -45,14 +50,15 @@ export class ScatterBrush implements IBrush {
   private geometry!: PlaneBufferGeometry
   private materials: Record<string, MeshBasicMaterial> = {}
 
-  public getInitialSpecificConfig(): ScatterBrush.ScatterSetting {
+  public getInitialSpecificConfig(): ScatterBrush.SpecificSetting {
     return {
       texture: 'fadeBrush',
       divisions: 1000,
       scatterRange: 0.5,
       randomRotation: 0,
       fadeWeight: 1,
-      enterExitWeight: 0,
+      inOutInfluence: 0,
+      pressureInfluence: 0.8,
     }
   }
 
@@ -141,12 +147,11 @@ export class ScatterBrush implements IBrush {
     ink,
     brushSetting,
     destSize,
-  }: BrushContext<ScatterBrush.ScatterSetting>) {
+  }: BrushContext<ScatterBrush.SpecificSetting>) {
     const specific = mergeToNew(
       this.getInitialSpecificConfig(),
       brushSetting.specific
     )
-    console.log(specific, brushSetting.specific)
 
     const { color } = brushSetting
 
@@ -207,25 +212,35 @@ export class ScatterBrush implements IBrush {
 
       // prettier-ignore
       const fadeWeight =
-        frac <= .15 ? MathUtils.lerp(0, 1, Math.min(frac, .15) / .15)
-        : frac >= (1 - .15) ? MathUtils.lerp(0, 1, Math.min(1 - frac, 0.15) / 0.15)
+        frac <= .15 ? MathUtils.lerp(1 - specific.inOutInfluence, 1, Math.min(frac, .15) / .15)
+        : frac >= (1 - .15) ? MathUtils.lerp(1 - specific.inOutInfluence, 1, Math.min(1 - frac, 0.15) / 0.15)
         : 1
-      const pressureWeight = 0.2 + inputPath.getPressureAt(frac) * 0.8
+
+      const pressureWeight =
+        0.2 +
+        0.8 * (1 - specific.pressureInfluence) +
+        inputPath.getPressureAt(frac) * 0.8 * specific.pressureInfluence
+
+      // fade(1) * influence(1) = 1 入り抜き影響済みの太さ
+      // fade(1) * influence(0) = 0 入り抜き影響済みの太さ
+      // (size * pressure) * (fade * influence)
+      // (fade * influence) = 0 のときにsize * pressureになってほしいな(こなみ)
+      // (fade * influence) = 0
+      // 打ち消し式: (fade * influence) + 1 = 1
 
       _object.scale.set(
-        brushSetting.size *
-          pressureWeight *
-          Math.max(1, fadeWeight * specific.enterExitWeight),
-        brushSetting.size *
-          pressureWeight *
-          Math.max(1, fadeWeight * specific.enterExitWeight),
+        brushSetting.size * pressureWeight * fadeWeight,
+        brushSetting.size * pressureWeight * fadeWeight,
         1
       )
 
-      _object.rotation.z = seed.nextFloat() * 360 * specific.randomRotation
-
-      const tangent = path.getTangentAt(frac).normalize()
+      const tangent = path.getTangent(frac).normalize()
       const angle = Math.atan2(tangent.x, tangent.y)
+
+      _object.rotation.z =
+        radToDeg(Math.floor(angle)) +
+        -1 +
+        seed.nextFloat() * 360 * specific.randomRotation
 
       _object.translateX(
         lerp(-specific.scatterRange, specific.scatterRange, Math.cos(angle))

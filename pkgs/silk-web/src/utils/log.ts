@@ -18,7 +18,7 @@ export const warn = (...args: any) => {
 
 export const trace = (...args: any[]) => {
   console.groupCollapsed(
-    `%csilk(trace)%c`,
+    `%csilk(trace)%c %s`,
     'padding:2px 4px;background:linear-gradient(40deg, #9047f2, #4552d0);color:#fff;border-radius:4px;',
     '',
     ...args

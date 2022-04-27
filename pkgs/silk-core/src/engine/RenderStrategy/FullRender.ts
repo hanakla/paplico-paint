@@ -32,7 +32,7 @@ export class FullRender implements IRenderStrategy {
 
     type LayerBitmapResult = {
       layer: LayerTypes
-      image: ImageData | null
+      image: ImageBitmap | null // ImageData | null
       subResults?: Omit<LayerBitmapResult, 'subResults'>[]
     }
 
@@ -40,9 +40,7 @@ export class FullRender implements IRenderStrategy {
     SilkDOMDigger.traverseLayers(document, { kind: 'reference' }, (layer) => {
       referencedLayers.set(
         layer.uid,
-        SilkDOMDigger.findLayerRecursive(document, layer.referencedLayerId, {
-          strict: true,
-        })
+        SilkDOMDigger.findLayerRecursive(document, layer.referencedLayerId, {})
       )
     })
 
@@ -69,16 +67,19 @@ export class FullRender implements IRenderStrategy {
         }
         case 'vector': {
           let bitmap = await engine.renderVectorLayer(document, layer)
+          let image = await createImageBitmap(
+            new ImageData(bitmap, document.width, document.height)
+          )
 
           return {
             layer,
-            image: new ImageData(bitmap, document.width, document.height),
+            image,
           }
         }
         case 'raster': {
           return {
             layer,
-            image: new ImageData(layer.bitmap, layer.width, layer.height),
+            image: await layer.imageBitmap,
           }
         }
         case 'filter': {
@@ -88,6 +89,9 @@ export class FullRender implements IRenderStrategy {
           return { layer, image: null }
         }
         case 'reference': {
+          if (layer.uid === layer.referencedLayerId)
+            return { layer, image: null }
+
           const referenced = referencedLayers.get(layer.uid)!
           return {
             layer,
@@ -169,7 +173,7 @@ export class FullRender implements IRenderStrategy {
       if (image == null) return
 
       // TODO: layer.{x,y} 対応
-      bufferCtx.putImageData(image, layer.x, layer.y)
+      bufferCtx.drawImage(image, layer.x, layer.y)
 
       for (const filter of layer.filters) {
         if (!filter.visible) continue

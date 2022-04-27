@@ -1,5 +1,6 @@
 import { v4 } from 'uuid'
 // import DOMMatrix from 'dommatrix'
+import { Emitter } from '../Engine3_Emitter'
 
 import { ISilkDOMElement } from './ISilkDOMElement'
 import { Path } from './Path'
@@ -11,19 +12,36 @@ export declare namespace VectorObject {
   interface Attributes {
     x: number
     y: number
+    visible: boolean
+    lock: boolean
     /** 0..360 */
     rotate: number
     scale: [number, number]
     brush: BrushSetting | null
     fill: FillSetting | null
   }
+
+  interface SerializedAttibutes extends Attributes {
+    uid: string
+    path: Path.SerializedAttibutes
+  }
 }
 
-export class VectorObject implements ISilkDOMElement, VectorObject.Attributes {
+type Events = {
+  updated: VectorObject
+}
+
+export class VectorObject
+  extends Emitter<Events>
+  implements ISilkDOMElement, VectorObject.Attributes
+{
   public readonly uid: string = `vectorobj-${v4()}`
 
   public x: number = 0
   public y: number = 0
+  public visible: boolean = true
+  public lock: boolean = false
+
   /** 0..360 */
   public rotate: number = 0
   public scale: [number, number] = [1, 1]
@@ -68,17 +86,24 @@ export class VectorObject implements ISilkDOMElement, VectorObject.Attributes {
     })
   }
 
-  public static deserialize(obj: any) {
+  public static deserialize(obj: VectorObject.SerializedAttibutes) {
     return assign(new VectorObject(), {
       uid: obj.uid,
       x: obj.x,
       y: obj.y,
+      rotate: obj.rotate ?? 0,
+      scale: obj.scale ?? [1, 1],
+      visible: obj.visible ?? true,
+      lock: obj.lock,
       path: Path.deserialize(obj.path),
       brush: obj.brush,
+      fill: obj.fill,
     })
   }
 
-  protected constructor() {}
+  protected constructor() {
+    super()
+  }
 
   public get lastUpdatedAt() {
     return this._contentUpdatedAt
@@ -97,8 +122,18 @@ export class VectorObject implements ISilkDOMElement, VectorObject.Attributes {
     return [m.a, m.b, m.c, m.d, m.e, m.f] as const
   }
 
-  public update(proc: (layer: this) => void) {
+  // public boolean = {
+  //   intoAdd: (object: VectorObject) => {
+  //     const a = new Paper.Path(this.path.svgPath)
+  //     const b = new Paper.Path(object.path.svgPath)
+
+  //     console.log(a.unite(b).exportSVG({ asString: true }))
+  //   },
+  // }
+
+  public update(proc: (object: this) => void) {
     proc(this)
+    this.emit('updated', this)
     this._contentUpdatedAt = Date.now()
   }
 
@@ -119,13 +154,18 @@ export class VectorObject implements ISilkDOMElement, VectorObject.Attributes {
     }
   }
 
-  public serialize() {
+  public serialize(): VectorObject.SerializedAttibutes {
     return {
       uid: this.uid,
       x: this.x,
       y: this.y,
+      rotate: this.rotate,
+      scale: this.scale,
+      visible: this.visible,
+      lock: this.lock,
       path: this.path.serialize(),
       brush: deepClone(this.brush),
+      fill: deepClone(this.fill),
     }
   }
 }

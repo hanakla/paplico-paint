@@ -7,7 +7,9 @@ import { deserializeLayer } from './desrializeLayer'
 import { Filter } from './Filter'
 import { CompositeMode, ILayer, LayerEvents } from './ILayer'
 
-type Events = LayerEvents<GroupLayer>
+type Events = LayerEvents<GroupLayer> & {
+  layersChanged: void
+}
 
 type SubLayerTypes = Exclude<LayerTypes, GroupLayer>
 
@@ -61,8 +63,12 @@ export class GroupLayer extends Emitter<Events> implements ILayer {
   }
 
   public update(proc: (layer: this) => void) {
+    const prevLength = this.layers.length
+
     proc(this)
     this.emit('updated', this)
+
+    if (prevLength !== this.layers.length) this.emit('layersChanged')
   }
 
   public serialize() {

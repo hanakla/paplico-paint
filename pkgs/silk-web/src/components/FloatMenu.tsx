@@ -1,6 +1,5 @@
-import { MutableRefObject } from 'react'
 import { CSSProperties, forwardRef, ReactNode } from 'react'
-import { css } from 'styled-components'
+import styled, { css } from 'styled-components'
 
 type Props = {
   children: ReactNode
@@ -15,18 +14,24 @@ export const FloatMenu = forwardRef<HTMLDivElement, Props>(
         ref={ref}
         className={className}
         css={css`
+          position: relative;
           margin-bottom: 16px;
           background-color: ${({ theme }) => theme.surface.floatWhite};
           border-radius: 4px;
         `}
         style={style}
-        // style={{
-        //   ...brushPopper.styles.popper,
-        //   ...(openBrush ? { opacity: 1, pointerEvents: 'all' } :  { opacity: 0, pointerEvents: 'none' })
-        // }}
       >
         {children}
       </div>
     )
   }
 )
+
+export const FloatMenuArrow = styled.div`
+  display: inline-block;
+  position: absolute;
+  top: 100%;
+  border: 6px solid;
+  border-color: ${({ theme }) => theme.surface.floatWhite} transparent
+    transparent transparent;
+`

@@ -4,6 +4,7 @@ import { EditorSelector } from '🙌/domains/EditorStable'
 import { VectorLayerControl } from './LayerControls/VectorLayerControl'
 import { RasterLayerControl } from './LayerControls/RasterLayerControl'
 import { TextLayerControl } from './LayerControls/TextLayerControl'
+import { GroupLayerControl } from './LayerControls/GroupLayerControl'
 
 export const ControlsOverlay = ({
   editorBound,
@@ -42,29 +43,8 @@ export const ControlsOverlay = ({
         transform={`rotate(0) translate(${x} ${y})`}
         origin="center"
       >
-        {/* {activeLayer?.layerType === 'raster' && bbox && (
-          // <div
-          //   css={`
-          //     position: absolute;
-          //     z-index: 1;
-          //     border: 1px solid #0ff;
-          //   `}
-          //   style={{
-          //     top: bbox.y,
-          //     left: bbox.x,
-          //     width: bbox.width,
-          //     height: bbox.height,
-          //   }}
-          // />
-          <rect
-            x={bbox.x}
-            y={bbox.y}
-            width={bbox.width}
-            height={bbox.height}
-            stroke="#0ff"
-          />
-        )} */}
         {activeLayer?.layerType === 'raster' && <RasterLayerControl />}
+        {activeLayer?.layerType === 'group' && <GroupLayerControl />}
         {activeLayer?.layerType === 'vector' && <VectorLayerControl />}
         {activeLayer?.layerType === 'text' && <TextLayerControl />}
       </g>

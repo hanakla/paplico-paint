@@ -8,6 +8,7 @@ cancel: Cancel
 addFromImage: Add from Image file
 export: Export
 untitled: Untitled
+remove: Remove
 
 mainActions:
   gradientLength: Length
@@ -102,6 +103,7 @@ layerView:
       remove: Remove object
 
 brushPresets:
+  vector: Vector
   circle: Circle
   fade: Fade
   pencil: Pencil

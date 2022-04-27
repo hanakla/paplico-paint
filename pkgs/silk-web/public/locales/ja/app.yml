@@ -8,6 +8,7 @@ cancel: キャンセル
 addFromImage: 画像ファイルから追加
 export: 保存する
 untitled: タイトル未設定
+remove: 削除
 
 mainActions:
   gradientLength: 長さ
@@ -104,6 +105,7 @@ layerView:
       remove: オブジェクトを削除
 
 brushPresets:
+  vector: ベクトルブラシ
   circle: 円ブラシ
   fade: フェードブラシ
   pencil: ペンシル

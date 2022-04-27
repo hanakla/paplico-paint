@@ -2,7 +2,15 @@ import { v4 } from 'uuid'
 import { assign, deepClone } from '../utils'
 import { ISilkDOMElement } from './ISilkDOMElement'
 
-export class Filter implements ISilkDOMElement {
+export declare namespace Filter {
+  type Attributes = {
+    filterId: string
+    visible: boolean
+    settings: Record<string, any>
+  }
+}
+
+export class Filter implements ISilkDOMElement, Filter.Attributes {
   public uid: string = `filter-${v4()}`
   public filterId: string = ''
 

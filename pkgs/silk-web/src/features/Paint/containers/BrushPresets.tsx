@@ -15,6 +15,21 @@ import { generateBrushThumbnail } from '../helpers'
 const presets = [
   {
     id: nanoid(),
+    nameKey: 'vector',
+    brushId: SilkBrushes.Brush.id,
+    size: 20,
+    opacity: 0.8,
+    specific: {
+      texture: 'circle',
+      fadeWeight: 0,
+      inOutInfluence: 0,
+      randomRotation: 0,
+      scatterRange: 0,
+      pressureInfluence: 0.5,
+    } as Partial<SilkBrushes.ScatterBrush.SpecificSetting>,
+  },
+  {
+    id: nanoid(),
     nameKey: 'circle',
     brushId: SilkBrushes.ScatterBrush.id,
     size: 20,

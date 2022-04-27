@@ -1,31 +1,45 @@
 import { Add, ArrowDownS } from '@styled-icons/remix-line'
 import { Eye, EyeClose } from '@styled-icons/remix-fill'
-import arrayMove from 'array-move'
 import { useTranslation } from 'next-i18next'
 import { rgba } from 'polished'
-import { memo, MouseEvent, useRef } from 'react'
-import {
-  SortableContainer,
-  SortableElement,
-  SortEndHandler,
-} from 'react-sortable-hoc'
+import { memo, MouseEvent } from 'react'
 import { useClickAway, useToggle } from 'react-use'
 import { useTheme } from 'styled-components'
 import { css } from 'styled-components'
-import { SilkDOM } from 'silk-core'
-import { ContextMenu, ContextMenuItem } from '🙌/components/ContextMenu'
+import { SilkCommands, SilkDOM } from 'silk-core'
+import { offset, shift, useFloating } from '@floating-ui/react-dom'
+import {
+  closestCenter,
+  DndContext,
+  DragEndEvent,
+  PointerSensor,
+  useSensor,
+  useSensors,
+} from '@dnd-kit/core'
+import {
+  SortableContext,
+  useSortable,
+  verticalListSortingStrategy,
+} from '@dnd-kit/sortable'
+import { restrictToVerticalAxis } from '@dnd-kit/modifiers'
+import { useFleurContext, useStore } from '@fleur/react'
+import { useFunk } from '@hanakla/arma'
+import { CSS } from '@dnd-kit/utilities'
+
+import {
+  ContextMenu,
+  ContextMenuItem,
+  useContextMenu,
+} from '🙌/components/ContextMenu'
 import { Portal } from '🙌/components/Portal'
-import { useMouseTrap } from '🙌/hooks/useMouseTrap'
 import { DOMUtils } from '🙌/utils/dom'
 import { centering } from '🙌/utils/mixins'
 import { FilterSettings } from './FilterSettings'
-import { useFleurContext, useStore } from '@fleur/react'
 import { EditorOps, EditorSelector, EditorStore } from '🙌/domains/EditorStable'
-import { useFunk } from '@hanakla/arma'
 import { isEventIgnoringTarget } from '../helpers'
 import { SidebarPane } from '🙌/components/SidebarPane'
-import { reversedIndex } from '🙌/utils/array'
-import { offset, shift, useFloating } from '@floating-ui/react-dom'
+import { useFleur } from '🙌/utils/hooks'
+import { useLayerWatch } from '../hooks'
 
 export const FilterView = memo(() => {
   const { t } = useTranslation('app')
@@ -39,6 +53,8 @@ export const FilterView = memo(() => {
     })
   )
 
+  useLayerWatch(activeLayer)
+
   const [listOpened, toggleListOpened] = useToggle(false)
   const listfl = useFloating({
     placement: 'bottom-end',
@@ -46,43 +62,52 @@ export const FilterView = memo(() => {
     middleware: [shift(), offset(4)],
   })
 
-  const handleClickOpenFilter = useFunk((e: MouseEvent<HTMLDivElement>) => {
-    // if (DOMUtils.isChildren( e.currentTarget)) return
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 4 } })
+  )
+
+  const handleClickOpenFilter = useFunk((e: MouseEvent<SVGElement>) => {
     toggleListOpened()
   })
 
   const handleClickAddFilter = useFunk(
-    ({ currentTarget, nativeEvent }: MouseEvent<HTMLLIElement>) => {
-      nativeEvent.stopPropagation()
+    ({ currentTarget }: MouseEvent<HTMLLIElement>) => {
       toggleListOpened(false)
 
-      if (!activeLayer) return
+      if (!activeLayerPath) return
 
       const filterId = currentTarget.dataset.filterId!
       const filter = EditorSelector.getFilterInstance(getStore, filterId)
       if (!filter) return
 
-      executeOperation(EditorOps.updateLayer, activeLayerPath, (layer) => {
-        layer.filters.unshift(
-          SilkDOM.Filter.create({ filterId, settings: filter.initialConfig })
-        )
-      })
-
-      executeOperation(EditorOps.rerenderCanvas)
+      executeOperation(
+        EditorOps.runCommand,
+        new SilkCommands.Layer.AddFilter({
+          pathToTargetLayer: activeLayerPath,
+          filter: SilkDOM.Filter.create({
+            filterId,
+            settings: filter.initialConfig,
+          }),
+        })
+      )
     }
   )
 
-  const handleFilterSortEnd: SortEndHandler = useFunk((sort) => {
-    if (!activeLayer || !activeLayerPath) return
+  const handleFilterSortEnd = useFunk(({ active, over }: DragEndEvent) => {
+    if (!activeLayer || !activeLayerPath || !over) return
 
-    executeOperation(EditorOps.updateLayer, activeLayerPath, (layer) => {
-      // arrayMove.mutate(
-      //   layer.filters,
-      //   reversedIndex(activeLayer.filters, sort.oldIndex),
-      //   reversedIndex(activeLayer.filters, sort.newIndex)
-      // )
-      arrayMove.mutate(layer.filters, sort.oldIndex, sort.newIndex)
-    })
+    const oldIndex = activeLayer.filters.findIndex((f) => f.uid === active.id)
+    const newIndex = activeLayer.filters.findIndex((f) => f.uid === over.id)
+    if (oldIndex === newIndex) return
+
+    executeOperation(
+      EditorOps.runCommand,
+      new SilkCommands.Layer.ReorderFilter({
+        pathToTargetLayer: activeLayerPath,
+        filterUid: active.id,
+        newIndex: { exactly: newIndex },
+      })
+    )
   })
 
   useClickAway(listfl.refs.floating, (e) => {
@@ -102,9 +127,8 @@ export const FilterView = memo(() => {
               position: relative;
               margin-left: auto;
             `}
-            onClick={handleClickOpenFilter}
           >
-            <Add css="width:16px;" />
+            <Add width={16} onClick={handleClickOpenFilter} />
 
             <Portal>
               <ul
@@ -152,64 +176,27 @@ export const FilterView = memo(() => {
       container={(children) => children}
     >
       {activeLayer && (
-        <SortableFilterList
-          layer={activeLayer}
-          filters={activeLayer.filters}
-          onSortEnd={handleFilterSortEnd}
-          distance={2}
-          lockAxis={'y'}
-        />
+        <DndContext
+          collisionDetection={closestCenter}
+          modifiers={[restrictToVerticalAxis]}
+          onDragEnd={handleFilterSortEnd}
+          sensors={sensors}
+        >
+          <SortableContext
+            items={activeLayer.filters.map(({ uid }) => uid)}
+            strategy={verticalListSortingStrategy}
+          >
+            {activeLayer.filters.map((filter) => (
+              <FilterItem layer={activeLayer} filter={filter} />
+            ))}
+          </SortableContext>
+        </DndContext>
       )}
     </SidebarPane>
   )
 })
 
-const SortableFilterList = SortableContainer(function FilterList({
-  layer,
-  filters,
-}: {
-  layer: SilkDOM.LayerTypes
-  filters: SilkDOM.Filter[]
-}) {
-  const { executeOperation } = useFleurContext()
-
-  const rootRef = useRef<HTMLDivElement | null>(null)
-
-  useMouseTrap(
-    rootRef,
-    [
-      {
-        key: ['del', 'backspace'],
-        handler: () => {
-          executeOperation(EditorOps.deleteSelectedFilters)
-        },
-      },
-    ],
-    []
-  )
-
-  return (
-    <div
-      ref={rootRef}
-      css={css`
-        flex: 1;
-        outline: none;
-      `}
-      tabIndex={-1}
-    >
-      {filters.map((filter, idx) => (
-        <SortableFilterItem
-          key={filter.uid}
-          index={idx}
-          layer={layer}
-          filter={filter}
-        />
-      ))}
-    </div>
-  )
-})
-
-const SortableFilterItem = SortableElement(function FilterItem({
+const FilterItem = memo(function FilterItem({
   layer,
   filter,
 }: {
@@ -218,8 +205,12 @@ const SortableFilterItem = SortableElement(function FilterItem({
 }) {
   const { t } = useTranslation('app')
   const theme = useTheme()
+  const { execute } = useFleur()
 
-  const { executeOperation } = useFleurContext()
+  const contextMenu = useContextMenu()
+  const { attributes, listeners, setNodeRef, transform, transition } =
+    useSortable({ id: filter.uid })
+
   const { activeLayer, activeLayerPath, selectedFilterIds } = useStore(
     (get) => ({
       activeLayer: EditorSelector.activeLayer(get),
@@ -234,7 +225,7 @@ const SortableFilterItem = SortableElement(function FilterItem({
   const handleClick = useFunk((e: MouseEvent<HTMLDivElement>) => {
     if (DOMUtils.closestOrSelf(e.target, '[data-ignore-click]')) return
 
-    executeOperation(EditorOps.setSelectedFilterIds, { [filter.uid]: true })
+    execute(EditorOps.setSelectedFilterIds, { [filter.uid]: true })
   })
 
   const handleDoubleClick = useFunk((e: MouseEvent<HTMLDivElement>) => {
@@ -245,39 +236,45 @@ const SortableFilterItem = SortableElement(function FilterItem({
   const handleToggleVisibility = useFunk(() => {
     if (!activeLayer || !activeLayerPath) return
 
-    executeOperation(EditorOps.updateLayer, activeLayerPath, (layer) => {
+    execute(EditorOps.updateLayer, activeLayerPath, (layer) => {
       const targetFilter = layer.filters.find((f) => f.uid === filter.uid)
       if (!targetFilter) return
 
       targetFilter.visible = !targetFilter.visible
     })
 
-    executeOperation(EditorOps.rerenderCanvas)
+    execute(EditorOps.rerenderCanvas)
   })
 
   const handleClickRemove = useFunk(() => {
     if (!activeLayer || !activeLayerPath) return
 
-    executeOperation(EditorOps.updateLayer, activeLayerPath, (layer) => {
+    execute(EditorOps.updateLayer, activeLayerPath, (layer) => {
       const idx = layer.filters.findIndex((f) => f.uid === filter.uid)
       if (idx === -1) return
 
       layer.filters.splice(idx, 1)
     })
 
-    executeOperation(EditorOps.rerenderCanvas)
+    execute(EditorOps.rerenderCanvas)
   })
 
   return (
     <div
+      ref={setNodeRef}
       css={css`
-        z-index: 1; /* Sortしたときに隠れちゃう(絶望)ので */
         display: flex;
         flex-wrap: wrap;
         color: ${({ theme }) => theme.text.white};
       `}
       onClick={handleClick}
       onDoubleClick={handleDoubleClick}
+      style={{
+        transform: CSS.Transform.toString(transform),
+        transition: transition,
+      }}
+      {...attributes}
+      {...listeners}
     >
       <div
         css={`
@@ -364,8 +361,10 @@ const SortableFilterItem = SortableElement(function FilterItem({
         </div>
       )}
 
-      <ContextMenu>
-        <ContextMenuItem onClick={handleClickRemove}>削除</ContextMenuItem>
+      <ContextMenu id={contextMenu.id}>
+        <ContextMenuItem onClick={handleClickRemove}>
+          {t('remove')}
+        </ContextMenuItem>
       </ContextMenu>
     </div>
   )

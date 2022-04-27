@@ -1,6 +1,9 @@
 import { CSSProperties, forwardRef, ReactNode } from 'react'
 import styled, { css } from 'styled-components'
 
+import { tm } from '🙌/utils/theme'
+import { floatingDropShadow } from '🙌/utils/mixins'
+
 type Props = {
   children: ReactNode
   className?: string
@@ -16,8 +19,8 @@ export const FloatMenu = forwardRef<HTMLDivElement, Props>(
         css={css`
           position: relative;
           margin-bottom: 16px;
-          background-color: ${({ theme }) => theme.surface.floatWhite};
           border-radius: 4px;
+          ${tm((o) => [o.bg.surface3, o.font.text1])}
         `}
         style={style}
       >
@@ -32,6 +35,7 @@ export const FloatMenuArrow = styled.div`
   position: absolute;
   top: 100%;
   border: 6px solid;
-  border-color: ${({ theme }) => theme.surface.floatWhite} transparent
-    transparent transparent;
+  border-color: ${({ theme }) => theme.color.surface3} transparent transparent
+    transparent;
+  ${floatingDropShadow}
 `

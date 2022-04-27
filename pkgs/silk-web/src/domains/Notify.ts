@@ -30,7 +30,6 @@ export const [NotifyStore, NotifyOps] = minOps('Notify', {
     },
     delete(x, id: string) {
       x.commit((d) => {
-        console.log('deleting', id)
         d.entries = d.entries.filter((n) => n.id !== id)
       })
     },

@@ -9,6 +9,7 @@ import {
   VectorObject,
   TextLayer,
   ReferenceLayer,
+  Filter,
 } from './SilkDOM'
 
 // prettier-ignore
@@ -76,6 +77,13 @@ interface Digger {
     query: { kind?: K | Array<K> },
     proc: (l: FilterLayerType<K>) => void | { stop: true }
   ): void
+
+  findFilter<S extends boolean | undefined>(
+    document: { layers: readonly LayerTypes[] },
+    path: readonly string[],
+    filterUid: string,
+    query?: { strict?: S; filterId?: string }
+  ): Filter | (S extends true ? never : null)
 }
 
 const matchLayerType = <K extends LayerTypes['layerType']>(
@@ -238,5 +246,21 @@ export const SilkDOMDigger: Digger = {
       throw new Error(`Layer not found (in findParentLayers): ${layerUid}`)
 
     return result as any
+  },
+
+  findFilter(document, path, filterUid, { strict, filterId } = {}) {
+    const layer = SilkDOMDigger.findLayer(document, path, { strict })
+    const filter = layer?.filters.find(
+      (f) =>
+        f.uid === filterUid &&
+        (filterId != null ? f.filterId === filterId : true)
+    )
+
+    if (strict && filter == null)
+      throw new Error(
+        `Filter not found: ${path.join('->')}->filter: ${filterUid}`
+      )
+
+    return filter as any
   },
 }

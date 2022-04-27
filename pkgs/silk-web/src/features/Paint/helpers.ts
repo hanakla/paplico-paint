@@ -69,8 +69,8 @@ export const calcLayerMove = (
 
   if (movedEntry.type === 'layer') {
     if (
-      parent != null &&
-      (parent.type !== 'layer' || parent?.layer.layerType !== 'group')
+      parent != null && // not in document root
+      (parent.type !== 'layer' || parent?.layer.layerType !== 'group') // out of group
     )
       return null
 

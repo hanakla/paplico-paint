@@ -35,7 +35,7 @@ import {
   useContextMenu,
 } from '🙌/components/ContextMenu'
 import { tm } from '🙌/utils/theme'
-import { floatingDropshadow } from '🙌/utils/mixins'
+import { floatingDropShadow } from '🙌/utils/mixins'
 
 const POINT_SIZE = 8
 
@@ -604,19 +604,19 @@ export const VectorLayerControl = () => {
             position: fixed;
             bottom: 96px;
             left: 50%;
-            padding: 2px;
+            padding: 4px;
             transform: translateX(-50%);
-            border-radius: 4px;
+            border-radius: 100px;
             transition: 0.2 ease-in-out;
-            transition-property: transform;
-            ${floatingDropshadow}
+            transition-property: transform, opacity;
+            ${floatingDropShadow}
             ${tm((o) => [o.bg.surface1])}
           `}
           style={{
             transform: `translate(calc(-50% + ${currentControllDirection.current.x}px), ${currentControllDirection.current.y}px)`,
             ...(activeObject
               ? { opacity: 1, pointerEvents: 'all' }
-              : { opacity: 0.3, pointerEvents: 'none' }),
+              : { opacity: 0.0, pointerEvents: 'none' }),
           }}
           {...bindControllerDrag()}
         >

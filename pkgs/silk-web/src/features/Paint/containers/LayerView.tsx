@@ -52,7 +52,6 @@ import {
   DndContext,
   DragEndEvent,
   PointerSensor,
-  useDroppable,
   useSensor,
   useSensors,
 } from '@dnd-kit/core'
@@ -70,21 +69,18 @@ import { shallowEquals } from '🙌/utils/object'
 import { useHover } from 'react-use-gesture'
 import { createSlice, useLysSliceRoot, useLysSlice } from '@fleur/lys'
 import { CommandOps } from '../../../domains/Commands'
-import { useLayerWatch } from '../hooks'
+import { useLayerWatch, useActiveLayerPane } from '../hooks'
 
 export const LayerView = memo(function LayerView() {
   const { t } = useTranslation('app')
 
   const rerender = useUpdate()
   const { executeOperation } = useFleurContext()
-  const { activeLayer, activeLayerPath, currentDocument, layers } = useStore(
-    (get) => ({
-      activeLayer: EditorSelector.activeLayer(get),
-      activeLayerPath: EditorSelector.activeLayerPath(get),
-      layers: EditorSelector.layers(get),
-      currentDocument: EditorSelector.currentDocument(get),
-    })
-  )
+  const { activeLayer, currentDocument, layers } = useStore((get) => ({
+    activeLayer: EditorSelector.activeLayer(get),
+    layers: EditorSelector.layers(get),
+    currentDocument: EditorSelector.currentDocument(get),
+  }))
   const [layeViewState, layerViewActions] = useLysSliceRoot(layerViewSlice)
 
   const [layerTypeOpened, toggleLayerTypeOpened] = useToggle(false)
@@ -274,20 +270,7 @@ export const LayerView = memo(function LayerView() {
               {t('layerType.filter')}
             </li>
             <li data-layer-type="image" onClick={handleClickAddLayerItem}>
-              {/* <label> */}
               {t('addFromImage')}
-              {/* <input
-                  css={`
-                    display: block;
-                    width: 1px;
-                    height: 1px;
-                    opacity: 0;
-                  `}
-                  type="file"
-                  accept="'.png,.jpeg,.jpg"
-                  onChange={handleChangeFile}
-                />
-              </label> */}
             </li>
           </ul>
         </Portal>
@@ -347,8 +330,7 @@ const SortableLayerItem = memo(
     onToggleCollapse: (id: string) => void
   }) => {
     if (entry.type !== 'layer') return null
-
-    const { id, layer, parentPath, depth } = entry
+    const { layer, parentPath, depth } = entry
 
     const contextMenu = useContextMenu()
     const { attributes, listeners, setNodeRef, transform, transition } =
@@ -710,41 +692,6 @@ const SortableLayerItem = memo(
               />
             </div>
           </div>
-
-          {/* {layer.layerType === 'vector' && (
-            <div
-              css={`
-                flex-basis: 100%;
-                overflow: hidden;
-              `}
-              style={{
-                height: objectsOpened ? 'auto' : 0,
-              }}
-            >
-              {[...layer.objects].reverse().map((object) => (
-                <>
-                  <div
-                    css={`
-                      padding: 6px 8px;
-                      margin-left: 16px;
-                    `}
-                    style={{
-                      backgroundColor:
-                        activeObjectId == object.uid
-                          ? theme.surface.sidebarListActive
-                          : undefined,
-                    }}
-                    data-object-id={object.uid}
-                    onClick={handleClickObject}
-                    onContextMenu={handleObjectContextMenu}
-                    data-ignore-layer-click
-                  >
-                    パス
-                  </div>
-                </>
-              ))}
-            </div>
-          )} */}
         </div>
 
         <ContextMenu id={contextMenu.id}>
@@ -876,59 +823,12 @@ const SortableObjectItem = memo(({ entry }: { entry: FlatLayerEntry }) => {
 
 const ActiveLayerPane = memo(function ActiveLayerPane() {
   const { t } = useTranslation('app')
-
-  const { execute } = useFleur()
-  const { activeLayer, activeLayerPath } = useStore((get) => ({
-    activeLayer: EditorSelector.activeLayer(get),
-    activeLayerPath: EditorSelector.activeLayerPath(get),
-  }))
-
-  useLayerWatch(activeLayer)
-
-  const [layerName, setLayerName] = useBufferedState(activeLayer?.name)
-
-  const handleChangeLayerName = useFunk(
-    ({ currentTarget }: ChangeEvent<HTMLInputElement>) => {
-      if (!activeLayerPath) return
-
-      setLayerName(currentTarget.value)
-      commitChangeLayerName(activeLayerPath, currentTarget.value)
-    }
-  )
-
-  const commitChangeLayerName = useDebouncedFunk(
-    (path: string[], layerName: string) => {
-      if (!activeLayerPath) return
-      execute(
-        EditorOps.runCommand,
-        new SilkCommands.Layer.PatchLayerAttr({
-          patch: { name: layerName },
-          pathToTargetLayer: path,
-        })
-      )
-    },
-    1000
-  )
-
-  const handleChangeCompositeMode = useFunk((value: string) => {
-    if (!activeLayerPath) return
-
-    execute(
-      EditorOps.updateLayer,
-      activeLayerPath,
-      (layer) => (layer.compositeMode = value as any)
-    )
-  })
-
-  const handleChangeOpacity = useFunk(
-    ({ currentTarget }: ChangeEvent<HTMLInputElement>) => {
-      if (!activeLayer) return
-
-      execute(EditorOps.updateLayer, activeLayerPath, (layer) => {
-        layer.opacity = currentTarget.valueAsNumber
-      })
-    }
-  )
+  const {
+    state: { activeLayer, layerName },
+    handleChangeLayerName,
+    handleChangeCompositeMode,
+    handleChangeOpacity,
+  } = useActiveLayerPane()
 
   return (
     <div

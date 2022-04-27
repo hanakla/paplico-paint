@@ -1,11 +1,12 @@
-import { useFleurContext } from '@fleur/react'
+import { useFleurContext, useStore } from '@fleur/react'
 import { autoUpdate, offset, shift, useFloating } from '@floating-ui/react-dom'
 import { useFunk } from '@hanakla/arma'
 import { useTranslation } from 'next-i18next'
 import { ChangeEvent, memo, MouseEvent, ReactNode, useEffect } from 'react'
 import { ChromePicker, ColorChangeHandler } from 'react-color'
 import { useClickAway, useToggle } from 'react-use'
-import { SilkDOM, SilkValue } from 'silk-core'
+import { SilkCommands, SilkDOM } from 'silk-core'
+
 import { DeltaRange } from '🙌/components/DeltaRange'
 import { RangeInput } from '🙌/components/RangeInput'
 import { SelectBox } from '🙌/components/SelectBox'
@@ -13,8 +14,10 @@ import { EditorOps } from '🙌/domains/EditorStable'
 import { useFleur } from '🙌/utils/hooks'
 import { centering } from '🙌/utils/mixins'
 import { roundString } from '🙌/utils/StringUtils'
-import { Portal } from '../../../components/Portal'
-import { DOMUtils } from '../../../utils/dom'
+import { Portal } from '🙌/components/Portal'
+import { DOMUtils } from '🙌/utils/dom'
+import { EditorSelector } from '🙌/domains/EditorStable'
+import { useTransactionCommand } from '../hooks'
 
 type Props = { layer: SilkDOM.LayerTypes; filter: SilkDOM.Filter }
 
@@ -141,33 +144,45 @@ const GaussBlur = ({ layer, filter }: Props) => {
 }
 
 const ChromaticAberration = ({ layer, filter }: Props) => {
-  const { executeOperation } = useFleurContext()
+  const { execute } = useFleur()
+  const activeLayerPath = useStore(EditorSelector.activeLayerPath)
+  const trnsCommand = useTransactionCommand({ threshold: 2000 })
 
-  const handleChangeDistance = useFunk((value: number) => {
-    executeOperation(
-      EditorOps.updateFilter,
-      layer.uid,
-      filter.uid,
-      (filter) => {
-        filter.settings.distance = value
-      }
-    )
-  }, [])
+  const handleChangeDistance = useFunk(
+    ({ currentTarget }: ChangeEvent<HTMLInputElement>) => {
+      if (!activeLayerPath) return
 
-  const handleChangeAngleDeg = useFunk((value: number) => {
-    executeOperation(
-      EditorOps.updateFilter,
-      layer.uid,
-      filter.uid,
-      (filter) => {
-        filter.settings.angleDeg = value
-      }
-    )
-  }, [])
+      trnsCommand.autoStartAndDoAdd(
+        new SilkCommands.Filter.PatchAttr({
+          pathToTargetLayer: activeLayerPath,
+          filterUid: filter.uid,
+          patcher: (attr) => {
+            attr.settings.distance = currentTarget.valueAsNumber
+          },
+        })
+      )
+    }
+  )
+
+  const handleChangeAngleDeg = useFunk(
+    ({ currentTarget }: ChangeEvent<HTMLInputElement>) => {
+      if (!activeLayerPath) return
+
+      trnsCommand.autoStartAndDoAdd(
+        new SilkCommands.Filter.PatchAttr({
+          pathToTargetLayer: activeLayerPath,
+          filterUid: filter.uid,
+          patcher: (attr) => {
+            attr.settings.angleDeg = currentTarget.valueAsNumber
+          },
+        })
+      )
+    }
+  )
 
   const handleChangeComplete = useFunk(() => {
-    executeOperation(EditorOps.rerenderCanvas)
-  }, [])
+    execute(EditorOps.rerenderCanvas)
+  })
 
   return (
     <div>
@@ -176,7 +191,7 @@ const ChromaticAberration = ({ layer, filter }: Props) => {
         nameKey="distance"
         value={roundString(filter.settings.distance, 2)}
       >
-        <DeltaRange
+        <RangeInput
           css={`
             width: 100%;
           `}
@@ -192,11 +207,13 @@ const ChromaticAberration = ({ layer, filter }: Props) => {
         nameKey="angleDeg"
         value={`${roundString(filter.settings.angleDeg)}°`}
       >
-        <DeltaRange
+        <RangeInput
           css={`
             width: 100%;
           `}
           value={filter.settings.angleDeg}
+          min={0}
+          max={360}
           step={0.1}
           onChange={handleChangeAngleDeg}
           onChangeComplete={handleChangeComplete}
@@ -208,24 +225,49 @@ const ChromaticAberration = ({ layer, filter }: Props) => {
 
 const Halftone = ({ layer, filter }: Props) => {
   const { t } = useTranslation('app')
-  const { execute } = useFleur()
+  const activeLayerPath = useStore(EditorSelector.activeLayerPath)
+  const trnsCommand = useTransactionCommand({ threshold: 2000 })
 
   const handleChangeShape = useFunk((value: string) => {
-    execute(EditorOps.updateFilter, layer.uid, filter.uid, (filter) => {
-      filter.settings.shape = +value
-    })
+    if (!activeLayerPath) return
+
+    trnsCommand.autoStartAndDoAdd(
+      new SilkCommands.Filter.PatchAttr({
+        pathToTargetLayer: activeLayerPath,
+        filterUid: filter.uid,
+        patcher: (attr) => {
+          attr.settings.shape = +value
+        },
+      })
+    )
   })
 
   const handleChangeRadius = useFunk((value: number) => {
-    execute(EditorOps.updateFilter, layer.uid, filter.uid, (filter) => {
-      filter.settings.radius = value
-    })
+    if (!activeLayerPath) return
+
+    trnsCommand.autoStartAndDoAdd(
+      new SilkCommands.Filter.PatchAttr({
+        pathToTargetLayer: activeLayerPath,
+        filterUid: filter.uid,
+        patcher: (attr) => {
+          attr.settings.radius = value
+        },
+      })
+    )
   })
 
   const handleChangeScatter = useFunk((value: number) => {
-    execute(EditorOps.updateFilter, layer.uid, filter.uid, (filter) => {
-      filter.settings.scatter = value
-    })
+    if (!activeLayerPath) return
+
+    trnsCommand.autoStartAndDoAdd(
+      new SilkCommands.Filter.PatchAttr({
+        pathToTargetLayer: activeLayerPath,
+        filterUid: filter.uid,
+        patcher: (attr) => {
+          attr.settings.scatter = value
+        },
+      })
+    )
   })
 
   return (

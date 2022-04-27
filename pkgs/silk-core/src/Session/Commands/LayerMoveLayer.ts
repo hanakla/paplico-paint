@@ -103,7 +103,7 @@ export class LayerMoveLayer implements ICommand {
           })
 
     sourceContainer.update((c: Document | GroupLayer) => {
-      c.layers.splice(this.move.sourceIndex, 0, sourceLayer)
+      c.layers.splice(this.move.sourceIndex!, 0, sourceLayer)
     })
   }
 

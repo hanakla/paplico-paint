@@ -1,10 +1,13 @@
 import { ICommand } from '../ICommand'
 import { DocumentAddLayer } from './DocumentAddLayer'
 
+import { FilterPatchAttr } from './FilterPatchAttr'
 import { LayerConvertToGroup } from './LayerConvertToGroup'
 import { LayerDelete } from './LayerDelete'
+import { LayerAddFilter } from './LayerAddFilter'
 import { LayerMoveLayer } from './LayerMoveLayer'
 import { LayerPatchLayerAttr } from './LayerPatchLayerAttr'
+import { LayerFilterReorder } from './LayerFilterReorder'
 import { RasterUpdateBitmap } from './RasterUpdateBitmap'
 import { VectorAddObject } from './VectorAddObject'
 import { VectorObjectPatchAttr } from './VectorObjectPatchAttr'
@@ -19,11 +22,14 @@ import { VectorObjectReorder } from './VectorObjectReorder'
 export const Commands = {
   Transaction: Transaction,
   Document: { AddLayer: DocumentAddLayer },
+  Filter: { PatchAttr: FilterPatchAttr },
   Layer: {
+    AddFilter: LayerAddFilter,
     PatchLayerAttr: LayerPatchLayerAttr,
     ConvertToGroup: LayerConvertToGroup,
     DeleteLayer: LayerDelete,
     MoveLayer: LayerMoveLayer,
+    ReorderFilter: LayerFilterReorder,
   },
   RasterLayer: {
     UpdateBitmap: RasterUpdateBitmap,

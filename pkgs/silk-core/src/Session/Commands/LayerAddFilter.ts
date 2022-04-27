@@ -1,41 +1,40 @@
 import { SilkDOMDigger } from '../../SilkDOMDigger'
 import { ICommand } from '../ICommand'
-import { Document, VectorObject } from '../../SilkDOM'
+import { Document, Filter, LayerTypes } from '../../SilkDOM'
 
-export class VectorAddObject implements ICommand {
-  public readonly name = 'VectorAddObject'
+export class LayerAddFilter implements ICommand {
+  public readonly name = 'LayerAddFilter'
 
-  private object: VectorObject
+  private filter: Filter
   private pathToTargetLayer: string[]
 
   constructor({
-    object,
     pathToTargetLayer,
+    filter,
   }: {
-    object: VectorObject
     pathToTargetLayer: string[]
+    filter: Filter
   }) {
-    this.object = object
     this.pathToTargetLayer = pathToTargetLayer
+    this.filter = filter
   }
 
   async do(document: Document) {
-    SilkDOMDigger.findLayer(document, this.pathToTargetLayer, {
-      kind: 'vector',
+    const layer = SilkDOMDigger.findLayer(document, this.pathToTargetLayer, {
       strict: true,
-    }).update((l) => l.objects.unshift(this.object))
+    })
+
+    layer.update((l: LayerTypes) => l.filters.unshift(this.filter))
   }
 
   async undo(document: Document): Promise<void> {
     const layer = SilkDOMDigger.findLayer(document, this.pathToTargetLayer, {
-      kind: 'vector',
       strict: true,
     })
 
-    const idx = layer.objects.findIndex((o) => o.uid === this.object.uid)
+    const idx = layer.filters.findIndex((o) => o.uid === this.filter.uid)
     if (idx === -1) return
-
-    layer.update((l) => l.objects.splice(idx, 1))
+    layer.update((l: LayerTypes) => l.filters.splice(idx, 1))
   }
 
   async redo(document: Document): Promise<void> {

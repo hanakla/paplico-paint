@@ -242,33 +242,37 @@ const Halftone = ({ layer, filter }: Props) => {
     )
   })
 
-  const handleChangeRadius = useFunk((value: number) => {
-    if (!activeLayerPath) return
+  const handleChangeRadius = useFunk(
+    ({ currentTarget }: ChangeEvent<HTMLInputElement>) => {
+      if (!activeLayerPath) return
 
-    trnsCommand.autoStartAndDoAdd(
-      new SilkCommands.Filter.PatchAttr({
-        pathToTargetLayer: activeLayerPath,
-        filterUid: filter.uid,
-        patcher: (attr) => {
-          attr.settings.radius = value
-        },
-      })
-    )
-  })
+      trnsCommand.autoStartAndDoAdd(
+        new SilkCommands.Filter.PatchAttr({
+          pathToTargetLayer: activeLayerPath,
+          filterUid: filter.uid,
+          patcher: (attr) => {
+            attr.settings.radius = currentTarget.valueAsNumber
+          },
+        })
+      )
+    }
+  )
 
-  const handleChangeScatter = useFunk((value: number) => {
-    if (!activeLayerPath) return
+  const handleChangeScatter = useFunk(
+    ({ currentTarget }: ChangeEvent<HTMLInputElement>) => {
+      if (!activeLayerPath) return
 
-    trnsCommand.autoStartAndDoAdd(
-      new SilkCommands.Filter.PatchAttr({
-        pathToTargetLayer: activeLayerPath,
-        filterUid: filter.uid,
-        patcher: (attr) => {
-          attr.settings.scatter = value
-        },
-      })
-    )
-  })
+      trnsCommand.autoStartAndDoAdd(
+        new SilkCommands.Filter.PatchAttr({
+          pathToTargetLayer: activeLayerPath,
+          filterUid: filter.uid,
+          patcher: (attr) => {
+            attr.settings.scatter = currentTarget.valueAsNumber
+          },
+        })
+      )
+    }
+  )
 
   return (
     <div>
@@ -305,11 +309,12 @@ const Halftone = ({ layer, filter }: Props) => {
         nameKey="radius"
         value={`${roundString(filter.settings.radius)}`}
       >
-        <DeltaRange
+        <RangeInput
           min={0}
+          max={200}
           step={0.1}
           value={filter.settings.radius}
-          onChange={handleChangeRadius}
+          onChangeComplete={handleChangeRadius}
         />
       </Column>
       <Column
@@ -317,11 +322,12 @@ const Halftone = ({ layer, filter }: Props) => {
         nameKey="scatter"
         value={`${roundString(filter.settings.scatter)}`}
       >
-        <DeltaRange
+        <RangeInput
           min={0}
+          max={200}
           step={0.05}
           value={filter.settings.scatter}
-          onChange={handleChangeScatter}
+          onChangeComplete={handleChangeScatter}
         />
       </Column>
     </div>

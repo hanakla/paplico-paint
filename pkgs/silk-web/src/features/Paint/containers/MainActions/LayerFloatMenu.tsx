@@ -12,7 +12,14 @@ import {
 import { Magic as MagicFill } from '@styled-icons/remix-fill'
 import { useTranslation } from 'next-i18next'
 import { rgba } from 'polished'
-import { ChangeEvent, forwardRef, memo, MouseEvent, useRef } from 'react'
+import {
+  ChangeEvent,
+  forwardRef,
+  memo,
+  MouseEvent,
+  useEffect,
+  useRef,
+} from 'react'
 import { css, useTheme } from 'styled-components'
 import { SilkCommands, SilkDOM } from 'silk-core'
 import { useStore } from '@fleur/react'
@@ -47,7 +54,7 @@ import { CSS } from '@dnd-kit/utilities'
 import { useFleur } from '🙌/utils/hooks'
 import { Checkbox } from '🙌/components/Checkbox'
 import { shallowEquals } from '🙌/utils/object'
-import { useActiveLayerPane } from '../../hooks'
+import { useActiveLayerPane, useDocumentWatch } from '../../hooks'
 
 export const LayerFloatMenu = memo(
   forwardRef<HTMLDivElement, {}>(function LayerFloatMenu(_, ref) {
@@ -62,36 +69,21 @@ export const LayerFloatMenu = memo(
         activeLayerPath: EditorSelector.activeLayerPath(get),
       })
     )
+    useDocumentWatch(currentDocument)
 
     const [addLayerSheetOpened, toggleAddLayerSheetOpened] = useToggle(false)
-
-    const handleChangeCompositeMode = useFunk((mode: string) => {
-      if (!activeLayer) return
-
-      execute(EditorOps.updateLayer, [activeLayer.uid], (layer) => {
-        layer.compositeMode = mode as any
-      })
-    })
-
-    const handleChangeOpacity = useFunk(
-      ({ currentTarget }: ChangeEvent<HTMLInputElement>) => {
-        if (!activeLayer) return
-
-        execute(EditorOps.updateLayer, [activeLayer.uid], (layer) => {
-          layer.opacity = currentTarget.valueAsNumber
-        })
-      }
-    )
 
     const handleLayerDragEnd = useFunk(({ active, over }: DragEndEvent) => {
       const moves = calcLayerMove(flatLayers, { active, over })
       if (!moves) return
 
       execute(
-        EditorOps.moveLayer,
-        moves.sourcePath,
-        moves.oldIndex,
-        moves.newIndex
+        EditorOps.runCommand,
+        new SilkCommands.Layer.MoveLayer({
+          sourcePath: moves.sourcePath,
+          targetGroupPath: moves.targetParentPath,
+          targetIndex: moves.targetIndex,
+        })
       )
     })
 
@@ -190,23 +182,6 @@ export const LayerFloatMenu = memo(
               ))}
             </SortableContext>
           </DndContext>
-        </div>
-
-        <div
-          css={`
-            padding: 4px 0;
-            flex: 1;
-            text-align: center;
-          `}
-          onClick={handleClickAddLayer}
-        >
-          <Add
-            css={`
-              width: 24px;
-              padding-bottom: 2px;
-            `}
-          />{' '}
-          レイヤーを追加
         </div>
 
         <Portal>

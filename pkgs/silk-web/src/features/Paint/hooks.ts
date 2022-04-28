@@ -82,6 +82,17 @@ export const useSilkExporter = () => {
   }
 }
 
+export const useDocumentWatch = (
+  document: SilkDOM.Document | null | undefined
+) => {
+  const rerender = useUpdate()
+
+  useEffect(() => {
+    document?.on('layersChanged', rerender)
+    return () => document?.off('layersChanged', rerender)
+  }, [document?.uid, rerender])
+}
+
 export const useLayerWatch = (layer: SilkDOM.LayerTypes | null | undefined) => {
   const rerender = useUpdate()
 

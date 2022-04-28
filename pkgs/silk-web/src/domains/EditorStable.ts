@@ -394,19 +394,19 @@ export const [EditorStore, EditorOps] = minOps('Editor', {
       // })
 
       x.commit((d) => {
-        const sid = nanoid()
+        // const sid = nanoid()
 
         d.session = session
-        d.sessions[sid] = {
-          sid,
-          session,
-          canvasPosition: { x: 0, y: 0 },
-          canvasScale: 1,
-          currentFileHandler: null,
-          renderStrategy,
-        }
+        // d.sessions[sid] = {
+        //   sid,
+        //   session,
+        //   canvasPosition: { x: 0, y: 0 },
+        //   canvasScale: 1,
+        //   currentFileHandler: null,
+        //   renderStrategy,
+        // }
 
-        d.activeSessionId = sid
+        // d.activeSessionId = sid
 
         d.currentDocument = document
         d.renderStrategy = renderStrategy

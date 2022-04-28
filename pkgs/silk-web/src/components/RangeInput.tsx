@@ -1,5 +1,4 @@
 import { useFunk } from '@hanakla/arma'
-import { debounce } from 'debounce'
 import {
   ChangeEvent,
   DetailedHTMLProps,
@@ -9,6 +8,7 @@ import {
   useMemo,
 } from 'react'
 import { rangeThumb } from '🙌/utils/mixins'
+import { debounce } from '../utils/func'
 
 type Props = DetailedHTMLProps<
   InputHTMLAttributes<HTMLInputElement>,
@@ -29,8 +29,10 @@ export const RangeInput = memo(
       )
 
       const handleChange = useFunk((e: ChangeEvent<HTMLInputElement>) => {
+        e.persist()
+
         onChange?.(e)
-        handleChangeComplete?.(e)
+        handleChangeComplete?.({ ...e })
       })
 
       return (

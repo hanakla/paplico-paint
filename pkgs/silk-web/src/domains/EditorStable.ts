@@ -1,6 +1,5 @@
 import { action, actions, minOps, selector } from '@fleur/fleur'
 import arrayMove from 'array-move'
-import { nanoid } from 'nanoid'
 import {
   SilkSession,
   Silk3,
@@ -23,7 +22,7 @@ import { NotifyOps } from './Notify'
 
 type EditorMode = 'pc' | 'sp' | 'tablet'
 type EditorPage = 'home' | 'app'
-type Tool = 'cursor' | 'shape-pen' | 'draw' | 'erase' | 'point-cursor'
+type Tool = 'cursor' | 'draw' | 'erase' | 'point-cursor' | 'shape-pen'
 
 /** Indicate current editing path  */
 type VectorStroking = {
@@ -475,6 +474,7 @@ export const [EditorStore, EditorOps] = minOps('Editor', {
         d.session!.setBrushSetting(setting)
 
         if (
+          d.currentTool !== 'draw' &&
           d.session?.activeLayer?.layerType === 'vector' &&
           d.activeObjectId != null
         ) {
@@ -553,6 +553,7 @@ export const [EditorStore, EditorOps] = minOps('Editor', {
       x.commit((d) => {
         if (d.activeObjectId !== objectId) {
           d.activeObjectPointIndices = []
+          d.vectorStroking = null
         }
 
         d.activeObjectId = objectId
@@ -607,6 +608,11 @@ export const [EditorStore, EditorOps] = minOps('Editor', {
 
       await x.executeOperation(EditorOps.rerenderCanvas)
     },
+
+    markVectorLastUpdate: (x) => {
+      x.commit({ vectorLastUpdated: Date.now() })
+    },
+
     updateDocument: (
       x,
       proc: (document: SilkDOM.Document) => void,
@@ -862,7 +868,11 @@ export const EditorSelector = {
   vectorColorTarget: selector((get) => get(EditorStore).vectorColorTarget),
 
   selectedLayerUids: selector((get) => get(EditorStore).selectedLayerUids),
-  // #endregon
+  // #endregion
+
+  // #region Drawing
+  vectorStroking: selector((get) => get(EditorStore).vectorStroking),
+  // #endregion
 
   // #region Document
   layers: selector((get) => get(EditorStore).currentDocument?.layers ?? []),

@@ -66,7 +66,7 @@ import {
 import { exportProject } from '🙌/domains/EditorStable/exportProject'
 import { NotifyOps } from '🙌/domains/Notify'
 import { RangeInput } from '🙌/components/RangeInput'
-import { useTransactionCommand, useObjectWatch } from '../../hooks'
+import { useTransactionCommand, useVectorObjectWatch } from '../../hooks'
 import { Tooltip2 } from '🙌/components/Tooltip2'
 import { the } from '../../../../utils/anyOf'
 import { useRouter } from 'next/router'
@@ -166,8 +166,14 @@ export const MainActions = memo(function MainActions() {
   })
 
   const handleClickLayerIcon = useFunk((e: MouseEvent<HTMLDivElement>) => {
-    if (DOMUtils.closestOrSelf(e.target, '[data-ignore-click]')) return
-    console.log(e.target, e.currentTarget)
+    if (
+      DOMUtils.closestOrSelf(
+        e.target,
+        '[data-ignore-click],[data-dont-close-layer-float]'
+      )
+    )
+      return
+    layersFl.update()
     toggleLayers()
   })
 
@@ -212,7 +218,7 @@ export const MainActions = memo(function MainActions() {
     middleware: [
       offset(12),
       shift({ padding: 8 }),
-      autoPlacement({ alignment: 'start', allowedPlacements: ['top'] }),
+      // autoPlacement({ alignment: 'start', allowedPlacements: ['top'] }),
       arrow({ element: layersArrowRef }),
     ],
   })
@@ -249,10 +255,9 @@ export const MainActions = memo(function MainActions() {
   useClickAway(
     layersFl.refs.reference as MutableRefObject<HTMLElement>,
     (e) => {
-      if (DOMUtils.childrenOrSelf(e.target, layersFl.refs.floating.current))
+      if (DOMUtils.closestOrSelf(e.target, '[data-dont-close-layer-float]'))
         return
 
-      // console.log(e.target, layersFloat.refs.floating.current)
       toggleLayers(false)
     }
   )
@@ -730,690 +735,642 @@ export const MainActions = memo(function MainActions() {
   )
 })
 
-const BrushItem = memo(
-  ({
-    name,
-    brushId,
-    active,
-    onSelect,
-  }: {
-    name: string
-    brushId: string
-    active: boolean
-    onSelect: (id: string) => void
-  }) => {
-    const theme = useTheme()
+const AppMenu = memo(function AppMenu({
+  opened,
+  onClose,
+}: {
+  opened: boolean
+  onClose: () => void
+}) {
+  const { t } = useTranslation('app')
+  const { execute, getStore } = useFleur()
 
-    const handleClick = useFunk(() => {
-      onSelect(brushId)
+  const { engine, currentTheme, currentDocument } = useStore((get) => ({
+    engine: get(EditorStore).state.engine,
+    currentTheme: EditorSelector.currentTheme(get),
+    currentDocument: EditorSelector.currentDocument(get),
+  }))
+
+  const fl = useFloating({
+    placement: 'top',
+    middleware: [shift({ padding: 8 })],
+  })
+
+  const handleClickBackToHome = useFunk(() => {
+    execute(EditorOps.setEditorPage, 'home')
+    execute(EditorOps.disposeEngineAndSession, { withSave: true })
+  })
+
+  const handleClickChangeTheme = useFunk(() => {
+    execute(EditorOps.setTheme, currentTheme === 'dark' ? 'light' : 'dark')
+    onClose()
+  })
+
+  const handleClickSave = useFunk(() => {
+    if (!currentDocument) return
+
+    execute(NotifyOps.create, {
+      area: 'loadingLock',
+      lock: true,
+      messageKey: 'appMenu.saving',
+      timeout: 0,
     })
 
-    return (
-      <li
-        css={`
-          padding: 4px;
-          user-select: none;
-          cursor: default;
-        `}
-        style={{
-          backgroundColor: active
-            ? theme.exactColors.blueFade50
-            : 'transparent',
-        }}
-        onClick={handleClick}
-      >
-        {name}
-      </li>
+    const { blob } = exportProject(currentDocument, getStore)
+    const url = URL.createObjectURL(blob)
+    letDownload(
+      url,
+      !currentDocument.title
+        ? `${t('untitled')}.silk`
+        : `${currentDocument.title}.silk`
     )
-  }
-)
 
-const AppMenu = memo(
-  ({ opened, onClose }: { opened: boolean; onClose: () => void }) => {
-    const { t } = useTranslation('app')
-    const { push } = useRouter()
-    const { execute, getStore } = useFleur()
+    onClose()
 
-    const { engine, currentTheme, currentDocument } = useStore((get) => ({
-      engine: get(EditorStore).state.engine,
-      currentTheme: EditorSelector.currentTheme(get),
-      currentDocument: EditorSelector.currentDocument(get),
-    }))
-
-    const fl = useFloating({
-      placement: 'top',
-      middleware: [shift({ padding: 8 })],
-    })
-
-    const handleClickBackToHome = useFunk(() => {
-      execute(EditorOps.setEditorPage, 'home')
-      execute(EditorOps.disposeEngineAndSession, { withSave: true })
-    })
-
-    const handleClickChangeTheme = useFunk(() => {
-      execute(EditorOps.setTheme, currentTheme === 'dark' ? 'light' : 'dark')
-      onClose()
-    })
-
-    const handleClickSave = useFunk(() => {
-      if (!currentDocument) return
-
+    window.setTimeout(() => {
       execute(NotifyOps.create, {
         area: 'loadingLock',
-        lock: true,
-        messageKey: 'appMenu.saving',
+        lock: false,
+        messageKey: 'appMenu.saved',
         timeout: 0,
       })
+    }, /* フィードバックが早すぎると何が起きたかわからないので */ 1000)
 
-      const { blob } = exportProject(currentDocument, getStore)
-      const url = URL.createObjectURL(blob)
-      letDownload(
-        url,
-        !currentDocument.title
-          ? `${t('untitled')}.silk`
-          : `${currentDocument.title}.silk`
-      )
+    window.setTimeout(() => URL.revokeObjectURL(url), 3000)
+  })
 
-      onClose()
+  const handleClickExportAs = useFunk(async () => {
+    if (!currentDocument || !engine) return
 
-      window.setTimeout(() => {
-        execute(NotifyOps.create, {
-          area: 'loadingLock',
-          lock: false,
-          messageKey: 'appMenu.saved',
-          timeout: 0,
-        })
-      }, /* フィードバックが早すぎると何が起きたかわからないので */ 1000)
-
-      window.setTimeout(() => URL.revokeObjectURL(url), 3000)
+    execute(NotifyOps.create, {
+      area: 'loadingLock',
+      lock: true,
+      messageKey: 'appMenu.exporting',
+      timeout: 0,
     })
 
-    const handleClickExportAs = useFunk(async () => {
-      if (!currentDocument || !engine) return
-
-      execute(NotifyOps.create, {
-        area: 'loadingLock',
-        lock: true,
-        messageKey: 'appMenu.exporting',
-        timeout: 0,
-      })
-
-      const exporter = await engine.renderAndExport(currentDocument)
-      const blob = await exporter.export('image/png')
-      const url = URL.createObjectURL(blob)
-      letDownload(
-        url,
-        !currentDocument.title
-          ? `${t('untitled')}.png`
-          : `${currentDocument.title}.png`
-      )
-
-      onClose()
-
-      window.setTimeout(() => {
-        execute(NotifyOps.create, {
-          area: 'loadingLock',
-          lock: false,
-          message: t('appMenu.exported'),
-          timeout: 0,
-        })
-      }, /* フィードバックが早すぎると何が起きたかわからないので */ 1000)
-
-      window.setTimeout(() => {
-        URL.revokeObjectURL(url)
-      }, 3000)
-    })
-
-    const handleClickReload = useFunk(async () => {
-      execute(NotifyOps.create, {
-        area: 'loadingLock',
-        lock: true,
-        message: 'リロード中',
-        timeout: 0,
-      })
-
-      window.location.reload()
-    })
-
-    useEffect(() => {
-      fl.refs.reference.current = fl.refs.floating.current!.parentElement
-
-      if (!fl.refs.reference.current || !fl.refs.floating.current) return
-      return autoUpdate(
-        fl.refs.reference.current,
-        fl.refs.floating.current,
-        fl.update
-      )
-    })
-
-    return (
-      <div ref={fl.floating}>
-        <Portal>
-          <ActionSheet
-            css={css`
-              color: ${({ theme }) => theme.colors.blue50};
-            `}
-            opened={opened}
-            onClose={onClose}
-            fill={false}
-          >
-            <ActionSheetItemGroup>
-              <ActionSheetItem onClick={handleClickBackToHome}>
-                ホームへ戻る
-              </ActionSheetItem>
-              <ActionSheetItem onClick={handleClickChangeTheme}>
-                テーマ切り替え
-              </ActionSheetItem>
-            </ActionSheetItemGroup>
-
-            <ActionSheetItemGroup>
-              <ActionSheetItem onClick={handleClickSave}>
-                ファイルを保存
-              </ActionSheetItem>
-              <ActionSheetItem onClick={handleClickExportAs}>
-                画像に書き出し
-              </ActionSheetItem>
-            </ActionSheetItemGroup>
-
-            {process.env.NODE_ENV === 'development' && (
-              <ActionSheetItemGroup>
-                <ActionSheetItem onClick={handleClickReload}>
-                  リロード
-                </ActionSheetItem>
-              </ActionSheetItemGroup>
-            )}
-
-            <ActionSheetItemGroup>
-              <ActionSheetItem onClick={onClose}>キャンセル</ActionSheetItem>
-            </ActionSheetItemGroup>
-          </ActionSheet>
-        </Portal>
-      </div>
+    const exporter = await engine.renderAndExport(currentDocument)
+    const blob = await exporter.export('image/png')
+    const url = URL.createObjectURL(blob)
+    letDownload(
+      url,
+      !currentDocument.title
+        ? `${t('untitled')}.png`
+        : `${currentDocument.title}.png`
     )
-  }
-)
 
-const VectorColorPicker = memo(
-  ({
-    opened,
-    target,
-  }: {
-    opened: boolean
-    target: 'fill' | 'stroke'
-    // color: Color
-    // onChange: ColorChangeHandler
-    // onChangeComplete: ColorChangeHandler
-  }) => {
-    const { t } = useTranslation('app')
+    onClose()
 
-    const { execute } = useFleur()
-    const {
-      currentVectorBrush,
-      currentVectorFill,
-      defaultVectorBrush,
-      activeObject,
-      activeLayerPath,
-    } = useStore((get) => ({
-      currentVectorBrush: EditorSelector.currentVectorBrush(get),
-      currentVectorFill: EditorSelector.currentVectorFill(get),
-      defaultVectorBrush: EditorSelector.defaultVectorBrush(get),
-      activeObject: EditorSelector.activeObject(get),
-      activeLayerPath: EditorSelector.activeLayerPath(get),
-    }))
+    window.setTimeout(() => {
+      execute(NotifyOps.create, {
+        area: 'loadingLock',
+        lock: false,
+        message: t('appMenu.exported'),
+        timeout: 0,
+      })
+    }, /* フィードバックが早すぎると何が起きたかわからないので */ 1000)
 
-    // const targetSurface = target === 'fill' ? activeObject.fill?.type : activeObject!.brush
+    window.setTimeout(() => {
+      URL.revokeObjectURL(url)
+    }, 3000)
+  })
 
-    const [currentTab, setTab] = useState<'solid' | 'gradient'>(
-      // prettier-ignore
-      (target === 'fill' ? (
+  const handleClickReload = useFunk(async () => {
+    execute(NotifyOps.create, {
+      area: 'loadingLock',
+      lock: true,
+      message: 'リロード中',
+      timeout: 0,
+    })
+
+    window.location.reload()
+  })
+
+  useAutoUpdateFloating(fl)
+
+  return (
+    <div ref={fl.floating}>
+      <Portal>
+        <ActionSheet
+          css={css`
+            color: ${({ theme }) => theme.colors.blue50};
+          `}
+          opened={opened}
+          onClose={onClose}
+          fill={false}
+        >
+          <ActionSheetItemGroup>
+            <ActionSheetItem onClick={handleClickBackToHome}>
+              ホームへ戻る
+            </ActionSheetItem>
+            <ActionSheetItem onClick={handleClickChangeTheme}>
+              テーマ切り替え
+            </ActionSheetItem>
+          </ActionSheetItemGroup>
+
+          <ActionSheetItemGroup>
+            <ActionSheetItem onClick={handleClickSave}>
+              ファイルを保存
+            </ActionSheetItem>
+            <ActionSheetItem onClick={handleClickExportAs}>
+              画像に書き出し
+            </ActionSheetItem>
+          </ActionSheetItemGroup>
+
+          {process.env.NODE_ENV === 'development' && (
+            <ActionSheetItemGroup>
+              <ActionSheetItem onClick={handleClickReload}>
+                リロード
+              </ActionSheetItem>
+            </ActionSheetItemGroup>
+          )}
+
+          <ActionSheetItemGroup>
+            <ActionSheetItem onClick={onClose}>キャンセル</ActionSheetItem>
+          </ActionSheetItemGroup>
+        </ActionSheet>
+      </Portal>
+    </div>
+  )
+})
+
+const VectorColorPicker = memo(function VectorColorPicker({
+  opened,
+  target,
+}: {
+  opened: boolean
+  target: 'fill' | 'stroke'
+  // color: Color
+  // onChange: ColorChangeHandler
+  // onChangeComplete: ColorChangeHandler
+}) {
+  const { t } = useTranslation('app')
+
+  const { execute } = useFleur()
+  const {
+    currentVectorBrush,
+    currentVectorFill,
+    defaultVectorBrush,
+    activeObject,
+    activeLayerPath,
+  } = useStore((get) => ({
+    currentVectorBrush: EditorSelector.currentVectorBrush(get),
+    currentVectorFill: EditorSelector.currentVectorFill(get),
+    defaultVectorBrush: EditorSelector.defaultVectorBrush(get),
+    activeObject: EditorSelector.activeObject(get),
+    activeLayerPath: EditorSelector.activeLayerPath(get),
+  }))
+
+  // const targetSurface = target === 'fill' ? activeObject.fill?.type : activeObject!.brush
+
+  const [currentTab, setTab] = useState<'solid' | 'gradient'>(
+    // prettier-ignore
+    (target === 'fill' ? (
         activeObject?.fill?.type === 'fill' ? 'solid'
         : activeObject?.fill?.type === 'linear-gradient' ? 'gradient'
         : null
       )
       : target === 'stroke' ? 'solid' : null) ?? 'solid'
-    )
-    const [gradientIndices, setGradientIndices] = useState<number[]>([])
-    const [fillColor, setFillColor] = useState<Color>(() =>
-      activeObject?.fill?.type === 'fill'
-        ? {
-            r: activeObject?.fill.color.r * 255,
-            g: activeObject?.fill.color.g * 255,
-            b: activeObject?.fill.color.b * 255,
-          }
-        : {
-            r: 0,
-            g: 0,
-            b: 0,
-          }
-    )
-
-    const [gradientLength, setGradientLength] = useBufferedState(() => {
-      if (activeObject?.fill?.type !== 'linear-gradient') return 0
-
-      const fill = activeObject?.fill
-      return SilkWebMath.distanceOfPoint(fill.start, fill.end)
-    })
-
-    const [gradientAngle, setGradientAngle] = useBufferedState(() => {
-      if (activeObject?.fill?.type !== 'linear-gradient') return 0
-
-      const fill = activeObject?.fill
-      const rad = SilkWebMath.angleOfPoints(fill.start, fill.end)
-      return SilkWebMath.normalizeDegree(SilkWebMath.radToDeg(rad) + 180)
-    })
-
-    const arrowRef = useRef<HTMLDivElement | null>(null)
-    const fl = useFloating({
-      placement: 'top',
-      middleware: [
-        shift(),
-        offset(8),
-        // autoPlacement({ alignment: 'start' }),
-        arrow({ element: arrowRef }),
-      ],
-    })
-
-    const [showGradLen, toggleShowGradLen] = useToggle(false)
-    const [showGradAngle, toggleShowGradAngle] = useToggle(false)
-
-    const cmdTransaction = useTransactionCommand()
-
-    const handleClickTab = useFunk((nextTab) => {
-      setTab(nextTab)
-
-      if (target === 'fill') {
-        if (currentTab === 'solid' && nextTab === 'gradient') {
-          execute(EditorOps.updateActiveObject, (o) => {
-            const fill = o.fill
-            if (fill?.type !== 'fill') return
-
-            o.fill = {
-              type: 'linear-gradient',
-              colorStops: [{ position: 0, color: { ...fill.color, a: 1 } }],
-              opacity: 1,
-              start: { x: -10, y: -10 },
-              end: { x: 10, y: 10 },
-            }
-          })
+  )
+  const [gradientIndices, setGradientIndices] = useState<number[]>([])
+  const [fillColor, setFillColor] = useState<Color>(() =>
+    activeObject?.fill?.type === 'fill'
+      ? {
+          r: activeObject?.fill.color.r * 255,
+          g: activeObject?.fill.color.g * 255,
+          b: activeObject?.fill.color.b * 255,
         }
-
-        if (currentTab === 'gradient' && nextTab === 'solid') {
-          // Swap gradient and solid in object fill
-          execute(EditorOps.updateActiveObject, (o) => {
-            const fill = o.fill
-            if (fill?.type !== 'linear-gradient') return
-
-            o.fill = {
-              type: 'fill',
-              color: pick(fill.colorStops[0].color, ['r', 'g', 'b']),
-              opacity: 1,
-            }
-          })
+      : {
+          r: 0,
+          g: 0,
+          b: 0,
         }
+  )
+
+  const [gradientLength, setGradientLength] = useBufferedState(() => {
+    if (activeObject?.fill?.type !== 'linear-gradient') return 0
+
+    const fill = activeObject?.fill
+    return SilkWebMath.distanceOfPoint(fill.start, fill.end)
+  })
+
+  const [gradientAngle, setGradientAngle] = useBufferedState(() => {
+    if (activeObject?.fill?.type !== 'linear-gradient') return 0
+
+    const fill = activeObject?.fill
+    const rad = SilkWebMath.angleOfPoints(fill.start, fill.end)
+    return SilkWebMath.normalizeDegree(SilkWebMath.radToDeg(rad) + 180)
+  })
+
+  const arrowRef = useRef<HTMLDivElement | null>(null)
+  const fl = useFloating({
+    placement: 'top',
+    middleware: [
+      shift(),
+      offset(8),
+      // autoPlacement({ alignment: 'start' }),
+      arrow({ element: arrowRef }),
+    ],
+  })
+
+  const [showGradLen, toggleShowGradLen] = useToggle(false)
+  const [showGradAngle, toggleShowGradAngle] = useToggle(false)
+
+  const cmdTransaction = useTransactionCommand()
+
+  const handleClickTab = useFunk((nextTab) => {
+    setTab(nextTab)
+
+    if (target === 'fill') {
+      if (currentTab === 'solid' && nextTab === 'gradient') {
+        execute(EditorOps.updateActiveObject, (o) => {
+          const fill = o.fill
+          if (fill?.type !== 'fill') return
+
+          o.fill = {
+            type: 'linear-gradient',
+            colorStops: [{ position: 0, color: { ...fill.color, a: 1 } }],
+            opacity: 1,
+            start: { x: -10, y: -10 },
+            end: { x: 10, y: 10 },
+          }
+        })
       }
 
-      if (target === 'stroke') {
-        if (currentTab === 'solid' && nextTab === 'gradient') {
-          // Unsupported currently
-        }
+      if (currentTab === 'gradient' && nextTab === 'solid') {
+        // Swap gradient and solid in object fill
+        execute(EditorOps.updateActiveObject, (o) => {
+          const fill = o.fill
+          if (fill?.type !== 'linear-gradient') return
 
-        if (currentTab === 'gradient' && nextTab === 'solid') {
-          // Unsupported currently
-          // execute(EditorOps.updateActiveObject, (o) => {
-          //   const stroke = <o className="bru"></o>
-          //   if (stroke?.type !== 'linear-gradient') return
-          //   o.stroke = {
-          //     type: 'fill',
-          //     color: pick(stroke.colorStops[0].color, ['r', 'g', 'b']),
-          //     opacity: 1,
-          //   }
-          // })
-        }
-      }
-
-      // fl.update()
-    })
-
-    const handleChangeStrokeColor: ColorChangeHandler = useFunk(({ rgb }) => {
-      execute(EditorOps.updateActiveObject, (obj) => {
-        obj.brush = obj.brush
-          ? { ...obj.brush, color: toRationalColor(rgb) }
-          : {
-              ...(currentVectorBrush ?? defaultVectorBrush),
-              color: toRationalColor(rgb),
-            }
-      })
-    })
-
-    const handleChangeFillColor: ColorChangeHandler = useFunk(({ rgb }) => {
-      setFillColor(rgb)
-
-      execute(EditorOps.updateActiveObject, (obj) => {
-        if (!obj.fill) {
-          obj.fill = {
+          o.fill = {
             type: 'fill',
-            opacity: rgb.a ?? 1,
+            color: pick(fill.colorStops[0].color, ['r', 'g', 'b']),
+            opacity: 1,
+          }
+        })
+      }
+    }
+
+    if (target === 'stroke') {
+      if (currentTab === 'solid' && nextTab === 'gradient') {
+        // Unsupported currently
+      }
+
+      if (currentTab === 'gradient' && nextTab === 'solid') {
+        // Unsupported currently
+        // execute(EditorOps.updateActiveObject, (o) => {
+        //   const stroke = <o className="bru"></o>
+        //   if (stroke?.type !== 'linear-gradient') return
+        //   o.stroke = {
+        //     type: 'fill',
+        //     color: pick(stroke.colorStops[0].color, ['r', 'g', 'b']),
+        //     opacity: 1,
+        //   }
+        // })
+      }
+    }
+
+    // fl.update()
+  })
+
+  const handleChangeStrokeColor: ColorChangeHandler = useFunk(({ rgb }) => {
+    execute(EditorOps.updateActiveObject, (obj) => {
+      obj.brush = obj.brush
+        ? { ...obj.brush, color: toRationalColor(rgb) }
+        : {
+            ...(currentVectorBrush ?? defaultVectorBrush),
             color: toRationalColor(rgb),
           }
-        }
+    })
+  })
 
-        if (obj.fill.type === 'fill') {
-          obj.fill = { ...obj.fill, color: toRationalColor(rgb) }
-        } else if (obj.fill.type === 'linear-gradient') {
-          const nextColorStops = deepClone(obj.fill.colorStops)
-          gradientIndices.forEach((i) => {
-            nextColorStops[i].color = toRationalRgba(rgb)
-          })
+  const handleChangeFillColor: ColorChangeHandler = useFunk(({ rgb }) => {
+    setFillColor(rgb)
 
-          obj.fill = {
-            ...obj.fill,
-            colorStops: nextColorStops,
-          }
+    execute(EditorOps.updateActiveObject, (obj) => {
+      if (!obj.fill) {
+        obj.fill = {
+          type: 'fill',
+          opacity: rgb.a ?? 1,
+          color: toRationalColor(rgb),
         }
+      }
+
+      if (obj.fill.type === 'fill') {
+        obj.fill = { ...obj.fill, color: toRationalColor(rgb) }
+      } else if (obj.fill.type === 'linear-gradient') {
+        const nextColorStops = deepClone(obj.fill.colorStops)
+        gradientIndices.forEach((i) => {
+          nextColorStops[i].color = toRationalRgba(rgb)
+        })
+
+        obj.fill = {
+          ...obj.fill,
+          colorStops: nextColorStops,
+        }
+      }
+    })
+  })
+
+  const handleChangeGradient = useFunk((colorStops: SilkValue.ColorStop[]) => {
+    execute(EditorOps.updateActiveObject, (obj) => {
+      if (obj.fill?.type !== 'linear-gradient') return
+
+      obj.fill = {
+        ...obj.fill,
+        colorStops,
+      }
+    })
+  })
+
+  const handleChangeGradientIndices = useFunk((indices: number[]) => {
+    if (activeObject?.fill?.type !== 'linear-gradient') return
+
+    setGradientIndices(indices)
+
+    const { color } = activeObject.fill.colorStops[indices[0]]
+    setFillColor(normalRGBAToRGBA(color))
+  })
+
+  const handleChangeGradientLength = useFunk(
+    ({ currentTarget }: ChangeEvent<HTMLInputElement>) => {
+      if (!activeLayerPath || activeObject?.fill?.type !== 'linear-gradient')
+        return
+
+      setGradientLength(currentTarget.valueAsNumber)
+      toggleShowGradLen(true)
+      cmdTransaction.startIfNotStarted()
+
+      const length = currentTarget.valueAsNumber / 2
+      const fill = deepClone({ ...activeObject.fill })
+
+      const rad = SilkWebMath.angleOfPoints(fill.start, fill.end)
+      const pointS = SilkWebMath.pointByAngleAndDistance({
+        angle: rad,
+        distance: length,
+        base: { x: 0, y: 0 },
       })
-    })
 
-    const handleChangeGradient = useFunk(
-      (colorStops: SilkValue.ColorStop[]) => {
-        execute(EditorOps.updateActiveObject, (obj) => {
-          if (obj.fill?.type !== 'linear-gradient') return
+      const pointE = SilkWebMath.pointByAngleAndDistance({
+        angle: SilkWebMath.degToRad(
+          SilkWebMath.deg(SilkWebMath.radToDeg(rad) + 180)
+        ),
+        distance: length,
+        base: { x: 0, y: 0 },
+      })
 
-          obj.fill = {
-            ...obj.fill,
-            colorStops,
-          }
+      fill.start = pointS
+      fill.end = pointE
+
+      cmdTransaction.doAndAdd(
+        new SilkCommands.VectorLayer.PatchObjectAttr({
+          pathToTargetLayer: activeLayerPath,
+          objectUid: activeObject.uid,
+          patch:
+            target === 'fill'
+              ? {
+                  fill,
+                }
+              : {},
         })
-      }
-    )
+      )
+    }
+  )
 
-    const handleChangeGradientIndices = useFunk((indices: number[]) => {
-      if (activeObject?.fill?.type !== 'linear-gradient') return
+  const handleCompleteGradientLength = useFunk(() => {
+    toggleShowGradLen(false)
+    cmdTransaction.commit()
+  })
 
-      setGradientIndices(indices)
+  const handleChangeGradientAngle = useFunk(
+    ({ currentTarget }: ChangeEvent<HTMLInputElement>) => {
+      if (!activeLayerPath || activeObject?.fill?.type !== 'linear-gradient')
+        return
 
-      const { color } = activeObject.fill.colorStops[indices[0]]
-      setFillColor(normalRGBAToRGBA(color))
-    })
+      toggleShowGradAngle(true)
+      setGradientAngle(currentTarget.valueAsNumber)
+      cmdTransaction.startIfNotStarted()
 
-    const handleChangeGradientLength = useFunk(
-      ({ currentTarget }: ChangeEvent<HTMLInputElement>) => {
-        if (!activeLayerPath || activeObject?.fill?.type !== 'linear-gradient')
-          return
+      const nextFill = deepClone({ ...activeObject.fill })
+      const rad = SilkWebMath.degToRad(
+        SilkWebMath.deg(currentTarget.valueAsNumber)
+      )
+      const length = SilkWebMath.distanceOfPoint(nextFill.start, nextFill.end)
 
-        setGradientLength(currentTarget.valueAsNumber)
-        toggleShowGradLen(true)
-        cmdTransaction.startIfNotStarted()
+      const pointS = SilkWebMath.pointByAngleAndDistance({
+        angle: rad,
+        distance: length / 2,
+        base: { x: 0, y: 0 },
+      })
 
-        const length = currentTarget.valueAsNumber / 2
-        const fill = deepClone({ ...activeObject.fill })
+      const pointE = SilkWebMath.pointByAngleAndDistance({
+        angle: SilkWebMath.degToRad(
+          SilkWebMath.deg(SilkWebMath.radToDeg(rad) + 180)
+        ),
+        distance: length / 2,
+        base: { x: 0, y: 0 },
+      })
 
-        const rad = SilkWebMath.angleOfPoints(fill.start, fill.end)
-        const pointS = SilkWebMath.pointByAngleAndDistance({
-          angle: rad,
-          distance: length,
-          base: { x: 0, y: 0 },
+      nextFill.start = pointS
+      nextFill.end = pointE
+
+      // console.log({
+      //   expect: currentTarget.valueAsNumber,
+      //   act: SilkWebMath.radToDeg(SilkWebMath.angleOfPoints(pointS, pointE)),
+      // })
+
+      cmdTransaction.doAndAdd(
+        new SilkCommands.VectorLayer.PatchObjectAttr({
+          pathToTargetLayer: activeLayerPath,
+          objectUid: activeObject.uid,
+          patch:
+            target === 'fill'
+              ? {
+                  fill: nextFill,
+                }
+              : {},
         })
+      )
+    }
+  )
 
-        const pointE = SilkWebMath.pointByAngleAndDistance({
-          angle: SilkWebMath.degToRad(
-            SilkWebMath.deg(SilkWebMath.radToDeg(rad) + 180)
-          ),
-          distance: length,
-          base: { x: 0, y: 0 },
-        })
+  const handleCompleteGradientAngle = useFunk(() => {
+    toggleShowGradAngle(false)
+    cmdTransaction.commit()
+  })
 
-        fill.start = pointS
-        fill.end = pointE
+  useEffect(() => {
+    fl.reference(fl.refs.floating.current!.parentElement)
 
-        cmdTransaction.doAndAdd(
-          new SilkCommands.VectorLayer.PatchObjectAttr({
-            pathToTargetLayer: activeLayerPath,
-            objectUid: activeObject.uid,
-            patch:
-              target === 'fill'
-                ? {
-                    fill,
-                  }
-                : {},
-          })
-        )
-      }
-    )
+    if (!fl.refs.floating.current || !fl.refs.reference.current) return
+    autoUpdate(fl.refs.reference.current, fl.refs.floating.current, fl.update)
+  }, [fl.refs.floating.current])
 
-    const handleCompleteGradientLength = useFunk(() => {
-      toggleShowGradLen(false)
-      cmdTransaction.commit()
-    })
+  useVectorObjectWatch(activeObject)
 
-    const handleChangeGradientAngle = useFunk(
-      ({ currentTarget }: ChangeEvent<HTMLInputElement>) => {
-        if (!activeLayerPath || activeObject?.fill?.type !== 'linear-gradient')
-          return
+  return (
+    <div
+      ref={fl.floating}
+      css={css`
+        border-radius: 4px;
+        filter: drop-shadow(0 0 1px ${({ theme }) => theme.colors.surface6});
+        ${tm((o) => [o.bg.surface2])}
+      `}
+      style={{
+        position: fl.strategy,
+        left: fl.x ?? 0,
+        top: fl.y ?? 0,
+        ...(opened
+          ? { opacity: 1, pointerEvents: 'all' }
+          : { opacity: 0, pointerEvents: 'none' }),
+      }}
+      data-ignore-click
+    >
+      <div>
+        {target === 'fill' && (
+          <div
+            css={`
+              position: relative;
+            `}
+          >
+            {currentVectorFill.type === 'linear-gradient' && (
+              <>
+                <GradientSlider
+                  colorStops={currentVectorFill.colorStops}
+                  onChange={handleChangeGradient}
+                  onChangeSelectIndices={handleChangeGradientIndices}
+                />
 
-        toggleShowGradAngle(true)
-        setGradientAngle(currentTarget.valueAsNumber)
-        cmdTransaction.startIfNotStarted()
-
-        const nextFill = deepClone({ ...activeObject.fill })
-        const rad = SilkWebMath.degToRad(
-          SilkWebMath.deg(currentTarget.valueAsNumber)
-        )
-        const length = SilkWebMath.distanceOfPoint(nextFill.start, nextFill.end)
-
-        const pointS = SilkWebMath.pointByAngleAndDistance({
-          angle: rad,
-          distance: length / 2,
-          base: { x: 0, y: 0 },
-        })
-
-        const pointE = SilkWebMath.pointByAngleAndDistance({
-          angle: SilkWebMath.degToRad(
-            SilkWebMath.deg(SilkWebMath.radToDeg(rad) + 180)
-          ),
-          distance: length / 2,
-          base: { x: 0, y: 0 },
-        })
-
-        nextFill.start = pointS
-        nextFill.end = pointE
-
-        // console.log({
-        //   expect: currentTarget.valueAsNumber,
-        //   act: SilkWebMath.radToDeg(SilkWebMath.angleOfPoints(pointS, pointE)),
-        // })
-
-        cmdTransaction.doAndAdd(
-          new SilkCommands.VectorLayer.PatchObjectAttr({
-            pathToTargetLayer: activeLayerPath,
-            objectUid: activeObject.uid,
-            patch:
-              target === 'fill'
-                ? {
-                    fill: nextFill,
-                  }
-                : {},
-          })
-        )
-      }
-    )
-
-    const handleCompleteGradientAngle = useFunk(() => {
-      toggleShowGradAngle(false)
-      cmdTransaction.commit()
-    })
-
-    useEffect(() => {
-      fl.reference(fl.refs.floating.current!.parentElement)
-
-      if (!fl.refs.floating.current || !fl.refs.reference.current) return
-      autoUpdate(fl.refs.reference.current, fl.refs.floating.current, fl.update)
-    }, [fl.refs.floating.current])
-
-    useObjectWatch(activeObject)
-
-    return (
-      <div
-        ref={fl.floating}
-        css={css`
-          border-radius: 4px;
-          filter: drop-shadow(0 0 1px ${({ theme }) => theme.colors.surface6});
-          ${tm((o) => [o.bg.surface2])}
-        `}
-        style={{
-          position: fl.strategy,
-          left: fl.x ?? 0,
-          top: fl.y ?? 0,
-          ...(opened
-            ? { opacity: 1, pointerEvents: 'all' }
-            : { opacity: 0, pointerEvents: 'none' }),
-        }}
-        data-ignore-click
-      >
-        <div>
-          {target === 'fill' && (
-            <div
-              css={`
-                position: relative;
-              `}
-            >
-              {currentVectorFill.type === 'linear-gradient' && (
-                <>
-                  <GradientSlider
-                    colorStops={currentVectorFill.colorStops}
-                    onChange={handleChangeGradient}
-                    onChangeSelectIndices={handleChangeGradientIndices}
+                <label
+                  css={`
+                    position: relative;
+                    ${centering()}
+                    padding: 4px 8px;
+                  `}
+                >
+                  <span
+                    css={`
+                      display: inline-block;
+                      margin-right: 8px;
+                    `}
+                  >
+                    {t('mainActions.gradientLength')}
+                  </span>
+                  <RangeInput
+                    min={0}
+                    max={1000}
+                    step={0.1}
+                    value={gradientLength}
+                    onChange={handleChangeGradientLength}
+                    onChangeComplete={handleCompleteGradientLength}
                   />
 
-                  <label
+                  <Tooltip2
+                    placement="right-end"
+                    strategy="absolute"
+                    show={showGradLen}
+                    content={<>{gradientLength}</>}
+                  />
+                </label>
+                <label
+                  css={`
+                    position: relative;
+                    ${centering()}
+                    padding: 4px 8px;
+                  `}
+                >
+                  <span
                     css={`
-                      position: relative;
-                      ${centering()}
-                      padding: 4px 8px;
+                      display: inline-block;
+                      margin-right: 8px;
                     `}
                   >
-                    <span
-                      css={`
-                        display: inline-block;
-                        margin-right: 8px;
-                      `}
-                    >
-                      {t('mainActions.gradientLength')}
-                    </span>
-                    <RangeInput
-                      min={0}
-                      max={1000}
-                      step={0.1}
-                      value={gradientLength}
-                      onChange={handleChangeGradientLength}
-                      onChangeComplete={handleCompleteGradientLength}
-                    />
+                    {t('mainActions.gradientAngle')}
+                  </span>
+                  <RangeInput
+                    min={0}
+                    max={360}
+                    step={0.1}
+                    value={gradientAngle}
+                    onChange={handleChangeGradientAngle}
+                    onChangeComplete={handleCompleteGradientAngle}
+                  />
+                  <Tooltip2
+                    placement="right-end"
+                    strategy="absolute"
+                    show={showGradAngle}
+                    content={<>{gradientAngle}</>}
+                  />
+                </label>
+              </>
+            )}
 
-                    <Tooltip2
-                      placement="right-end"
-                      strategy="absolute"
-                      show={showGradLen}
-                      content={<>{gradientLength}</>}
-                    />
-                  </label>
-                  <label
-                    css={`
-                      position: relative;
-                      ${centering()}
-                      padding: 4px 8px;
-                    `}
-                  >
-                    <span
-                      css={`
-                        display: inline-block;
-                        margin-right: 8px;
-                      `}
-                    >
-                      {t('mainActions.gradientAngle')}
-                    </span>
-                    <RangeInput
-                      min={0}
-                      max={360}
-                      step={0.1}
-                      value={gradientAngle}
-                      onChange={handleChangeGradientAngle}
-                      onChangeComplete={handleCompleteGradientAngle}
-                    />
-                    <Tooltip2
-                      placement="right-end"
-                      strategy="absolute"
-                      show={showGradAngle}
-                      content={<>{gradientAngle}</>}
-                    />
-                  </label>
-                </>
-              )}
-
-              <CustomColorPicker
-                color={fillColor}
-                onChangeComplete={handleChangeFillColor}
-              />
-            </div>
-          )}
-          {target === 'stroke' && currentVectorBrush && (
-            <ChromePicker
-              css={`
-                position: absolute;
-                left: 50%;
-                bottom: 100%;
-                transform: translateX(-50%);
-              `}
-              color={
-                activeObject?.brush?.color
-                  ? {
-                      r: activeObject?.brush?.color.r * 255,
-                      g: activeObject?.brush?.color.g * 255,
-                      b: activeObject?.brush?.color.b * 255,
-                    }
-                  : currentVectorBrush.color
-              }
-              onChange={handleChangeStrokeColor}
-              onChangeComplete={handleChangeStrokeColor}
+            <CustomColorPicker
+              color={fillColor}
+              onChangeComplete={handleChangeFillColor}
             />
-          )}
-
-          <TabBar>
-            <Tab
-              tabName="solid"
-              active={currentTab === 'solid'}
-              onClick={handleClickTab}
-            >
-              {t('vectorColorPicker.modes.solid')}
-            </Tab>
-            <Tab
-              tabName="gradient"
-              active={currentTab === 'gradient'}
-              onClick={handleClickTab}
-            >
-              {t('vectorColorPicker.modes.gradient')}
-            </Tab>
-          </TabBar>
-
-          <div
-            ref={arrowRef}
-            css={css`
+          </div>
+        )}
+        {target === 'stroke' && currentVectorBrush && (
+          <ChromePicker
+            css={`
               position: absolute;
-              top: 100%;
-              border: 6px solid transparent;
-              border-color: ${({ theme }) =>
-                `${theme.color.surface2} transparent transparent transparent`};
+              left: 50%;
+              bottom: 100%;
+              transform: translateX(-50%);
             `}
-            style={{
-              left: fl.middlewareData.arrow?.x ?? 0,
-              // top: fl.middlewareData.arrow?.y ?? 0,
-            }}
+            color={
+              activeObject?.brush?.color
+                ? {
+                    r: activeObject?.brush?.color.r * 255,
+                    g: activeObject?.brush?.color.g * 255,
+                    b: activeObject?.brush?.color.b * 255,
+                  }
+                : currentVectorBrush.color
+            }
+            onChange={handleChangeStrokeColor}
+            onChangeComplete={handleChangeStrokeColor}
           />
-        </div>
-      </div>
-    )
-  }
-)
+        )}
 
-const CustomColorPicker = CustomPicker((props) => {
+        <TabBar>
+          <Tab
+            tabName="solid"
+            active={currentTab === 'solid'}
+            onClick={handleClickTab}
+          >
+            {t('vectorColorPicker.modes.solid')}
+          </Tab>
+          <Tab
+            tabName="gradient"
+            active={currentTab === 'gradient'}
+            onClick={handleClickTab}
+          >
+            {t('vectorColorPicker.modes.gradient')}
+          </Tab>
+        </TabBar>
+
+        <div
+          ref={arrowRef}
+          css={css`
+            position: absolute;
+            top: 100%;
+            border: 6px solid transparent;
+            border-color: ${({ theme }) =>
+              `${theme.color.surface2} transparent transparent transparent`};
+          `}
+          style={{
+            left: fl.middlewareData.arrow?.x ?? 0,
+            // top: fl.middlewareData.arrow?.y ?? 0,
+          }}
+        />
+      </div>
+    </div>
+  )
+})
+
+const CustomColorPicker = CustomPicker(function CustomColorPicker(props) {
   return (
     <div
       css={`

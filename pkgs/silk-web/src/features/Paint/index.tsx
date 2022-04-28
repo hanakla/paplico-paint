@@ -49,11 +49,10 @@ import { FilterView } from './containers/FilterView'
 import { LayerView } from './containers/LayerView'
 import { EditorOps, EditorSelector, EditorStore } from '🙌/domains/EditorStable'
 import { useFunkyGlobalMouseTrap } from '🙌/hooks/useMouseTrap'
-import { EngineContextProvider } from '🙌/lib/EngineContext'
 import { useFleur, useMedia, useMultiFingerTouch } from '🙌/utils/hooks'
 import { ControlsOverlay } from './containers/ControlsOverlay'
 import { MainActions } from '../Paint/containers/MainActions/MainActions'
-import { DebugView } from './containers/DebugView'
+
 import { centering, checkerBoard } from '🙌/utils/mixins'
 import { rgba } from 'polished'
 import { darkTheme } from '🙌/utils/theme'
@@ -70,6 +69,7 @@ import { DOMUtils } from '🙌/utils/dom'
 import { FloatingWindow } from '🙌/components/FloatingWindow'
 import { exportProject } from '🙌/domains/EditorStable/exportProject'
 import { combineRef } from '../../utils/react'
+import { PaintCanvasContext } from './hooks'
 
 export const PaintPage = memo(function PaintPage({}) {
   const { t } = useTranslation('app')
@@ -233,9 +233,9 @@ export const PaintPage = memo(function PaintPage({}) {
     executeOperation(EditorOps.setTool, 'point-cursor')
   )
 
-  useFunkyGlobalMouseTrap(['b'], () =>
+  useFunkyGlobalMouseTrap(['b'], () => {
     executeOperation(EditorOps.setTool, 'draw')
-  )
+  })
 
   useFunkyGlobalMouseTrap(['e'], () =>
     executeOperation(EditorOps.setTool, 'erase')
@@ -542,7 +542,7 @@ export const PaintPage = memo(function PaintPage({}) {
   }, [currentDocument?.uid])
 
   return (
-    <EngineContextProvider value={engine.current!}>
+    <PaintCanvasContext.Provider value={canvasRef}>
       <div
         ref={rootRef}
         css={css`
@@ -685,14 +685,6 @@ export const PaintPage = memo(function PaintPage({}) {
           >
             <MainActions />
           </div>
-
-          <DebugView
-            css={`
-              position: absolute;
-              top: 0;
-              right: 0;
-            `}
-          />
         </div>
 
         <>
@@ -884,7 +876,7 @@ export const PaintPage = memo(function PaintPage({}) {
           </Sidebar>
         </>
       </div>
-    </EngineContextProvider>
+    </PaintCanvasContext.Provider>
   )
 })
 
@@ -946,7 +938,7 @@ const PaintCanvas = memo(function PaintCanvas({
       <canvas
         css={`
           background-color: white;
-          ${checkerBoard({ size: 8, opacity: 0.1 })}
+          ${checkerBoard({ size: 24, opacity: 0.1 })}
           box-shadow: 0 0 16px rgba(0, 0, 0, 0.1);
         `}
         data-is-paint-canvas="yup"

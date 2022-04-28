@@ -249,14 +249,13 @@ const FilterItem = memo(function FilterItem({
   const handleClickRemove = useFunk(() => {
     if (!activeLayer || !activeLayerPath) return
 
-    execute(EditorOps.updateLayer, activeLayerPath, (layer) => {
-      const idx = layer.filters.findIndex((f) => f.uid === filter.uid)
-      if (idx === -1) return
-
-      layer.filters.splice(idx, 1)
-    })
-
-    execute(EditorOps.rerenderCanvas)
+    execute(
+      EditorOps.runCommand,
+      new SilkCommands.Layer.RemoveFilter({
+        pathToTargetLayer: activeLayerPath,
+        filterUid: filter.uid,
+      })
+    )
   })
 
   return (

@@ -270,13 +270,11 @@ export class CanvasHandler extends Emitter<Events> {
     if (!currentStroke || !this.#strokingState) return
 
     this.#strokingState.touches--
-    if (currentStroke.points.length <= 1) {
+    if (currentStroke.points.length < 2) {
       this.currentStroke = null
       this._stroking = false
       return
     }
-
-    console.log(currentStroke.points.length)
 
     if (this.#strokingState.touches === 0) {
       this.#strokingState = null
@@ -345,7 +343,7 @@ export class CanvasHandler extends Emitter<Events> {
     if (!currentStroke || !this.#strokingState) return
 
     this.#strokingState.touches--
-    if (currentStroke.points.length <= 1) {
+    if (currentStroke.points.length < 2) {
       this.currentStroke = null
       this._stroking = false
       return

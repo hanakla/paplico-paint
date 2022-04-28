@@ -16,28 +16,6 @@ type StrokePoint = [
 ]
 
 export class Stroke {
-  public static fromPath(
-    path: Path,
-    mapPoint?: (p: Path.PathPoint) => Path.PathPoint
-  ) {
-    const cloned = path.clone()
-
-    if (mapPoint) {
-      cloned.points = cloned.points.map((p) => mapPoint(p))
-    }
-
-    const stroke = new Stroke()
-    stroke.points = cloned.points.map((point) => [
-      point.x,
-      point.y,
-      point.pressure ?? 0.5,
-      point.deltaTime ?? null,
-    ])
-    stroke._path = cloned
-
-    return stroke
-  }
-
   protected _splined: Path | null = null
   protected _path: Path | null = null
 

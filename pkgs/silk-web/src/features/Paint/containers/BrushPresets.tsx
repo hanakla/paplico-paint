@@ -5,12 +5,16 @@ import { useTranslation } from 'next-i18next'
 import { rgba } from 'polished'
 import { useAsync } from 'react-use'
 import { SilkBrushes, SilkValue } from 'silk-core'
+import { css, useTheme } from 'styled-components'
+
 import { SidebarPane } from '🙌/components/SidebarPane'
-import { EditorOps, EditorStore } from '🙌/domains/EditorStable'
+import { EditorOps, EditorSelector, EditorStore } from '🙌/domains/EditorStable'
 import { centering, focusRing } from '🙌/utils/mixins'
 import { lightTheme, tm } from '🙌/utils/theme'
 import { PropsOf } from '🙌/utils/types'
+import { exclude, pick, shallowEquals } from '🙌/utils/object'
 import { generateBrushThumbnail } from '../helpers'
+import { useFleur } from '🙌/utils/hooks'
 
 const presets = [
   {
@@ -92,7 +96,7 @@ const presets = [
     nameKey: 'baribari',
     brushId: SilkBrushes.ScatterBrush.id,
     size: 20,
-    opacity: 1,
+    opacity: 0.8,
     specific: {
       texture: 'baribari',
       fadeWeight: 1,
@@ -106,11 +110,11 @@ const presets = [
 
 export function BrushPresets() {
   const { t } = useTranslation('app')
-  const { executeOperation } = useFleurContext()
+  const { execute } = useFleur()
 
   const handleSelectBrush = useFunk<PropsOf<typeof BrushItem>['onSelected']>(
     (settings) => {
-      executeOperation(EditorOps.setBrushSetting, settings)
+      execute(EditorOps.setBrushSetting, settings)
     }
   )
 
@@ -121,7 +125,8 @@ export function BrushPresets() {
           display: grid;
           gap: 4px;
           padding: 4px;
-          grid-template-columns: repeat(1, 1fr);
+          /* grid-template-columns: repeat(1, 1fr); */
+          grid-template-columns: 100%;
           /* overflow: auto; */
         `}
       >
@@ -188,15 +193,19 @@ const BrushItem = ({
   preset: Partial<SilkValue.BrushSetting>
   onSelected: (setting: Partial<SilkValue.BrushSetting>) => void
 }) => {
-  const engine = useStore((get) => get(EditorStore).state.engine)
+  const theme = useTheme()
+  const { engine, currentBrushSetting } = useStore((get) => ({
+    engine: get(EditorStore).state.engine,
+    currentBrushSetting: { ...EditorSelector.currentBrushSetting(get) },
+  }))
 
   const brushSize = preset.size ?? 20
 
-  const handleDoubleClick = useFunk(() => {
+  const handleClick = useFunk(() => {
     onSelected(preset)
   })
 
-  const { value, loading } = useAsync(async () => {
+  const { value } = useAsync(async () => {
     if (!engine) return null
     return await generateBrushThumbnail(engine, brushId, {
       brushSize: 6,
@@ -208,19 +217,25 @@ const BrushItem = ({
     })
   }, [engine, brushSize, brushId])
 
+  const isMatchToSetting = currentBrushSetting
+    ? shallowEquals(preset, currentBrushSetting)
+    : false
+
   return (
     <div
-      css={`
+      css={css`
         display: flex;
-        /* height: 56px; */
-        background-color: ${rgba('#fff', 0.7)};
-        color: ${lightTheme.exactColors.black10};
+        background-color: ${rgba('#fff', 0.8)};
+        color: ${({ theme }) => theme.colors.black60};
         border-radius: 2px;
 
         ${centering({ x: false, y: true })}
-        ${focusRing}
       `}
-      onDoubleClick={handleDoubleClick}
+      onClick={handleClick}
+      style={{
+        color: isMatchToSetting ? theme.colors.white50 : undefined,
+        background: isMatchToSetting ? theme.colors.active80 : undefined,
+      }}
       tabIndex={-1}
     >
       <img

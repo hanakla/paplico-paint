@@ -26,9 +26,12 @@ export const DOMUtils = {
   closestOrSelf: (target: Element | EventTarget | null, selector: string) => {
     const closest = (target as Element).closest(selector)
     return (
-      target !== null &&
+      target != null &&
       ((target as Element).matches(selector) || closest) != null
     )
+  },
+  matches: (target: Element | EventTarget | null, selectors: string) => {
+    return !!(target as Element).matches(selectors)
   },
   getClickedPosisionInElement(e: MouseEvent) {
     const rect = e.currentTarget.getBoundingClientRect()

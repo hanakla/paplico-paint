@@ -1,11 +1,13 @@
 import { Close, Polaroid } from '@styled-icons/remix-fill'
 import { rgba } from 'polished'
 import {
+  createContext,
   DetailedHTMLProps,
   forwardRef,
   HTMLAttributes,
   MouseEvent,
   ReactNode,
+  useContext,
 } from 'react'
 import { styleWhen, useFunk } from '@hanakla/arma'
 import { animated, useSpring } from 'react-spring'
@@ -19,6 +21,8 @@ type Props = {
   fill?: boolean
   onClose: () => void
 }
+
+const ActionSheetContext = createContext<'fill' | 'split'>(null)
 
 export const ActionSheet = forwardRef<HTMLDivElement, Props>(
   ({ opened, fill = true, children, className, onClose }, ref) => {
@@ -50,73 +54,83 @@ export const ActionSheet = forwardRef<HTMLDivElement, Props>(
     })
 
     return (
-      <div>
-        {/* @ts-expect-error */}
-        <animated.div
-          // backdrop
-          css={`
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100vw;
-            height: 100vh;
-            background-color: ${rgba('#000', 0.5)};
-          `}
-          style={{ ...backdropStyle, pointerEvents: opened ? 'all' : 'none' }}
-          onClick={handleClickBackdrop}
-        />
-        <animated.div
-          ref={ref}
-          css={css`
-            position: fixed;
-            left: 50%;
-            bottom: 0;
-            width: 100%;
-            max-width: 400px;
-            padding: 12px;
-            padding-bottom: max(env(safe-area-inset-bottom), 16px);
-            overflow: hidden;
+      <ActionSheetContext.Provider value={fill ? 'fill' : 'split'}>
+        <div>
+          {/* @ts-expect-error */}
+          <animated.div
+            // backdrop
+            css={`
+              position: fixed;
+              top: 0;
+              left: 0;
+              width: 100vw;
+              height: 100vh;
+              background-color: ${rgba('#000', 0.5)};
+            `}
+            style={{ ...backdropStyle, pointerEvents: opened ? 'all' : 'none' }}
+            onClick={handleClickBackdrop}
+          />
+          <animated.div
+            ref={ref}
+            css={css`
+              position: fixed;
+              left: 50%;
+              bottom: 0;
+              display: flex;
+              flex-flow: column;
+              width: 100%;
+              max-width: 400px;
+              max-height: 50vh;
+              padding: 12px;
+              padding-bottom: max(env(safe-area-inset-bottom), 16px);
+              overflow: hidden;
 
-            ${styleWhen(fill)`
+              ${styleWhen(fill)`
               min-height: 50vh;
               box-shadow: 0 0 8px ${rgba('#000', 0.2)};
               backdrop-filter: blur(8px);
               border-radius: 4px;
             `}
-          `}
-          style={{
-            ...styles,
-            pointerEvents: opened ? 'all' : 'none',
-            backgroundColor: fill ? theme.color.surface9 : 'transparent',
-          }}
-          className={className}
-        >
-          <div
-            css={`
-              position: absolute;
-              top: 8px;
-              right: 8px;
-              display: flex;
-              align-items: center;
-              justify-content: center;
-              width: 32px;
-              height: 32px;
-              background-color: ${rgba('#000', 0.1)};
-              border-radius: 32px;
             `}
-            onClick={handleClickClose}
+            style={{
+              ...styles,
+              pointerEvents: opened ? 'all' : 'none',
+              backgroundColor: fill ? theme.color.surface9 : 'transparent',
+            }}
+            className={className}
           >
-            <Close
+            <div
               css={`
-                width: 24px;
-                opacity: 0.4;
+                position: absolute;
+                top: 8px;
+                right: 8px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                padding: 4px;
+                background-color: ${rgba('#000', 0.1)};
+                border-radius: 32px;
               `}
-            />
-          </div>
+              onClick={handleClickClose}
+            >
+              <Close
+                css={`
+                  width: 24px;
+                  opacity: 0.4;
+                `}
+              />
+            </div>
 
-          <div>{children}</div>
-        </animated.div>
-      </div>
+            <div
+              css={`
+                flex: 1;
+              `}
+            >
+              {children}
+            </div>
+          </animated.div>
+        </div>
+      </ActionSheetContext.Provider>
     )
   }
 )
@@ -128,16 +142,20 @@ export const ActionSheetItemGroup = ({
   className?: string
   children: ReactNode
 }) => {
-  let a = `${() => ''}`
+  const sheetType = useContext(ActionSheetContext)
 
   return (
     <div
       css={css`
-        background-color: ${({ theme }) => theme.surface.floatWhite};
-        box-shadow: 0 0 5px ${rgba('#000', 0.5)};
+        background-color: ${({ theme }) => rgba(theme.surface.floatWhite, 0.6)};
         backdrop-filter: blur(4px);
         border-radius: 4px;
         overflow: hidden;
+
+        ${sheetType === 'split' &&
+        css`
+          box-shadow: 0 0 5px ${rgba('#000', 0.5)};
+        `}
 
         & + & {
           margin-top: 8px;

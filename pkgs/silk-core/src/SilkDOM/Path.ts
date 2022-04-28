@@ -1,15 +1,15 @@
-import bounds from 'svg-path-bounds'
+import simplify from '@luncheon/simplify-svg-path'
+import { pathBounds } from '../fastsvg/pathBounds'
 
 import { assign, deepClone } from '../utils'
 import { mapPoints } from '../SilkHelpers'
 import {
   cachedPointAtLength,
   CachedPointAtLength,
-} from '../CachedPointAtLength'
+} from '../fastsvg/CachedPointAtLength'
 import prand from 'pure-rand'
 import { ISilkDOMElement } from './ISilkDOMElement'
 import { lerp } from '../SilkMath'
-import { nanoid } from 'nanoid'
 
 export declare namespace Path {
   export type Attributes = {
@@ -138,7 +138,7 @@ export class Path implements ISilkDOMElement {
   public getBoundingBox(): Path.PathBBox {
     if (this._cachedBounds) return this._cachedBounds
 
-    const [left, top, right, bottom] = bounds(this.svgPath)
+    const [left, top, right, bottom] = pathBounds(this.svgPath)
     const width = Math.abs(right - left)
     const height = Math.abs(bottom - top)
 
@@ -231,6 +231,18 @@ export class Path implements ISilkDOMElement {
     )
   }
 
+  public simplify(
+    options: {
+      tolerance?: number
+      precision?: number
+    } = {}
+  ) {
+    // simplify(
+    //   this.points.map((p) => ({ x: p.x, y: p.y })),
+    //   { ...options, closed: this.closed }
+    // )
+  }
+
   public mapPoints<T>(
     proc: (
       point: Path.PathPoint,
@@ -257,6 +269,8 @@ export class Path implements ISilkDOMElement {
 
   /** Freeze changes and cache heavily process results */
   public freeze() {
+    if (this._isFreezed) throw new Error('Path is already freezed')
+
     this._cachedSvgPath = this.getFreshSVGPath()
     this._pal = cachedPointAtLength(this._cachedSvgPath)
     this._cachedBounds = this.getBoundingBox()
@@ -301,7 +315,7 @@ const pointsToSVGPath = (points: Path.PathPoint[], closed: boolean) => {
   return [
     `M${start.x},${start.y}`,
     mapPoints(
-      points,
+      [...points, ...(closed ? [points[0]] : [])],
       (point, prev) => {
         if (prev!.out && point.in) {
           return `C ${prev!.out.x},${prev!.out.y} ${point.in.x},${point.in.y} ${

@@ -1,7 +1,16 @@
 import { useStore } from '@fleur/react'
 import { letDownload, match, useFunk } from '@hanakla/arma'
 import { useTranslation } from 'next-i18next'
-import { useEffect, useRef, useMemo, ChangeEvent } from 'react'
+import {
+  useEffect,
+  useRef,
+  useMemo,
+  ChangeEvent,
+  createContext,
+  useContext,
+  MutableRefObject,
+  createRef,
+} from 'react'
 import { useUpdate } from 'react-use'
 import { SilkDOM, SilkSerializer, SilkCommands } from 'silk-core'
 import { EditorOps, EditorSelector, EditorStore } from '🙌/domains/EditorStable'
@@ -102,7 +111,7 @@ export const useLayerWatch = (layer: SilkDOM.LayerTypes | null | undefined) => {
   }, [layer?.uid, rerender])
 }
 
-export const useObjectWatch = (
+export const useVectorObjectWatch = (
   object: SilkDOM.VectorObject | null | undefined
 ) => {
   const rerender = useUpdate()
@@ -118,6 +127,7 @@ export const useTransactionCommand = ({
 }: {
   threshold?: number
 } = {}) => {
+  const rerender = useUpdate()
   const { execute } = useFleur()
 
   const ref = useRef<SilkCommands.Transaction | null>(null)
@@ -131,6 +141,9 @@ export const useTransactionCommand = ({
 
   return useMemo(
     () => ({
+      get isStarted() {
+        return !!ref.current
+      },
       startIfNotStarted: () => {
         if (ref.current) return
         ref.current = new SilkCommands.Transaction({ commands: [] })
@@ -138,6 +151,7 @@ export const useTransactionCommand = ({
       },
       doAndAdd: (command: SilkCommands.AnyCommandType) => {
         ref.current?.doAndAddCommand(command)
+        rerender()
       },
       autoStartAndDoAdd: (command: SilkCommands.AnyCommandType) => {
         if (!ref.current) {
@@ -146,6 +160,7 @@ export const useTransactionCommand = ({
         }
 
         ref.current?.doAndAddCommand(command)
+        rerender
       },
       commit: () => {
         ref.current = null
@@ -211,6 +226,8 @@ export const useActiveLayerPane = () => {
   )
 
   const handleClickRemoveLayer = useFunk(() => {
+    if (!activeLayerPath) return
+
     execute(
       EditorOps.runCommand,
       new SilkCommands.Layer.DeleteLayer({
@@ -226,4 +243,12 @@ export const useActiveLayerPane = () => {
     handleClickRemoveLayer,
     state: { layerName, activeLayer },
   }
+}
+
+export const PaintCanvasContext = createContext<
+  MutableRefObject<HTMLCanvasElement | null>
+>(createRef<HTMLCanvasElement | null>())
+
+export const usePaintCanvasRef = () => {
+  return useContext(PaintCanvasContext)
 }

@@ -12,27 +12,29 @@ import {
 import { Magic as MagicFill } from '@styled-icons/remix-fill'
 import { useTranslation } from 'next-i18next'
 import { rgba } from 'polished'
-import {
-  ChangeEvent,
-  forwardRef,
-  memo,
-  MouseEvent,
-  useEffect,
-  useRef,
-} from 'react'
+import { ChangeEvent, forwardRef, memo, MouseEvent, useRef } from 'react'
 import { css, useTheme } from 'styled-components'
 import { SilkCommands, SilkDOM } from 'silk-core'
 import { useStore } from '@fleur/react'
 import { useFunk, useObjectState } from '@hanakla/arma'
+import { CSS } from '@dnd-kit/utilities'
+import { useClickAway, useToggle } from 'react-use'
+import {
+  closestCenter,
+  DndContext,
+  DragEndEvent,
+  PointerSensor,
+  useSensor,
+  useSensors,
+} from '@dnd-kit/core'
+import {
+  SortableContext,
+  useSortable,
+  verticalListSortingStrategy,
+} from '@dnd-kit/sortable'
 
 import { Portal } from '🙌/components/Portal'
-import {
-  centering,
-  checkerBoard,
-  rangeThumb,
-  silkScroll,
-} from '🙌/utils/mixins'
-import { useClickAway, useToggle } from 'react-use'
+import { centering, checkerBoard, rangeThumb } from '🙌/utils/mixins'
 import { SelectBox } from '🙌/components/SelectBox'
 import { FakeInput } from '🙌/components/FakeInput'
 import {
@@ -40,21 +42,19 @@ import {
   ActionSheetItem,
   ActionSheetItemGroup,
 } from '🙌/components/ActionSheet'
-import { FilterSettings } from '../FilterSettings'
 import { DOMUtils } from '🙌/utils/dom'
 import { EditorOps, EditorSelector, EditorStore } from '🙌/domains/EditorStable'
-import { closestCenter, DndContext, DragEndEvent } from '@dnd-kit/core'
-import {
-  SortableContext,
-  useSortable,
-  verticalListSortingStrategy,
-} from '@dnd-kit/sortable'
-import { calcLayerMove, FlatLayerEntry, flattenLayers } from '../../helpers'
-import { CSS } from '@dnd-kit/utilities'
 import { useFleur } from '🙌/utils/hooks'
 import { Checkbox } from '🙌/components/Checkbox'
 import { shallowEquals } from '🙌/utils/object'
-import { useActiveLayerPane, useDocumentWatch } from '../../hooks'
+import { tm } from '🙌/utils/theme'
+import { FilterSettings } from '../FilterSettings'
+import { calcLayerMove, FlatLayerEntry, flattenLayers } from '../../helpers'
+import {
+  useActiveLayerPane,
+  useDocumentWatch,
+  useLayerWatch,
+} from '../../hooks'
 
 export const LayerFloatMenu = memo(
   forwardRef<HTMLDivElement, {}>(function LayerFloatMenu(_, ref) {
@@ -184,6 +184,23 @@ export const LayerFloatMenu = memo(
           </DndContext>
         </div>
 
+        <div
+          css={`
+            padding: 4px 0;
+            flex: 1;
+            text-align: center;
+          `}
+          onClick={handleClickAddLayer}
+        >
+          <Add
+            css={`
+              width: 24px;
+              padding-bottom: 2px;
+            `}
+          />
+          レイヤーを追加
+        </div>
+
         <Portal>
           <ActionSheet
             ref={addLayerSheetRef}
@@ -231,7 +248,7 @@ export const LayerFloatMenu = memo(
             display: flex;
           `}
         >
-          {activeLayer && <ActiveLayerPane />}
+          <ActiveLayerPane />
         </div>
       </div>
     )
@@ -239,7 +256,7 @@ export const LayerFloatMenu = memo(
 )
 
 const SortableLayerItem = memo(
-  function SortableLayerItem({
+  function LayerFloatItem({
     entry,
     childrenOpened,
     onToggleCollapse,
@@ -250,42 +267,51 @@ const SortableLayerItem = memo(
   }) {
     if (entry.type !== 'layer') return null
     const { layer, parentPath, depth } = entry
+    useLayerWatch(layer)
 
     const { t } = useTranslation('app')
     const theme = useTheme()
+    const { execute } = useFleur()
+
     const { attributes, listeners, setNodeRef, transform, transition } =
       useSortable({ id: layer.uid })
 
-    const { execute } = useFleur()
-    const { activeLayer, thumbnailUrlOfLayer, selectedLayerUids } = useStore(
-      (get) => ({
-        activeLayer: EditorSelector.activeLayer(get),
-        thumbnailUrlOfLayer: EditorSelector.thumbnailUrlOfLayer(get),
-        selectedLayerUids: EditorSelector.selectedLayerUids(get),
-      })
-    )
+    const {
+      activeLayer,
+      activeLayerPath,
+      thumbnailUrlOfLayer,
+      selectedLayerUids,
+    } = useStore((get) => ({
+      activeLayer: EditorSelector.activeLayer(get),
+      activeLayerPath: EditorSelector.activeLayerPath(get),
+      thumbnailUrlOfLayer: EditorSelector.thumbnailUrlOfLayer(get),
+      selectedLayerUids: EditorSelector.selectedLayerUids(get),
+    }))
 
-    const [actionSheetOpened, setActionSheetOpen] = useToggle(false)
-    const filterActionSheetRef = useRef<HTMLDivElement | null>(null)
+    const [filtersSheetOpened, setFiltersSheetOpen] = useToggle(false)
 
     const handleClick = useFunk((e: MouseEvent<HTMLDivElement>) => {
-      if (
-        DOMUtils.closestOrSelf(e.target, '[data-sortable-layer-ignore-click]')
-      )
+      if (DOMUtils.closestOrSelf(e.target, '[data-dont-close-layer-float]'))
         return
 
       execute(EditorOps.setActiveLayer, [...parentPath, layer.uid])
     })
 
     const handleClickToggleVisible = useFunk((e: MouseEvent) => {
-      execute(EditorOps.updateLayer, [...parentPath, layer.uid], (layer) => {
-        layer.visible = !layer.visible
-      })
+      if (!activeLayerPath) return
+
+      execute(
+        EditorOps.runCommand,
+        new SilkCommands.Layer.PatchLayerAttr({
+          pathToTargetLayer: activeLayerPath,
+          patch: { visible: !layer.visible },
+        })
+      )
     })
 
     const handleClickLayerConfig = useFunk((e: MouseEvent) => {
       e.stopPropagation()
-      setActionSheetOpen()
+      setFiltersSheetOpen()
     })
 
     const handleClickLayerCheckBox = useFunk(
@@ -303,17 +329,12 @@ const SortableLayerItem = memo(
       }
     )
 
-    const handleSheetClose = useFunk(() => {
-      setActionSheetOpen(false)
-    })
-
-    const handleClickCollapse = useFunk(() => {
+    const handleClickCollapseChildren = useFunk(() => {
       onToggleCollapse(entry.id)
     })
 
-    useClickAway(filterActionSheetRef, (e) => {
-      // Reduce rerendering
-      if (actionSheetOpened) setActionSheetOpen(false)
+    const handleCloseFilterSheet = useFunk(() => {
+      setFiltersSheetOpen(false)
     })
 
     return (
@@ -350,7 +371,7 @@ const SortableLayerItem = memo(
               style={{
                 transform: childrenOpened ? 'rotateZ(180deg)' : 'rotateZ(0)',
               }}
-              onClick={handleClickCollapse}
+              onClick={handleClickCollapseChildren}
             />
           )}
         </div>
@@ -359,6 +380,7 @@ const SortableLayerItem = memo(
             ${centering()}
             padding: 0 4px;
           `}
+          onClick={DOMUtils.stopPropagationHandler}
         >
           <Checkbox
             checked={selectedLayerUids.includes(layer.uid)}
@@ -392,17 +414,24 @@ const SortableLayerItem = memo(
             overflow: hidden;
           `}
         >
+          <FakeInput
+            css={`
+              margin-bottom: 4px;
+              padding: 0;
+              pointer-events: none;
+              background: none;
+            `}
+            value={layer.name}
+            placeholder={`<${t(`layerType.${layer.layerType}`)}>`}
+            disabled
+          />
           <div
             css={`
-              max-width: 100%;
-              white-space: nowrap;
+              display: flex;
+              gap: 4px;
+              ${tm((o) => [o.font.text2])}
             `}
           >
-            {layer.name === ''
-              ? `<${t(`layerType.${layer.layerType}`)}>`
-              : layer.name}
-          </div>
-          <div css="display: flex; gap: 4px;">
             <span>{t(`compositeModes.${layer.compositeMode}`)}</span>
             <span>{Math.round(layer.opacity)}%</span>
           </div>
@@ -410,25 +439,16 @@ const SortableLayerItem = memo(
 
         <div
           css={`
-            display: flex;
-            justify-content: center;
-            align-items: center;
+            ${centering()}
+            padding: 0 2px;
           `}
           onClick={handleClickLayerConfig}
-          data-sortable-layer-ignore-click
+          data-dont-close-layer-float
         >
           {layer.filters.length > 0 ? (
-            <MagicFill
-              css={`
-                width: 20px;
-              `}
-            />
+            <MagicFill width={20} />
           ) : (
-            <Magic
-              css={`
-                width: 20px;
-              `}
-            />
+            <Magic width={20} />
           )}
         </div>
 
@@ -437,123 +457,26 @@ const SortableLayerItem = memo(
             display: flex;
             justify-content: center;
             align-items: center;
+            padding: 0 2px;
           `}
-          data-sortable-layer-ignore-click
+          data-dont-close-layer-float
           {...attributes}
           {...listeners}
         >
-          <span tabIndex={0}>
-            <Menu
-              css={`
-                width: 20px;
-              `}
-            />
-          </span>
+          <Menu
+            width={16}
+            css={`
+              ${tm((o) => [o.font.text3])}
+            `}
+          />
         </div>
 
         <Portal>
-          <ActionSheet
-            ref={filterActionSheetRef}
-            opened={actionSheetOpened}
-            onClose={handleSheetClose}
-            fill
-          >
-            <div
-              css={`
-                margin-bottom: 24px;
-              `}
-            >
-              <span
-                css={`
-                  max-width: 100px;
-                  white-space: nowrap;
-                  text-overflow: ellipsis;
-                `}
-              >
-                {t('filter')}
-              </span>
-            </div>
-            <header
-              css={css`
-                display: flex;
-                gap: 8px;
-                padding-bottom: 8px;
-                border-bottom: 1px solid
-                  ${({ theme }) => theme.exactColors.blackFade30};
-              `}
-            >
-              <img
-                css={`
-                  background: linear-gradient(
-                      45deg,
-                      rgba(0, 0, 0, 0.2) 25%,
-                      transparent 25%,
-                      transparent 75%,
-                      rgba(0, 0, 0, 0.2) 75%
-                    ),
-                    linear-gradient(
-                      45deg,
-                      rgba(0, 0, 0, 0.2) 25%,
-                      transparent 25%,
-                      transparent 75%,
-                      rgba(0, 0, 0, 0.2) 75%
-                    );
-                  background-size: 8px 8px;
-                  background-position: 0 0, 4px 4px;
-                  width: 32px;
-                  height: 32px;
-                `}
-                src={thumbnailUrlOfLayer(layer.uid)}
-              />
-              <div
-                css={`
-                  display: flex;
-                  flex-flow: column;
-                  flex: 1;
-                  overflow: hidden;
-                `}
-              >
-                <div
-                  css={`
-                    max-width: 100%;
-                    white-space: nowrap;
-                  `}
-                >
-                  <span
-                    css={`
-                      display: inline-block;
-                      margin-right: 8px;
-                      font-weight: bold;
-                    `}
-                  >
-                    {t('filter')}
-                  </span>
-                  {layer.name === ''
-                    ? `<${t(`layerType.${layer.layerType}`)}>`
-                    : layer.name}
-                </div>
-                <div css="display: flex; gap: 4px;">
-                  <span>{t(`compositeModes.${layer.compositeMode}`)}</span>
-                  <span>{Math.round(layer.opacity)}%</span>
-                </div>
-              </div>
-            </header>
-
-            <div
-              css={`
-                display: flex;
-                flex-flow: column;
-              `}
-            >
-              <SortableFiltersList
-                css={`
-                  flex: 1;
-                  overflow: auto;
-                `}
-                layer={layer}
-              />
-            </div>
-          </ActionSheet>
+          <FiltersSheet
+            opened={filtersSheetOpened}
+            layer={layer}
+            onClose={handleCloseFilterSheet}
+          />
         </Portal>
       </div>
     )
@@ -561,21 +484,255 @@ const SortableLayerItem = memo(
   (prev, next) => shallowEquals(prev.entry, next.entry)
 )
 
-const SortableFiltersList = ({
+const FiltersSheet = memo(function FiltersSheet({
+  opened,
   layer,
-  className,
+  onClose,
 }: {
+  opened: boolean
   layer: SilkDOM.LayerTypes
-  className?: string
-}) => {
-  return (
-    <ul className={className}>
-      {layer.filters.map((filter, idx) => (
-        <SortableFilterItem key={filter.uid} layer={layer} filter={filter} />
-      ))}
-    </ul>
+  onClose: () => void
+}) {
+  useLayerWatch(layer)
+
+  const { t } = useTranslation('app')
+  const { execute, getStore } = useFleur()
+  const {
+    activeLayer,
+    activeLayerPath,
+    thumbnailUrlOfLayer,
+    registeredFilters,
+  } = useStore((get) => ({
+    activeLayer: EditorSelector.activeLayer(get),
+    activeLayerPath: EditorSelector.activeLayerPath(get),
+    thumbnailUrlOfLayer: EditorSelector.thumbnailUrlOfLayer(get),
+    registeredFilters: EditorSelector.getAvailableFilters(get),
+  }))
+
+  const rootRef = useRef<HTMLDivElement | null>(null)
+  const [addFilterSheetOpened, toggleAddFilterSheet] = useToggle(false)
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 4 } })
   )
-}
+
+  const handleFilterSortEnd = useFunk(({ active, over }: DragEndEvent) => {
+    if (!activeLayer || !activeLayerPath || !over) return
+
+    const oldIndex = activeLayer.filters.findIndex((f) => f.uid === active.id)
+    const newIndex = activeLayer.filters.findIndex((f) => f.uid === over.id)
+    if (oldIndex === newIndex) return
+
+    execute(
+      EditorOps.runCommand,
+      new SilkCommands.Layer.ReorderFilter({
+        pathToTargetLayer: activeLayerPath,
+        filterUid: active.id,
+        newIndex: { exactly: newIndex },
+      })
+    )
+  })
+
+  const handleClickAddFilterButton = useFunk(() => {
+    toggleAddFilterSheet(true)
+  })
+
+  const handleCloseAddFilterSheet = useFunk(() => {
+    toggleAddFilterSheet(false)
+  })
+
+  const handleClickAddFilter = useFunk(
+    ({ currentTarget }: MouseEvent<HTMLDivElement>) => {
+      toggleAddFilterSheet(false)
+
+      if (!activeLayerPath) return
+
+      const filterId = currentTarget.dataset.filterId!
+      const filter = EditorSelector.getFilterInstance(getStore, filterId)
+      if (!filter) return
+
+      execute(
+        EditorOps.runCommand,
+        new SilkCommands.Layer.AddFilter({
+          pathToTargetLayer: activeLayerPath,
+          filter: SilkDOM.Filter.create({
+            filterId,
+            settings: filter.initialConfig,
+          }),
+        })
+      )
+    }
+  )
+
+  const handleCloseFilterSheet = useFunk(() => {
+    onClose()
+  })
+
+  useClickAway(rootRef, () => {
+    onClose()
+  })
+
+  return (
+    <ActionSheet
+      ref={rootRef}
+      opened={opened}
+      onClose={handleCloseFilterSheet}
+      fill
+    >
+      <div data-dont-close-layer-float>
+        <div
+          css={`
+            margin-bottom: 24px;
+          `}
+        >
+          <span
+            css={`
+              max-width: 100px;
+              white-space: nowrap;
+              text-overflow: ellipsis;
+            `}
+          >
+            {t('filter')}
+          </span>
+        </div>
+        <header
+          css={css`
+            display: flex;
+            gap: 8px;
+            padding-bottom: 8px;
+            border-bottom: 1px solid
+              ${({ theme }) => theme.exactColors.blackFade30};
+          `}
+        >
+          <img
+            css={`
+              background: linear-gradient(
+                  45deg,
+                  rgba(0, 0, 0, 0.2) 25%,
+                  transparent 25%,
+                  transparent 75%,
+                  rgba(0, 0, 0, 0.2) 75%
+                ),
+                linear-gradient(
+                  45deg,
+                  rgba(0, 0, 0, 0.2) 25%,
+                  transparent 25%,
+                  transparent 75%,
+                  rgba(0, 0, 0, 0.2) 75%
+                );
+              background-size: 8px 8px;
+              background-position: 0 0, 4px 4px;
+              width: 32px;
+              height: 32px;
+            `}
+            src={thumbnailUrlOfLayer(layer.uid)}
+          />
+          <div
+            css={`
+              display: flex;
+              flex-flow: column;
+              flex: 1;
+              overflow: hidden;
+            `}
+          >
+            <div
+              css={`
+                max-width: 100%;
+                white-space: nowrap;
+              `}
+            >
+              <span
+                css={`
+                  display: inline-block;
+                  margin-right: 8px;
+                  font-weight: bold;
+                `}
+              >
+                {t('filter')}
+              </span>
+              {layer.name === ''
+                ? `<${t(`layerType.${layer.layerType}`)}>`
+                : layer.name}
+            </div>
+            <div css="display: flex; gap: 4px;">
+              <span>{t(`compositeModes.${layer.compositeMode}`)}</span>
+              <span>{Math.round(layer.opacity)}%</span>
+            </div>
+          </div>
+        </header>
+
+        <div
+          css={`
+            display: flex;
+            flex-flow: column;
+          `}
+        >
+          <DndContext
+            collisionDetection={closestCenter}
+            onDragEnd={handleFilterSortEnd}
+            sensors={sensors}
+          >
+            <SortableContext
+              items={layer.filters.map((entry) => entry.uid)}
+              strategy={verticalListSortingStrategy}
+            >
+              {layer.filters.map((filter) => (
+                <SortableFilterItem
+                  key={filter.uid}
+                  layer={layer}
+                  filter={filter}
+                />
+              ))}
+            </SortableContext>
+          </DndContext>
+        </div>
+
+        <div
+          css={`
+            padding: 4px 0;
+            flex: 1;
+            text-align: center;
+          `}
+          onClick={handleClickAddFilterButton}
+        >
+          <Add
+            css={`
+              width: 24px;
+              margin-top: auto;
+              padding-bottom: 2px;
+            `}
+          />
+          フィルターを追加
+        </div>
+      </div>
+
+      <ActionSheet
+        opened={addFilterSheetOpened}
+        onClose={handleCloseAddFilterSheet}
+        fill
+      >
+        <div
+          css={`
+            padding-top: 40px;
+          `}
+          data-dont-close-layer-float
+        >
+          <ActionSheetItemGroup>
+            {registeredFilters.map((filter) => (
+              <ActionSheetItem
+                key={filter.id}
+                onClick={handleClickAddFilter}
+                data-filter-id={filter.id}
+              >
+                {t(`filters.${filter.id}`)}
+              </ActionSheetItem>
+            ))}
+          </ActionSheetItemGroup>
+        </div>
+      </ActionSheet>
+    </ActionSheet>
+  )
+})
 
 const SortableFilterItem = ({
   layer,
@@ -587,10 +744,14 @@ const SortableFilterItem = ({
   const { t } = useTranslation('app')
 
   const { execute } = useFleur()
-  const { selectedFilterIds } = useStore((get) => ({
+  const { activeLayerPath, selectedFilterIds } = useStore((get) => ({
+    activeLayerPath: EditorSelector.activeLayerPath(get),
     selectedFilterIds: get(EditorStore).state.selectedFilterIds,
   }))
-  const active = selectedFilterIds[filter.uid]
+  const selected = selectedFilterIds[filter.uid]
+
+  const { attributes, listeners, setNodeRef, transform, transition } =
+    useSortable({ id: filter.uid })
 
   const handleClick = useFunk((e: MouseEvent<HTMLDivElement>) => {
     if (DOMUtils.closestOrSelf(e.target, '[data-ignore-click]')) return
@@ -609,8 +770,21 @@ const SortableFilterItem = ({
     execute(EditorOps.rerenderCanvas)
   })
 
+  const handleClickRemoveFilter = useFunk(() => {
+    if (!activeLayerPath) return
+
+    execute(
+      EditorOps.runCommand,
+      new SilkCommands.Layer.RemoveFilter({
+        pathToTargetLayer: activeLayerPath,
+        filterUid: filter.uid,
+      })
+    )
+  })
+
   return (
     <div
+      ref={setNodeRef}
       css={`
         display: flex;
         flex-wrap: wrap;
@@ -623,6 +797,10 @@ const SortableFilterItem = ({
         }
       `}
       onClick={handleClick}
+      style={{
+        transform: CSS.Transform.toString(transform),
+        transition,
+      }}
     >
       <div
         css={`
@@ -658,17 +836,25 @@ const SortableFilterItem = ({
 
       <div
         css={`
-          display: flex;
-          align-items: center;
-          justify-content: center;
+          ${centering()}
           margin-left: auto;
         `}
-        data-ignore-click
+        onClick={handleClickRemoveFilter}
       >
-        <FilterSortHandle />
+        <DeleteBin width={16} />
       </div>
 
-      {active && (
+      <div
+        css={`
+          ${centering()}
+        `}
+        {...listeners}
+        {...attributes}
+      >
+        <Menu width={16} />
+      </div>
+
+      {selected && (
         <div
           css={`
             flex-basis: 100%;
@@ -681,17 +867,6 @@ const SortableFilterItem = ({
     </div>
   )
 }
-
-const FilterSortHandle = () => (
-  <span>
-    <Menu
-      css={`
-        width: 16px;
-        vertical-align: bottom;
-      `}
-    />
-  </span>
-)
 
 const ActiveLayerPane = memo(function ActiveLayerPane() {
   const { t } = useTranslation('app')
@@ -744,8 +919,8 @@ const ActiveLayerPane = memo(function ActiveLayerPane() {
           onClick={handleClickRemoveLayer}
         >
           <DeleteBin
+            width={16}
             css={`
-              width: 16px;
               padding-bottom: 2px;
             `}
           />

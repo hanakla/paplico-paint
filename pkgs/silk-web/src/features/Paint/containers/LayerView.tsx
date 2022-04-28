@@ -350,20 +350,16 @@ const SortableLayerItem = memo(
 
     const { execute } = useFleur()
     const [layeViewState, layerViewActions] = useLysSlice(layerViewSlice)
-    const {
-      activeLayer,
-      activeLayerPath,
-      thumbnailUrlOfLayer,
-      activeObjectId,
-      selectedLayerUids,
-    } = useStore((get) => ({
-      activeLayer: EditorSelector.activeLayer(get),
-      activeLayerPath: EditorSelector.activeLayerPath(get),
-      currentDocument: EditorSelector.currentDocument(get),
-      thumbnailUrlOfLayer: EditorSelector.thumbnailUrlOfLayer(get),
-      activeObjectId: get(EditorStore).state.activeObjectId,
-      selectedLayerUids: EditorSelector.selectedLayerUids(get),
-    }))
+    const { activeLayer, thumbnailUrlOfLayer, selectedLayerUids } = useStore(
+      (get) => ({
+        activeLayer: EditorSelector.activeLayer(get),
+        activeLayerPath: EditorSelector.activeLayerPath(get),
+        currentDocument: EditorSelector.currentDocument(get),
+        thumbnailUrlOfLayer: EditorSelector.thumbnailUrlOfLayer(get),
+        activeObjectId: get(EditorStore).state.activeObjectId,
+        selectedLayerUids: EditorSelector.selectedLayerUids(get),
+      })
+    )
 
     const [objectsOpened, toggleObjectsOpened] = useToggle(false)
 
@@ -681,9 +677,6 @@ const SortableLayerItem = memo(
                   font-size: 12px;
                   pointer-events: none;
                   background: transparent;
-                  &::placeholder {
-                    color: #9e9e9e;
-                  }
                 `}
                 value={layer.name}
                 placeholder={`<${t(`layerType.${layer.layerType}`)}>`}

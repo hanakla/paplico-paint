@@ -41,18 +41,28 @@ export class VectorObjectPatchPathAttr implements ICommand {
       Object.keys(this.patch) as any
     )
 
-    object.path.update((p) => assign(p, this.patch))
+    const nextPath = object.path.clone()
+    assign(nextPath, this.patch)
+    if (object.path.isFreezed) nextPath.freeze()
+
+    object.update((o) => (o.path = nextPath))
   }
 
   async undo(document: Document): Promise<void> {
-    SilkDOMDigger.findObjectInLayer(
+    const object = SilkDOMDigger.findObjectInLayer(
       document,
       this.pathToTargetLayer,
       this.targetObjectUid,
       {
         strict: true,
       }
-    )!.path.update((l) => assign(l, this.revertPatch))
+    )!
+
+    const nextPath = object.path.clone()
+    assign(nextPath, this.revertPatch)
+    if (object.path.isFreezed) nextPath.freeze()
+
+    object.update((o) => (o.path = nextPath))
   }
 
   async redo(document: Document): Promise<void> {

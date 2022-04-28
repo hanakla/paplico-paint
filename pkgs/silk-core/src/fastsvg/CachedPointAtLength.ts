@@ -5,7 +5,8 @@ import point from 'point-at-length'
 export const cachedPointAtLength = (path: string) => {
   const pal = point(path)
   const points = (pal as any)._path as [number, number][]
-  const lengthIndex: number[] = [] /** array of length */
+  const lengthIndex: number[] =
+    [] /** array of length, array index points to points */
   const indexOfPoint: number[] = []
 
   const warmResult = walk(null, 0, true)

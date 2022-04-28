@@ -5,6 +5,7 @@ import { FilterPatchAttr } from './FilterPatchAttr'
 import { LayerConvertToGroup } from './LayerConvertToGroup'
 import { LayerDelete } from './LayerDelete'
 import { LayerAddFilter } from './LayerAddFilter'
+import { LayerRemoveFilter } from './LayerRemoveFilter'
 import { LayerMoveLayer } from './LayerMoveLayer'
 import { LayerPatchLayerAttr } from './LayerPatchLayerAttr'
 import { LayerFilterReorder } from './LayerFilterReorder'
@@ -25,6 +26,7 @@ export const Commands = {
   Filter: { PatchAttr: FilterPatchAttr },
   Layer: {
     AddFilter: LayerAddFilter,
+    RemoveFilter: LayerRemoveFilter,
     PatchLayerAttr: LayerPatchLayerAttr,
     ConvertToGroup: LayerConvertToGroup,
     DeleteLayer: LayerDelete,

@@ -39,12 +39,6 @@ export function mapPoints<T>(
     .map((point, idx) =>
       proc(point, points[idx + startOffset - 1], idx, points)
     )
-
-  // for (let idx = startOffset, l = points.length; idx < l; idx++) {
-  //   result.push(proc(points[idx], points[idx - 1], idx, points))
-  // }
-
-  // return result
 }
 
 export function sortColorStopsByPositionAsc(colorStops: ColorStop[]) {

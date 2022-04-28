@@ -1,5 +1,6 @@
 import { useFleurContext } from '@fleur/react'
 import { autoUpdate, UseFloatingReturn } from '@floating-ui/react-dom'
+import { nanoid } from 'nanoid'
 import {
   Ref,
   RefObject,
@@ -10,6 +11,7 @@ import {
   useRef,
   useState,
 } from 'react'
+import { useUpdate } from 'react-use'
 import { shallowEquals } from './object'
 
 export const useMedia = (query: string, defaultState?: boolean) => {
@@ -42,22 +44,32 @@ export const useMedia = (query: string, defaultState?: boolean) => {
   return state
 }
 
-// export const useBenriRef = <T>(initialValue: T) => {
-//   const ref = useRef(initialValue)
+export const useIdentifiedRef = <T>(initialValue: T) => {
+  const rerender = useUpdate()
+  const ref = useRef(initialValue)
+  const id = useRef(nanoid())
 
-//   return useMemo(() => {
-//     const handler = (element: T) => {
-//       ref.current = element
-//     }
-//     Object.defineProperty(handler, 'current', {
-//       set: (element: T) => {
-//         ref.current = element
-//       },
-//       get: () => ref.current,
-//     })
-//     return handler as ((element: T) => void) & { current: T }
-//   }, [])
-// }
+  return useMemo(() => {
+    const handler = (element: T) => {
+      if (element === ref.current) return
+      ref.current = element
+      id.current = nanoid()
+      rerender()
+    }
+
+    Object.defineProperty(handler, 'current', {
+      set: (element: T) => {
+        handler(element)
+      },
+      get: () => ref.current,
+    })
+
+    return [
+      id.current,
+      handler as ((element: T) => void) & { current: T },
+    ] as const
+  }, [])
+}
 
 /** useState, but update state on original value changed */
 export const useBufferedState = <T, S = T>(
@@ -213,9 +225,10 @@ export const useAutoUpdateFloating = (fl: UseFloatingReturn) => {
     return autoUpdate(
       fl.refs.reference.current,
       fl.refs.floating.current,
-      fl.update
+      fl.update,
+      { ancestorResize: true, ancestorScroll: true, elementResize: false }
     )
-  }, [fl.refs.reference.current, fl.refs.floating.current, fl.update])
+  }, [fl.refs.reference, fl.refs.floating, fl.update])
 }
 
 export const useIsomorphicLayoutEffect =

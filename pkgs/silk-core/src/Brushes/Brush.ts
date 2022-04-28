@@ -35,7 +35,12 @@ export class Brush implements IBrush {
     const [start] = points
 
     ctx.lineWidth = size
-    ctx.strokeStyle = `${rgba(color.r, color.g, color.b, opacity)}`
+    ctx.strokeStyle = `${rgba(
+      color.r * 255,
+      color.g * 255,
+      color.b * 255,
+      opacity
+    )}`
     ctx.lineCap = sp.lineCap
 
     ctx.beginPath()

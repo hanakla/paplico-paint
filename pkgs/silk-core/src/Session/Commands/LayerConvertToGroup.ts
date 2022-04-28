@@ -27,7 +27,9 @@ export class LayerConvertToGroup implements ICommand {
       const layerId = path.slice(-1)[0]
       const pathToParent = path.slice(0, -1)
 
-      const parent = SilkDOMDigger.findLayerParent(document, path)
+      const parent = SilkDOMDigger.findLayerParent(document, path, {
+        strict: true,
+      })
       const index = parent.layers.findIndex((l) => l.uid === path.slice(-1)[0])
 
       const layer = SilkDOMDigger.findLayer(document, path, {

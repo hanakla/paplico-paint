@@ -8,5 +8,6 @@
   "typescript.preferences.importModuleSpecifier": "relative",
   "[glsl]": {
     "editor.formatOnSave": false
-  }
+  },
+  "editor.foldingStrategy": "indentation"
 }

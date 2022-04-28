@@ -42,5 +42,14 @@ export const pick = <T, K extends readonly (keyof T)[]>(
   return keys.reduce((a, k) => assign(a, { [k]: obj[k] }), Object.create(null))
 }
 
+export const exclude = <T, K extends readonly (keyof T)[]>(
+  obj: T,
+  keys: K
+): Omit<T, ArrayElement<K>> => {
+  return (Object.keys(obj) as (keyof T)[])
+    .filter((k) => !keys.includes(k))
+    .reduce((a, k) => assign(a, { [k]: obj[k] }), Object.create(null))
+}
+
 type ArrayElement<ArrayType extends readonly unknown[]> =
   ArrayType extends readonly (infer ElementType)[] ? ElementType : never

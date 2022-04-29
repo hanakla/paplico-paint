@@ -1,0 +1,112 @@
+opacity: 透明度
+blend: ブレンド
+layerFilter: レイヤーフィルター
+colorHistory: カラー履歴
+referenceColor: 参照カラー
+filter: フィルター
+cancel: キャンセル
+addFromImage: 画像ファイルから追加
+export: 保存する
+untitled: タイトル未設定
+remove: 削除
+
+mainActions:
+  gradientLength: 長さ
+  gradientAngle: 角度
+
+vectorControl:
+  context:
+    moveup: 順序を上に移動
+    movedown: 順序を下に移動
+
+notify:
+  home:
+    opening: アイテムを開いています
+  exitSession:
+    saving: 保存しています…
+  appMenu:
+    saving: '保存しています…'
+    saved: '保存しました！'
+    exporting: '書き出し中…'
+    exported: '書き出しました！'
+
+exports:
+  autoSaved: 自動保存されています
+  saved: 保存しました！
+  exported: 書き出しました！
+
+vectorColorPicker:
+  noFill: 塗りなし
+  modes:
+    solid: カラー
+    gradient: グラデーション
+
+layerType:
+  filter: フィルターレイヤー
+  vector: ベクターレイヤー
+  raster: 通常レイヤー
+  text: テキストレイヤー
+  reference: 参照レイヤー
+  group: グループ
+
+compositeModes:
+  normal: 通常
+  multiply: 乗算
+  screen: スクリーン
+  overlay: オーバーレイ
+  clipper: 切り抜き
+
+filters:
+  '@paplico/bloom': '発光'
+  '@paplico/gauss-blur': 'ガウスぼかし'
+  '@paplico/chromatic-aberration': '色収差'
+  '@paplico/halftone': 'ハーフトーン'
+  '@paplico/binarization': 二値化
+  '@paplico/glitch-jpeg': JPEGアンティーク
+  '@paplico/low-reso': モザイク
+  '@paplico/outline': 縁取り
+
+filterOptions:
+  '@paplico/bloom':
+    threshold: しきい値
+  '@paplico/gauss-blur':
+    radius: 半径
+    powerDev: 強さ(dev)
+  '@paplico/chromatic-aberration':
+    distance: 距離
+    angleDeg: 角度
+  '@paplico/halftone':
+    shape: 形状
+    shapes:
+      dot: 円
+      ellipse: 楕円
+      line: 線
+      square: 四角形
+    radius: 半径
+    scatter: 散らばり
+  '@paplico/binarization':
+    level: レベル
+    # threshold: しきい値
+  '@paplico/glitch-jpeg':
+    copies: コピー回数
+    quality: 画質
+  '@paplico/low-reso':
+    sameBlocks: 縦と横の解像度を同じにする
+    levelX: 横の解像度
+    levelY: 縦の解像度
+  '@paplico/outline':
+    thickness: 太さ
+    color: 色
+
+layerView:
+  object:
+    path: '<パス>'
+    context:
+      remove: オブジェクトを削除
+
+brushPresets:
+  vector: ベクトルブラシ
+  circle: 円ブラシ
+  fade: フェードブラシ
+  pencil: ペンシル
+  'pencil-inout': 入り抜きペン

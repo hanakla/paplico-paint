@@ -1,14 +1,14 @@
 {
-  "name": "silk-paint",
+  "name": "paplico-paint",
   "version": "0.1.0",
   "private": true,
   "workspaces": [
     "./pkgs/*"
   ],
   "scripts": {
-    "dev": "wsrun -p silk-web -c dev",
-    "build": "cd pkgs/silk-web; yarn build",
-    "start": "cd pkgs/silk-web; yarn start"
+    "dev": "wsrun -p @paplico/web -c dev",
+    "build": "cd pkgs/web; yarn build",
+    "start": "cd pkgs/web; yarn start"
   },
   "devDependencies": {
     "wsrun": "^5.2.4"

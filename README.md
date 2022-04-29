@@ -13,15 +13,15 @@
 
 Requires Node.js / yarn.
 
-1. `git clone git@github.com:hanakla/silk-paint.git`
-2. `cd silk-paint`
+1. `git clone git@github.com:hanakla/paplico-paint.git`
+2. `cd paplico-paint`
 3. `yarn dev`
 
 Do you understand????
 
 ## Application Structure
 
-- [`pkgs/silk-core`](pkgs/silk-core) is an package of drawing engine / native UI events handler / drawing state manager.
+- [`pkgs/core`](pkgs/core) is an package of drawing engine / native UI events handler / drawing state manager.
   - Made with TypeScript / HTML5 Canvas / DOM
-- [`pkgs/silk-web`](pkgs/silk-web) is Frontend implementation of silk-core.
+- [`pkgs/web`](pkgs/web) is Frontend implementation of @paplico/core.
   - Made with Next.js

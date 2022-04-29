@@ -1,4 +1,4 @@
-import { SilkInternals } from 'silk-core'
+import { SilkInternals } from '@paplico/core'
 import mitt, { Emitter } from 'mitt'
 
 type Events = {

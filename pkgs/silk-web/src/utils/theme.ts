@@ -1,4 +1,5 @@
 import { rgba, invert, grayscale } from 'polished'
+import { Material } from '@charcoal-ui/foundation'
 import { CharcoalTheme, dark, light } from '@charcoal-ui/theme'
 import createTheme from '@charcoal-ui/styled'
 import styled from 'styled-components'
@@ -173,6 +174,8 @@ assign(lightWithCharcoal.color, {
   surface7: '#2a2a2a',
   surface8: '#4a4a4a',
   surface9: '#606060',
+
+  primary: '#',
 })
 
 export const darkWithCharcoal = Object.assign({}, darkTheme, dark)
@@ -188,13 +191,17 @@ assign(darkWithCharcoal.color, {
   surface9: '#bbbbbb',
 })
 
-export type ThemeType = typeof darkTheme & CharcoalTheme
+export type ThemeType = CharcoalTheme & {
+  color: {
+    primary: Material
+  }
+}
 
 export const tm = createTheme(styled)
 
 declare module 'styled-components' {
   // interface DefaultTheme extends ThemeType {}
-  interface DefaultTheme extends CharcoalTheme {}
+  interface DefaultTheme extends ThemeType {}
 }
 
 export type ThemeProp<T = {}> = T & { theme: ThemeType }

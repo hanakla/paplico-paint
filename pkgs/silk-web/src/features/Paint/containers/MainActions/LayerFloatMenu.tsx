@@ -709,7 +709,7 @@ const FiltersSheet = memo(function FiltersSheet({
       <ActionSheet
         opened={addFilterSheetOpened}
         onClose={handleCloseAddFilterSheet}
-        fill
+        fill={false}
       >
         <div
           css={`

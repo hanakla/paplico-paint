@@ -13,19 +13,24 @@ import { styleWhen, useFunk } from '@hanakla/arma'
 import { animated, useSpring } from 'react-spring'
 import { css, useTheme } from 'styled-components'
 import { DOMUtils } from '🙌/utils/dom'
+import { tm } from '../utils/theme'
 
 type Props = {
   opened: boolean
   className?: string
   children?: ReactNode
   fill?: boolean
+  backdrop?: boolean
   onClose: () => void
 }
 
 const ActionSheetContext = createContext<'fill' | 'split'>(null)
 
 export const ActionSheet = forwardRef<HTMLDivElement, Props>(
-  ({ opened, fill = true, children, className, onClose }, ref) => {
+  (
+    { opened, fill = true, backdrop = true, children, className, onClose },
+    ref
+  ) => {
     const theme = useTheme()
     const styles = useSpring({
       config: {
@@ -56,20 +61,25 @@ export const ActionSheet = forwardRef<HTMLDivElement, Props>(
     return (
       <ActionSheetContext.Provider value={fill ? 'fill' : 'split'}>
         <div>
-          {/* @ts-expect-error */}
-          <animated.div
-            // backdrop
-            css={`
-              position: fixed;
-              top: 0;
-              left: 0;
-              width: 100vw;
-              height: 100vh;
-              background-color: ${rgba('#000', 0.5)};
-            `}
-            style={{ ...backdropStyle, pointerEvents: opened ? 'all' : 'none' }}
-            onClick={handleClickBackdrop}
-          />
+          {backdrop && (
+            // @ts-expect-error
+            <animated.div
+              // backdrop
+              css={`
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100vw;
+                height: 100vh;
+                background-color: ${rgba('#000', 0.5)};
+              `}
+              style={{
+                ...backdropStyle,
+                pointerEvents: opened ? 'all' : 'none',
+              }}
+              onClick={handleClickBackdrop}
+            />
+          )}
           <animated.div
             ref={ref}
             css={css`
@@ -83,7 +93,7 @@ export const ActionSheet = forwardRef<HTMLDivElement, Props>(
               max-height: 50vh;
               padding: 12px;
               padding-bottom: max(env(safe-area-inset-bottom), 16px);
-              overflow: hidden;
+              overflow: auto;
 
               ${styleWhen(fill)`
               min-height: 50vh;
@@ -101,10 +111,11 @@ export const ActionSheet = forwardRef<HTMLDivElement, Props>(
           >
             <div
               css={`
-                position: absolute;
+                position: sticky;
                 top: 8px;
                 right: 8px;
                 display: flex;
+                margin-left: auto;
                 align-items: center;
                 justify-content: center;
                 padding: 4px;
@@ -181,6 +192,8 @@ export const ActionSheetItem = ({
         text-align: center;
         font-size: 16px;
         font-weight: 400;
+
+        ${tm((o) => [o.font.primary])}
 
         & + & {
           border-top: 1px solid ${rgba('#333', 0.3)};

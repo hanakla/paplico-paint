@@ -597,6 +597,11 @@ export const [EditorStore, EditorOps] = minOps('Editor', {
         x.state.renderStrategy?.markUpdatedLayerId(p.slice(-1)[0])
       )
 
+      await x.executeOperation(NotifyOps.create, {
+        area: 'commandFlash',
+        timeout: 1000,
+        messageKey: 'undo',
+      })
       await x.executeOperation(EditorOps.rerenderCanvas)
     },
     redoCommand: async (x) => {
@@ -606,6 +611,11 @@ export const [EditorStore, EditorOps] = minOps('Editor', {
         x.state.renderStrategy?.markUpdatedLayerId(p.slice(-1)[0])
       )
 
+      await x.executeOperation(NotifyOps.create, {
+        area: 'commandFlash',
+        timeout: 1000,
+        messageKey: 'redo',
+      })
       await x.executeOperation(EditorOps.rerenderCanvas)
     },
 

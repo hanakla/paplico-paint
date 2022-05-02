@@ -3,6 +3,10 @@ type Factory = () => { getContext: HTMLCanvasElement['getContext'] }
 let canvasFactory: Factory = () => document.createElement('canvas')
 let createdCanvases: Set<WeakRef<HTMLCanvasElement>> = new Set()
 
+export const activeCanvasesCount = () => {
+  return [...createdCanvases].filter((r) => r.deref() != null).length
+}
+
 export const getCanvasBytes = () => {
   return [...createdCanvases]
     .map((r) => r.deref())

@@ -32,10 +32,19 @@ export class RasterLayer extends Emitter<Events> implements ILayer {
   /** Mark for re-rendering decision */
   protected _lastUpdatedAt = Date.now()
 
-  public static create({ width, height }: { width: number; height: number }) {
+  public static create({
+    name,
+    width,
+    height,
+  }: {
+    name?: string
+    width: number
+    height: number
+  }) {
     const layer = new RasterLayer()
 
     assign(layer, {
+      name,
       bitmap: new Uint8ClampedArray(width * height * 4),
       width: width,
       height: height,

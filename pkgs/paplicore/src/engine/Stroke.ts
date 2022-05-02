@@ -95,16 +95,15 @@ export class Stroke {
   }
 
   public simplify() {
-    const points = simplify(this.path.points)
-
+    // const points = simplify(this.path.points)
     // pressureAtのマップを先に作る
-    this.path.points = points.map((p) => ({
-      x: p.x,
-      y: p.y,
-      in: null,
-      out: null,
-      pressure: null,
-    }))
+    // this.path.points = points.map((p) => ({
+    //   x: p.x,
+    //   y: p.y,
+    //   in: null,
+    //   out: null,
+    //   pressure: null,
+    // }))
   }
 
   public freeze() {

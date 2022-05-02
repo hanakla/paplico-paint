@@ -15,9 +15,9 @@ import {
 import { Button } from '🙌/components/Button'
 import { Stack } from '🙌/components/Stack'
 import { DevLayout } from '🙌/layouts/DevLayout'
-import { centering, checkerBoard } from '🙌/utils/mixins'
+import { centering } from '🙌/utils/mixins'
 
-export default function Debug() {
+export default function ManyLayers() {
   const router = useRouter()
   const ref = useRef<HTMLCanvasElement | null>(null)
   const sessionRef = useRef<PapSession | null>(null)
@@ -50,130 +50,18 @@ export default function Debug() {
 
       {
         const document = PapDOM.Document.create({ width: 1000, height: 1000 })
-        const raster = PapDOM.RasterLayer.create({ width: 1000, height: 1000 })
         const strategy = new RenderStrategies.FullRender()
-        const vector = PapDOM.VectorLayer.create({})
-        const bgLayer = PapDOM.VectorLayer.create({})
 
-        bgLayer.objects.push(
-          PapDOM.VectorObject.create({
-            x: 0,
-            y: 0,
-            path: PapDOM.Path.create({
-              points: [
-                { x: 0, y: 0, in: null, out: null },
-                { x: document.width, y: 0, in: null, out: null },
-                { x: document.width, y: document.height, in: null, out: null },
-                { x: 0, y: document.height, in: null, out: null },
-              ],
-              closed: true,
-            }),
-            brush: null,
-            fill: {
-              type: 'fill',
-              color: { r: 0, g: 0, b: 0 },
-              opacity: 1,
-            },
+        Array.from({ length: 200 }).forEach(() => {
+          const raster = PapDOM.RasterLayer.create({
+            width: 1000,
+            height: 1000,
           })
-        )
+          document.addLayer(raster)
+        })
 
-        {
-          const path = PapDOM.Path.create({
-            points: [
-              { x: 0, y: 0, in: null, out: null },
-              { x: 200, y: 500, in: null, out: null },
-              { x: 600, y: 500, in: null, out: null },
-              {
-                x: 1000,
-                y: 1000,
-                in: null,
-                out: null,
-              },
-            ],
-            closed: true,
-          })
-
-          const obj = PapDOM.VectorObject.create({ x: 0, y: 0, path })
-
-          // obj.brush = {
-          //   brushId: PapBrushes.ScatterBrush.id,
-          //   color: { r: 0, g: 0, b: 0 },
-          //   opacity: 1,
-          //   size: 2,
-          //   specific: {},
-          // }
-          obj.brush = null
-
-          obj.fill = {
-            type: 'linear-gradient',
-            opacity: 1,
-            start: { x: -100, y: -100 },
-            end: { x: 100, y: 100 },
-            colorStops: [
-              { color: { r: 0, g: 255, b: 255, a: 1 }, position: 0 },
-              { color: { r: 255, g: 255, b: 0, a: 1 }, position: 1 },
-            ],
-          }
-
-          vector.objects.push(obj)
-        }
-
-        vector.filters.push(
-          // PapDOM.Filter.create({
-          //   filterId: '@paplico/filters/chromatic-aberration',
-          //   visible: true,
-          //   settings: {
-          //     ...engine.toolRegistry.getFilterInstance(
-          //       '@paplico/filters/chromatic-aberration'
-          //     )!.initialConfig,
-          //     size: 100,
-          //   },
-          // }),
-          // PapDOM.Filter.create({
-          //   filterId: '@paplico/filters/halftone',
-          //   visible: true,
-          //   settings: {
-          //     ...engine.toolRegistry.getFilterInstance(
-          //       '@paplico/filters/halftone'
-          //     )!.initialConfig,
-          //     size: 100,
-          //   },
-          // }),
-          // PapDOM.Filter.create({
-          //   filterId: '@paplico/gauss-blur',
-          //   visible: true,
-          //   settings: engine.toolRegistry.getFilterInstance(
-          //     '@paplico/gauss-blur'
-          //   )!.initialConfig,
-          // }),
-          // PapDOM.Filter.create({
-          //   filterId: '@paplico/filters/outline',
-          //   visible: true,
-          //   settings: engine.toolRegistry.getFilterInstance(
-          //     '@paplico/filters/outline'
-          //   )!.initialConfig,
-          // }),
-          // PapDOM.Filter.create({
-          //   filterId: '@paplico/filters/zoom-blur',
-          //   visible: true,
-          //   settings: engine.toolRegistry.getFilterInstance(
-          //     '@paplico/filters/zoom-blur'
-          //   )!.initialConfig,
-          // }),
-          PapDOM.Filter.create({
-            filterId: '@paplico/filters/kawase-blur',
-            visible: true,
-            settings: engine.toolRegistry.getFilterInstance(
-              '@paplico/filters/kawase-blur'
-            )!.initialConfig,
-          })
-        )
-
-        // document.addLayer(bgLayer)
-        document.addLayer(raster)
-        document.addLayer(vector, { aboveLayerId: raster.uid })
         session.setDocument(document)
-        session.setActiveLayer([vector.uid])
+        session.setActiveLayer([document.layers[0].uid])
 
         ref.current!.width = document.width
         ref.current!.height = document.height
@@ -287,7 +175,6 @@ export default function Debug() {
         css={`
           margin: 16px;
           box-shadow: 0 0 4px ${rgba('#000', 0.4)};
-          ${checkerBoard({ size: 8 })}
         `}
       />
     </DevLayout>

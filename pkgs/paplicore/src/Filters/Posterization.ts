@@ -28,11 +28,11 @@ const FRAGMENT_SHADER = `
   }
 `
 
-export class BinarizationFilter implements IFilter {
-  public static readonly id = '@paplico/filters/binarization'
+export class PosterizationFilter implements IFilter {
+  public static readonly id = '@paplico/filters/posterization'
 
   public get id() {
-    return BinarizationFilter.id
+    return PosterizationFilter.id
   }
 
   public get initialConfig() {

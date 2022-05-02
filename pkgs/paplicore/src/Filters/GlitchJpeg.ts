@@ -1,11 +1,11 @@
 import { FilterContext, FilterInitContext, IFilter } from '../engine/IFilter'
 import { workerSafeCanvasToBlob } from '../PapHelpers'
 
-export class GlitchJpeg implements IFilter {
+export class GlitchJpegFilter implements IFilter {
   public static readonly id = '@paplico/filters/glitch-jpeg'
 
   public get id() {
-    return GlitchJpeg.id
+    return GlitchJpegFilter.id
   }
 
   public get initialConfig() {

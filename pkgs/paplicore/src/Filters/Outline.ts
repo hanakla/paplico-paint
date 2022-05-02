@@ -1,7 +1,8 @@
-import { clamp } from 'three/src/math/MathUtils'
+// Outline port from pixi.js
+// SEE: https://github.com/pixijs/filters/blob/main/filters/outline
+
 import { FilterContext, FilterInitContext, IFilter } from '../engine/IFilter'
 import { WebGLContext } from '../engine/WebGLContext'
-import { Color } from '../Value'
 
 export class OutlineFilter implements IFilter {
   public static readonly id = '@paplico/filters/outline'
@@ -26,8 +27,6 @@ export class OutlineFilter implements IFilter {
 
   public async render({
     gl,
-    threeRenderer,
-    threeCamera,
     source,
     dest,
     size,

@@ -1,4 +1,7 @@
-/*! Original from https://github.com/mrdoob/three.js/blob/master/examples/jsm/shaders/HalftoneShader.js */
+/*!
+  Original from https://github.com/mrdoob/three.js/blob/master/examples/jsm/shaders/HalftoneShader.js
+  Fork for support alpha channel
+*/
 
 /**
  * RGB Halftone shader for three.js.

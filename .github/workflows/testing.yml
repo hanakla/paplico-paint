@@ -1,0 +1,37 @@
+name: CI
+
+on: [push]
+
+jobs:
+  testing:
+    runs-on: ${{ matrix.os }}
+
+    strategy:
+      matrix:
+        os: [ubuntu-latest]
+        node-version: [16.x]
+
+    steps:
+      - uses: actions/checkout@v2
+      - name: Setup Node.js for use with actions
+        uses: actions/setup-node@v1
+        with:
+          node-version: ${{ matrix.node-version }}
+      - name: Cache
+        uses: actions/cache@v1.0.0
+        with:
+          path: ~/.cache/yarn
+          key: ${{ matrix.os }}-${{ hashFiles(format('{0}{1}', github.workspace, '/yarn.lock')) }}
+          restore-keys: |
+            ${{ matrix.os }}-
+      - name: Install deps
+        run: yarn install
+      - name: Testing @paplico/core
+        run: |
+          cd pkgs/paplicore
+          yarn prepublishOnly
+          yarn test
+      # - name: Testing @paplico/web
+      #   run: |
+      #     cd pkgs/web
+      #     yarn test --coverage --verbose

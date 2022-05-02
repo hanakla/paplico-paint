@@ -13,6 +13,7 @@ export type FlatLayerEntry = {
   index: number
   indexInParent: number
   depth: number
+  parentIndex: number | null
   parentPath: string[]
 } & (
   | {
@@ -38,34 +39,14 @@ export const calcLayerMove = (
   if (!over || active.id === over.id) return
 
   const movedEntryIndex = flattenLayers.findIndex((l) => l.id === active.id)
-  const nextIndexOnFlatten = flattenLayers.findIndex((l) => l.id === over.id)
+  const newIndexOnFlatten = flattenLayers.findIndex((l) => l.id === over.id)
 
   const movedEntry = flattenLayers[movedEntryIndex]
-  const nextIndexEntry = flattenLayers[nextIndexOnFlatten]
+  const entryAtNewIndex = flattenLayers[newIndexOnFlatten]
 
-  const parentLayerIndex = findIndexFromLast(
-    flattenLayers,
-    { from: nextIndexOnFlatten },
-    (entry, index, list) => {
-      const next = list[index + 1]
-      return (
-        next != null && entry.depth !== next.depth && entry.type === 'layer'
-      )
-    }
-  )
-  const parent = parentLayerIndex ? flattenLayers[parentLayerIndex] : null
-
-  // console.log(movedEntry, nextIndexEntry, prevOfNext, {
-  //   flattenLayers,
-  //   parentLayerIndex,
-  //   parent: parentLayerIndex ? flattenLayers[parentLayerIndex] : null,
-  // })
-
-  // const oldIndex = oldIndexOnFlatten - (entry.parentIdx ?? 0)
-  // const newIndex = currentIndexOnFlatten - (entry.parentIdx ?? 0)
-
-  // TODO: レイヤーをまたいだDnD
-  // return { sourcePath: entry.parentPath, oldIndex, newIndex }
+  const parent = entryAtNewIndex.parentIndex
+    ? flattenLayers[entryAtNewIndex.parentIndex]
+    : null
 
   if (movedEntry.type === 'layer') {
     if (
@@ -80,14 +61,14 @@ export const calcLayerMove = (
         parent?.type === 'layer'
           ? [...parent.parentPath, parent.layer.uid]
           : [],
-      targetIndex: nextIndexEntry.indexInParent,
+      targetIndex: entryAtNewIndex.indexInParent,
     }
   }
 
   return null
 }
 
-const findIndexFromLast = <T>(
+const findLastIndexFrom = <T>(
   arr: T[],
   { from }: { from: number },
   predicate: (v: T, index: number, list: T[]) => boolean
@@ -106,6 +87,7 @@ export const flattenLayers = (
   const flatter = (
     layers: PapDOM.LayerTypes[],
     parentPath: string[],
+    parentIndex: number | null,
     entries: FlatLayerEntry[]
   ) => {
     layers.forEach((layer, index) => {
@@ -115,6 +97,7 @@ export const flattenLayers = (
         type: 'layer',
         layer,
         parentPath,
+        parentIndex,
         indexInParent: index,
         depth: parentPath.length,
         index: entries.length,
@@ -123,7 +106,12 @@ export const flattenLayers = (
       entries.push(entry)
 
       if (layer.layerType === 'group') {
-        flatter(layer.layers, [...parentPath, layer.uid], entries)
+        flatter(
+          layer.layers,
+          [...parentPath, layer.uid],
+          entries.length - 1,
+          entries
+        )
       } else if (layer.layerType === 'vector') {
         entries.push(
           ...layer.objects.map((o, i) => ({
@@ -132,6 +120,7 @@ export const flattenLayers = (
             indexInParent: i,
             type: 'object' as const,
             object: o,
+            parentIndex: entries.length - 1,
             parentPath: [...parentPath, layer.uid],
             depth: parentPath.length + 1,
             index: entries.length + 1 + i,
@@ -143,7 +132,7 @@ export const flattenLayers = (
     return entries
   }
 
-  return flatter(layers, [], [])
+  return flatter(layers, [], null, [])
     .filter(filter)
     .map((entry, index) => assign(entry, { index }))
 

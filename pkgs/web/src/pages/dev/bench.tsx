@@ -4,7 +4,7 @@ import styled from 'styled-components'
 import { Button } from '🙌/components/Button'
 import { Stack } from '🙌/components/Stack'
 import { DevLayout } from '🙌/layouts/DevLayout'
-import { benchCase } from '../../features/Benchmark/benchCase'
+import { benchCase } from '🙌/features/Debug/benchCase'
 
 const cases = {
   imageDrawing: benchCase({

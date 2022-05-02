@@ -14,8 +14,15 @@ type Events = LayerEvents<GroupLayer> & {
 type SubLayerTypes = Exclude<LayerTypes, GroupLayer>
 
 export class GroupLayer extends Emitter<Events> implements ILayer {
-  public static create({ layers = [] }: { layers?: SubLayerTypes[] }) {
+  public static create({
+    name = '',
+    layers = [],
+  }: {
+    name?: string
+    layers?: SubLayerTypes[]
+  }) {
     return assign(new GroupLayer(), {
+      name,
       layers,
     })
   }

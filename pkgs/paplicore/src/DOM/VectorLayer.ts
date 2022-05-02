@@ -44,7 +44,7 @@ export class VectorLayer extends Emitter<Events> implements ILayer {
 
   /** Mark for re-rendering decision */
   protected _lastUpdatedAt = Date.now()
-  protected _transaction = new AtomicResource({})
+  // protected _transaction = new AtomicResource({})
 
   public static create(
     attrs: Partial<
@@ -86,38 +86,38 @@ export class VectorLayer extends Emitter<Events> implements ILayer {
     return this._lastUpdatedAt
   }
 
-  public createTransaction() {
-    enablePatches()
+  // public createTransaction() {
+  //   enablePatches()
 
-    const patches: Patch[] = []
-    const inverses: Patch[] = []
+  //   const patches: Patch[] = []
+  //   const inverses: Patch[] = []
 
-    const base: VectorLayer = Object.setPrototypeOf(
-      { ...this },
-      VectorLayer.prototype
-    )
+  //   const base: VectorLayer = Object.setPrototypeOf(
+  //     { ...this },
+  //     VectorLayer.prototype
+  //   )
 
-    return {
-      update: (patcher: (layer: VectorLayer) => void) => {
-        base[immerable] = true
+  //   return {
+  //     update: (patcher: (layer: VectorLayer) => void) => {
+  //       base[immerable] = true
 
-        const [, patches, inverse] = produceWithPatches(base, patcher)
-        patches.push(...patches)
-        inverses.push(...inverse)
+  //       const [, patches, inverse] = produceWithPatches(base, patcher)
+  //       patches.push(...patches)
+  //       inverses.push(...inverse)
 
-        console.log(patches)
-        this[immerable] = true
-        applyPatches(this, patches)
-        base[immerable] = false
-      },
-      rollback: () => {
-        applyPatches(this, inverses)
-      },
-      commit: () => {
-        applyPatches(this, patches)
-      },
-    }
-  }
+  //       console.log(patches)
+  //       this[immerable] = true
+  //       applyPatches(this, patches)
+  //       base[immerable] = false
+  //     },
+  //     rollback: () => {
+  //       applyPatches(this, inverses)
+  //     },
+  //     commit: () => {
+  //       applyPatches(this, patches)
+  //     },
+  //   }
+  // }
 
   public update(proc: (layer: this) => void) {
     proc(this)

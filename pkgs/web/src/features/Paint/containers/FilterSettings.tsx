@@ -5,7 +5,7 @@ import { useTranslation } from 'next-i18next'
 import { ChangeEvent, memo, MouseEvent, ReactNode, useEffect } from 'react'
 import { ChromePicker, ColorChangeHandler } from 'react-color'
 import { useClickAway, useToggle } from 'react-use'
-import { PapCommands, PapDOM } from '@paplico/core'
+import { PapCommands, PapDOM, PapFilters } from '@paplico/core'
 
 import { DeltaRange } from '🙌/components/DeltaRange'
 import { RangeInput } from '🙌/components/RangeInput'
@@ -17,35 +17,45 @@ import { roundString } from '🙌/utils/StringUtils'
 import { Portal } from '🙌/components/Portal'
 import { DOMUtils } from '🙌/utils/dom'
 import { EditorSelector } from '🙌/domains/EditorStable'
-import { useTransactionCommand } from '../hooks'
+import { usePapFilterWatch, useTransactionCommand } from '../hooks'
 
 type Props = { layer: PapDOM.LayerTypes; filter: PapDOM.Filter }
 
 export const FilterSettings = ({ layer, filter }: Props) => {
-  switch (filter.filterId) {
-    case '@paplico/bloom': {
+  const filterId = filter.filterId as {
+    [K in keyof typeof PapFilters]: typeof PapFilters[K]
+  }[keyof typeof PapFilters]['id']
+
+  switch (filterId) {
+    case '@paplico/filters/bloom': {
       return <BloomSetting layer={layer} filter={filter} />
     }
-    case '@paplico/gauss-blur': {
+    case '@paplico/filters/gauss-blur': {
       return <GaussBlur layer={layer} filter={filter} />
     }
-    case '@paplico/chromatic-aberration': {
+    case '@paplico/filters/chromatic-aberration': {
       return <ChromaticAberration layer={layer} filter={filter} />
     }
-    case '@paplico/halftone': {
+    case '@paplico/filters/halftone': {
       return <Halftone layer={layer} filter={filter} />
     }
-    case '@paplico/binarization': {
+    case '@paplico/filters/binarization': {
       return <Binarization layer={layer} filter={filter} />
     }
-    case '@paplico/glitch-jpeg': {
+    case '@paplico/filters/glitch-jpeg': {
       return <GlitchJpeg layer={layer} filter={filter} />
     }
-    case '@paplico/low-reso': {
+    case '@paplico/filters/low-reso': {
       return <LowReso layer={layer} filter={filter} />
     }
-    case '@paplico/outline': {
+    case '@paplico/filters/outline': {
       return <Outline layer={layer} filter={filter} />
+    }
+    case '@paplico/filters/zoom-blur': {
+      return <ZoomBlur layer={layer} filter={filter} />
+    }
+    case '@paplico/filters/kawase-blur': {
+      return <KawaseBlur layer={layer} filter={filter} />
     }
     default: {
       return <>🤔</>
@@ -531,6 +541,162 @@ const Outline = ({ layer, filter }: Props) => {
     </div>
   )
 }
+
+const ZoomBlur = memo(function ZoomBlur({ layer, filter }: Props) {
+  const activeLayerPath = useStore(EditorSelector.activeLayerPath)
+  const trnsCommand = useTransactionCommand({ threshold: 2000 })
+
+  const handleChangeStrength = useFunk(() => {
+    if (!activeLayerPath) return
+
+    trnsCommand.autoStartAndDoAdd(
+      new PapCommands.Filter.PatchAttr({
+        pathToTargetLayer: activeLayerPath,
+        filterUid: filter.uid,
+        patcher: (filter) => {
+          filter.settings.strength = 1
+        },
+      })
+    )
+  })
+  const handleChangeCenterX = useFunk(
+    ({ currentTarget }: ChangeEvent<HTMLInputElement>) => {
+      if (!activeLayerPath) return
+
+      trnsCommand.autoStartAndDoAdd(
+        new PapCommands.Filter.PatchAttr({
+          pathToTargetLayer: activeLayerPath,
+          filterUid: filter.uid,
+          patcher: (filter) => {
+            filter.settings.center[0] = currentTarget.valueAsNumber
+          },
+        })
+      )
+    }
+  )
+  const handleChangeCenterY = useFunk(
+    ({ currentTarget }: ChangeEvent<HTMLInputElement>) => {
+      if (!activeLayerPath) return
+
+      trnsCommand.autoStartAndDoAdd(
+        new PapCommands.Filter.PatchAttr({
+          pathToTargetLayer: activeLayerPath,
+          filterUid: filter.uid,
+          patcher: (filter) => {
+            filter.settings.center[1] = currentTarget.valueAsNumber
+          },
+        })
+      )
+    }
+  )
+
+  return (
+    <div>
+      <Column nameKey={'strength'} filter={filter}>
+        <RangeInput
+          min={1}
+          max={100}
+          step={1}
+          value={filter.settings.strength}
+          onChange={handleChangeStrength}
+        />
+      </Column>
+      <Column nameKey={'center'} filter={filter}>
+        <RangeInput
+          min={1}
+          max={0}
+          step={0.01}
+          value={filter.settings.strength}
+          onChange={handleChangeCenterX}
+        />
+        <RangeInput
+          min={1}
+          max={0}
+          step={0.01}
+          value={filter.settings.strength}
+          onChange={handleChangeCenterY}
+        />
+      </Column>
+    </div>
+  )
+})
+
+const KawaseBlur = memo(function KawaseBlur({ layer, filter }: Props) {
+  const activeLayerPath = useStore(EditorSelector.activeLayerPath)
+  const commandTransaction = useTransactionCommand({ threshold: 2000 })
+
+  usePapFilterWatch(filter)
+
+  const handleChangeBlurSize = useFunk(
+    ({ currentTarget }: ChangeEvent<HTMLInputElement>) => {
+      if (!activeLayerPath) return
+
+      commandTransaction.autoStartAndDoAdd(
+        new PapCommands.Filter.PatchAttr({
+          pathToTargetLayer: activeLayerPath,
+          filterUid: filter.uid,
+          patcher: (filter) => {
+            filter.settings.blurSize = currentTarget.valueAsNumber
+          },
+        })
+      )
+    }
+  )
+  const handleChangeQuality = useFunk(
+    ({ currentTarget }: ChangeEvent<HTMLInputElement>) => {
+      if (!activeLayerPath) return
+
+      commandTransaction.autoStartAndDoAdd(
+        new PapCommands.Filter.PatchAttr({
+          pathToTargetLayer: activeLayerPath,
+          filterUid: filter.uid,
+          patcher: (filter) => {
+            filter.settings.quality = currentTarget.valueAsNumber
+          },
+        })
+      )
+    }
+  )
+
+  const handleChangeComplete = useFunk(() => {
+    commandTransaction.commit()
+  })
+
+  console.log(filter.settings)
+
+  return (
+    <div>
+      <Column
+        nameKey={'blurSize'}
+        filter={filter}
+        value={filter.settings.blurSize}
+      >
+        <RangeInput
+          min={1}
+          max={100}
+          step={1}
+          value={filter.settings.blurSize}
+          onChange={handleChangeBlurSize}
+          onChangeComplete={handleChangeComplete}
+        />
+      </Column>
+      <Column
+        nameKey={'quality'}
+        filter={filter}
+        value={filter.settings.quality}
+      >
+        <RangeInput
+          min={1}
+          max={32}
+          step={1}
+          value={filter.settings.quality}
+          onChange={handleChangeQuality}
+          onChangeComplete={handleChangeComplete}
+        />
+      </Column>
+    </div>
+  )
+})
 
 const Column = memo(
   ({

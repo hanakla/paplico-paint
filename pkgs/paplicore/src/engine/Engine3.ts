@@ -1,6 +1,5 @@
 import * as THREE from 'three'
 import mitt, { Emitter } from 'mitt'
-import getBound from 'svg-path-bounds'
 
 import { Brush, ScatterBrush } from '../Brushes'
 import { Document, LayerTypes, Path, VectorLayer } from '../DOM'
@@ -22,11 +21,13 @@ import { BloomFilter } from '../Filters/Bloom'
 import { ChromaticAberrationFilter } from '../Filters/ChromaticAberration'
 import { GaussBlurFilter } from '../Filters/GaussBlur'
 import { HalftoneFilter } from '../Filters/HalfTone'
-import { GlitchJpeg } from '../Filters/GlitchJpeg'
+import { GlitchJpegFilter } from '../Filters/GlitchJpeg'
 import { NoiseFilter } from '../Filters/Noise'
 import { BinarizationFilter } from '../Filters/Binarization'
 import { LowResoFilter } from '../Filters/LowReso'
 import { OutlineFilter } from '../Filters/Outline'
+import { ZoomBlurFilter } from '../Filters/ZoomBlur'
+import { KawaseBlurFilter } from '../Filters/KawaseBlur'
 
 type EngineEvents = {
   rerender: void
@@ -48,7 +49,7 @@ export class PaplicoEngine {
       engine.toolRegistry.registerBrush(Brush),
       engine.toolRegistry.registerBrush(ScatterBrush),
       engine.toolRegistry.registerFilter(BloomFilter),
-      engine.toolRegistry.registerFilter(GlitchJpeg),
+      engine.toolRegistry.registerFilter(GlitchJpegFilter),
       engine.toolRegistry.registerFilter(GaussBlurFilter),
       engine.toolRegistry.registerFilter(ChromaticAberrationFilter),
       engine.toolRegistry.registerFilter(HalftoneFilter),
@@ -56,6 +57,8 @@ export class PaplicoEngine {
       engine.toolRegistry.registerFilter(BinarizationFilter),
       engine.toolRegistry.registerFilter(LowResoFilter),
       engine.toolRegistry.registerFilter(OutlineFilter),
+      engine.toolRegistry.registerFilter(ZoomBlurFilter),
+      engine.toolRegistry.registerFilter(KawaseBlurFilter),
     ])
 
     return engine
@@ -396,10 +399,10 @@ export class PaplicoEngine {
                 start,
                 end,
               } = object.fill
-              const [left, top, right, bottom] = getBound(object.path.svgPath)
+              const { width, height, left, top } = object.getBoundingBox()
 
-              const width = right - left
-              const height = bottom - top
+              // const width = right - left
+              // const height = bottom - top
               const centerX = left + width / 2
               const centerY = top + height / 2
 
@@ -461,6 +464,9 @@ export class PaplicoEngine {
     dest: CanvasRenderingContext2D,
     filter: IFilter,
     options: {
+      handleLayerBitmapRequest: (
+        layerUid: string
+      ) => Promise<{ missing: false; image: ImageBitmap } | { missing: true }>
       layer: LayerTypes
       size: {
         width: number
@@ -494,6 +500,7 @@ export class PaplicoEngine {
         dest: dest.canvas,
         size: options.size,
         settings: deepClone(options.filterSettings),
+        requestLayerBitmap: options.handleLayerBitmapRequest,
       })
     } finally {
       this.atomicThreeRenderer.release(renderer)

@@ -269,6 +269,7 @@ export class Path implements ISilkDOMElement {
 
   /** Freeze changes and cache heavily process results */
   public freeze() {
+    console.trace('freeze')
     if (this._isFreezed) throw new Error('Path is already freezed')
 
     this._cachedSvgPath = this.getFreshSVGPath()

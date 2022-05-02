@@ -26,7 +26,7 @@ import {
 import { useGesture } from 'react-use-gesture'
 import { autoPlacement, shift, useFloating } from '@floating-ui/react-dom'
 import { useRouter } from 'next/router'
-import { css, useTheme } from 'styled-components'
+import { css, keyframes, useTheme } from 'styled-components'
 import useMeasure from 'use-measure'
 import { Moon, Sun } from '@styled-icons/remix-fill'
 import { Menu } from '@styled-icons/remix-line'
@@ -49,13 +49,18 @@ import { FilterView } from './containers/FilterView'
 import { LayerView } from './containers/LayerView'
 import { EditorOps, EditorSelector, EditorStore } from '🙌/domains/EditorStable'
 import { useFunkyGlobalMouseTrap } from '🙌/hooks/useMouseTrap'
-import { useFleur, useMedia, useMultiFingerTouch } from '🙌/utils/hooks'
+import {
+  useFleur,
+  useIsiPadOS,
+  useMedia,
+  useMultiFingerTouch,
+} from '🙌/utils/hooks'
 import { ControlsOverlay } from './containers/ControlsOverlay'
 import { MainActions } from '../Paint/containers/MainActions/MainActions'
 
 import { centering, checkerBoard } from '🙌/utils/mixins'
 import { rgba } from 'polished'
-import { darkTheme } from '🙌/utils/theme'
+import { darkTheme, ThemeProp } from '🙌/utils/theme'
 import { Button } from '🙌/components/Button'
 import { media, narrow } from '🙌/utils/responsive'
 import { isEventIgnoringTarget, swapObjectBrushAndFill } from './helpers'
@@ -69,7 +74,11 @@ import { DOMUtils } from '🙌/utils/dom'
 import { FloatingWindow } from '🙌/components/FloatingWindow'
 import { exportProject } from '🙌/domains/EditorStable/exportProject'
 import { combineRef } from '../../utils/react'
-import { PaintCanvasContext } from './hooks'
+import { PaintCanvasContext, useWhiteNoise } from './hooks'
+import { Testing } from './testing'
+import useSound from 'use-sound'
+import { Howl } from 'howler'
+import { debounce } from '../../utils/func'
 
 export const PaintPage = memo(function PaintPage({}) {
   const { t } = useTranslation('app')
@@ -93,9 +102,9 @@ export const PaintPage = memo(function PaintPage({}) {
   }))
 
   const isNarrowMedia = useMedia(`(max-width: ${narrow})`, false)
+  const isIpadOS = useIsiPadOS()
 
   const engine = useRef<PaplicoEngine | null>(null)
-  const session = useRef<PapSession | null>(null)
 
   const rootRef = useRef<HTMLDivElement | null>(null)
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
@@ -497,7 +506,9 @@ export const PaintPage = memo(function PaintPage({}) {
                 performance.memory!.usedJSHeapSize
               )} MiB / ${byteToMiB(performance.memory.jsHeapSizeLimit)} MiB`
             : ''
-        }, Canvas holdings ${byteToMiB(PapCanvasFactory.getCanvasBytes())} MiB
+        }, Canvas holdings ${byteToMiB(
+          PapCanvasFactory.getCanvasBytes()
+        )} MiB with ${PapCanvasFactory.activeCanvasesCount()}
         `
       )
     }
@@ -541,340 +552,376 @@ export const PaintPage = memo(function PaintPage({}) {
     return () => window.clearInterval(id)
   }, [currentDocument?.uid])
 
+  useWhiteNoise()
+
   return (
     <PaintCanvasContext.Provider value={canvasRef}>
+      {process.env.NODE_ENV === 'development' && <Testing />}
       <div
         ref={rootRef}
         css={css`
-          position: relative;
           display: flex;
-          flex-flow: row;
           width: 100%;
           height: 100%;
+          flex-flow: column;
           background-color: ${({ theme }) => theme.color.background1};
           color: ${({ theme }) => theme.color.text2};
         `}
         {...bindDrop}
       >
-        <ReferenceImageWindow />
+        <div
+          css={css`
+            @media all and (display-mode: standalone) {
+              width: 100%;
+              padding-top: 20px;
+              background-color: ${({ theme }) => theme.colors.black60};
+            }
+          `}
+          style={{ display: isIpadOS ? 'block' : 'none' }}
+        />
 
-        <CanvasPreviewWindow stream={stream} />
+        <div
+          css={`
+            position: relative;
+            display: flex;
+            flex-flow: row;
+            width: 100%;
+            height: 100%;
+            flex: 1;
+          `}
+        >
+          <ReferenceImageWindow />
 
-        <>
-          <div
-            css={`
-              ${media.narrow`
+          <CanvasPreviewWindow stream={stream} />
+
+          <>
+            <div
+              css={`
+                ${media.narrow`
                 display: none;
               `}
+              `}
+              ref={sidebarRef}
+            >
+              <Sidebar
+                style={{
+                  width: sidebarOpened ? 200 : 32,
+                }}
+                closed={!sidebarOpened}
+                side="left"
+              >
+                <div
+                  css={`
+                    display: flex;
+                    flex-flow: column;
+                    flex: 1;
+                    width: 200px;
+                    height: 100%;
+                    padding-bottom: env(safe-area-inset-bottom);
+                  `}
+                >
+                  <LayerView />
+
+                  <FilterView />
+
+                  <div css="display: flex; padding: 8px; margin-top: auto;">
+                    <div
+                      css="margin-right: auto; cursor: default;"
+                      onClick={sidebarToggle}
+                    >
+                      <Menu
+                        css={`
+                          width: 16px;
+                        `}
+                      />
+                    </div>
+                  </div>
+                </div>
+              </Sidebar>
+            </div>
+          </>
+
+          <div
+            ref={combineRef(editAreaRef, editorMultiTouchRef)}
+            css={css`
+              position: relative;
+              display: flex;
+              flex: 1;
+              align-items: center;
+              justify-content: center;
+              overflow: hidden;
+              background-color: ${rgba('#11111A', 0.3)};
             `}
-            ref={sidebarRef}
+            style={{
+              // prettier-ignore
+              cursor:
+              currentTool === 'cursor' ? 'default' :
+              currentTool === 'draw' ? `${theme.cursors.pencil}, auto` : // 'url(cursors/pencil.svg), auto' :
+              currentTool === 'erase' ? `${theme.cursors.eraser}, auto` : // 'url(cursors/eraser.svg), auto' :
+              currentTool === 'shape-pen' ? `${theme.cursors.pencilLine}, auto` : // 'url(cursors/pencil-line.svg), auto':
+              'default',
+            }}
+            onContextMenu={DOMUtils.preventDefaultHandler}
           >
+            <div
+              css={css`
+                position: fixed;
+                top: 0;
+                left: 0;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                width: 100%;
+                height: 100%;
+                z-index: 1;
+                background-color: rgba(0, 0, 0, 0.5);
+                color: ${({ theme }) => theme.exactColors.white40};
+                pointer-events: none;
+              `}
+              style={{
+                ...(dragState.over ? { opacity: 1 } : { opacity: 0 }),
+              }}
+            >
+              ドロップして画像を追加
+            </div>
+
+            <PaintCanvas canvasRef={canvasRef} />
+
+            <svg
+              // Match to Editor bounding
+              data-devmemo="Editor bounding svg"
+              css={`
+                position: absolute;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                pointer-events: none;
+              `}
+              viewBox={`0 0 ${editorBound.width} ${editorBound.height}`}
+              width={editorBound.width}
+              height={editorBound.height}
+            >
+              <ControlsOverlay editorBound={editorBound} />
+            </svg>
+            <div
+              css={`
+                position: absolute;
+                left: 50%;
+                bottom: 16px;
+                transform: translateX(-50%);
+
+                ${media.narrow`
+                bottom: 0;
+                width: 100%;
+              `}
+              `}
+            >
+              <MainActions />
+            </div>
+
+            <div
+              css={`
+                position: absolute;
+                top: 16px;
+                left: 50%;
+                z-index: 10;
+                transform: translateX(-50%);
+              `}
+            >
+              <HistoryFlash />
+            </div>
+          </div>
+
+          <>
             <Sidebar
+              css={`
+                ${media.narrow`
+                  display: none;
+                `}
+              `}
               style={{
                 width: sidebarOpened ? 200 : 32,
               }}
               closed={!sidebarOpened}
-              side="left"
+              side="right"
             >
+              <SidebarPane heading={t('colorHistory')}>まだないよ</SidebarPane>
+
+              <BrushPresets />
+
               <div
                 css={`
                   display: flex;
                   flex-flow: column;
                   flex: 1;
                   width: 200px;
-                  height: 100%;
-                  padding-bottom: env(safe-area-inset-bottom);
                 `}
               >
-                <LayerView />
-
-                <FilterView />
-
-                <div css="display: flex; padding: 8px; margin-top: auto;">
-                  <div
-                    css="margin-right: auto; cursor: default;"
-                    onClick={sidebarToggle}
-                  >
-                    <Menu
+                <div
+                  css={`
+                    padding: 4px 8px;
+                  `}
+                ></div>
+                <div
+                  css={`
+                    padding: 4px 8px;
+                  `}
+                >
+                  {t('referenceColor')}
+                </div>
+                <div
+                  css={`
+                    padding: 4px 8px;
+                  `}
+                >
+                  <label>
+                    <input
                       css={`
-                        width: 16px;
+                        margin-right: 4px;
                       `}
+                      type="checkbox"
+                      checked={renderSetting.disableAllFilters}
+                      onChange={handleChangeDisableFilters}
                     />
+                    作業中のフィルター効果をオフ
+                  </label>
+                </div>
+
+                <div
+                  css={css`
+                    display: flex;
+                    padding: 8px;
+                    margin-top: auto;
+                    border-top: ${({ theme }) =>
+                      `1px solid ${rgba(theme.colors.white50, 0.2)}`};
+                  `}
+                >
+                  <div
+                    css={css`
+                      ${centering()}
+                      gap: 4px;
+                    `}
+                  >
+                    <span
+                      css={`
+                        padding: 4px;
+                        border-radius: 64px;
+                      `}
+                      style={{
+                        color:
+                          currentTheme === 'dark'
+                            ? darkTheme.exactColors.black40
+                            : undefined,
+                        backgroundColor:
+                          currentTheme === 'dark'
+                            ? darkTheme.exactColors.white40
+                            : undefined,
+                      }}
+                      onClick={handleClickDarkTheme}
+                    >
+                      <Moon
+                        css={`
+                          width: 20px;
+                        `}
+                      />
+                    </span>
+                    <span
+                      css={`
+                        padding: 4px;
+                        border-radius: 64px;
+                      `}
+                      style={{
+                        color:
+                          currentTheme === 'light'
+                            ? darkTheme.exactColors.white40
+                            : undefined,
+                        backgroundColor:
+                          currentTheme === 'light'
+                            ? darkTheme.exactColors.black40
+                            : undefined,
+                      }}
+                      onClick={handleClickLightTheme}
+                    >
+                      <Sun
+                        css={`
+                          width: 20px;
+                        `}
+                      />
+                    </span>
+                  </div>
+
+                  <div
+                    css={`
+                      position: relative;
+                      margin-left: auto;
+                    `}
+                    ref={saveFloat.reference}
+                  >
+                    <span
+                      style={{
+                        position: saveFloat.strategy,
+                        top: saveFloat.y?.toString() ?? '',
+                        left: saveFloat.x?.toString() ?? '',
+                        transition: 'all .2s ease-in-out',
+                        pointerEvents: 'none',
+                        opacity: 0,
+                        transform: 'translateY(0%)',
+                        ...(saveMessage
+                          ? {
+                              opacity: 1,
+                              transform: 'translateY(calc(-100% - 8px))',
+                            }
+                          : {}),
+                      }}
+                    >
+                      <Tooltip ref={saveFloat.floating}>
+                        {saveMessage?.message}
+                      </Tooltip>
+                    </span>
+                    <Button
+                      css={`
+                        position: relative;
+                      `}
+                      kind="primary"
+                      outline
+                      onClick={handleClickExport}
+                      popup={
+                        <div
+                          css={css`
+                            background-color: ${({ theme }) =>
+                              theme.exactColors.white50};
+
+                            & > div {
+                              padding: 8px;
+
+                              &:hover {
+                                background-color: ${({ theme }) =>
+                                  theme.exactColors.blueFade40};
+                              }
+                            }
+                          `}
+                        >
+                          <div onClick={handleClickExportAs} data-type="png">
+                            PNG(透過)で書き出し
+                          </div>
+                          <div onClick={handleClickExportAs} data-type="png">
+                            レイヤー別PNGで書き出し
+                          </div>
+                          <div onClick={handleClickExportAs} data-type="jpeg">
+                            JPEGで保存
+                          </div>
+                        </div>
+                      }
+                    >
+                      {t('export')}
+                    </Button>
                   </div>
                 </div>
               </div>
             </Sidebar>
-          </div>
-        </>
-
-        <div
-          ref={combineRef(editAreaRef, editorMultiTouchRef)}
-          css={css`
-            position: relative;
-            display: flex;
-            flex: 1;
-            align-items: center;
-            justify-content: center;
-            overflow: hidden;
-            background-color: ${rgba('#11111A', 0.3)};
-          `}
-          style={{
-            // prettier-ignore
-            cursor:
-              currentTool === 'cursor' ? 'default' :
-              currentTool === 'draw' ? `${theme.cursors.pencil}, auto` : // 'url(cursors/pencil.svg), auto' :
-              currentTool === 'erase' ? `${theme.cursors.eraser}, auto` : // 'url(cursors/eraser.svg), auto' :
-              currentTool === 'shape-pen' ? `${theme.cursors.pencilLine}, auto` : // 'url(cursors/pencil-line.svg), auto':
-              'default',
-          }}
-          onContextMenu={DOMUtils.preventDefaultHandler}
-        >
-          <div
-            css={css`
-              position: fixed;
-              top: 0;
-              left: 0;
-              display: flex;
-              align-items: center;
-              justify-content: center;
-              width: 100%;
-              height: 100%;
-              z-index: 1;
-              background-color: rgba(0, 0, 0, 0.5);
-              color: ${({ theme }) => theme.exactColors.white40};
-              pointer-events: none;
-            `}
-            style={{
-              ...(dragState.over ? { opacity: 1 } : { opacity: 0 }),
-            }}
-          >
-            ドロップして画像を追加
-          </div>
-
-          <PaintCanvas canvasRef={canvasRef} />
-
-          <svg
-            // Match to Editor bounding
-            data-devmemo="Editor bounding svg"
-            css={`
-              position: absolute;
-              top: 0;
-              left: 0;
-              width: 100%;
-              height: 100%;
-              pointer-events: none;
-            `}
-            viewBox={`0 0 ${editorBound.width} ${editorBound.height}`}
-            width={editorBound.width}
-            height={editorBound.height}
-          >
-            <ControlsOverlay editorBound={editorBound} />
-          </svg>
-          <div
-            css={`
-              position: absolute;
-              left: 50%;
-              bottom: 16px;
-              transform: translateX(-50%);
-
-              ${media.narrow`
-                bottom: 0;
-                width: 100%;
-              `}
-            `}
-          >
-            <MainActions />
-          </div>
+          </>
         </div>
-
-        <>
-          <Sidebar
-            css={`
-              ${media.narrow`
-                  display: none;
-                `}
-            `}
-            style={{
-              width: sidebarOpened ? 200 : 32,
-            }}
-            closed={!sidebarOpened}
-            side="right"
-          >
-            <SidebarPane heading={t('colorHistory')}>まだないよ</SidebarPane>
-
-            <BrushPresets />
-
-            <div
-              css={`
-                display: flex;
-                flex-flow: column;
-                flex: 1;
-                width: 200px;
-              `}
-            >
-              <div
-                css={`
-                  padding: 4px 8px;
-                `}
-              ></div>
-              <div
-                css={`
-                  padding: 4px 8px;
-                `}
-              >
-                {t('referenceColor')}
-              </div>
-              <div
-                css={`
-                  padding: 4px 8px;
-                `}
-              >
-                <label>
-                  <input
-                    css={`
-                      margin-right: 4px;
-                    `}
-                    type="checkbox"
-                    checked={renderSetting.disableAllFilters}
-                    onChange={handleChangeDisableFilters}
-                  />
-                  作業中のフィルター効果をオフ
-                </label>
-              </div>
-
-              <div
-                css={css`
-                  display: flex;
-                  padding: 8px;
-                  margin-top: auto;
-                  border-top: ${({ theme }) =>
-                    `1px solid ${rgba(theme.colors.white50, 0.2)}`};
-                `}
-              >
-                <div
-                  css={css`
-                    ${centering()}
-                    gap: 4px;
-                  `}
-                >
-                  <span
-                    css={`
-                      padding: 4px;
-                      border-radius: 64px;
-                    `}
-                    style={{
-                      color:
-                        currentTheme === 'dark'
-                          ? darkTheme.exactColors.black40
-                          : undefined,
-                      backgroundColor:
-                        currentTheme === 'dark'
-                          ? darkTheme.exactColors.white40
-                          : undefined,
-                    }}
-                    onClick={handleClickDarkTheme}
-                  >
-                    <Moon
-                      css={`
-                        width: 20px;
-                      `}
-                    />
-                  </span>
-                  <span
-                    css={`
-                      padding: 4px;
-                      border-radius: 64px;
-                    `}
-                    style={{
-                      color:
-                        currentTheme === 'light'
-                          ? darkTheme.exactColors.white40
-                          : undefined,
-                      backgroundColor:
-                        currentTheme === 'light'
-                          ? darkTheme.exactColors.black40
-                          : undefined,
-                    }}
-                    onClick={handleClickLightTheme}
-                  >
-                    <Sun
-                      css={`
-                        width: 20px;
-                      `}
-                    />
-                  </span>
-                </div>
-
-                <div
-                  css={`
-                    position: relative;
-                    margin-left: auto;
-                  `}
-                  ref={saveFloat.reference}
-                >
-                  <span
-                    style={{
-                      position: saveFloat.strategy,
-                      top: saveFloat.y?.toString() ?? '',
-                      left: saveFloat.x?.toString() ?? '',
-                      transition: 'all .2s ease-in-out',
-                      pointerEvents: 'none',
-                      opacity: 0,
-                      transform: 'translateY(0%)',
-                      ...(saveMessage
-                        ? {
-                            opacity: 1,
-                            transform: 'translateY(calc(-100% - 8px))',
-                          }
-                        : {}),
-                    }}
-                  >
-                    <Tooltip ref={saveFloat.floating}>
-                      {saveMessage?.message}
-                    </Tooltip>
-                  </span>
-                  <Button
-                    css={`
-                      position: relative;
-                    `}
-                    kind="primary"
-                    outline
-                    onClick={handleClickExport}
-                    popup={
-                      <div
-                        css={css`
-                          background-color: ${({ theme }) =>
-                            theme.exactColors.white50};
-
-                          & > div {
-                            padding: 8px;
-
-                            &:hover {
-                              background-color: ${({ theme }) =>
-                                theme.exactColors.blueFade40};
-                            }
-                          }
-                        `}
-                      >
-                        <div onClick={handleClickExportAs} data-type="png">
-                          PNG(透過)で書き出し
-                        </div>
-                        <div onClick={handleClickExportAs} data-type="png">
-                          レイヤー別PNGで書き出し
-                        </div>
-                        <div onClick={handleClickExportAs} data-type="jpeg">
-                          JPEGで保存
-                        </div>
-                      </div>
-                    }
-                  >
-                    {t('export')}
-                  </Button>
-                </div>
-              </div>
-            </div>
-          </Sidebar>
-        </>
       </div>
     </PaintCanvasContext.Provider>
   )
@@ -886,6 +933,7 @@ const PaintCanvas = memo(function PaintCanvas({
   canvasRef: RefObject<HTMLCanvasElement>
 }) {
   const canvasHandler = useRef<CanvasHandler | null>(null)
+
   const { currentDocument, session, engine, renderStrategy, scale, pos } =
     useStore((get) => ({
       currentDocument: EditorSelector.currentDocument(get),
@@ -896,6 +944,11 @@ const PaintCanvas = memo(function PaintCanvas({
       pos: get(EditorStore).state.canvasPosition,
     }))
 
+  const [play, { sound, stop }] = useSound(
+    require('./sounds/assets/Mechanical_Pen01-05(Straight).mp3'),
+    { volume: 0.2 }
+  )
+
   const measure = useMeasure(canvasRef)
 
   useEffect(() => {
@@ -903,6 +956,24 @@ const PaintCanvas = memo(function PaintCanvas({
     const handler = (canvasHandler.current = new CanvasHandler(
       canvasRef.current!
     ))
+
+    handler.on(
+      'strokeChange',
+      debounce(() => {
+        if (!(sound instanceof Howl)) return
+        // sound.fade(0, 0.8, 100)
+        // sound.once('fade', () => sound.fade(0.8, 0, 100))
+        sound.fade(0.8, 0.8, 0)
+        !sound.playing() && sound.play()
+      }, 400)
+    )
+
+    handler.on('strokeComplete', () => {
+      if (!(sound instanceof Howl)) return
+
+      sound.fade(0.8, 0, 40)
+      sound.stop()
+    })
 
     const size = fit(measure, currentDocument, 'contain')
 
@@ -1020,5 +1091,61 @@ const CanvasPreviewWindow = memo(function CanvasPreviewWindow({
     </FloatingWindow>
   )
 })
+
+const HistoryFlash = memo(function HistoryFlash() {
+  const { t } = useTranslation('app')
+  const notifications = useNotifyConsumer('commandFlash', Infinity)
+
+  return (
+    <div
+      css={`
+        position: relative;
+      `}
+    >
+      {notifications.map((notfiy) => (
+        <div
+          key={notfiy.id}
+          css={`
+            position: absolute;
+            top: 0;
+            left: 50%;
+            z-index: 2;
+            padding: 8px;
+            border-radius: 8px;
+            color: ${({ theme }: ThemeProp) => theme.exactColors.white60};
+            background-color: ${({ theme }: ThemeProp) =>
+              theme.exactColors.blackFade50};
+            transform: translateX(-50%);
+            animation: ${histolyFlashAnim} 1s ease-in-out 1 both;
+          `}
+        >
+          {t(`commandFlash.${notfiy.messageKey}`)}
+        </div>
+      ))}
+    </div>
+  )
+})
+
+const histolyFlashAnim = keyframes`
+  from {
+    transform: translate(-50%, -16px);
+    opacity: 0;
+  }
+
+  30% {
+    transform: translate(-50%, 0);
+    opacity: 1;
+  }
+
+  70% {
+    transform: translate(-50%, 0);
+    opacity: 1;
+  }
+
+  to {
+    transform: translate(-50%, -16px);
+    opacity: 0;
+  }
+`
 
 const byteToMiB = (byte: number) => Math.round((byte / 1024 / 1024) * 100) / 100

@@ -177,6 +177,16 @@ export class DifferenceRender implements IRenderStrategy {
       }
     }
 
+    const handleLayerBitmapRequest = async (layerUid: string) => {
+      const layer = PapDOMDigger.findLayerRecursive(document, layerUid)
+      if (!layer) return { missing: true } as const
+
+      return {
+        missing: false,
+        image: (await getLayerBitmap(layer, true)).image!,
+      } as const
+    }
+
     const layerBitmaps = await Promise.all(
       [...document.layers].reverse().map(async (layer) => getLayerBitmap(layer))
     )
@@ -209,6 +219,7 @@ export class DifferenceRender implements IRenderStrategy {
             layer: layer,
             size: { width: document.width, height: document.height },
             filterSettings: deepClone(filter.settings),
+            handleLayerBitmapRequest,
           })
 
           await engine.compositeLayers(bufferCtx, destCtx, {
@@ -269,6 +280,7 @@ export class DifferenceRender implements IRenderStrategy {
           layer,
           size: { width: document.width, height: document.height },
           filterSettings: deepClone(filter.settings),
+          handleLayerBitmapRequest,
         })
       }
 

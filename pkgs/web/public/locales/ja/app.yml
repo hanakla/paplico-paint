@@ -10,6 +10,10 @@ export: 保存する
 untitled: タイトル未設定
 remove: 削除
 
+commandFlash:
+  undo: もとに戻す
+  redo: やり直す
+
 mainActions:
   gradientLength: 長さ
   gradientAngle: 角度
@@ -57,25 +61,26 @@ compositeModes:
   clipper: 切り抜き
 
 filters:
-  '@paplico/bloom': '発光'
-  '@paplico/gauss-blur': 'ガウスぼかし'
-  '@paplico/chromatic-aberration': '色収差'
-  '@paplico/halftone': 'ハーフトーン'
-  '@paplico/binarization': 二値化
-  '@paplico/glitch-jpeg': JPEGアンティーク
-  '@paplico/low-reso': モザイク
-  '@paplico/outline': 縁取り
+  '@paplico/filters/bloom': '発光'
+  '@paplico/filters/gauss-blur': 'ガウスぼかし'
+  '@paplico/filters/chromatic-aberration': '色収差'
+  '@paplico/filters/halftone': 'ハーフトーン'
+  '@paplico/filters/binarization': 二値化
+  '@paplico/filters/glitch-jpeg': JPEGアンティーク
+  '@paplico/filters/low-reso': モザイク
+  '@paplico/filters/outline': 縁取り
+  '@paplico/filters/kawase-blur': 川瀬ブラー
 
 filterOptions:
-  '@paplico/bloom':
+  '@paplico/filters/bloom':
     threshold: しきい値
-  '@paplico/gauss-blur':
+  '@paplico/filters/gauss-blur':
     radius: 半径
     powerDev: 強さ(dev)
-  '@paplico/chromatic-aberration':
+  '@paplico/filters/chromatic-aberration':
     distance: 距離
     angleDeg: 角度
-  '@paplico/halftone':
+  '@paplico/filters/halftone':
     shape: 形状
     shapes:
       dot: 円
@@ -84,19 +89,22 @@ filterOptions:
       square: 四角形
     radius: 半径
     scatter: 散らばり
-  '@paplico/binarization':
+  '@paplico/filters/binarization':
     level: レベル
     # threshold: しきい値
-  '@paplico/glitch-jpeg':
+  '@paplico/filters/glitch-jpeg':
     copies: コピー回数
     quality: 画質
-  '@paplico/low-reso':
+  '@paplico/filters/low-reso':
     sameBlocks: 縦と横の解像度を同じにする
     levelX: 横の解像度
     levelY: 縦の解像度
-  '@paplico/outline':
+  '@paplico/filters/outline':
     thickness: 太さ
     color: 色
+  '@paplico/filters/kawase-blur':
+    blurSize: ぼかしサイズ
+    quality: クオリティ
 
 layerView:
   object:

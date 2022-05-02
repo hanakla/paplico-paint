@@ -11,8 +11,10 @@ import isIOS from 'is-ios'
 
 type Events = {
   strokeStart: Stroke
-  tmpStroke: Stroke
+  strokeChange: Stroke
   strokeComplete: Stroke
+  strokeCancel: Stroke
+
   canvasUpdated: void
 }
 
@@ -33,7 +35,7 @@ export class CanvasHandler extends Emitter<Events> {
 
   protected _scale: number = 1
   protected _stroking: boolean = false
-  #strokingState: { touches: number } | null = null
+  #strokingState: { touches: number } = { touches: 0 }
 
   constructor(canvas: HTMLCanvasElement) {
     super()
@@ -42,18 +44,32 @@ export class CanvasHandler extends Emitter<Events> {
     this.strokeCtx = createContext2D()
     this.compositeSourceCtx = createContext2D()
 
+    const passive = { passive: true }
+
     // Touch Event is used in iOS because Pointer Event cannot be used as a basis for smooth paths.
     if (isIOS) {
-      this.canvas.addEventListener('touchstart', this.#handleTouchStart)
-      this.canvas.addEventListener('touchmove', this.#handleTouchMove)
-      this.canvas.addEventListener('touchend', this.#handleTouchEnd)
+      this.canvas.addEventListener(
+        'touchstart',
+        this.#handleTouchStart,
+        passive
+      )
+      this.canvas.addEventListener('touchmove', this.#handleTouchMove, passive)
+      this.canvas.addEventListener('touchend', this.#handleTouchEnd, passive)
     } else {
-      this.canvas.addEventListener('pointerdown', this.#handleMouseDown)
-      this.canvas.addEventListener('pointermove', this.#handleMouseMove)
-      this.canvas.addEventListener('pointerup', this.#handleMouseUp)
+      this.canvas.addEventListener(
+        'pointerdown',
+        this.#handleMouseDown,
+        passive
+      )
+      this.canvas.addEventListener(
+        'pointermove',
+        this.#handleMouseMove,
+        passive
+      )
+      this.canvas.addEventListener('pointerup', this.#handleMouseUp, passive)
     }
 
-    window.addEventListener('pointerup', this.#handleMouseUp)
+    // window.addEventListener('pointerup', this.#handleMouseUp)
   }
 
   public get stroking() {
@@ -108,7 +124,7 @@ export class CanvasHandler extends Emitter<Events> {
       strategy.markUpdatedLayerId(activeLayer.uid)
     })
 
-    this.on('tmpStroke', async (stroke) => {
+    this.on('strokeChange', async (stroke) => {
       const { activeLayer } = session
       if (
         session.pencilMode === 'none' ||
@@ -200,6 +216,10 @@ export class CanvasHandler extends Emitter<Events> {
       this.mitt.emit('canvasUpdated')
     })
 
+    this.on('strokeCancel', async () => {
+      strategy.setLayerOverride(null)
+    })
+
     session.on('documentChanged', () => {
       setCanvasSize(this.canvas, session.document!)
     })
@@ -216,22 +236,22 @@ export class CanvasHandler extends Emitter<Events> {
   }
 
   #handleMouseDown = (e: PointerEvent) => {
+    this._stroking = true
+    this.#strokingState.touches += 1
+
+    if (this.#strokingState.touches > 1) {
+      const stroke = this.currentStroke!
+      this._stroking = false
+      this.currentStroke = null
+      this.emit('strokeCancel', stroke)
+      return
+    }
+
     this.currentStroke = new Stroke()
     this.currentStroke.startTime = e.timeStamp
     this.currentStroke.updatePoints((points) => {
       points.push([e.offsetX, e.offsetY, e.pressure, 0])
     })
-
-    this._stroking = true
-    this.#strokingState ??= { touches: 0 }
-    this.#strokingState.touches++
-
-    if (this.#strokingState.touches > 1) {
-      this._stroking = false
-      this.currentStroke = null
-      this.#strokingState = null
-      return
-    }
 
     this.emit('strokeStart', this.currentStroke)
   }
@@ -262,14 +282,15 @@ export class CanvasHandler extends Emitter<Events> {
     })
 
     // this.currentStroke.path = this.currentStroke.splinedPath
-    this.mitt.emit('tmpStroke', currentStroke)
+    this.mitt.emit('strokeChange', currentStroke)
   }
 
   #handleMouseUp = () => {
-    const { currentStroke } = this
-    if (!currentStroke || !this.#strokingState) return
+    this.#strokingState.touches -= 1
 
-    this.#strokingState.touches--
+    const { currentStroke } = this
+    if (!currentStroke) return
+
     if (currentStroke.points.length < 2) {
       this.currentStroke = null
       this._stroking = false
@@ -277,7 +298,6 @@ export class CanvasHandler extends Emitter<Events> {
     }
 
     if (this.#strokingState.touches === 0) {
-      this.#strokingState = null
       this.currentStroke = null
       this._stroking = false
     }
@@ -288,7 +308,18 @@ export class CanvasHandler extends Emitter<Events> {
   }
 
   #handleTouchStart = (e: TouchEvent) => {
-    if (e.touches.length > 1) return
+    this._stroking = true
+    this.#strokingState.touches += 1
+
+    console.log(this.#strokingState)
+
+    if (this.#strokingState.touches > 1) {
+      const stroke = this.currentStroke!
+      this._stroking = false
+      this.currentStroke = null
+      this.emit('strokeCancel', stroke)
+      return
+    }
 
     this.currentStroke = new Stroke()
     this.currentStroke.startTime = e.timeStamp
@@ -302,16 +333,6 @@ export class CanvasHandler extends Emitter<Events> {
     this.currentStroke.updatePoints((points) => {
       points.push([x, y, e.touches[0].force, 0])
     })
-
-    this.#strokingState ??= { touches: 0 }
-    this.#strokingState.touches++
-
-    if (this.#strokingState.touches > 1) {
-      this._stroking = false
-      this.currentStroke = null
-      this.#strokingState = null
-      return
-    }
 
     this.emit('strokeStart', this.currentStroke)
   }
@@ -335,22 +356,24 @@ export class CanvasHandler extends Emitter<Events> {
       ])
     })
 
-    this.mitt.emit('tmpStroke', currentStroke)
+    this.mitt.emit('strokeChange', currentStroke)
   }
 
   #handleTouchEnd = (e: TouchEvent) => {
+    this.#strokingState.touches -= 1
+
+    console.log('end', this.#strokingState)
+
     const { currentStroke } = this
     if (!currentStroke || !this.#strokingState) return
 
-    this.#strokingState.touches--
     if (currentStroke.points.length < 2) {
       this.currentStroke = null
       this._stroking = false
       return
     }
 
-    if (this.#strokingState.touches === 0) {
-      this.#strokingState = null
+    if (this.#strokingState.touches <= 0) {
       this.currentStroke = null
       this._stroking = false
     }

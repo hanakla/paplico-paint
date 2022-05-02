@@ -14,11 +14,13 @@ type Uniform =
         | 'matrix2x4fv'
         | 'matrix3x4fv'
         | 'matrix4fv'
-      value: ReadonlyArray<number>
+      value: ReadonlyArray<number> | Float32Array
     }
   | {
       type: 'texture2d'
       value: TexImageSource | TextureResource
+      clamp: WebGLContext.TextureClamp
+      filter: WebGLContext.TextureFilter
     }
 
 class TextureResource {
@@ -39,15 +41,15 @@ class TextureResource {
 const DEFAULT_VERTEX_SHADER = `
 precision highp float;
 
-attribute vec2 position;
-attribute vec2 coord;
+attribute vec2 aPosition;
+attribute vec2 aCoord;
 varying vec2 vTexCoord;
 varying vec2 vUv;
 
 void main(void) {
-    vTexCoord = coord;
-    vUv = coord;
-    gl_Position = vec4(position, 0.0, 1.0);
+    vTexCoord = aCoord;
+    vUv = aCoord;
+    gl_Position = vec4(aPosition, 0.0, 1.0);
 }
 `
 
@@ -61,12 +63,61 @@ const handleShadeCompilationError = (
   }
 }
 
+const getTextureClampValue = (
+  gl: WebGLRenderingContext,
+  value: WebGLContext.TextureClamp,
+  xy: 'x' | 'y'
+): number => {
+  if (typeof value === 'string') {
+    return (
+      // prettier-ignore
+      value === 'clampToEdge' ? gl.CLAMP_TO_EDGE
+      : value === 'mirroredRepeat' ? gl.MIRRORED_REPEAT
+      : value === 'repeat' ? gl.REPEAT
+      : null as never
+    )
+  } else {
+    let dir = xy === 'x' ? value.x : value.y
+    return getTextureClampValue(gl, dir, xy)
+  }
+}
+
+const getTextureFilterValue = (
+  gl: WebGLRenderingContext,
+  value: WebGLContext.TextureFilter | null,
+  minmag: 'min' | 'mag'
+): number | null => {
+  if (typeof value === 'string') {
+    // prettier-ignore
+    return (
+      value === 'linear' ? gl.LINEAR
+      : value === 'nearest' ? gl.NEAREST
+      : null
+    )
+  } else if (value != null) {
+    let val = minmag === 'min' ? value.min : value.mag
+    return getTextureFilterValue(gl, val, minmag)
+  }
+
+  return null
+}
+
 export declare namespace WebGLContext {
   export type ProgramSet = {
     vs: WebGLShader
     fs: WebGLShader
     program: WebGLProgram
   }
+
+  export type TextureClampValue = 'repeat' | 'mirroredRepeat' | 'clampToEdge'
+  export type TextureClamp =
+    | TextureClampValue
+    | { x: TextureClampValue; y: TextureClampValue }
+
+  export type TextureFilterValue = 'nearest' | 'linear'
+  export type TextureFilter =
+    | TextureFilterValue
+    | { min: TextureFilterValue; mag: TextureFilterValue }
 }
 
 export class WebGLContext {
@@ -76,7 +127,24 @@ export class WebGLContext {
 
   public constructor() {
     // OffscreenCanvas not updated frame (bug?) so using HTMLCanvasElement
-    this.gl = createWebGLContext()
+    this.gl = createWebGLContext({
+      alpha: true,
+      antialias: false,
+      premultipliedAlpha: true,
+      preserveDrawingBuffer: false,
+      depth: true,
+      // stencil: true,
+    })
+
+    this.gl.clearColor(0, 0, 0, 0)
+    this.gl.clearDepth(1)
+
+    // this.gl.enable(this.gl.BLEND)
+    // this.gl.getExtension('EXT_color_buffer_float')
+    // this.gl.getExtension('EXT_texture_filter_anisotropic')
+    // this.gl.getExtension('OES_texture_float')
+    // this.gl.getExtension('OES_texture_float_linear')
+
     setCanvasSize(this.gl.canvas, 1, 1)
     this.gl.viewport(0, 0, 1, 1)
 
@@ -130,54 +198,84 @@ export class WebGLContext {
   public applyProgram(
     program: WebGLContext.ProgramSet,
     uniforms: { [uniformName: string]: Uniform },
-    source: TexImageSource,
-    dest: HTMLCanvasElement | OffscreenCanvas
+    input: TexImageSource,
+    output: HTMLCanvasElement | OffscreenCanvas,
+    {
+      sourceTextureClamp = 'clampToEdge',
+      sourceTexFilter = 'linear',
+    }: {
+      sourceTextureClamp?: WebGLContext.TextureClamp
+      sourceTexFilter?: WebGLContext.TextureFilter
+    } = {}
   ) {
     const { gl } = this
 
-    setCanvasSize(this.gl.canvas, source.width, source.height)
-    this.gl.viewport(0, 0, source.width, source.height)
+    setCanvasSize(this.gl.canvas, input.width, input.height)
+    this.gl.viewport(0, 0, input.width, input.height)
 
-    gl.clearColor(0, 0, 0, 1)
-    gl.clearDepth(1)
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
 
-    gl.bindBuffer(gl.ARRAY_BUFFER, this.vertexBuffer)
-    gl.bufferData(
-      gl.ARRAY_BUFFER,
-      new Float32Array([-1, -1, 1, -1, 1, 1, -1, 1]),
-      gl.STATIC_DRAW
-    )
+    {
+      gl.bindBuffer(gl.ARRAY_BUFFER, this.vertexBuffer)
+      gl.bufferData(
+        gl.ARRAY_BUFFER,
+        new Float32Array([-1, -1, 1, -1, 1, 1, -1, 1]),
+        gl.STATIC_DRAW
+      )
+    }
 
     gl.useProgram(program.program)
 
-    const positionAttrib = gl.getAttribLocation(program.program, 'position')
-    gl.enableVertexAttribArray(positionAttrib)
-    gl.vertexAttribPointer(positionAttrib, 2, gl.FLOAT, false, 0, 0)
+    {
+      const positionAttrib = gl.getAttribLocation(program.program, 'aPosition')
+      gl.enableVertexAttribArray(positionAttrib)
+      gl.vertexAttribPointer(positionAttrib, 2, gl.FLOAT, false, 0, 0)
 
-    gl.bindBuffer(gl.ARRAY_BUFFER, this.tex2DBuffer)
-    gl.bufferData(
-      gl.ARRAY_BUFFER,
-      new Float32Array([0, 1, 1, 1, 1, 0, 0, 0]),
-      gl.STATIC_DRAW
-    )
+      gl.bindBuffer(gl.ARRAY_BUFFER, this.tex2DBuffer)
+      gl.bufferData(
+        gl.ARRAY_BUFFER,
+        new Float32Array([0, 1, 1, 1, 1, 0, 0, 0]),
+        gl.STATIC_DRAW
+      )
 
-    const coordAttrib = gl.getAttribLocation(program.program, 'coord')
-    gl.enableVertexAttribArray(coordAttrib)
-    gl.vertexAttribPointer(coordAttrib, 2, gl.FLOAT, false, 0, 0)
+      const coordAttrib = gl.getAttribLocation(program.program, 'aCoord')
+      gl.enableVertexAttribArray(coordAttrib)
+      gl.vertexAttribPointer(coordAttrib, 2, gl.FLOAT, false, 0, 0)
 
-    const tex = gl.createTexture()
-    gl.activeTexture(gl.TEXTURE0)
-    gl.bindTexture(gl.TEXTURE_2D, tex)
-    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, source)
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR)
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR)
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE)
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE)
+      gl.bindBuffer(gl.ARRAY_BUFFER, null)
+    }
 
-    // Attach source uniform
-    const sourceLoc = gl.getUniformLocation(program.program, 'source')
-    gl.uniform1i(sourceLoc, 0)
+    // Attach source texture
+    {
+      const tex = gl.createTexture()
+      gl.activeTexture(gl.TEXTURE0)
+      gl.bindTexture(gl.TEXTURE_2D, tex)
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, input)
+
+      gl.texParameteri(
+        gl.TEXTURE_2D,
+        gl.TEXTURE_MIN_FILTER,
+        getTextureFilterValue(gl, sourceTexFilter, 'min')!
+      )
+      gl.texParameteri(
+        gl.TEXTURE_2D,
+        gl.TEXTURE_MAG_FILTER,
+        getTextureFilterValue(gl, sourceTexFilter, 'mag')!
+      )
+      gl.texParameteri(
+        gl.TEXTURE_2D,
+        gl.TEXTURE_WRAP_S,
+        getTextureClampValue(gl, sourceTextureClamp, 'x')
+      )
+      gl.texParameteri(
+        gl.TEXTURE_2D,
+        gl.TEXTURE_WRAP_T,
+        getTextureClampValue(gl, sourceTextureClamp, 'y')
+      )
+
+      const sourceLoc = gl.getUniformLocation(program.program, 'source')
+      gl.uniform1i(sourceLoc, gl.TEXTURE0)
+    }
 
     const texUniforms = Object.entries(uniforms)
       .filter(([key, uni]) => uni.type === 'texture2d')
@@ -207,10 +305,30 @@ export class WebGLContext {
         )
       }
 
-      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST)
-      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST)
-      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE)
-      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE)
+      if (uni.filter) {
+        gl.texParameteri(
+          gl.TEXTURE_2D,
+          gl.TEXTURE_MIN_FILTER,
+          getTextureFilterValue(gl, uni.filter, 'min')!
+        )
+        gl.texParameteri(
+          gl.TEXTURE_2D,
+          gl.TEXTURE_MAG_FILTER,
+          getTextureFilterValue(gl, uni.filter, 'mag')!
+        )
+      }
+
+      console.log(getTextureClampValue(gl, uni.clamp, 'x'))
+      gl.texParameteri(
+        gl.TEXTURE_2D,
+        gl.TEXTURE_WRAP_S,
+        getTextureClampValue(gl, uni.clamp, 'x')
+      )
+      gl.texParameteri(
+        gl.TEXTURE_2D,
+        gl.TEXTURE_WRAP_T,
+        getTextureClampValue(gl, uni.clamp, 'y')
+      )
 
       const loc = gl.getUniformLocation(program.program, uniName)
       gl.uniform1i(loc, textureIdx)
@@ -227,9 +345,9 @@ export class WebGLContext {
     // this.deleteProgram(program)
     textures.forEach((tex) => tex && gl.deleteTexture(tex))
 
-    const destCtx = dest.getContext('2d')!
-    destCtx.clearRect(0, 0, dest.width, dest.height)
-    destCtx.drawImage(this.gl.canvas, 0, 0, source.width, source.height)
+    const destCtx = output.getContext('2d')!
+    destCtx.clearRect(0, 0, output.width, output.height)
+    destCtx.drawImage(this.gl.canvas, 0, 0, input.width, input.height)
   }
 
   // public createTexture() {
@@ -302,19 +420,19 @@ export class WebGLContext {
     return { type: '4iv', value }
   }
 
-  public uni1fv(value: number[]): Uniform {
+  public uni1fv(value: number[] | Float32Array): Uniform {
     return { type: '1fv', value }
   }
 
-  public uni2fv(value: number[]): Uniform {
+  public uni2fv(value: number[] | Float32Array): Uniform {
     return { type: '2fv', value }
   }
 
-  public uni3fv(value: number[]): Uniform {
+  public uni3fv(value: number[] | Float32Array): Uniform {
     return { type: '3fv', value }
   }
 
-  public uni4fv(value: number[]): Uniform {
+  public uni4fv(value: number[] | Float32Array): Uniform {
     return { type: '4fv', value }
   }
 
@@ -370,8 +488,17 @@ export class WebGLContext {
     return { type: 'matrix4fv', value }
   }
 
-  public uniTexture2D(value: TexImageSource): Uniform {
-    return { type: 'texture2d', value }
+  public uniTexture2D(
+    value: TexImageSource,
+    {
+      clamp = 'clampToEdge',
+      filter = 'linear',
+    }: {
+      clamp?: WebGLContext.TextureClamp
+      filter?: WebGLContext.TextureFilter
+    } = {}
+  ): Uniform {
+    return { type: 'texture2d', value, clamp, filter }
   }
 
   private attachUniforms(

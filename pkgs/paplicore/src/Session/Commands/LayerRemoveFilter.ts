@@ -7,8 +7,8 @@ export class LayerRemoveFilter implements ICommand {
 
   private pathToTargetLayer: string[]
   private filterUid: string
-  private oldIndex: number
-  private filter: Filter
+  private oldIndex!: number
+  private filter!: Filter
 
   constructor({
     pathToTargetLayer,

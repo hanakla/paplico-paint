@@ -8,10 +8,7 @@ module.exports = function (api) {
         'next/babel',
         {
           'preset-react': {
-            importSource:
-              !isServer && isCallerDevelopment
-                ? '@welldone-software/why-did-you-render'
-                : 'react',
+            runtime: 'automatic',
           },
         },
       ],

@@ -8,3 +8,11 @@ export const media = {
   pc: styledMq.greaterThan('768px' as any),
   narrow: styledMq.lessThan('768px' as any),
 }
+
+export function isIpadOS() {
+  return (
+    typeof navigator !== 'undefined' &&
+    navigator?.maxTouchPoints > 2 &&
+    /MacIntel/.test(navigator.platform)
+  )
+}

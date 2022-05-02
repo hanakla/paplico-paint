@@ -11,6 +11,8 @@ export { CanvasHandler } from './engine/Engine3_CanvasHandler'
 export { PapDOMDigger } from './PapDOMDigger'
 export * as PapInks from './Inks/index'
 
+export * as PapFilters from './Filters/index'
+
 export * as PapBrushes from './Brushes/index'
 export * as PapCanvasFactory from './Engine3_CanvasFactory'
 export * as PapDOM from './DOM/index'

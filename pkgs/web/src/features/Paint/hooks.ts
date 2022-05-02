@@ -17,6 +17,8 @@ import { EditorOps, EditorSelector, EditorStore } from '🙌/domains/EditorStabl
 import { NotifyOps } from '🙌/domains/Notify'
 import { useBufferedState, useDebouncedFunk, useFleur } from '🙌/utils/hooks'
 import { debounce } from '🙌/utils/func'
+import { WhiteNoiseNode } from './sounds/WhiteNoiseNode'
+import { AudioWorklet } from 'audio-worklet'
 
 export const usePaplicoExporter = () => {
   const { t } = useTranslation('app')
@@ -119,6 +121,15 @@ export const useVectorObjectWatch = (
   useEffect(() => {
     object?.on('updated', rerender)
     return () => object?.off('updated', rerender)
+  })
+}
+
+export const usePapFilterWatch = (filter: PapDOM.Filter | null | undefined) => {
+  const rerender = useUpdate()
+
+  useEffect(() => {
+    filter?.on('updated', rerender)
+    return () => filter?.off('updated', rerender)
   })
 }
 
@@ -251,4 +262,43 @@ export const PaintCanvasContext = createContext<
 
 export const usePaintCanvasRef = () => {
   return useContext(PaintCanvasContext)
+}
+
+export const useWhiteNoise = () => {
+  console.log('オア')
+
+  useEffect(() => {
+    if (!WhiteNoiseNode) return
+
+    // const Worker = function (url: URL) {
+    //   return url
+    // }
+    // const ctx = new AudioContext()
+    // const modulator = new OscillatorNode(ctx)
+
+    // ctx.audioWorklet
+    //   .addModule(
+    //     new AudioWorklet(
+    //       new URL('./sounds/WhiteNoiseWorklet.js', import.meta.url)
+    //     )
+    //   )
+    //   .then(() => {
+    //     if (!WhiteNoiseNode) return
+
+    //     const node = new AudioWorkletNode(ctx, 'PaplicoWhiteNoise')
+    //     node.connect(ctx.destination)
+
+    //     ctx.resume()
+    //     // modulator.connect(node)
+    //   })
+
+    // modulator.connect(ctx.destination)
+    // modulator.start()
+
+    console.log('ノイズ')
+
+    return () => {
+      ctx.close()
+    }
+  }, [])
 }

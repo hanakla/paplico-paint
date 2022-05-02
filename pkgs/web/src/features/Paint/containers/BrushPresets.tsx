@@ -1,112 +1,19 @@
-import { useFleurContext, useStore } from '@fleur/react'
+import { useStore } from '@fleur/react'
 import { useFunk } from '@hanakla/arma'
-import { nanoid } from 'nanoid'
 import { useTranslation } from 'next-i18next'
 import { rgba } from 'polished'
 import { useAsync } from 'react-use'
-import { PapBrushes, PapValue } from '@paplico/core'
+import { PapValue } from '@paplico/core'
 import { css, useTheme } from 'styled-components'
 
 import { SidebarPane } from '🙌/components/SidebarPane'
 import { EditorOps, EditorSelector, EditorStore } from '🙌/domains/EditorStable'
-import { centering, focusRing } from '🙌/utils/mixins'
-import { lightTheme, tm } from '🙌/utils/theme'
+import { centering } from '🙌/utils/mixins'
 import { PropsOf } from '🙌/utils/types'
-import { exclude, pick, shallowEquals } from '🙌/utils/object'
+import { shallowEquals } from '🙌/utils/object'
 import { generateBrushThumbnail } from '../helpers'
 import { useFleur } from '🙌/utils/hooks'
-
-const presets = [
-  {
-    id: nanoid(),
-    nameKey: 'vector',
-    brushId: PapBrushes.Brush.id,
-    size: 20,
-    opacity: 0.8,
-    specific: {
-      texture: 'circle',
-      fadeWeight: 0,
-      inOutInfluence: 0,
-      randomRotation: 0,
-      scatterRange: 0,
-      pressureInfluence: 0.5,
-    } as Partial<PapBrushes.ScatterBrush.SpecificSetting>,
-  },
-  {
-    id: nanoid(),
-    nameKey: 'circle',
-    brushId: PapBrushes.ScatterBrush.id,
-    size: 20,
-    opacity: 0.8,
-    specific: {
-      texture: 'circle',
-      fadeWeight: 0,
-      inOutInfluence: 0,
-      randomRotation: 0,
-      scatterRange: 0,
-      pressureInfluence: 0.5,
-    } as Partial<PapBrushes.ScatterBrush.SpecificSetting>,
-  },
-  {
-    id: nanoid(),
-    nameKey: 'fade',
-    brushId: PapBrushes.ScatterBrush.id,
-    size: 20,
-    opacity: 0.8,
-    specific: {
-      texture: 'fadeBrush',
-      fadeWeight: 0,
-      inOutInfluence: 0.2,
-      randomRotation: 0,
-      scatterRange: 0,
-    } as Partial<PapBrushes.ScatterBrush.SpecificSetting>,
-  },
-  {
-    id: nanoid(),
-    nameKey: 'pencil',
-    brushId: PapBrushes.ScatterBrush.id,
-    size: 20,
-    opacity: 0.8,
-    specific: {
-      texture: 'pencil',
-      fadeWeight: 0,
-      inOutInfluence: 1,
-      randomRotation: 1,
-      scatterRange: 0.5,
-      pressureInfluence: 0.5,
-    } as Partial<PapBrushes.ScatterBrush.SpecificSetting>,
-  },
-  {
-    id: nanoid(),
-    nameKey: 'pencil-enterexit',
-    brushId: PapBrushes.ScatterBrush.id,
-    size: 20,
-    opacity: 1,
-    specific: {
-      texture: 'pencil',
-      fadeWeight: 1,
-      inOutInfluence: 1,
-      randomRotation: 1,
-      scatterRange: 1,
-      pressureInfluence: 0.5,
-    } as Partial<PapBrushes.ScatterBrush.SpecificSetting>,
-  },
-  {
-    id: nanoid(),
-    nameKey: 'baribari',
-    brushId: PapBrushes.ScatterBrush.id,
-    size: 20,
-    opacity: 0.8,
-    specific: {
-      texture: 'baribari',
-      fadeWeight: 1,
-      inOutInfluence: 0,
-      randomRotation: 0,
-      scatterRange: 0,
-      pressureInfluence: 0.5,
-    } as Partial<PapBrushes.ScatterBrush.SpecificSetting>,
-  },
-]
+import { BRUSH_PRESETS } from '../constants'
 
 export function BrushPresets() {
   const { t } = useTranslation('app')
@@ -130,7 +37,7 @@ export function BrushPresets() {
           /* overflow: auto; */
         `}
       >
-        {presets.map((preset) => (
+        {BRUSH_PRESETS.map((preset) => (
           <BrushItem
             key={preset.id}
             brushId={preset.brushId}

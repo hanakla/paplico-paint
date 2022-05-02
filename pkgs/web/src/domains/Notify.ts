@@ -15,6 +15,11 @@ export type Notify =
       lock: boolean
       messageKey: string
     }
+  | {
+      area: 'commandFlash'
+      timeout: 1000
+      messageKey: string
+    }
 
 type State = {
   entries: (Notify & { id: string })[]
@@ -42,7 +47,12 @@ export const SelectNotify = {
   ),
 }
 
-export const useNotifyConsumer = (area: Notify['area'], length: number = 1) => {
+type Filter<All, Pick> = All extends Pick ? All : never
+
+export const useNotifyConsumer = <T extends Notify['area']>(
+  area: T,
+  length: number = 1
+): Filter<Notify & { id: string }, { area: T }>[] => {
   const { executeOperation } = useFleurContext()
   const entries = useStore((get) =>
     SelectNotify.byArea(get, area).slice(-length)
@@ -54,7 +64,7 @@ export const useNotifyConsumer = (area: Notify['area'], length: number = 1) => {
         executeOperation(NotifyOps.delete, n.id)
       }, n.timeout)
     })
-  }, [entries.length])
+  }, [entries])
 
-  return entries
+  return entries as any
 }

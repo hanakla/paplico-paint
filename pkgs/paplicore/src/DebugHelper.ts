@@ -8,7 +8,8 @@ export const logImage = async (
     | HTMLCanvasElement
     | CanvasRenderingContext2D
     | OffscreenCanvas,
-  label?: string
+  label?: string,
+  { collapsed = true }: { collapsed?: boolean } = {}
 ) => {
   let canvas!: HTMLCanvasElement | OffscreenCanvas
   let blobUrl: string | null = null
@@ -59,12 +60,14 @@ export const logImage = async (
     imageUrl = (canvas as HTMLCanvasElement).toDataURL('image/png')
   }
 
-  console.groupCollapsed(
+  const content = [
     `%cLogImage%c ${label} image log (full image in %o)`,
     'padding:2px 4px;background:linear-gradient(40deg, #f25847, #f8be12);color:#fff;border-radius:4px;',
     '',
-    blobUrl
-  )
+    blobUrl,
+  ]
+
+  collapsed ? console.groupCollapsed(...content) : console.group(...content)
 
   console.log(
     '%c+',

@@ -31,11 +31,30 @@ const config = {
       type: 'asset/resource',
     })
 
+    config.module.rules.push({
+      test: /\.(mp3)$/,
+      type: 'asset/resource',
+      generator: {
+        filename: 'static/chunks/[hash][ext]',
+      },
+    })
+
+    config.module.rules.push({
+      test: /\.ts$/,
+      parser: {
+        url: true,
+        javascript: {
+          worker: ['AudioWorklet from audio-worklet', '...'],
+        },
+      },
+    })
+
     config.resolve.alias = {
       ...config.resolve.alias,
       '@paplico/core': '@paplico/core/src/index.ts',
       // '@paplico/ui': 'paplico-ui/src/index.ts',
       '🙌': path.join(__dirname, './src'),
+      'audio-worklet': path.resolve(__dirname, 'src/utils/audio-worklet'),
     }
 
     config.resolve.fallback = {

@@ -67,7 +67,7 @@ void main() {
 `
 
 export class BloomFilter implements IFilter {
-  public static readonly id = '@silk-core/bloom'
+  public static readonly id = '@paplico/filters/bloom'
 
   public get id() {
     return BloomFilter.id

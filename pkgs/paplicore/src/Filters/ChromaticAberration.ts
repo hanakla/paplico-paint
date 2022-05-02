@@ -10,7 +10,7 @@ const FRAGMENT_SHADER = `
   uniform float angleRad;
   uniform vec2 resolution;
 
-  varying vec2 vTexCoord;
+  varying vec2 vUv;
 
   ${screenMix_func}
 
@@ -21,9 +21,9 @@ const FRAGMENT_SHADER = `
       sin(angleRad) * (distancePx * tFrag.y)
     );
 
-    vec4 r = texture2D(source, vTexCoord + movement) * vec4(1, 0, 0, 1);
-    vec4 g = texture2D(source, vTexCoord) * vec4(0, 1, 0, 1);
-    vec4 b = texture2D(source, vTexCoord + -movement) * vec4(0, 0, 1, 1);
+    vec4 r = texture2D(source, vUv + movement) * vec4(1, 0, 0, 1);
+    vec4 g = texture2D(source, vUv) * vec4(0, 1, 0, 1);
+    vec4 b = texture2D(source, vUv + -movement) * vec4(0, 0, 1, 1);
 
     gl_FragColor = screenMix(screenMix(r, g), b);
   }

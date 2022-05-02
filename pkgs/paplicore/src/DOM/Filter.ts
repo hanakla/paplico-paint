@@ -1,4 +1,5 @@
 import { v4 } from 'uuid'
+import { Emitter } from '../Engine3_Emitter'
 import { assign, deepClone } from '../utils'
 import { ISilkDOMElement } from './ISilkDOMElement'
 
@@ -10,7 +11,14 @@ export declare namespace Filter {
   }
 }
 
-export class Filter implements ISilkDOMElement, Filter.Attributes {
+type Events = {
+  updated: Filter
+}
+
+export class Filter
+  extends Emitter<Events>
+  implements ISilkDOMElement, Filter.Attributes
+{
   public uid: string = `filter-${v4()}`
   public filterId: string = ''
 
@@ -39,6 +47,7 @@ export class Filter implements ISilkDOMElement, Filter.Attributes {
 
   public update(proc: (entity: this) => void) {
     proc(this)
+    this.emit('updated', this)
   }
 
   public serialize() {

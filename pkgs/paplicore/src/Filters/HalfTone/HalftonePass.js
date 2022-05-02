@@ -1,4 +1,7 @@
-/*! Original from https://github.com/mrdoob/three.js/blob/master/examples/jsm/postprocessing/HalftonePass.js */
+/*!
+  Original from https://github.com/mrdoob/three.js/blob/master/examples/jsm/postprocessing/HalftonePass.js
+  Fork for support alpha channel
+*/
 
 import { ShaderMaterial, UniformsUtils } from 'three'
 import { Pass, FullScreenQuad } from 'three/examples/jsm/postprocessing/Pass'

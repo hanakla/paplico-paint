@@ -1,6 +1,6 @@
 export const log = (...args: any[]) => {
   console.log(
-    `%paplico%c`,
+    `%cpaplico%c`,
     'padding:2px 4px;background:linear-gradient(40deg, #47a7f2, #45d098);color:#fff;border-radius:4px;',
     '',
     ...args
@@ -9,7 +9,7 @@ export const log = (...args: any[]) => {
 
 export const warn = (...args: any) => {
   console.warn(
-    '%paplico%c',
+    '%cpaplico%c',
     'padding:2px 4px;background:linear-gradient(40deg, #e8a949, #ee6b45);color:#fff;border-radius:4px;',
     '',
     ...args
@@ -18,7 +18,7 @@ export const warn = (...args: any) => {
 
 export const trace = (...args: any[]) => {
   console.groupCollapsed(
-    `%paplico(trace)%c %s`,
+    `%cpaplico(trace)%c %s`,
     'padding:2px 4px;background:linear-gradient(40deg, #9047f2, #4552d0);color:#fff;border-radius:4px;',
     '',
     ...args

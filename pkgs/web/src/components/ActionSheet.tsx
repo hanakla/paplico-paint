@@ -71,6 +71,7 @@ export const ActionSheet = forwardRef<HTMLDivElement, Props>(
                 left: 0;
                 width: 100vw;
                 height: 100vh;
+                z-index: 1;
                 background-color: ${rgba('#000', 0.5)};
               `}
               style={{
@@ -86,6 +87,7 @@ export const ActionSheet = forwardRef<HTMLDivElement, Props>(
               position: fixed;
               left: 50%;
               bottom: 0;
+              z-index: 2;
               display: flex;
               flex-flow: column;
               width: 100%;

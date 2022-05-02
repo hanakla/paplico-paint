@@ -13,6 +13,7 @@ import {
 } from 'react'
 import { useUpdate } from 'react-use'
 import { shallowEquals } from './object'
+import { isIpadOS } from './responsive'
 
 export const useMedia = (query: string, defaultState?: boolean) => {
   if (defaultState === undefined) {
@@ -42,6 +43,16 @@ export const useMedia = (query: string, defaultState?: boolean) => {
     }
   }, [query])
   return state
+}
+
+export const useIsiPadOS = () => {
+  const [is, setIs] = useState(false)
+
+  useIsomorphicLayoutEffect(() => {
+    setIs(isIpadOS())
+  }, [])
+
+  return is
 }
 
 export const useIdentifiedRef = <T>(initialValue: T) => {

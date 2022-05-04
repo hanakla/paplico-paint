@@ -1,3 +1,5 @@
+![MainVisual](https://user-images.githubusercontent.com/8597982/166625506-ceb7948f-f194-45f5-8c91-821d52d62a2b.png)
+
 # パプリコペイント / Paplico Paint
 
 `Paplico` is painting application / engine on the web.

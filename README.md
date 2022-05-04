@@ -1,6 +1,6 @@
-# Silk
+# パプリコペイント / Paplico Paint
 
-`Silk` is painting application / engine on the web.
+`Paplico` is painting application / engine on the web.
 
 ## Motivation
 

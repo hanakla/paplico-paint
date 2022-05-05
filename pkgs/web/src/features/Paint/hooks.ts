@@ -17,8 +17,6 @@ import { EditorOps, EditorSelector, EditorStore } from '🙌/domains/EditorStabl
 import { NotifyOps } from '🙌/domains/Notify'
 import { useBufferedState, useDebouncedFunk, useFleur } from '🙌/utils/hooks'
 import { debounce } from '🙌/utils/func'
-import { WhiteNoiseNode } from './sounds/WhiteNoiseNode'
-import { AudioWorklet } from 'audio-worklet'
 
 export const usePaplicoExporter = () => {
   const { t } = useTranslation('app')
@@ -268,14 +266,12 @@ export const usePaintCanvasRef = () => {
 
 export const useWhiteNoise = () => {
   useEffect(() => {
-    if (!WhiteNoiseNode) return
-
+    // if (!WhiteNoiseNode) return
     // const Worker = function (url: URL) {
     //   return url
     // }
     // const ctx = new AudioContext()
     // const modulator = new OscillatorNode(ctx)
-
     // ctx.audioWorklet
     //   .addModule(
     //     new AudioWorklet(
@@ -284,17 +280,13 @@ export const useWhiteNoise = () => {
     //   )
     //   .then(() => {
     //     if (!WhiteNoiseNode) return
-
     //     const node = new AudioWorkletNode(ctx, 'PaplicoWhiteNoise')
     //     node.connect(ctx.destination)
-
     //     ctx.resume()
     //     // modulator.connect(node)
     //   })
-
     // modulator.connect(ctx.destination)
     // modulator.start()
-
     // return () => {
     //   ctx.close()
     // }

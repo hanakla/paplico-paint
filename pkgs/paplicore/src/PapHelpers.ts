@@ -58,11 +58,14 @@ export function workerSafeCanvasToBlob(
   canvas: HTMLCanvasElement | OffscreenCanvas,
   { type, quality }: { type: string; quality?: number }
 ): Promise<Blob> {
-  if (canvas instanceof OffscreenCanvas) {
+  if (
+    typeof OffscreenCanvas !== 'undefined' &&
+    canvas instanceof OffscreenCanvas
+  ) {
     return canvas.convertToBlob({ type, quality })
   } else {
     return new Promise<Blob>((resolver) => {
-      canvas.toBlob(
+      ;(canvas as HTMLCanvasElement).toBlob(
         (blob) => {
           resolver(blob!)
         },

@@ -6,7 +6,6 @@ import React, { memo, useEffect, useMemo } from 'react'
 import { serverSideTranslations } from 'next-i18next/serverSideTranslations'
 import { createGlobalStyle, ThemeProvider } from 'styled-components'
 import { useFleurContext, useStore } from '@fleur/react'
-import Head from 'next/head'
 import { useMedia } from '🙌/utils/hooks'
 import {
   darkWithCharcoal,

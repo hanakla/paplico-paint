@@ -1,13 +1,16 @@
-# Silk
+![MainVisual](https://user-images.githubusercontent.com/8597982/166625506-ceb7948f-f194-45f5-8c91-821d52d62a2b.png)
 
-`Silk` is painting application / engine on the web.
+# Paplico Paint / パプリコペイント
 
-## Motivation
+`Paplico` is Drawing app on the Web.
 
-ベジエでイケイケな絵を書きたい。  
-ラスター系とベクター系が一緒に使えるアプリが欲しい。
+## Concept
 
-そういう伝わりづらい個人的な欲求で作っている。
+- Paplico is vertor based raster painting app,
+  It gives able to non-destructive editing for us.
+- Targeted to hyper Vector editing likes Adobe Illustrator
+- Fully open sourced, Can Web Developers extension Paplico,
+  or make drawing app based on `@paplico/core`
 
 ## Development Get Started
 

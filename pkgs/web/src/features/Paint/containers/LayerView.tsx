@@ -299,7 +299,6 @@ export const LayerView = memo(function LayerView() {
                   onToggleCollapse={(id) =>
                     setCollapsed((state) => {
                       state[id] = !(state[id] ?? true)
-                      console.log(state, id)
                     })
                   }
                 />

@@ -146,6 +146,7 @@ export const useTransactionCommand = ({
     () =>
       debounce(() => {
         ref.current = null
+        execute(EditorOps.rerenderCanvas)
       }, threshold),
     [threshold]
   )
@@ -171,10 +172,11 @@ export const useTransactionCommand = ({
         }
 
         ref.current?.doAndAddCommand(command)
-        rerender
+        rerender()
       },
       commit: () => {
         ref.current = null
+        execute(EditorOps.rerenderCanvas)
       },
       debouncedCommit,
     }),
@@ -265,8 +267,6 @@ export const usePaintCanvasRef = () => {
 }
 
 export const useWhiteNoise = () => {
-  console.log('オア')
-
   useEffect(() => {
     if (!WhiteNoiseNode) return
 
@@ -295,10 +295,8 @@ export const useWhiteNoise = () => {
     // modulator.connect(ctx.destination)
     // modulator.start()
 
-    console.log('ノイズ')
-
-    return () => {
-      ctx.close()
-    }
+    // return () => {
+    //   ctx.close()
+    // }
   }, [])
 }

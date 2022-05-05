@@ -45,6 +45,10 @@ export const DOMUtils = {
       svg.getScreenCTM()!.inverse()
     )
   },
+  preventAndStopPropagationHandler: (e: SyntheticEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+  },
   stopPropagationHandler: (e: SyntheticEvent) => {
     e.stopPropagation()
   },

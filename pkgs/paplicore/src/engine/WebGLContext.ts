@@ -1,5 +1,6 @@
 import { setCanvasSize } from '../utils'
 import { createWebGLContext } from '../Engine3_CanvasFactory'
+import { logImage } from '../DebugHelper'
 
 type Uniform =
   | {
@@ -38,76 +39,13 @@ class TextureResource {
 //   }
 // `
 
-const DEFAULT_VERTEX_SHADER = `
-precision highp float;
-
-attribute vec2 aPosition;
-attribute vec2 aCoord;
-varying vec2 vTexCoord;
-varying vec2 vUv;
-
-void main(void) {
-    vTexCoord = aCoord;
-    vUv = aCoord;
-    gl_Position = vec4(aPosition, 0.0, 1.0);
-}
-`
-
-const handleShadeCompilationError = (
-  gl: WebGLRenderingContext,
-  shader: WebGLShader
-) => {
-  if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
-    const log = gl.getShaderInfoLog(shader)
-    throw new Error(`Failed to compile shader: \n${log}`)
-  }
-}
-
-const getTextureClampValue = (
-  gl: WebGLRenderingContext,
-  value: WebGLContext.TextureClamp,
-  xy: 'x' | 'y'
-): number => {
-  if (typeof value === 'string') {
-    return (
-      // prettier-ignore
-      value === 'clampToEdge' ? gl.CLAMP_TO_EDGE
-      : value === 'mirroredRepeat' ? gl.MIRRORED_REPEAT
-      : value === 'repeat' ? gl.REPEAT
-      : null as never
-    )
-  } else {
-    let dir = xy === 'x' ? value.x : value.y
-    return getTextureClampValue(gl, dir, xy)
-  }
-}
-
-const getTextureFilterValue = (
-  gl: WebGLRenderingContext,
-  value: WebGLContext.TextureFilter | null,
-  minmag: 'min' | 'mag'
-): number | null => {
-  if (typeof value === 'string') {
-    // prettier-ignore
-    return (
-      value === 'linear' ? gl.LINEAR
-      : value === 'nearest' ? gl.NEAREST
-      : null
-    )
-  } else if (value != null) {
-    let val = minmag === 'min' ? value.min : value.mag
-    return getTextureFilterValue(gl, val, minmag)
-  }
-
-  return null
-}
-
 export declare namespace WebGLContext {
-  export type ProgramSet = {
-    vs: WebGLShader
-    fs: WebGLShader
-    program: WebGLProgram
-  }
+  // export type ProgramSet = {
+  //   vs: WebGLShader
+  //   fs: WebGLShader
+  //   program: WebGLProgram
+  // }
+  export type ProgramSet = WebGLProgram
 
   export type TextureClampValue = 'repeat' | 'mirroredRepeat' | 'clampToEdge'
   export type TextureClamp =
@@ -120,36 +58,65 @@ export declare namespace WebGLContext {
     | { min: TextureFilterValue; mag: TextureFilterValue }
 }
 
+const getExtension = <
+  K extends Parameters<WebGLRenderingContext['getExtension']>[0]
+>(
+  gl: WebGLRenderingContext,
+  name: K
+) => {
+  const ext = gl.getExtension(name)
+  if (!ext) console.warn(`Extension ${name} not supported`)
+  return ext
+}
+
 export class WebGLContext {
   private gl: WebGLRenderingContext
-  private vertexBuffer: WebGLBuffer
-  private tex2DBuffer: WebGLBuffer
 
-  public constructor() {
-    // OffscreenCanvas not updated frame (bug?) so using HTMLCanvasElement
-    this.gl = createWebGLContext({
+  private vertBuf: WebGLBuffer
+  private texQuadBuf: WebGLBuffer
+  private inputTex: WebGLTexture
+
+  constructor() {
+    const gl = (this.gl = createWebGLContext({
       alpha: true,
       antialias: false,
-      premultipliedAlpha: true,
-      preserveDrawingBuffer: false,
-      depth: true,
-      // stencil: true,
-    })
-
-    this.gl.clearColor(0, 0, 0, 0)
-    this.gl.clearDepth(1)
-
-    // this.gl.enable(this.gl.BLEND)
-    // this.gl.getExtension('EXT_color_buffer_float')
-    // this.gl.getExtension('EXT_texture_filter_anisotropic')
-    // this.gl.getExtension('OES_texture_float')
-    // this.gl.getExtension('OES_texture_float_linear')
+      preserveDrawingBuffer: true,
+    }))
 
     setCanvasSize(this.gl.canvas, 1, 1)
-    this.gl.viewport(0, 0, 1, 1)
+    gl.viewport(0, 0, 1, 1)
 
-    this.vertexBuffer = this.gl.createBuffer()!
-    this.tex2DBuffer = this.gl.createBuffer()!
+    this.vertBuf = gl.createBuffer()!
+    gl.bindBuffer(gl.ARRAY_BUFFER, this.vertBuf)
+    gl.bufferData(
+      gl.ARRAY_BUFFER,
+      // prettier-ignore
+      new Float32Array([
+        -1, -1,
+        1, -1,
+        1, 1,
+        -1, 1
+      ]),
+      gl.STATIC_DRAW
+    )
+    gl.bindBuffer(gl.ARRAY_BUFFER, null)
+
+    this.texQuadBuf = this.gl.createBuffer()!
+    gl.bindBuffer(gl.ARRAY_BUFFER, this.texQuadBuf)
+    gl.bufferData(
+      gl.ARRAY_BUFFER,
+      // prettier-ignore
+      new Float32Array([
+        0, 1,
+        1, 1,
+        1, 0,
+        0, 0
+      ]),
+      gl.STATIC_DRAW
+    )
+    gl.bindBuffer(gl.ARRAY_BUFFER, null)
+
+    this.inputTex = gl.createTexture()!
   }
 
   public setSize(width: number, height: number) {
@@ -158,98 +125,91 @@ export class WebGLContext {
   }
 
   public createProgram(
-    fragmentShaderSource: string,
-    vertexShaderSource: string = DEFAULT_VERTEX_SHADER
-  ): WebGLContext.ProgramSet {
-    const program = this.gl.createProgram()!
+    fragSource: string,
+    vertSource: string = DEFAULT_VERTEX_SHADER
+  ) {
+    const { gl } = this
 
-    const vertShader = this.gl.createShader(this.gl.VERTEX_SHADER)!
-    this.gl.shaderSource(vertShader, vertexShaderSource)
-    this.gl.compileShader(vertShader)
-    handleShadeCompilationError(this.gl, vertShader)
+    const vert = gl.createShader(gl.VERTEX_SHADER)!
+    gl.shaderSource(vert, vertSource)
+    gl.compileShader(vert)
+    handleShadeCompilationError(gl, vert)
 
-    const fragShader = this.gl.createShader(this.gl.FRAGMENT_SHADER)!
-    this.gl.shaderSource(fragShader, fragmentShaderSource)
-    this.gl.compileShader(fragShader)
-    handleShadeCompilationError(this.gl, fragShader)
+    const frag = gl.createShader(gl.FRAGMENT_SHADER)!
+    gl.shaderSource(frag, fragSource)
+    gl.compileShader(frag)
+    handleShadeCompilationError(gl, frag)
 
-    this.gl.attachShader(program, vertShader)
-    this.gl.attachShader(program, fragShader)
-    this.gl.linkProgram(program)
+    const prog = gl.createProgram()!
+    gl.attachShader(prog, vert)
+    gl.attachShader(prog, frag)
+    gl.linkProgram(prog)
 
-    if (!this.gl.getProgramParameter(program, this.gl.LINK_STATUS)) {
-      const error = this.gl.getProgramInfoLog(program)
+    if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) {
+      const error = gl.getProgramInfoLog(prog)
       throw new Error(`Failed to compile shader: ${error}`)
     }
 
-    return { vs: vertShader, fs: fragShader, program }
-  }
-
-  public detachShader(program: WebGLProgram, shader: WebGLShader) {
-    this.gl.detachShader(program, shader)
-  }
-
-  public deleteProgram(program: WebGLContext.ProgramSet) {
-    this.gl.detachShader(program.program, program.vs)
-    this.gl.detachShader(program.program, program.fs)
-    this.gl.deleteProgram(program.program)
+    return prog
   }
 
   public applyProgram(
-    program: WebGLContext.ProgramSet,
+    prog: WebGLProgram,
     uniforms: { [uniformName: string]: Uniform },
     input: TexImageSource,
     output: HTMLCanvasElement | OffscreenCanvas,
     {
       sourceTextureClamp = 'clampToEdge',
       sourceTexFilter = 'linear',
+      clear = true,
     }: {
       sourceTextureClamp?: WebGLContext.TextureClamp
       sourceTexFilter?: WebGLContext.TextureFilter
+      clear?: boolean
     } = {}
   ) {
     const { gl } = this
 
-    setCanvasSize(this.gl.canvas, input.width, input.height)
-    this.gl.viewport(0, 0, input.width, input.height)
+    // Initialize
+    setCanvasSize(this.gl.canvas, output)
+    this.gl.viewport(0, 0, output.width, output.height)
+
+    gl.enable(gl.BLEND)
+    gl.blendFuncSeparate(
+      gl.ONE,
+      gl.ONE_MINUS_SRC_ALPHA,
+      gl.ONE,
+      gl.ONE_MINUS_SRC_ALPHA
+    )
+    gl.blendEquationSeparate(gl.FUNC_ADD, gl.FUNC_ADD)
+    gl.blendColor(0, 0, 0, 0)
+    gl.colorMask(true, true, true, true)
+    gl.depthMask(true)
+
+    gl.clearColor(0, 0, 0, 0)
+    gl.clearDepth(1)
+    gl.clearStencil(0)
 
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
 
-    {
-      gl.bindBuffer(gl.ARRAY_BUFFER, this.vertexBuffer)
-      gl.bufferData(
-        gl.ARRAY_BUFFER,
-        new Float32Array([-1, -1, 1, -1, 1, 1, -1, 1]),
-        gl.STATIC_DRAW
-      )
-    }
+    gl.useProgram(prog)
 
-    gl.useProgram(program.program)
+    gl.bindBuffer(gl.ARRAY_BUFFER, this.vertBuf)
 
-    {
-      const positionAttrib = gl.getAttribLocation(program.program, 'aPosition')
-      gl.enableVertexAttribArray(positionAttrib)
-      gl.vertexAttribPointer(positionAttrib, 2, gl.FLOAT, false, 0, 0)
+    const positionAttrib = gl.getAttribLocation(prog, 'aPosition')
+    gl.enableVertexAttribArray(positionAttrib)
+    gl.vertexAttribPointer(positionAttrib, 2, gl.FLOAT, false, 0, 0)
 
-      gl.bindBuffer(gl.ARRAY_BUFFER, this.tex2DBuffer)
-      gl.bufferData(
-        gl.ARRAY_BUFFER,
-        new Float32Array([0, 1, 1, 1, 1, 0, 0, 0]),
-        gl.STATIC_DRAW
-      )
-
-      const coordAttrib = gl.getAttribLocation(program.program, 'aCoord')
-      gl.enableVertexAttribArray(coordAttrib)
-      gl.vertexAttribPointer(coordAttrib, 2, gl.FLOAT, false, 0, 0)
-
-      gl.bindBuffer(gl.ARRAY_BUFFER, null)
-    }
+    gl.bindBuffer(gl.ARRAY_BUFFER, this.texQuadBuf)
+    const coordAttrib = gl.getAttribLocation(prog, 'aCoord')
+    gl.enableVertexAttribArray(coordAttrib)
+    gl.vertexAttribPointer(coordAttrib, 2, gl.FLOAT, false, 0, 0)
+    gl.bindBuffer(gl.ARRAY_BUFFER, null)
 
     // Attach source texture
     {
-      const tex = gl.createTexture()
       gl.activeTexture(gl.TEXTURE0)
-      gl.bindTexture(gl.TEXTURE_2D, tex)
+      gl.bindTexture(gl.TEXTURE_2D, this.inputTex)
       gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, input)
 
       gl.texParameteri(
@@ -273,8 +233,8 @@ export class WebGLContext {
         getTextureClampValue(gl, sourceTextureClamp, 'y')
       )
 
-      const sourceLoc = gl.getUniformLocation(program.program, 'source')
-      gl.uniform1i(sourceLoc, gl.TEXTURE0)
+      const sourceLoc = gl.getUniformLocation(prog, 'source')
+      gl.uniform1i(sourceLoc, 0)
     }
 
     const texUniforms = Object.entries(uniforms)
@@ -289,9 +249,9 @@ export class WebGLContext {
         uni.value instanceof TextureResource
           ? uni.value.tex
           : gl.createTexture()
-      const textureIdx = gl.TEXTURE0 + 1 + idx
+      const textureIdx = 1 + idx
 
-      gl.activeTexture(textureIdx)
+      gl.activeTexture(gl.TEXTURE0 + textureIdx)
       gl.bindTexture(gl.TEXTURE_2D, tex)
 
       if (!(uni.value instanceof TextureResource)) {
@@ -318,7 +278,6 @@ export class WebGLContext {
         )
       }
 
-      console.log(getTextureClampValue(gl, uni.clamp, 'x'))
       gl.texParameteri(
         gl.TEXTURE_2D,
         gl.TEXTURE_WRAP_S,
@@ -330,29 +289,26 @@ export class WebGLContext {
         getTextureClampValue(gl, uni.clamp, 'y')
       )
 
-      const loc = gl.getUniformLocation(program.program, uniName)
+      const loc = gl.getUniformLocation(prog, uniName)
       gl.uniform1i(loc, textureIdx)
 
       return tex
     })
 
     // Attach uniforms
-    this.attachUniforms(gl, program.program, uniforms)
+    this.attachUniforms(gl, prog, uniforms)
 
     gl.drawArrays(gl.TRIANGLE_FAN, 0, 4)
     gl.flush()
 
-    // this.deleteProgram(program)
-    textures.forEach((tex) => tex && gl.deleteTexture(tex))
+    // textures.forEach((tex) => tex && gl.deleteTexture(tex))
 
     const destCtx = output.getContext('2d')!
-    destCtx.clearRect(0, 0, output.width, output.height)
-    destCtx.drawImage(this.gl.canvas, 0, 0, input.width, input.height)
+    clear && destCtx.clearRect(0, 0, output.width, output.height)
+    // destCtx.imageSmoothingQuality = 'high'
+    // console.log(destCtx.globalCompositeOperation, destCtx)
+    destCtx.drawImage(this.gl.canvas, 0, 0)
   }
-
-  // public createTexture() {
-  //   return new TextureResource(this.gl.createTexture())
-  // }
 
   // Uniforms
   public uni1i(...value: [number]): Uniform {
@@ -676,4 +632,68 @@ export class WebGLContext {
       }
     }
   }
+}
+
+const DEFAULT_VERTEX_SHADER = `
+precision highp float;
+
+attribute vec2 aPosition;
+attribute vec2 aCoord;
+varying vec2 vUv;
+varying vec2 vTexCoord;
+
+void main(void) {
+    vUv = aCoord;
+    vTexCoord = aCoord;
+    gl_Position = vec4(aPosition, 0.0, 1.0);
+}
+`
+
+const handleShadeCompilationError = (
+  gl: WebGLRenderingContext,
+  shader: WebGLShader
+) => {
+  if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+    const log = gl.getShaderInfoLog(shader)
+    throw new Error(`Failed to compile shader: \n${log}`)
+  }
+}
+
+const getTextureClampValue = (
+  gl: WebGLRenderingContext,
+  value: WebGLContext.TextureClamp,
+  xy: 'x' | 'y'
+): number => {
+  if (typeof value === 'string') {
+    return (
+      // prettier-ignore
+      value === 'clampToEdge' ? gl.CLAMP_TO_EDGE
+      : value === 'mirroredRepeat' ? gl.MIRRORED_REPEAT
+      : value === 'repeat' ? gl.REPEAT
+      : null as never
+    )
+  } else {
+    let dir = xy === 'x' ? value.x : value.y
+    return getTextureClampValue(gl, dir, xy)
+  }
+}
+
+const getTextureFilterValue = (
+  gl: WebGLRenderingContext,
+  value: WebGLContext.TextureFilter | null,
+  minmag: 'min' | 'mag'
+): number | null => {
+  if (typeof value === 'string') {
+    // prettier-ignore
+    return (
+      value === 'linear' ? gl.LINEAR
+      : value === 'nearest' ? gl.NEAREST
+      : null
+    )
+  } else if (value != null) {
+    let val = minmag === 'min' ? value.min : value.mag
+    return getTextureFilterValue(gl, val, minmag)
+  }
+
+  return null
 }

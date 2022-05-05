@@ -129,7 +129,10 @@ export class PaplicoEngine {
 
   protected constructor({ canvas }: { canvas: HTMLCanvasElement }) {
     this.canvas = canvas
-    this.canvasCtx = canvas.getContext('2d')!
+    this.canvasCtx = canvas.getContext('2d', {
+      alpha: true,
+      // colorSpace: 'display-p3',
+    })!
 
     this.mitt = mitt()
     this.on = this.mitt.on.bind(this.mitt)
@@ -191,16 +194,22 @@ export class PaplicoEngine {
 
   public lazyRender = debounce(this.render.bind(this), 300)
 
-  public async render(document: Document, strategy: IRenderStrategy) {
+  public async render(
+    document: Document,
+    strategy: IRenderStrategy,
+    {
+      target = this.canvasCtx,
+    }: { target?: CanvasRenderingContext2D | null } = {}
+  ) {
     const lock = await this.atomicRender.enjure({ owner: this })
     const renderer = await this.atomicThreeRenderer.enjure({ owner: this })
     const preDestCtx = await this.atomicPreDestCtx.enjure({ owner: this })
 
     try {
-      setCanvasSize(this.canvasCtx.canvas, document.width, document.height)
+      target && setCanvasSize(target.canvas, document.width, document.height)
       setCanvasSize(preDestCtx.canvas, document.width, document.height)
 
-      this.canvasCtx.clearRect(0, 0, document.width, document.height)
+      target?.clearRect(0, 0, document.width, document.height)
       preDestCtx.clearRect(0, 0, document.width, document.height)
 
       renderer.setSize(document.width, document.height, false)
@@ -217,9 +226,11 @@ export class PaplicoEngine {
       this.atomicThreeRenderer.release(renderer)
 
       await strategy.render(this, document, preDestCtx)
-      this.canvasCtx.drawImage(preDestCtx.canvas, 0, 0)
+      target?.drawImage(preDestCtx.canvas, 0, 0)
 
-      this.mitt.emit('rerender')
+      if (target === this.canvasCtx) {
+        this.mitt.emit('rerender')
+      }
     } finally {
       this.atomicThreeRenderer.isLocked &&
         this.atomicThreeRenderer.release(renderer)
@@ -352,7 +363,7 @@ export class PaplicoEngine {
       setCanvasSize(bufferCtx.canvas, width, height)
       bufferCtx.clearRect(0, 0, width, height)
 
-      for (const object of layer.objects) {
+      for (const object of [...layer.objects].reverse()) {
         bufferCtx.save()
         bufferCtx.globalCompositeOperation = 'source-over'
         bufferCtx.transform(...object.matrix)

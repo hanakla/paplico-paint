@@ -22,13 +22,21 @@ type Props = {
   fill?: boolean
   backdrop?: boolean
   onClose: () => void
-}
+} & DetailedHTMLProps<HTMLAttributes<HTMLDivElement>, HTMLDivElement>
 
 const ActionSheetContext = createContext<'fill' | 'split'>(null)
 
 export const ActionSheet = forwardRef<HTMLDivElement, Props>(
   (
-    { opened, fill = true, backdrop = true, children, className, onClose },
+    {
+      opened,
+      fill = true,
+      backdrop = true,
+      children,
+      className,
+      onClose,
+      ...props
+    },
     ref
   ) => {
     const theme = useTheme()
@@ -60,7 +68,7 @@ export const ActionSheet = forwardRef<HTMLDivElement, Props>(
 
     return (
       <ActionSheetContext.Provider value={fill ? 'fill' : 'split'}>
-        <div>
+        <div {...props}>
           {backdrop && (
             // @ts-expect-error
             <animated.div
@@ -98,16 +106,17 @@ export const ActionSheet = forwardRef<HTMLDivElement, Props>(
               overflow: auto;
 
               ${styleWhen(fill)`
-              min-height: 50vh;
-              box-shadow: 0 0 8px ${rgba('#000', 0.2)};
-              backdrop-filter: blur(8px);
-              border-radius: 4px;
-            `}
+                min-height: 50vh;
+                box-shadow: 0 0 8px ${rgba('#000', 0.2)};
+                backdrop-filter: blur(8px);
+                border-radius: 4px;
+              `}
             `}
             style={{
               ...styles,
               pointerEvents: opened ? 'all' : 'none',
-              backgroundColor: fill ? theme.color.surface9 : 'transparent',
+              backgroundColor: fill ? theme.exactColors.white50 : 'transparent',
+              // color: fill ? theme.exactColors.black50 : 'transparent',
             }}
             className={className}
           >
@@ -160,8 +169,8 @@ export const ActionSheetItemGroup = ({
   return (
     <div
       css={css`
-        background-color: ${({ theme }) => rgba(theme.surface.floatWhite, 0.6)};
-        backdrop-filter: blur(4px);
+        background-color: ${({ theme }) => theme.exactColors.white60};
+        backdrop-filter: blur(8px);
         border-radius: 4px;
         overflow: hidden;
 
@@ -192,8 +201,8 @@ export const ActionSheetItem = ({
       css={`
         padding: 20px;
         text-align: center;
-        font-size: 16px;
-        font-weight: 400;
+        font-size: 18px;
+        /* font-weight: 600; */
 
         ${tm((o) => [o.font.primary])}
 

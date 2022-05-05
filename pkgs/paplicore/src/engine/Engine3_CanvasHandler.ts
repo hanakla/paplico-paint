@@ -148,6 +148,7 @@ export class CanvasHandler extends Emitter<Events> {
 
     this.on('strokeComplete', async (stroke) => {
       const { activeLayer, activeLayerPath } = session
+      console.log({ activeLayer, stroke })
 
       if (!activeLayerPath) return
       if (

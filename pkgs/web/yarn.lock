@@ -1154,6 +1154,11 @@
   dependencies:
     immer "^7.0.14"
 
+"@fleur/mordred@^0.1.0-pre.3":
+  version "0.1.0-pre.3"
+  resolved "https://registry.yarnpkg.com/@fleur/mordred/-/mordred-0.1.0-pre.3.tgz#12ca0fa40b985b6ad9263fa73f3eeb765d214f7c"
+  integrity sha512-l+Ck8VGAMfYnJ9wSZC00xyvTC/Gx5W10bNJifnHhsGtQClGMzhoJyEgk7W+WdFm9w0C84Lw5CnJS6aPpVCQEbg==
+
 "@fleur/next@^1.0.0":
   version "1.0.0"
   resolved "https://registry.yarnpkg.com/@fleur/next/-/next-1.0.0.tgz#695ab9e3446116878ea43c33d8b0d564eafb92bc"

@@ -37,7 +37,7 @@ export class LayerPatchLayerAttr implements ICommand {
 
   async undo(document: Document): Promise<void> {
     PapDOMDigger.findLayer(document, this.pathToTargetLayer, {
-      kind: 'vector',
+      strict: true,
     })!.update((l) => assign(l, this.revertPatch))
   }
 

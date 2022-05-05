@@ -11,7 +11,6 @@ import {
   memo,
   MouseEvent,
   RefObject,
-  TouchEvent,
   useEffect,
   useRef,
   useState,
@@ -32,7 +31,6 @@ import { Moon, Sun } from '@styled-icons/remix-fill'
 import { Menu } from '@styled-icons/remix-line'
 import { useTranslation } from 'next-i18next'
 import { fit } from 'object-fit-math'
-
 import {
   CanvasHandler,
   PaplicoEngine,
@@ -41,7 +39,7 @@ import {
   PapHelper,
   PapCommands,
   PapCanvasFactory,
-  PapSession,
+  PapExporter,
 } from '@paplico/core'
 
 import { Sidebar } from '🙌/components/Sidebar'
@@ -209,6 +207,41 @@ export const PaintPage = memo(function PaintPage({}) {
       message: t('exports.exported'),
     })
     setTimeout(() => URL.revokeObjectURL(url), 10000)
+  })
+
+  const handleClickExportAsPsd = useFunk(async (e: MouseEvent) => {
+    e.stopPropagation()
+
+    if (!currentDocument) return
+
+    execute(NotifyOps.create, {
+      area: 'loadingLock',
+      timeout: 0,
+      messageKey: t('appMenu.exporting'),
+      lock: true,
+    })
+
+    try {
+      const exporter = new PapExporter.PSD()
+      const blob = await exporter.export(engine.current!, currentDocument)
+      const url = URL.createObjectURL(blob)
+
+      letDownload(
+        url,
+        !currentDocument.title
+          ? `${t('untitled')}.psd`
+          : `${currentDocument.title}.psd`
+      )
+
+      setTimeout(() => URL.revokeObjectURL(url), 10000)
+    } finally {
+      execute(NotifyOps.create, {
+        area: 'loadingLock',
+        timeout: 0,
+        messageKey: t('appMenu.exported'),
+        lock: false,
+      })
+    }
   })
 
   const handleClickDarkTheme = useFunk(() => {
@@ -905,8 +938,8 @@ export const PaintPage = memo(function PaintPage({}) {
                           <div onClick={handleClickExportAs} data-type="png">
                             PNG(透過)で書き出し
                           </div>
-                          <div onClick={handleClickExportAs} data-type="png">
-                            レイヤー別PNGで書き出し
+                          <div onClick={handleClickExportAsPsd}>
+                            PSDで書き出し
                           </div>
                           <div onClick={handleClickExportAs} data-type="jpeg">
                             JPEGで保存
@@ -963,16 +996,16 @@ const PaintCanvas = memo(function PaintCanvas({
         if (!(sound instanceof Howl)) return
         // sound.fade(0, 0.8, 100)
         // sound.once('fade', () => sound.fade(0.8, 0, 100))
-        sound.fade(0.8, 0.8, 0)
-        !sound.playing() && sound.play()
+        // sound.fade(0.8, 0.8, 0)
+        // !sound.playing() && sound.play()
       }, 400)
     )
 
     handler.on('strokeComplete', () => {
       if (!(sound instanceof Howl)) return
 
-      sound.fade(0.8, 0, 40)
-      sound.stop()
+      // sound.fade(0.8, 0, 40)
+      // sound.stop()
     })
 
     const size = fit(measure, currentDocument, 'contain')
@@ -1076,6 +1109,7 @@ const CanvasPreviewWindow = memo(function CanvasPreviewWindow({
         <input type="checkbox" checked={mirror} onChange={toggleMirror} />
         左右反転
       </label>
+
       <video
         css={`
           width: 100%;
@@ -1111,6 +1145,7 @@ const HistoryFlash = memo(function HistoryFlash() {
             left: 50%;
             z-index: 2;
             padding: 8px;
+            width: max-content;
             border-radius: 8px;
             color: ${({ theme }: ThemeProp) => theme.exactColors.white60};
             background-color: ${({ theme }: ThemeProp) =>

@@ -5,12 +5,10 @@ import { PapCommands } from '@paplico/core'
 import { EditorOps, EditorSelector } from '🙌/domains/EditorStable'
 import { DOMUtils } from '🙌/utils/dom'
 import { useFleur } from '🙌/utils/hooks'
-import { useLayerWatch } from '../../hooks'
+import { useLayerWatch, useTransactionCommand } from '../../hooks'
 
 export const RasterLayerControl = () => {
   const { execute } = useFleur()
-
-  const rootRef = useRef<SVGSVGElement | null>(null)
 
   const {
     activeLayer,
@@ -28,20 +26,24 @@ export const RasterLayerControl = () => {
 
   const bbox = currentDocument?.getLayerSize(activeLayer!) ?? null
 
-  const bindDrag = useDrag(({ initial, xy }) => {
+  const rootRef = useRef<SVGSVGElement | null>(null)
+
+  const trnsCommand = useTransactionCommand()
+
+  const bindDrag = useDrag(({ initial, xy, last }) => {
     if (currentTool !== 'cursor' || !activeLayerPath) return
 
     const initP = DOMUtils.domPointToSvgPoint(rootRef.current!, {
       x: initial[0],
       y: initial[1],
     })
+
     const point = DOMUtils.domPointToSvgPoint(rootRef.current!, {
       x: xy[0],
       y: xy[1],
     })
 
-    execute(
-      EditorOps.runCommand,
+    trnsCommand.autoStartAndDoAdd(
       new PapCommands.Layer.PatchLayerAttr({
         pathToTargetLayer: activeLayerPath,
         patch: {
@@ -50,6 +52,10 @@ export const RasterLayerControl = () => {
         },
       })
     )
+
+    if (last) {
+      trnsCommand.commit()
+    }
   })
 
   useLayerWatch(activeLayer)

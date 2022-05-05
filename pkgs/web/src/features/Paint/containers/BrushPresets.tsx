@@ -133,7 +133,7 @@ const BrushItem = ({
       css={css`
         display: flex;
         background-color: ${rgba('#fff', 0.8)};
-        color: ${({ theme }) => theme.colors.black60};
+        color: ${({ theme }) => theme.exactColors.black60};
         border-radius: 2px;
 
         ${centering({ x: false, y: true })}

@@ -1,6 +1,6 @@
 import { CompositeMode, ILayer } from './ILayer'
 import { v4 } from 'uuid'
-import { assign, fakeRejectedPromise } from '../utils'
+import { assign, fakeRejectedPromise, pick } from '../utils'
 import { Filter } from './Filter'
 import { Emitter } from '../Engine3_Emitter'
 
@@ -103,9 +103,18 @@ export class RasterLayer extends Emitter<Events> implements ILayer {
   }
 
   public async updateBitmap(
-    process: (bitmap: Uint8ClampedArray, layer: RasterLayer) => void
+    process: (
+      bitmap: Uint8ClampedArray,
+      layer: RasterLayer,
+      replaceBitmap: (
+        bitmap: Uint8ClampedArray,
+        newSize: { width: number; height: number }
+      ) => void
+    ) => void
   ) {
-    process(this.bitmap, this)
+    process(this.bitmap, this, (bitmap, newSize) => {
+      Object.assign(this, { bitmap, ...pick(newSize, ['width', 'height']) })
+    })
 
     this._imageBitmapPromise = createImageBitmap(
       new ImageData(this.bitmap, this.width, this.height)

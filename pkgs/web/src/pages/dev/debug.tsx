@@ -26,7 +26,7 @@ export default function Debug() {
 
   useAsyncEffect(async () => {
     setTimeout(async () => {
-      const engine = ((window as any)._eninge = await PaplicoEngine.create({
+      const engine = ((window as any)._engine = await PaplicoEngine.create({
         canvas: ref.current!,
       }))
       const session =
@@ -54,6 +54,7 @@ export default function Debug() {
         const strategy = new RenderStrategies.FullRender()
         const vector = PapDOM.VectorLayer.create({})
         const bgLayer = PapDOM.VectorLayer.create({})
+        const filter = PapDOM.FilterLayer.create({})
 
         bgLayer.objects.push(
           PapDOM.VectorObject.create({
@@ -128,7 +129,7 @@ export default function Debug() {
           //     )!.initialConfig,
           //     size: 100,
           //   },
-          // }),
+          // })
           // PapDOM.Filter.create({
           //   filterId: '@paplico/filters/halftone',
           //   visible: true,
@@ -166,12 +167,24 @@ export default function Debug() {
             settings: engine.toolRegistry.getFilterInstance(
               '@paplico/filters/kawase-blur'
             )!.initialConfig,
-          })
+          }),
+          ...[]
         )
+
+        filter.filters = [
+          // PapDOM.Filter.create({
+          //   filterId: '@paplico/filters/kawase-blur',
+          //   visible: true,
+          //   settings: engine.toolRegistry.getFilterInstance(
+          //     '@paplico/filters/kawase-blur'
+          //   )!.initialConfig,
+          // }),
+        ]
 
         // document.addLayer(bgLayer)
         document.addLayer(raster)
         document.addLayer(vector, { aboveLayerId: raster.uid })
+        // document.addLayer(filter, { aboveLayerId: vector.uid })
         session.setDocument(document)
         session.setActiveLayer([vector.uid])
 
@@ -287,7 +300,8 @@ export default function Debug() {
         css={`
           margin: 16px;
           box-shadow: 0 0 4px ${rgba('#000', 0.4)};
-          ${checkerBoard({ size: 8 })}
+          /* background-color: red; */
+          /* ${checkerBoard({ size: 8 })} */
         `}
       />
     </DevLayout>

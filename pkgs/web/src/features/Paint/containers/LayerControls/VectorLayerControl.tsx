@@ -788,36 +788,48 @@ const PathSegments = ({
 
   const bindDragStartInAnchor = useDrag(({ delta, event }) => {
     event.stopPropagation()
+    if (!activeLayerPath) return
 
     const { dataset } = event.currentTarget as SVGCircleElement
     const pointIndex = +dataset.pointIndex!
 
-    executeOperation(EditorOps.updateVectorLayer, activeLayerPath, (layer) => {
-      object.update((o) => {
-        const point = object.path.points[pointIndex]
-        if (!point?.in) return
+    execute(
+      EditorOps.runCommand,
+      new PapCommands.VectorLayer.PatchPathPoints({
+        pathToTargetLayer: activeLayerPath,
+        objectUid: object.uid,
+        patcher: (path) => {
+          const point = object.path.points[pointIndex]
+          if (!point?.in) return
 
-        point.in.x += delta[0] * (1 / scale)
-        point.in.y += delta[1] * (1 / scale)
+          point.in.x += delta[0] * (1 / scale)
+          point.in.y += delta[1] * (1 / scale)
+        },
       })
-    })
+    )
   })
 
   const bindDragOutAnchor = useDrag(({ delta, event }) => {
     event.stopPropagation()
+    if (!activeLayerPath) return
 
     const { dataset } = event.currentTarget as SVGCircleElement
     const pointIndex = +dataset.pointIndex!
 
-    executeOperation(EditorOps.updateVectorLayer, activeLayerPath, (layer) => {
-      object.update((o) => {
-        const point = o.path.points[pointIndex]
-        if (!point?.out) return
+    execute(
+      EditorOps.runCommand,
+      new PapCommands.VectorLayer.PatchPathPoints({
+        pathToTargetLayer: activeLayerPath,
+        objectUid: object.uid,
+        patcher: (path) => {
+          const point = o.path.points[pointIndex]
+          if (!point?.out) return
 
-        point.out.x += delta[0] * (1 / scale)
-        point.out.y += delta[1] * (1 / scale)
+          point.out.x += delta[0] * (1 / scale)
+          point.out.y += delta[1] * (1 / scale)
+        },
       })
-    })
+    )
   })
 
   const bindDragPoint = useDrag(({ delta, event, first, last }) => {
@@ -853,9 +865,9 @@ const PathSegments = ({
             point.out.y += deltaY
           }
 
-          if (last) {
-            object.path.freeze()
-          }
+          // if (last) {
+          //   object.path.freeze()
+          // }
         },
       })
     )

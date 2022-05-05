@@ -8,6 +8,8 @@ import { ErrorBoundary, FallbackProps } from 'react-error-boundary'
 import { appWithFleur } from '../lib/fleur'
 import { LysContext } from '@fleur/lys'
 import { useStore } from '@fleur/react'
+import { MordredRoot, Mordred } from '@fleur/mordred'
+import { rgba } from 'polished'
 import Head from 'next/head'
 
 import { LoadingLock } from '🙌/containers/LoadingLock'
@@ -28,6 +30,8 @@ function MyApp({ Component, pageProps }: AppProps) {
     () => (currentTheme === 'dark' ? darkWithCharcoal : lightWithCharcoal),
     [currentTheme]
   )
+
+  useMemo(() => !Mordred.instance && Mordred.init(), [])
 
   useEffect(() => {
     fastclick?.attach(document.body)
@@ -52,6 +56,7 @@ function MyApp({ Component, pageProps }: AppProps) {
 
         <title>Paplico Paint</title>
       </Head>
+
       <ThemeProvider theme={theme}>
         <LysContext>
           <GlobalStyle />
@@ -61,6 +66,26 @@ function MyApp({ Component, pageProps }: AppProps) {
             <Component {...pageProps} />
           </ErrorBoundary>
         </LysContext>
+
+        <MordredRoot>
+          {(children) => (
+            <div
+              css={`
+                position: fixed;
+                top: 0;
+                left: 0;
+                display: flex;
+                width: 100%;
+                height: 100%;
+                justify-content: center;
+                z-index: 1;
+                background-color: ${rgba('#000', 0.5)};
+              `}
+            >
+              {children.children}
+            </div>
+          )}
+        </MordredRoot>
       </ThemeProvider>
     </>
   )

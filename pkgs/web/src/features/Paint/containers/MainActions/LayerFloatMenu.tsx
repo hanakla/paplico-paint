@@ -55,10 +55,15 @@ import {
   useDocumentWatch,
   useLayerWatch,
 } from '../../hooks'
+import { useLongPress } from 'use-long-press'
+import { LayerConvertToGroup } from '@paplico/core/dist/Session/Commands/LayerConvertToGroup'
+import { restrictToFirstScrollableAncestor } from '@dnd-kit/modifiers'
+import { createSlice, useLysSlice, useLysSliceRoot } from '@fleur/lys'
 
 export const LayerFloatMenu = memo(
   forwardRef<HTMLDivElement, {}>(function LayerFloatMenu(_, ref) {
     const { t } = useTranslation('app')
+    useLysSliceRoot(layerFloatSlice)
 
     const { execute } = useFleur()
     const { currentDocument, layers, activeLayer, activeLayerPath } = useStore(
@@ -157,11 +162,14 @@ export const LayerFloatMenu = memo(
             gap: 4px;
             max-height: 50vh;
             overflow: auto;
+            -webkit-overflow-scrolling: touch;
           `}
+          onTouchMove={DOMUtils.preventAndStopPropagationHandler}
         >
           <DndContext
             collisionDetection={closestCenter}
             onDragEnd={handleLayerDragEnd}
+            modifiers={[restrictToFirstScrollableAncestor]}
           >
             <SortableContext
               items={flatLayers.map((entry) => entry.id)}
@@ -272,6 +280,15 @@ const SortableLayerItem = memo(
     const { t } = useTranslation('app')
     const theme = useTheme()
     const { execute } = useFleur()
+    const [showMenu, toggleMenu] = useToggle(false)
+    const [{ sortingTargetIndex }, sliceActions] = useLysSlice(layerFloatSlice)
+
+    const bindLongPress = useLongPress((e) => {
+      if (DOMUtils.closestOrSelf(e.target, '[data-ignore-open-layer-menu]'))
+        return
+
+      toggleMenu(true)
+    })
 
     const { attributes, listeners, setNodeRef, transform, transition } =
       useSortable({ id: layer.uid })
@@ -303,7 +320,7 @@ const SortableLayerItem = memo(
       execute(
         EditorOps.runCommand,
         new PapCommands.Layer.PatchLayerAttr({
-          pathToTargetLayer: activeLayerPath,
+          pathToTargetLayer: [...parentPath, layer.uid],
           patch: { visible: !layer.visible },
         })
       )
@@ -329,8 +346,30 @@ const SortableLayerItem = memo(
       }
     )
 
+    const handleClickTrimByDocument = useFunk(() => {
+      execute(
+        EditorOps.runCommand,
+        new PapCommands.RasterLayer.TrimToDocumentArea({
+          pathToTargetLayer: [...parentPath, layer.uid],
+        })
+      )
+
+      toggleMenu(false)
+    })
+
     const handleClickCollapseChildren = useFunk(() => {
       onToggleCollapse(entry.id)
+    })
+
+    const handleCloseLayerMenu = useFunk(() => {
+      toggleMenu(false)
+    })
+
+    const handleClickSortHandler = useFunk((e: MouseEvent<SVGElement>) => {
+      e.stopPropagation()
+
+      if (sortingTargetIndex) {
+      }
     })
 
     const handleCloseFilterSheet = useFunk(() => {
@@ -357,6 +396,7 @@ const SortableLayerItem = memo(
           transition,
         }}
         onClick={handleClick}
+        {...bindLongPress()}
       >
         <div
           css={`
@@ -457,11 +497,14 @@ const SortableLayerItem = memo(
             display: flex;
             justify-content: center;
             align-items: center;
-            padding: 0 2px;
+            padding: 0 4px;
           `}
           data-dont-close-layer-float
-          {...attributes}
-          {...listeners}
+          data-ignore-open-layer-menu
+          onTouchStart={DOMUtils.preventDefaultHandler}
+          onClick={handleClickSortHandler}
+          // {...attributes}
+          // {...listeners}
         >
           <Menu
             width={16}
@@ -470,6 +513,29 @@ const SortableLayerItem = memo(
             `}
           />
         </div>
+
+        <Portal>
+          <ActionSheet
+            opened={showMenu}
+            fill={false}
+            onClose={handleCloseLayerMenu}
+            data-dont-close-layer-float
+          >
+            {layer.layerType === 'raster' && (
+              <ActionSheetItemGroup>
+                <ActionSheetItem onClick={handleClickTrimByDocument}>
+                  レイヤーを画像サイズでトリム
+                </ActionSheetItem>
+              </ActionSheetItemGroup>
+            )}
+
+            <ActionSheetItemGroup>
+              <ActionSheetItem onClick={handleCloseLayerMenu}>
+                {t('cancel')}
+              </ActionSheetItem>
+            </ActionSheetItemGroup>
+          </ActionSheet>
+        </Portal>
 
         <Portal>
           <FiltersSheet
@@ -578,6 +644,7 @@ const FiltersSheet = memo(function FiltersSheet({
       opened={opened}
       onClose={handleCloseFilterSheet}
       fill
+      data-ignore-open-layer-menu
     >
       <div data-dont-close-layer-float>
         <div
@@ -850,6 +917,7 @@ const SortableFilterItem = ({
         `}
         {...listeners}
         {...attributes}
+        // onClick={handleClickSortHandler}
       >
         <Menu width={16} />
       </div>
@@ -978,3 +1046,12 @@ const ActiveLayerPane = memo(function ActiveLayerPane() {
     </div>
   )
 })
+
+const layerFloatSlice = createSlice(
+  {
+    actions: {},
+  },
+  () => ({
+    sortingTargetIndex: null as number | null,
+  })
+)

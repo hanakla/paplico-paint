@@ -267,9 +267,9 @@ export const MainActions = memo(function MainActions() {
     toggleBrushColorPicker(false)
   })
 
-  useDelayedLeave(vectorColorRootRef, 1000, () => {
-    toggleVectorFillColorOpened(false)
-  })
+  // useDelayedLeave(vectorColorRootRef, 1000, () => {
+  //   toggleVectorFillColorOpened(false)
+  // })
 
   const bindBrushSizeDrag = useDrag(({ delta, first, last, event }) => {
     if (first) {
@@ -825,7 +825,7 @@ const AppMenu = memo(function AppMenu({
       execute(NotifyOps.create, {
         area: 'loadingLock',
         lock: false,
-        message: t('appMenu.exported'),
+        messageKey: 'appMenu.exported',
         timeout: 0,
       })
     }, /* フィードバックが早すぎると何が起きたかわからないので */ 1000)
@@ -839,7 +839,7 @@ const AppMenu = memo(function AppMenu({
     execute(NotifyOps.create, {
       area: 'loadingLock',
       lock: true,
-      message: 'リロード中',
+      messageKey: 'リロード中',
       timeout: 0,
     })
 

@@ -8,6 +8,8 @@ import { cssurl, loadImageFromBlob, selectFile, useFunk } from '@hanakla/arma'
 import { extname } from 'path'
 import { useDropArea, useMount } from 'react-use'
 import { rgba } from 'polished'
+import { openModal } from '@fleur/mordred'
+
 import { EditorOps, EditorSelector, EditorStore } from '🙌/domains/EditorStable'
 import { Sidebar } from '🙌/components/Sidebar'
 import { media } from '🙌/utils/responsive'
@@ -27,6 +29,9 @@ import {
   ContextMenuItem,
 } from '🙌/components/ContextMenu'
 import { NotifyOps } from '../../domains/Notify'
+import { useFunkyGlobalMouseTrap } from '../../hooks/useMouseTrap'
+import { NewItemModal } from '../../modals/NewItemModal'
+import { createDocumentWithSize } from './utils'
 dayjs.extend(relativeTime)
 
 export const HomeContent = () => {
@@ -74,34 +79,7 @@ export const HomeContent = () => {
     async ({ currentTarget: { dataset } }: MouseEvent<HTMLDivElement>) => {
       const width = parseInt(dataset.width!)
       const height = parseInt(dataset.height!)
-
-      const doc = PapDOM.Document.create({ width, height })
-      const layer = PapDOM.RasterLayer.create({ width, height })
-      const bgLayer = PapDOM.VectorLayer.create({})
-      bgLayer.objects.push(
-        PapDOM.VectorObject.create({
-          x: 0,
-          y: 0,
-          path: PapDOM.Path.create({
-            points: [
-              { x: 0, y: 0, in: null, out: null },
-              { x: width, y: 0, in: null, out: null },
-              { x: width, y: height, in: null, out: null },
-              { x: 0, y: height, in: null, out: null },
-            ],
-            closed: true,
-          }),
-          brush: null,
-          fill: {
-            type: 'fill',
-            color: { r: 1, g: 1, b: 1 },
-            opacity: 1,
-          },
-        })
-      )
-      doc.addLayer(bgLayer)
-      doc.addLayer(layer, { aboveLayerId: bgLayer.uid })
-      doc.activeLayerPath = [layer.uid]
+      const doc = createDocumentWithSize({ width, height })
 
       loadingNotification(() => {
         execute(EditorOps.createSession, doc)
@@ -109,6 +87,21 @@ export const HomeContent = () => {
       })
     }
   )
+
+  const handleClickSpecifiedSize = useFunk(async () => {
+    const size = await openModal(NewItemModal, {
+      defaultSize: { width: 1000, height: 1000 },
+    })
+
+    if (!size) return
+
+    const doc = createDocumentWithSize(size)
+
+    loadingNotification(() => {
+      execute(EditorOps.createSession, doc)
+      execute(EditorOps.setEditorPage, 'app')
+    })
+  })
 
   const handleFileSelected = useFunk(async (file: File) => {
     const ext = extname(file.name)
@@ -284,6 +277,38 @@ export const HomeContent = () => {
                   </div>
                 </div>
               ))}
+
+              <div
+                css={css`
+                  padding: 16px;
+                  text-align: center;
+                  border-radius: 8px;
+                  background-color: ${({ theme }) => theme.colors.whiteFade10};
+                  cursor: pointer;
+
+                  &:hover {
+                    background-color: ${({ theme }) =>
+                      theme.colors.whiteFade20};
+                  }
+                `}
+                onClick={handleClickSpecifiedSize}
+                tabIndex={-1}
+              >
+                <File
+                  css={`
+                    width: 64px;
+                  `}
+                />
+                <div
+                  css={`
+                    margin: 8px 0 8px;
+                    font-size: 16px;
+                    font-weight: bold;
+                  `}
+                >
+                  {t('customSize')}
+                </div>
+              </div>
             </div>
           </section>
 

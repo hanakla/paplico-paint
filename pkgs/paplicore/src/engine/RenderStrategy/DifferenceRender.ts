@@ -285,7 +285,7 @@ export class DifferenceRender implements IRenderStrategy {
       }
 
       await engine.compositeLayers(bufferCtx, destCtx, {
-        mode: layer.compositeMode,
+        mode: 'normal', // layer.compositeMode,
         opacity: layer.opacity,
       })
     }

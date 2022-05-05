@@ -15,6 +15,7 @@
     "@dnd-kit/utilities": "^3.1.0",
     "@fleur/fleur": "^3.1.0",
     "@fleur/lys": "^3.0.0",
+    "@fleur/mordred": "^0.1.0-pre.3",
     "@fleur/next": "^1.0.0",
     "@fleur/react": "^5.0.3",
     "@floating-ui/react-dom": "^0.6.1",

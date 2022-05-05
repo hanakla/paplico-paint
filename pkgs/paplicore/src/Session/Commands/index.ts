@@ -10,6 +10,7 @@ import { LayerMoveLayer } from './LayerMoveLayer'
 import { LayerPatchLayerAttr } from './LayerPatchLayerAttr'
 import { LayerFilterReorder } from './LayerFilterReorder'
 import { RasterUpdateBitmap } from './RasterUpdateBitmap'
+import { RasterTrimToDocumentArea } from './RasterTrimToDocumentArea'
 import { VectorAddObject } from './VectorAddObject'
 import { VectorObjectPatchAttr } from './VectorObjectPatchAttr'
 import { VectorObjectTransform } from './VectorObjectTransform'
@@ -35,6 +36,7 @@ export const Commands = {
   },
   RasterLayer: {
     UpdateBitmap: RasterUpdateBitmap,
+    TrimToDocumentArea: RasterTrimToDocumentArea,
   },
   VectorLayer: {
     AddObject: VectorAddObject,

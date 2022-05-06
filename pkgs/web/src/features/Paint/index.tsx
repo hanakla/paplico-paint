@@ -256,6 +256,16 @@ export const PaintPage = memo(function PaintPage({}) {
 
   useFunkyGlobalMouseTrap(['ctrl+s', 'command+s'], (e) => {
     e.preventDefault()
+
+    executeOperation(EditorOps.autoSave, currentDocument!.uid)
+    executeOperation(NotifyOps.create, {
+      area: 'save',
+      message: t('exports.saved'),
+      timeout: 3000,
+    })
+  })
+  useFunkyGlobalMouseTrap(['ctrl+shift+s', 'command+shift+s'], (e) => {
+    e.preventDefault()
     handleClickExport()
   })
 

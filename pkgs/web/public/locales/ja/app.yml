@@ -69,7 +69,8 @@ filters:
   '@paplico/filters/glitch-jpeg': JPEGアンティーク
   '@paplico/filters/low-reso': モザイク
   '@paplico/filters/outline': 縁取り
-  '@paplico/filters/kawase-blur': 川瀬ブラー
+  '@paplico/filters/zoom-blur': ズームブラー
+  '@paplico/filters/kawase-blur': カワセブラー
 
 filterOptions:
   '@paplico/filters/bloom':
@@ -96,17 +97,26 @@ filterOptions:
     copies: コピー回数
     quality: 画質
   '@paplico/filters/low-reso':
-    sameBlocks: 縦と横の解像度を同じにする
+    sameBlocks: 縦と横で同じサイズにする
     levelX: 横の解像度
     levelY: 縦の解像度
   '@paplico/filters/outline':
     thickness: 太さ
     color: 色
+  '@paplico/filters/zoom-blur':
+    strength: 強さ
+    centerX: 中央(横)
+    centerY: 中央(縦)
   '@paplico/filters/kawase-blur':
     blurSize: ぼかしサイズ
     quality: クオリティ
 
 layerView:
+  context:
+    convertToSubstance: レイヤーに変換
+    duplicate: レイヤーを複製
+    makeReference: 参照レイヤーをつくる
+
   object:
     path: '<パス>'
     context:

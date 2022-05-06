@@ -30,25 +30,25 @@ export const RasterLayerControl = () => {
 
   const trnsCommand = useTransactionCommand()
 
-  const bindDrag = useDrag(({ initial, xy, last }) => {
-    if (currentTool !== 'cursor' || !activeLayerPath) return
+  const bindDrag = useDrag(({ initial, xy, delta, last }) => {
+    if (currentTool !== 'cursor' || !activeLayer || !activeLayerPath) return
 
-    const initP = DOMUtils.domPointToSvgPoint(rootRef.current!, {
-      x: initial[0],
-      y: initial[1],
-    })
+    // const initP = DOMUtils.domPointToSvgPoint(rootRef.current!, {
+    //   x: initial[0],
+    //   y: initial[1],
+    // })
 
-    const point = DOMUtils.domPointToSvgPoint(rootRef.current!, {
-      x: xy[0],
-      y: xy[1],
-    })
+    // const point = DOMUtils.domPointToSvgPoint(rootRef.current!, {
+    //   x: xy[0],
+    //   y: xy[1],
+    // })
 
     trnsCommand.autoStartAndDoAdd(
       new PapCommands.Layer.PatchLayerAttr({
         pathToTargetLayer: activeLayerPath,
         patch: {
-          x: point.x - initP.x,
-          y: point.y - initP.y,
+          x: activeLayer.x + delta[0] * (1 / canvasScale),
+          y: activeLayer.y + delta[1] * (1 / canvasScale),
         },
       })
     )

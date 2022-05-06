@@ -5,6 +5,7 @@ import { Document, LayerTypes } from '../../DOM'
 import {
   createKeyedRequestIdeCallback,
   deepClone,
+  pick,
   setCanvasSize,
 } from '../../utils'
 import { IRenderStrategy } from './IRenderStrategy'
@@ -197,7 +198,7 @@ export class DifferenceRender implements IRenderStrategy {
     ) => {
       if (!layer.visible) return
 
-      setCanvasSize(bufferCtx.canvas, document.getLayerSize(layer))
+      setCanvasSize(bufferCtx.canvas, document)
       bufferCtx.clearRect(0, 0, document.width, document.height)
 
       // Apply FilterLayer
@@ -258,7 +259,6 @@ export class DifferenceRender implements IRenderStrategy {
 
       if (image == null) return
 
-      // TODO: layer.{x,y} 対応
       bufferCtx.drawImage(image, layer.x, layer.y)
 
       if (this.overrides?.layerId === layer.uid) {

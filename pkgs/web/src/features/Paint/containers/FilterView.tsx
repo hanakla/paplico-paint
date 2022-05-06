@@ -246,6 +246,10 @@ const FilterItem = memo(function FilterItem({
     execute(EditorOps.rerenderCanvas)
   })
 
+  const handleContextMenu = useFunk((e: MouseEvent) => {
+    contextMenu.show(e)
+  })
+
   const handleClickRemove = useFunk(() => {
     if (!activeLayer || !activeLayerPath) return
 
@@ -268,6 +272,7 @@ const FilterItem = memo(function FilterItem({
       `}
       onClick={handleClick}
       onDoubleClick={handleDoubleClick}
+      onContextMenu={handleContextMenu}
       style={{
         transform: CSS.Transform.toString(transform),
         transition: transition,

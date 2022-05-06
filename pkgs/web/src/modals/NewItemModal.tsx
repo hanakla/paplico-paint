@@ -14,6 +14,7 @@ import { fit } from 'object-fit-math'
 import { media } from '../utils/responsive'
 import { rgba } from 'polished'
 import { centering } from '../utils/mixins'
+import { AspectPreview } from '../components/AspectPreview'
 
 export const NewItemModal: ModalComponentType<
   { defaultSize: { width: number; height: number } },
@@ -37,7 +38,7 @@ export const NewItemModal: ModalComponentType<
     <ModalBase
       header={
         <>
-          <h1>Header</h1>
+          <h1>新規アイテム</h1>
         </>
       }
       content={
@@ -72,27 +73,23 @@ export const NewItemModal: ModalComponentType<
               css={`
                 ${centering()}
                 width: 100%;
-                min-height: 300px;
+                height: 300px;
                 padding: 4px;
-                background-color: ${rgba('#ddd', 0.5)};
+                /* background-color: ${rgba('#ddd', 0.5)}; */
               `}
             >
-              <div
-                css={`
-                  ${centering()}
-                  text-align: center;
-                  padding: 8px;
-                  border: 2px solid ${rgba('#aaa', 0.5)};
-                  border-radius: 8px;
-                  background-color: #fff;
-                `}
-                style={{ width: previewSize.width, height: previewSize.height }}
+              <AspectPreview
+                width={inputs.width}
+                height={inputs.height}
+                maxWidth={previewSize.width}
+                maxHeight={previewSize.height}
+                dotted
               >
                 {inputs.width}px
                 <br />
                 ×<br />
                 {inputs.height}px
-              </div>
+              </AspectPreview>
             </div>
           </Stack>
         </>

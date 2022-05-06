@@ -32,6 +32,7 @@ import { NotifyOps } from '../../domains/Notify'
 import { useFunkyGlobalMouseTrap } from '../../hooks/useMouseTrap'
 import { NewItemModal } from '../../modals/NewItemModal'
 import { createDocumentWithSize } from './utils'
+import { AspectPreview } from '../../components/AspectPreview'
 dayjs.extend(relativeTime)
 
 export const HomeContent = () => {
@@ -258,11 +259,22 @@ export const HomeContent = () => {
                   data-width={preset.size[0]}
                   data-height={preset.size[1]}
                 >
-                  <File
+                  <div
                     css={`
-                      width: 64px;
+                      ${centering()}
+                      width: 100%;
+                      height: 100px;
                     `}
-                  />
+                  >
+                    <AspectPreview
+                      width={preset.size[0]}
+                      height={preset.size[1]}
+                      maxWidth={100}
+                      maxHeight={100}
+                      dotted
+                    />
+                  </div>
+
                   <div
                     css={`
                       margin: 8px 0 8px;

@@ -3,3 +3,4 @@ openFile: 画像・アイテムを開く
 savedItems: 自動保存されたアイテム
 untitled: 名称未設定
 removeDocumentConfirm: 削除したアイテムは復元できません。マジで削除しますか？
+customSize: サイズ指定

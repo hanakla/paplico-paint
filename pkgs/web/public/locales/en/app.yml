@@ -59,26 +59,28 @@ compositeModes:
   clipper: Clip
 
 filters:
-  '@paplico/bloom': 'Bloom'
-  '@paplico/gauss-blur': 'Gauss blur'
-  '@paplico/chromatic-aberration': 'Chromatic Aberration'
-  '@paplico/halftone': 'Half tone'
-  '@paplico/binarization': 'Binarization'
-  '@paplico/glitch-jpeg': 'Jpegify'
-  '@paplico/low-reso': Mozaic
-  '@paplico/outline': Outline
+  '@paplico/filters/bloom': 'Bloom'
+  '@paplico/filters/gauss-blur': 'Gauss blur'
+  '@paplico/filters/chromatic-aberration': 'Chromatic Aberration'
+  '@paplico/filters/halftone': 'Half tone'
+  '@paplico/filters/binarization': 'Binarization'
+  '@paplico/filters/glitch-jpeg': 'Jpegify'
+  '@paplico/filters/low-reso': Mozaic
+  '@paplico/filters/outline': Outline
+  '@paplico/filters/zoom-blur': Zoom blur
+  '@paplico/filters/kawase-blur': Kawase blur
 
 filterOptions:
-  '@paplico/bloom':
+  '@paplico/filters/bloom':
     threshold: Threshold
     power: Threshold
-  '@paplico/gauss-blur':
+  '@paplico/filters/gauss-blur':
     radius: Radius
     powerDev: Power(dev)
-  '@paplico/chromatic-aberration':
+  '@paplico/filters/chromatic-aberration':
     distance: Distance
     angleDeg: Angle
-  '@paplico/halftone':
+  '@paplico/filters/halftone':
     shape: Shape
     shapes:
       dot: Dot
@@ -87,20 +89,31 @@ filterOptions:
       square: Square
     radius: Radius
     scatter: Scatter
-  '@paplico/binarization':
+  '@paplico/filters/binarization':
     threshold: Threshold
-  '@paplico/glitch-jpeg':
+  '@paplico/filters/glitch-jpeg':
     copies: Copies
     quality: Image quality
-  '@paplico/low-reso':
-    sameBlocks: 縦と横の解像度を同じにする
+  '@paplico/filters/low-reso':
+    sameBlocks: Both same size
     levelX: Holizontal blocks
     levelY: Vetical blocks
-  '@paplico/outline':
+  '@paplico/filters/outline':
     thickness: Thickness
     color: Color
+  '@paplico/filters/zoom-blur':
+    strength: Strength
+    centerX: Center X
+    centerY: Center Y
+  '@paplico/filters/kawase-blur':
+    blurSize: ぼかしサイズ
+    quality: クオリティ
 
 layerView:
+  context:
+    convertToSubstance: レイヤーに変換
+    duplicate: レイヤーを複製
+    makeReference: 参照レイヤーをつくる
   object:
     path: '<Path>'
     context:

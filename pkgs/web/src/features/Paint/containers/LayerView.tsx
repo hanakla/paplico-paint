@@ -61,8 +61,6 @@ import {
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
-import { PropsOf } from '🙌/utils/types'
-import { contextMenu } from 'react-contexify'
 import { Tooltip2 } from '🙌/components/Tooltip2'
 import { useBufferedState, useDebouncedFunk, useFleur } from '🙌/utils/hooks'
 import { shallowEquals } from '🙌/utils/object'
@@ -70,6 +68,7 @@ import { useHover } from 'react-use-gesture'
 import { createSlice, useLysSliceRoot, useLysSlice } from '@fleur/lys'
 import { CommandOps } from '../../../domains/Commands'
 import { useLayerWatch, useActiveLayerPane } from '../hooks'
+import { shift, useFloating } from '@floating-ui/react-dom'
 
 export const LayerView = memo(function LayerView() {
   const { t } = useTranslation('app')
@@ -83,28 +82,21 @@ export const LayerView = memo(function LayerView() {
   }))
   const [layeViewState, layerViewActions] = useLysSliceRoot(layerViewSlice)
 
-  const [layerTypeOpened, toggleLayerTypeOpened] = useToggle(false)
-  const layerTypeOpenerRef = useRef<HTMLDivElement | null>(null)
-  const layerTypeDropdownRef = useRef<HTMLUListElement | null>(null)
+  const [layerTypeOpened, toggleAddLayerOpened] = useToggle(false)
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 4 } })
   )
 
-  useClickAway(layerTypeDropdownRef, (e) => {
-    if (isEventIgnoringTarget(e.target)) return
-    // Reduce rerendering
-    if (layerTypeOpened) toggleLayerTypeOpened(false)
+  const addLayerFl = useFloating({
+    strategy: 'absolute',
+    placement: 'bottom-end',
+    middleware: [shift()],
   })
 
-  const layerTypePopper = usePopper(
-    layerTypeOpenerRef.current,
-    layerTypeDropdownRef.current,
-    {
-      placement: 'bottom-end',
-      strategy: 'absolute',
-    }
-  )
+  useClickAway(addLayerFl.refs.floating, (e) => {
+    toggleAddLayerOpened(false)
+  })
 
   const handleClickAddLayerItem = useFunk(
     async ({ currentTarget }: MouseEvent<HTMLLIElement>) => {
@@ -143,7 +135,7 @@ export const LayerView = memo(function LayerView() {
       }
 
       executeOperation(EditorOps.addLayer, layer, { aboveLayerId: lastLayerId })
-      toggleLayerTypeOpened(false)
+      toggleAddLayerOpened(false)
     }
   )
 
@@ -229,36 +221,39 @@ export const LayerView = memo(function LayerView() {
             user-select: none;
           `}
         >
-          <div ref={layerTypeOpenerRef} onClick={toggleLayerTypeOpened}>
+          <div ref={addLayerFl.reference} onClick={toggleAddLayerOpened}>
             <Add css="width: 16px;" />
           </div>
         </div>
 
         <Portal>
           <ul
-            ref={layerTypeDropdownRef}
+            ref={addLayerFl.floating}
             css={css`
-              background-color: ${({ theme }) => theme.surface.popupMenu};
+              background-color: ${({ theme }) => theme.color.surface3};
               box-shadow: 0 0 4px ${rgba('#000', 0.5)};
               color: ${({ theme }) => theme.text.white};
               z-index: 1;
               border-radius: 4px;
+              overflow: hidden;
 
               li {
                 padding: 8px;
                 user-select: none;
               }
               li:hover {
-                background-color: rgba(255, 255, 255, 0.2);
+                /* color: #000; */
+                background-color: ${({ theme }) => theme.exactColors.active40};
               }
             `}
             style={{
-              ...layerTypePopper.styles.popper,
+              position: addLayerFl.strategy,
+              left: addLayerFl.x ?? 0,
+              top: addLayerFl.y ?? 0,
               ...(layerTypeOpened
                 ? { visibility: 'visible', pointerEvents: 'all' }
                 : { visibility: 'hidden', pointerEvents: 'none' }),
             }}
-            {...layerTypePopper.attributes.popper}
           >
             <li data-layer-type="raster" onClick={handleClickAddLayerItem}>
               {t('layerType.raster')}
@@ -452,6 +447,15 @@ const SortableLayerItem = memo(
         )
       }
     )
+
+    const handleClickDuplicateLayer = useFunk(() => {
+      execute(
+        EditorOps.runCommand,
+        new PapCommands.Layer.DuplicateLayer({
+          pathToSourceLayer: [...parentPath, layer.uid],
+        })
+      )
+    })
 
     const handleClickDeleteLayer = useFunk(
       ({ props }: LayerContextMenuParam) => {
@@ -700,16 +704,20 @@ const SortableLayerItem = memo(
             hidden={layer.layerType !== 'reference'}
             onClick={handleClickConvertToSubstance}
           >
-            レイヤーに変換
+            {t('layerView.context.convertToSubstance')}
           </ContextMenuItem>
           <ContextMenuItem
             hidden={layer.layerType === 'reference'}
             onClick={handleClickMakeReferenceLayer}
           >
-            参照レイヤーをつくる
+            {t('layerView.context.makeReference')}
           </ContextMenuItem>
+          <ContextMenuItem onClick={handleClickDuplicateLayer}>
+            {t('layerView.context.duplicate')}
+          </ContextMenuItem>
+          <Separator />
           <ContextMenuItem onClick={handleClickDeleteLayer}>
-            削除
+            {t('remove')}
           </ContextMenuItem>
         </ContextMenu>
       </div>

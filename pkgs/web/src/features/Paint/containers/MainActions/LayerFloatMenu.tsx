@@ -14,9 +14,14 @@ import { useTranslation } from 'next-i18next'
 import { rgba } from 'polished'
 import { ChangeEvent, forwardRef, memo, MouseEvent, useRef } from 'react'
 import { css, useTheme } from 'styled-components'
-import { PapCommands, PapDOM } from '@paplico/core'
+import { PapCommands, PapDOM, PapHelper } from '@paplico/core'
 import { useStore } from '@fleur/react'
-import { useFunk, useObjectState } from '@hanakla/arma'
+import {
+  loadImageFromBlob,
+  selectFile,
+  useFunk,
+  useObjectState,
+} from '@hanakla/arma'
 import { CSS } from '@dnd-kit/utilities'
 import { useClickAway, useToggle } from 'react-use'
 import {
@@ -97,11 +102,12 @@ export const LayerFloatMenu = memo(
     })
 
     const handleClickAddLayerItem = useFunk(
-      ({ currentTarget }: MouseEvent<HTMLDivElement>) => {
+      async ({ currentTarget }: MouseEvent<HTMLDivElement>) => {
         if (!currentDocument) return
 
-        const layerType = currentTarget.dataset
-          .layerType! as PapDOM.LayerTypes['layerType']
+        const layerType = currentTarget.dataset.layerType! as
+          | PapDOM.LayerTypes['layerType']
+          | 'image'
         const { width, height } = currentDocument
 
         let layer: PapDOM.LayerTypes
@@ -116,6 +122,16 @@ export const LayerFloatMenu = memo(
           }
           case 'filter': {
             layer = PapDOM.FilterLayer.create({})
+            break
+          }
+          case 'image': {
+            const [file] = await selectFile({
+              extensions: ['.jpg', '.jpeg', '.png'],
+            })
+            if (!file) return
+
+            const { image } = await loadImageFromBlob(file)
+            layer = await PapHelper.imageToLayer(image)
             break
           }
           default:
@@ -234,6 +250,9 @@ export const LayerFloatMenu = memo(
                 </div>
                 <div onClick={handleClickAddLayerItem} data-layer-type="filter">
                   <ActionSheetItem>{t('layerType.filter')}</ActionSheetItem>
+                </div>
+                <div onClick={handleClickAddLayerItem} data-layer-type="image">
+                  <ActionSheetItem>{t('addFromImage')}</ActionSheetItem>
                 </div>
               </ActionSheetItemGroup>
 
@@ -363,6 +382,15 @@ const SortableLayerItem = memo(
 
     const handleCloseLayerMenu = useFunk(() => {
       toggleMenu(false)
+    })
+
+    const handleClickDuplicateLayer = useFunk(() => {
+      execute(
+        EditorOps.runCommand,
+        new PapCommands.Layer.DuplicateLayer({
+          pathToSourceLayer: [...parentPath, layer.uid],
+        })
+      )
     })
 
     const handleClickSortHandler = useFunk((e: MouseEvent<SVGElement>) => {
@@ -521,13 +549,16 @@ const SortableLayerItem = memo(
             onClose={handleCloseLayerMenu}
             data-dont-close-layer-float
           >
-            {layer.layerType === 'raster' && (
-              <ActionSheetItemGroup>
+            <ActionSheetItemGroup>
+              {layer.layerType === 'raster' && (
                 <ActionSheetItem onClick={handleClickTrimByDocument}>
                   レイヤーを画像サイズでトリム
                 </ActionSheetItem>
-              </ActionSheetItemGroup>
-            )}
+              )}
+              <ActionSheetItem onClick={handleClickDuplicateLayer}>
+                レイヤーを複製
+              </ActionSheetItem>
+            </ActionSheetItemGroup>
 
             <ActionSheetItemGroup>
               <ActionSheetItem onClick={handleCloseLayerMenu}>

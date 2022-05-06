@@ -143,7 +143,10 @@ export class RasterLayer extends Emitter<Events> implements ILayer {
 
   public clone(): this {
     return RasterLayer.deserialize(
-      assign(this.serialize(), { uid: `rasterlayer-${v4()}` })
+      assign(this.serialize(), {
+        uid: `rasterlayer-${v4()}`,
+        bitmap: new Uint8ClampedArray(this.bitmap),
+      })
     ) as this
   }
 }

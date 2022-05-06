@@ -53,7 +53,7 @@ export class PaplicoEngine {
       engine.toolRegistry.registerFilter(GaussBlurFilter),
       engine.toolRegistry.registerFilter(ChromaticAberrationFilter),
       engine.toolRegistry.registerFilter(HalftoneFilter),
-      engine.toolRegistry.registerFilter(NoiseFilter),
+      // engine.toolRegistry.registerFilter(NoiseFilter),
       engine.toolRegistry.registerFilter(BinarizationFilter),
       engine.toolRegistry.registerFilter(LowResoFilter),
       engine.toolRegistry.registerFilter(OutlineFilter),

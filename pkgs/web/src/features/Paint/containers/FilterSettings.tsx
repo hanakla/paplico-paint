@@ -546,19 +546,21 @@ const ZoomBlur = memo(function ZoomBlur({ layer, filter }: Props) {
   const activeLayerPath = useStore(EditorSelector.activeLayerPath)
   const trnsCommand = useTransactionCommand({ threshold: 2000 })
 
-  const handleChangeStrength = useFunk(() => {
-    if (!activeLayerPath) return
+  const handleChangeStrength = useFunk(
+    ({ currentTarget }: ChangeEvent<HTMLInputElement>) => {
+      if (!activeLayerPath) return
 
-    trnsCommand.autoStartAndDoAdd(
-      new PapCommands.Filter.PatchAttr({
-        pathToTargetLayer: activeLayerPath,
-        filterUid: filter.uid,
-        patcher: (filter) => {
-          filter.settings.strength = 1
-        },
-      })
-    )
-  })
+      trnsCommand.autoStartAndDoAdd(
+        new PapCommands.Filter.PatchAttr({
+          pathToTargetLayer: activeLayerPath,
+          filterUid: filter.uid,
+          patcher: (filter) => {
+            filter.settings.strength = currentTarget.valueAsNumber
+          },
+        })
+      )
+    }
+  )
   const handleChangeCenterX = useFunk(
     ({ currentTarget }: ChangeEvent<HTMLInputElement>) => {
       if (!activeLayerPath) return
@@ -592,7 +594,11 @@ const ZoomBlur = memo(function ZoomBlur({ layer, filter }: Props) {
 
   return (
     <div>
-      <Column nameKey={'strength'} filter={filter}>
+      <Column
+        nameKey={'strength'}
+        filter={filter}
+        value={filter.settings.strength}
+      >
         <RangeInput
           min={1}
           max={100}
@@ -601,19 +607,29 @@ const ZoomBlur = memo(function ZoomBlur({ layer, filter }: Props) {
           onChange={handleChangeStrength}
         />
       </Column>
-      <Column nameKey={'center'} filter={filter}>
+      <Column
+        nameKey={'centerX'}
+        filter={filter}
+        value={filter.settings.center[0]}
+      >
         <RangeInput
           min={1}
-          max={0}
+          max={2000}
           step={0.01}
-          value={filter.settings.strength}
+          value={filter.settings.center[0]}
           onChange={handleChangeCenterX}
         />
+      </Column>
+      <Column
+        nameKey={'centerY'}
+        filter={filter}
+        value={filter.settings.center[1]}
+      >
         <RangeInput
           min={1}
-          max={0}
+          max={2000}
           step={0.01}
-          value={filter.settings.strength}
+          value={filter.settings.center[1]}
           onChange={handleChangeCenterY}
         />
       </Column>

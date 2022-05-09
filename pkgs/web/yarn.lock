@@ -4898,6 +4898,11 @@ is-retry-allowed@^1.0.0:
   resolved "https://registry.yarnpkg.com/is-retry-allowed/-/is-retry-allowed-1.2.0.tgz#d778488bd0a4666a3be8a1482b9f2baafedea8b4"
   integrity sha512-RUbUeKwvm3XG2VYamhJL1xFktgjvPzL0Hq8C+6yrWIswDy3BIXGqCxhxkc30N9jqK311gVU137K8Ei55/zVJRg==
 
+is-safari@^1.0.0:
+  version "1.0.0"
+  resolved "https://registry.yarnpkg.com/is-safari/-/is-safari-1.0.0.tgz#b4610d5ea75aaf6c7611fda1d0fd3de47de72b9b"
+  integrity sha1-tGENXqdar2x2Ef2h0P095H3nK5s=
+
 is-shared-array-buffer@^1.0.1:
   version "1.0.2"
   resolved "https://registry.yarnpkg.com/is-shared-array-buffer/-/is-shared-array-buffer-1.0.2.tgz#8f259c573b60b6a32d4058a1a07430c0a7344c79"

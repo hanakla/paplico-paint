@@ -9,6 +9,7 @@ import { extname } from 'path'
 import { useDropArea, useMount } from 'react-use'
 import { rgba } from 'polished'
 import { openModal } from '@fleur/mordred'
+import isSafari from 'is-safari'
 
 import { EditorOps, EditorSelector, EditorStore } from '🙌/domains/EditorStable'
 import { Sidebar } from '🙌/components/Sidebar'
@@ -129,7 +130,9 @@ export const HomeContent = () => {
 
   const handleClickDropArea = useFunk(async () => {
     const [file] = await selectFile({
-      extensions: ['.paplc', '.png', '.jpg'],
+      extensions: isSafari
+        ? ['.png', '.jpg', '.paplc', 'application/octet-stream']
+        : ['.paplc', '.png', '.jpg'],
       multiple: false,
     })
     if (!file) return

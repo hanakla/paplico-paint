@@ -10,7 +10,12 @@ export const GlobalStyle = createGlobalStyle`
   }
 
   * {
+    -webkit-touch-callout: none;
     -webkit-tap-highlight-color: transparent;
+  }
+
+  *:not(input, textarea, button) {
+    user-select: none;
   }
 
   * {

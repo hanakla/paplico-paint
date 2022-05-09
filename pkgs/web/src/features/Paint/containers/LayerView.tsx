@@ -5,6 +5,7 @@ import {
   ReactNode,
   useEffect,
   useRef,
+  useState,
 } from 'react'
 import { PapCommands, PapDOM, PapHelper } from '@paplico/core'
 import { useClickAway, useToggle, useUpdate } from 'react-use'
@@ -15,8 +16,14 @@ import {
   useObjectState,
 } from '@hanakla/arma'
 import { rgba } from 'polished'
-import { usePopper } from 'react-popper'
-import { Add, Brush, Filter3, Guide, Shape } from '@styled-icons/remix-fill'
+import {
+  Add,
+  Brush,
+  DeleteBin,
+  Filter3,
+  Guide,
+  Shape,
+} from '@styled-icons/remix-fill'
 import { css } from 'styled-components'
 import { Portal } from '🙌/components/Portal'
 import { centering, rangeThumb } from '🙌/utils/mixins'
@@ -67,7 +74,12 @@ import { shallowEquals } from '🙌/utils/object'
 import { useHover } from 'react-use-gesture'
 import { createSlice, useLysSliceRoot, useLysSlice } from '@fleur/lys'
 import { CommandOps } from '../../../domains/Commands'
-import { useLayerWatch, useActiveLayerPane } from '../hooks'
+import {
+  useLayerWatch,
+  useActiveLayerPane,
+  useDocumentWatch,
+  useLayerListWatch,
+} from '../hooks'
 import { shift, useFloating } from '@floating-ui/react-dom'
 
 export const LayerView = memo(function LayerView() {
@@ -82,6 +94,7 @@ export const LayerView = memo(function LayerView() {
   }))
   const [layeViewState, layerViewActions] = useLysSliceRoot(layerViewSlice)
 
+  const [layerSorting, setLayerSorting] = useState(false)
   const [layerTypeOpened, toggleAddLayerOpened] = useToggle(false)
 
   const sensors = useSensors(
@@ -158,10 +171,15 @@ export const LayerView = memo(function LayerView() {
   //   // layerControls.moveLayer(sort.oldIndex, sort.newIndex)
   // })
 
+  const handleLayerDragStart = useFunk(() => {
+    setLayerSorting(true)
+  })
+
   const handleLayerDragEnd = useFunk(({ active, over }: DragEndEvent) => {
     const moves = calcLayerMove(flatLayers, { active, over })
     if (!moves) return
 
+    setLayerSorting(false)
     executeOperation(
       EditorOps.runCommand,
       new PapCommands.Layer.MoveLayer({
@@ -190,6 +208,11 @@ export const LayerView = memo(function LayerView() {
       (entry.parentId != null && !(collapsed[entry.parentId] ?? true))
     )
   })
+
+  useDocumentWatch(currentDocument)
+  useLayerListWatch(
+    flatLayers.filter((e) => e.type === 'layer').map((e) => e.layer)
+  )
 
   return (
     <SidebarPane
@@ -274,12 +297,13 @@ export const LayerView = memo(function LayerView() {
       <div
         css={`
           height: 30vh;
-          overflow: auto;
         `}
+        style={{ overflow: layerSorting ? 'hidden' : 'auto' }}
       >
         <DndContext
           sensors={sensors}
           collisionDetection={closestCenter}
+          onDragStart={handleLayerDragStart}
           onDragEnd={handleLayerDragEnd}
         >
           <SortableContext
@@ -742,12 +766,19 @@ const SortableObjectItem = memo(({ entry }: { entry: FlatLayerEntry }) => {
 
   const objectMenu = useContextMenu()
 
-  const { attributes, listeners, setNodeRef, transform, transition } =
-    useSortable({
-      id: entry.id,
-      animateLayoutChanges: ({ isSorting, wasDragging }) =>
-        isSorting || wasDragging ? false : true,
-    })
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+    isSorting,
+  } = useSortable({
+    id: entry.id,
+    animateLayoutChanges: ({ isSorting, wasDragging }) =>
+      isSorting || wasDragging ? false : true,
+  })
 
   const handleClickObject = useFunk(
     ({ currentTarget }: MouseEvent<HTMLDivElement>) => {
@@ -782,6 +813,16 @@ const SortableObjectItem = memo(({ entry }: { entry: FlatLayerEntry }) => {
     }
   )
 
+  const handleClickRemoveObject = useFunk(() => {
+    execute(
+      EditorOps.runCommand,
+      new PapCommands.VectorLayer.DeleteObject({
+        pathToTargetLayer: parentPath,
+        objectUid: object.uid,
+      })
+    )
+  })
+
   const style = {
     transform: CSS.Transform.toString(transform),
     transition,
@@ -792,6 +833,7 @@ const SortableObjectItem = memo(({ entry }: { entry: FlatLayerEntry }) => {
       <div
         ref={setNodeRef}
         css={`
+          display: flex;
           padding: 6px 8px;
           margin-left: 16px;
         `}
@@ -803,13 +845,23 @@ const SortableObjectItem = memo(({ entry }: { entry: FlatLayerEntry }) => {
               ? theme.surface.sidebarListActive
               : undefined,
         }}
-        data-object-id={object.uid}
-        onClick={handleClickObject}
-        onContextMenu={handleObjectContextMenu}
-        {...attributes}
-        {...listeners}
       >
-        {t('layerView.object.path')}
+        <div
+          css={`
+            flex: 1;
+          `}
+          data-object-id={object.uid}
+          onClick={handleClickObject}
+          onContextMenu={handleObjectContextMenu}
+          {...attributes}
+          {...listeners}
+        >
+          {t('layerView.object.path')}
+        </div>
+
+        <div onClick={handleClickRemoveObject}>
+          <DeleteBin width={16} />
+        </div>
       </div>
 
       <ContextMenu id={objectMenu.id}>

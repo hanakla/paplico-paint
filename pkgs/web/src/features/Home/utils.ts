@@ -31,6 +31,7 @@ export const createDocumentWithSize = ({
       },
     })
   )
+
   doc.addLayer(bgLayer)
   doc.addLayer(layer, { aboveLayerId: bgLayer.uid })
   doc.activeLayerPath = [layer.uid]

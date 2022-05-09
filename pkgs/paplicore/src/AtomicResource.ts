@@ -7,7 +7,7 @@ export class AtomicResource<T> {
 
   constructor(private resource: T, private name?: string) {}
 
-  public enjure({ owner }: { owner?: any } = {}): Promise<T> {
+  public enjure({ owner }: { owner?: any; timeout?: number } = {}): Promise<T> {
     if (this.locked) {
       const defer = deferred<T>()
       defer.promise.then(() => (this.currentOwner = owner))
@@ -34,6 +34,21 @@ export class AtomicResource<T> {
     // }, 3000)
 
     return Promise.resolve(this.resource)
+  }
+
+  public ensureLazy({
+    owner,
+    timeout,
+  }: {
+    owner?: any
+    timeout: number
+  }): Promise<T | null> {
+    return Promise.race([
+      this.enjure({ owner }),
+      new Promise<null>((r) => {
+        setTimeout(() => r(null), timeout)
+      }),
+    ])
   }
 
   public get isLocked() {

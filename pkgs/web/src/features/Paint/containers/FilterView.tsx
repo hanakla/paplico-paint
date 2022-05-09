@@ -76,6 +76,8 @@ export const FilterView = memo(() => {
 
       if (!activeLayerPath) return
 
+      console.log({ activeLayerPath })
+
       const filterId = currentTarget.dataset.filterId!
       const filter = EditorSelector.getFilterInstance(getStore, filterId)
       if (!filter) return
@@ -175,23 +177,35 @@ export const FilterView = memo(() => {
       }
       container={(children) => children}
     >
-      {activeLayer && (
-        <DndContext
-          collisionDetection={closestCenter}
-          modifiers={[restrictToVerticalAxis]}
-          onDragEnd={handleFilterSortEnd}
-          sensors={sensors}
+      <div
+        css={`
+          overflow: hidden;
+        `}
+      >
+        <div
+          css={`
+            overflow: auto;
+          `}
         >
-          <SortableContext
-            items={activeLayer.filters.map(({ uid }) => uid)}
-            strategy={verticalListSortingStrategy}
-          >
-            {activeLayer.filters.map((filter) => (
-              <FilterItem layer={activeLayer} filter={filter} />
-            ))}
-          </SortableContext>
-        </DndContext>
-      )}
+          {activeLayer && (
+            <DndContext
+              collisionDetection={closestCenter}
+              modifiers={[restrictToVerticalAxis]}
+              onDragEnd={handleFilterSortEnd}
+              sensors={sensors}
+            >
+              <SortableContext
+                items={activeLayer.filters.map(({ uid }) => uid)}
+                strategy={verticalListSortingStrategy}
+              >
+                {activeLayer.filters.map((filter) => (
+                  <FilterItem layer={activeLayer} filter={filter} />
+                ))}
+              </SortableContext>
+            </DndContext>
+          )}
+        </div>
+      </div>
     </SidebarPane>
   )
 })

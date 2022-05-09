@@ -9,6 +9,8 @@ import { FilterContext, FilterInitContext, IFilter } from '../engine/IFilter'
 import { WebGLContext } from '../engine/WebGLContext'
 import { createContext2D } from '../Engine3_CanvasFactory'
 import { pick, setCanvasSize } from '../utils'
+import { arrayChunk } from '../utils/array'
+import { saveAndRestoreCanvas } from '../utils/canvas'
 import { AbstractPixiFilterInterop } from './AbstractPixiFilterInterop'
 
 declare namespace KawaseBlurFilter {
@@ -31,7 +33,6 @@ export class KawaseBlurFilter extends AbstractPixiFilterInterop {
   public get initialConfig(): KawaseBlurFilter.Params {
     return {
       blurSize: 10,
-      // quality: 10,
       quality: 32,
       pixelSize: [1, 1],
     }
@@ -102,31 +103,30 @@ export class KawaseBlurFilter extends AbstractPixiFilterInterop {
           }
         )
 
-        await logImage(bTarget)
+        // await logImage(bTarget)
         ;[bSource, bTarget] = [bTarget, bSource]
       }
 
       offset_ = kernels[last] + 0.5
       // console.log({ offset_ })
 
-      dest.getContext('2d')?.clearRect(0, 0, size.width, size.height)
+      // gl.applyProgram(
+      //   this.program!,
+      //   {
+      //     ...this.getPixiUniforms(ctx),
+      //     uOffset: gl.uni2fv(new Float32Array([offset_ * uvX, offset_ * uvY])),
+      //   },
+      //   bSource,
+      //   dest,
+      //   { sourceTexFilter: 'linear', clear: true }
+      // )
 
-      gl.applyProgram(
-        this.program!,
-        {
-          ...this.getPixiUniforms(ctx),
-          uOffset: gl.uni2fv(new Float32Array([offset_ * uvX, offset_ * uvY])),
-        },
-        bSource,
-        dest,
-        { sourceTexFilter: 'linear', clear: true }
-      )
+      // await logImage(bSource)
 
-      const dCtx = dest.getContext('2d')
-      dCtx!.globalCompositeOperation = 'source-over'
-      dCtx!.drawImage(bSource, 0, 0)
-
-      console.log({ kernels })
+      saveAndRestoreCanvas(dest.getContext('2d')!, (dCtx) => {
+        dCtx.clearRect(0, 0, size.width, size.height)
+        dCtx!.drawImage(bSource, 0, 0)
+      })
     }
   }
 
@@ -156,7 +156,7 @@ export const FRAGMENT_SHADER = `
   Original from https://github.com/pixijs/filters/blob/main/filters/kawase-blur/src/kawase-blur-clamp.frag
 */
 
-precision mediump float;
+precision highp float;
 
 varying vec2 vUv;
 
@@ -170,7 +170,7 @@ vec4 clampedTex2D(sampler2D tex, vec2 uv) {
 
 void main(void)
 {
-  vec4 color = vec4(0.0);
+  vec4 color = vec4(0.0, 0.0, 0.0, 0.0);
 
   // Sample top left pixel
   color += clampedTex2D(source, vUv - uOffset);
@@ -186,12 +186,23 @@ void main(void)
 
   color *= 0.25;
 
+  // vec4 sColor = texture2D(source, vUv);
+  // vec4 cc = (sColor + sColor + sColor + sColor) *.1;
+  // gl_FragColor = vec4(cc.r, cc.g, cc.b, cc.a);
+
+  // color.a *= .25;
+
+  // gl_FragColor = vec4(cc.r, cc.g, cc.b, cc.a);
+
   gl_FragColor = color;
   // gl_FragColor = (texture2D(source, vUv) + texture2D(source, vUv + vec2(-.02, .02))) * 0.5;
   // gl_FragColor = (color * 4.) + vec4(1. * texture2D(source, vUv).a,0.,0., texture2D(source, vUv).a);
   // gl_FragColor = texture2D(source, vUv);
+  // gl_FragColor = vec4(sColor.r, sColor.g, sColor.b, vUv.y);
 
   // vec3 sourceColor = texture2D(source, vUv).rgb;
   // gl_FragColor = vec4(sourceColor.r, sourceColor.g, sourceColor.b, step(.5, texture2D(source, vUv).a) * .1);
+  // gl_FragColor = vec4(1., 1., 1., step(.5, texture2D(source, vUv).a) * .2);
+  // gl_FragColor = vec4(1., 1., 1., step(.5, texture2D(source, vUv).a) * .6);
 }
 `

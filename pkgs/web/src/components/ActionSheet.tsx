@@ -91,7 +91,7 @@ export const ActionSheet = forwardRef<HTMLDivElement, Props>(
           )}
           <animated.div
             ref={ref}
-            css={css`
+            css={`
               position: fixed;
               left: 50%;
               bottom: 0;

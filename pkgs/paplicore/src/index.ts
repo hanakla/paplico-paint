@@ -9,6 +9,7 @@ export { Commands as PapCommands } from './Session/Commands/index'
 
 export { CanvasHandler } from './engine/Engine3_CanvasHandler'
 export { PapDOMDigger } from './PapDOMDigger'
+export { WebGLContext as PapWebGLContext } from './engine/WebGLContext'
 export * as PapInks from './Inks/index'
 
 export * as PapFilters from './Filters/index'

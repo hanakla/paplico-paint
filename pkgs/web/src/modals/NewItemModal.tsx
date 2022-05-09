@@ -31,7 +31,10 @@ export const NewItemModal: ModalComponentType<
   })
 
   const handleClickSubmit = useFunk(() => {
-    onClose(inputs)
+    onClose({
+      width: Math.floor(inputs.width),
+      height: Math.floor(inputs.height),
+    })
   })
 
   return (
@@ -84,6 +87,12 @@ export const NewItemModal: ModalComponentType<
                 maxWidth={previewSize.width}
                 maxHeight={previewSize.height}
                 dotted
+                onDrag={({ delta }) => {
+                  setInputs((state) => {
+                    state.width += delta[0]
+                    state.height += delta[1]
+                  })
+                }}
               >
                 {inputs.width}px
                 <br />

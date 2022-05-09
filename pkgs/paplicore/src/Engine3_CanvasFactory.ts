@@ -20,8 +20,9 @@ export const setCanvasFactory = (fn: Factory) => {
 export const createCanvas = () => {
   const canvas = canvasFactory()
   createdCanvases.add(new WeakRef(canvas as HTMLCanvasElement))
-  return canvas
+  return canvas as HTMLCanvasElement
 }
 export const createWebGLContext = (options?: WebGLContextAttributes) =>
   canvasFactory().getContext('webgl', options)!
+
 export const createContext2D = () => canvasFactory().getContext('2d')!

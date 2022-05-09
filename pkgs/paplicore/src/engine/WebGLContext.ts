@@ -1,6 +1,7 @@
 import { setCanvasSize } from '../utils'
-import { createWebGLContext } from '../Engine3_CanvasFactory'
+import { createContext2D, createWebGLContext } from '../Engine3_CanvasFactory'
 import { logImage } from '../DebugHelper'
+import { saveAndRestoreCanvas } from '../utils/canvas'
 
 type Uniform =
   | {
@@ -81,7 +82,10 @@ export class WebGLContext {
       alpha: true,
       antialias: false,
       preserveDrawingBuffer: true,
+      premultipliedAlpha: true,
     }))
+    gl.canvas.id = '__paplico-fx-gl-canvas'
+    gl.canvas.setAttribute('name', '__paplico-fx-gl-canvas')
 
     setCanvasSize(this.gl.canvas, 1, 1)
     gl.viewport(0, 0, 1, 1)
@@ -161,7 +165,7 @@ export class WebGLContext {
     {
       sourceTextureClamp = 'clampToEdge',
       sourceTexFilter = 'linear',
-      clear = true,
+      clear = false,
     }: {
       sourceTextureClamp?: WebGLContext.TextureClamp
       sourceTexFilter?: WebGLContext.TextureFilter
@@ -172,7 +176,7 @@ export class WebGLContext {
 
     // Initialize
     setCanvasSize(this.gl.canvas, output)
-    this.gl.viewport(0, 0, output.width, output.height)
+    gl.viewport(0, 0, output.width, output.height)
 
     gl.enable(gl.BLEND)
     gl.blendFuncSeparate(
@@ -182,20 +186,19 @@ export class WebGLContext {
       gl.ONE_MINUS_SRC_ALPHA
     )
     gl.blendEquationSeparate(gl.FUNC_ADD, gl.FUNC_ADD)
-    gl.blendColor(0, 0, 0, 0)
-    gl.colorMask(true, true, true, true)
+
     gl.depthMask(true)
+    gl.colorMask(true, true, true, true)
+    gl.blendColor(0, 0, 0, 0)
 
     gl.clearColor(0, 0, 0, 0)
     gl.clearDepth(1)
     gl.clearStencil(0)
-
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
 
     gl.useProgram(prog)
 
     gl.bindBuffer(gl.ARRAY_BUFFER, this.vertBuf)
-
     const positionAttrib = gl.getAttribLocation(prog, 'aPosition')
     gl.enableVertexAttribArray(positionAttrib)
     gl.vertexAttribPointer(positionAttrib, 2, gl.FLOAT, false, 0, 0)
@@ -210,6 +213,7 @@ export class WebGLContext {
     {
       gl.activeTexture(gl.TEXTURE0)
       gl.bindTexture(gl.TEXTURE_2D, this.inputTex)
+      gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, 1)
       gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, input)
 
       gl.texParameteri(
@@ -255,6 +259,7 @@ export class WebGLContext {
       gl.bindTexture(gl.TEXTURE_2D, tex)
 
       if (!(uni.value instanceof TextureResource)) {
+        gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, 1)
         gl.texImage2D(
           gl.TEXTURE_2D,
           0,
@@ -301,13 +306,20 @@ export class WebGLContext {
     gl.drawArrays(gl.TRIANGLE_FAN, 0, 4)
     gl.flush()
 
-    // textures.forEach((tex) => tex && gl.deleteTexture(tex))
+    textures.forEach((tex) => tex && gl.deleteTexture(tex))
 
-    const destCtx = output.getContext('2d')!
-    clear && destCtx.clearRect(0, 0, output.width, output.height)
-    // destCtx.imageSmoothingQuality = 'high'
-    // console.log(destCtx.globalCompositeOperation, destCtx)
-    destCtx.drawImage(this.gl.canvas, 0, 0)
+    const tmp = createContext2D()
+    setCanvasSize(tmp.canvas, output)
+    tmp.drawImage(this.gl.canvas, 0, 0)
+
+    saveAndRestoreCanvas(output.getContext('2d')!, (outCtx) => {
+      // console.log('hi')
+      outCtx.globalCompositeOperation = 'source-over'
+      clear && outCtx.clearRect(0, 0, output.width, output.height)
+      clear && (outCtx.fillStyle = 'rgba(255,255,255,0)')
+      clear && outCtx.fillRect(0, 0, output.width, output.height)
+      outCtx.drawImage(tmp.canvas, 0, 0)
+    })
   }
 
   // Uniforms
@@ -639,6 +651,7 @@ precision highp float;
 
 attribute vec2 aPosition;
 attribute vec2 aCoord;
+
 varying vec2 vUv;
 varying vec2 vTexCoord;
 

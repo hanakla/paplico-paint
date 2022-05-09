@@ -4,3 +4,10 @@ savedItems: 自動保存されたアイテム
 untitled: 名称未設定
 removeDocumentConfirm: 削除したアイテムは復元できません。マジで削除しますか？
 customSize: サイズ指定
+
+sizePresets:
+  hdPortrait: '9:16 (2K)'
+  hdLandscape: '16:9 (2K)'
+  a4Portrait: 'A4 300dpi タテ'
+  a4Landscape: 'A4 300dpi ヨコ'
+  twitterHeader: 'Twitterヘッダー'

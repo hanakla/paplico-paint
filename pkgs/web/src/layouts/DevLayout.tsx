@@ -16,6 +16,9 @@ export const DevLayout = ({ children }: { children: ReactNode }) => {
         <Tab active={router.asPath === '/dev/debug'}>
           <Link href="/dev/debug">debug</Link>{' '}
         </Tab>
+        <Tab active={router.asPath === '/dev/webgl'}>
+          <Link href="/dev/webgl">WebGL</Link>{' '}
+        </Tab>
         <Tab active={router.asPath === '/dev/many-layers'}>
           <Link href="/dev/many-layers">Many layers</Link>{' '}
         </Tab>

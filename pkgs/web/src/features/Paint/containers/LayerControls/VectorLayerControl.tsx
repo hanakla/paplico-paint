@@ -23,7 +23,7 @@ import { useFunkyMouseTrap } from '🙌/hooks/useMouseTrap'
 import { assign } from '🙌/utils/object'
 import { deepClone } from '🙌/utils/clone'
 import { normalRgbToRgbArray } from '../../helpers'
-import { useFleur } from '🙌/utils/hooks'
+import { useDeepCompareMemo, useFleur } from '🙌/utils/hooks'
 import { DOMUtils } from '🙌/utils/dom'
 import {
   useLayerWatch,
@@ -40,6 +40,7 @@ import {
 } from '🙌/components/ContextMenu'
 import { tm } from '🙌/utils/theme'
 import { floatingDropShadow } from '🙌/utils/mixins'
+import { useLongPress } from 'use-long-press'
 
 const POINT_SIZE = 8
 
@@ -111,9 +112,30 @@ export const VectorLayerControl = () => {
     }
   )
 
-  const handleClickPath = useFunk((objectId: string) => {
-    executeOperation(EditorOps.setActiveObject, objectId)
-  })
+  // const handleClickPath = useFunk((e: MouseEvent) => {
+  //   e.stopPropagation()
+  //   if (currentTool !== 'shape-pen') return
+
+  //   if (!activeLayerPath) return
+
+  //   // Insert point to current path
+  //   // SEE: http://polymathprogrammer.com/2007/06/27/reverse-engineering-bezier-curves/
+  //   executeOperation(
+  //     EditorOps.runCommand,
+  //     new PapCommands.VectorLayer.PatchPathPoints({
+  //       pathToTargetLayer: activeLayerPath,
+  //       objectUid: objectId,
+  //       patcher: (points) => {
+  //         points.splice(segmentIndex, 0, {
+  //           x,
+  //           y,
+  //           in: { x: x + 2, y: y - 2 },
+  //           out: { x: x - 2, y: y + 2 },
+  //         })
+  //       },
+  //     })
+  //   )
+  // })
 
   const handleDoubleClickPath = useFunk(
     (
@@ -121,6 +143,7 @@ export const VectorLayerControl = () => {
       segmentIndex: number,
       { x, y }: { x: number; y: number }
     ) => {
+      if (currentTool !== 'shape-pen') return
       if (!activeLayerPath) return
 
       // Insert point to current path
@@ -170,6 +193,7 @@ export const VectorLayerControl = () => {
         y: xy[1],
       })
 
+      // Finish vector stroking
       if (last) {
         trsnCommand.commit()
         return
@@ -317,34 +341,25 @@ export const VectorLayerControl = () => {
 
       const objectUid = (event.target as SVGPathElement).dataset.objectUid!
 
-      if (last) {
-        execute(
-          EditorOps.runCommand,
-          new PapCommands.VectorLayer.TransformObject({
-            pathToTargetLayer: activeLayerPath,
-            objectUid: objectUid,
-            transform: {
-              movement: {
-                x: (xy[0] - initial[0]) * (1 / canvasScale),
-                y: (xy[1] - initial[1]) * (1 / canvasScale),
-              },
+      trsnCommand.autoStartAndDoAdd(
+        new PapCommands.VectorLayer.TransformObject({
+          pathToTargetLayer: activeLayerPath,
+          objectUid: objectUid,
+          skipDo: false,
+          transform: {
+            movement: {
+              x: delta[0] * (1 / canvasScale),
+              y: delta[1] * (1 / canvasScale),
             },
-            skipDo: true,
-          })
-        )
-      } else {
-        execute(EditorOps.updateVectorLayer, activeLayerPath, (layer) => {
-          const object = layer.objects.find((obj) => obj.uid === objectUid)
-          if (!object) return
-
-          object.update((o) => {
-            o.x += delta[0] * (1 / canvasScale)
-            o.y += delta[1] * (1 / canvasScale)
-          })
+          },
         })
+      )
+
+      if (last) {
+        trsnCommand.commit()
       }
     },
-    { threshold: 2 }
+    { threshold: 4 }
   )
 
   const handleContextMenu = useFunk((e: MouseEvent) => {
@@ -364,7 +379,7 @@ export const VectorLayerControl = () => {
         new PapCommands.VectorLayer.ReorderObjects({
           pathToTargetLayer: activeLayerPath,
           objectUid: e.props!.objectUid,
-          newIndex: { delta: 1 },
+          newIndex: { delta: -1 },
         })
       )
     }
@@ -379,7 +394,7 @@ export const VectorLayerControl = () => {
         new PapCommands.VectorLayer.ReorderObjects({
           pathToTargetLayer: activeLayerPath,
           objectUid: e.props!.objectUid,
-          newIndex: { delta: -1 },
+          newIndex: { delta: 1 },
         })
       )
     }
@@ -498,70 +513,68 @@ export const VectorLayerControl = () => {
         {...bindRootDrag()}
       />
       {activeLayer.objects.map((object) => (
-        <>
-          <g
-            data-devmemo="Each objects controls"
-            key={object.uid}
+        <g
+          data-devmemo="Each objects controls"
+          key={object.uid}
+          style={{
+            transform: `translate(${object.x}, ${object.y})`,
+          }}
+        >
+          <path
+            css={`
+              stroke: transparent;
+              stroke-width: 4;
+              fill: none;
+              pointer-events: none;
+              shape-rendering: optimizeSpeed;
+            `}
             style={{
-              transform: `translate(${object.x}, ${object.y})`,
-            }}
-          >
-            <path
-              css={`
-                stroke: transparent;
-                stroke-width: 4;
-                fill: none;
-                pointer-events: none;
-                shape-rendering: optimizeSpeed;
-              `}
-              style={{
-                stroke:
-                  // prettier-ignore
-                  object.uid === hoveredObjectUid ? ' #4e7fff'
+              stroke:
+                // prettier-ignore
+                object.uid === hoveredObjectUid ? ' #4e7fff'
                     : object.brush == null && object.fill == null ? 'transparent'
                     : object.brush != null ? 'transparent'
                     : 'none',
-                fill: object.fill != null ? 'transparent' : 'none',
-                transform: `matrix(${object.matrix.join(',')})`,
-                pointerEvents: skipHoverEffect ? 'none' : undefined,
-              }}
-              d={object.path.svgPath}
-            />
-            <path
-              css={`
-                stroke: transparent;
-                stroke-width: 8;
-                fill: none;
-                pointer-events: visiblePainted;
-                shape-rendering: optimizeSpeed;
+              fill: object.fill != null ? 'transparent' : 'none',
+              transform: `matrix(${object.matrix.join(',')})`,
+              pointerEvents: skipHoverEffect ? 'none' : undefined,
+            }}
+            d={object.path.svgPath}
+          />
+          <path
+            css={`
+              stroke: transparent;
+              stroke-width: 8;
+              fill: none;
+              pointer-events: visiblePainted;
+              shape-rendering: optimizeSpeed;
 
-                &:hover {
-                  cursor: move;
-                }
-              `}
-              style={{
-                stroke:
-                  // prettier-ignore
-                  object.brush == null && object.fill == null ? 'transparent'
+              &:hover {
+                cursor: move;
+              }
+            `}
+            style={{
+              stroke:
+                // prettier-ignore
+                object.brush == null && object.fill == null ? 'transparent'
                     : object.brush != null ? 'transparent'
                     : 'none',
-                fill: object.fill != null ? 'transparent' : 'none',
-                transform: `matrix(${object.matrix.join(',')})`,
-                // prettier-ignore
-                pointerEvents:
+              fill: object.fill != null ? 'transparent' : 'none',
+              transform: `matrix(${object.matrix.join(',')})`,
+              // prettier-ignore
+              pointerEvents:
                   vectorStroking?.objectId === object.uid ? undefined
                   : skipHoverEffect ? 'none'
                   : undefined,
-              }}
-              d={object.path.svgPath}
-              onClick={handleClickObjectOutline}
-              data-object-uid={object.uid}
-              onContextMenu={handleContextMenu}
-              {...bindObjectHover()}
-              {...bindObjectDrag()}
-            />
-          </g>
-        </>
+            }}
+            d={object.path.svgPath}
+            onClick={handleClickObjectOutline}
+            data-object-uid={object.uid}
+            onContextMenu={handleContextMenu}
+            {...bindObjectHover()}
+            {...bindObjectDrag()}
+          />
+        </g>
       ))}
 
       {activeObject && (
@@ -578,7 +591,7 @@ export const VectorLayerControl = () => {
             scale={canvasScale}
             // isHoverOnPath={isHoverOnPath}
             // hoverObjectId={hoveredObjectUid}
-            onClickPath={handleClickPath}
+            // onClickPath={handleClickPath}
             onDoubleClickPath={handleDoubleClickPath}
             onHoverStateChange={handleHoverChangePath}
             showPaths={true}
@@ -611,12 +624,13 @@ export const VectorLayerControl = () => {
         </ContextMenu>
       </Portal>
 
-      <Portal>
+      <Portal mountPointId="canvas-overlays">
         <div
           css={`
             position: fixed;
             bottom: 96px;
             left: 50%;
+            z-index: 0;
             padding: 4px;
             transform: translateX(-50%);
             border-radius: 100px;
@@ -732,7 +746,7 @@ const PathSegments = ({
   scale,
   // isHoverOnPath,
   // hoverObjectId,
-  onClickPath,
+  // onClickPath,
   onDoubleClickPath,
   onHoverStateChange,
   showPaths,
@@ -743,7 +757,7 @@ const PathSegments = ({
   scale: number
   // isHoverOnPath: boolean
   // hoverObjectId: string | null
-  onClickPath: (objectId: string) => void
+  // onClickPath: (objectId: string) => void
   onDoubleClickPath: (
     objectId: string,
     segmentIndex: number,
@@ -798,8 +812,8 @@ const PathSegments = ({
       new PapCommands.VectorLayer.PatchPathPoints({
         pathToTargetLayer: activeLayerPath,
         objectUid: object.uid,
-        patcher: (path) => {
-          const point = object.path.points[pointIndex]
+        patcher: (points) => {
+          const point = points[pointIndex]
           if (!point?.in) return
 
           point.in.x += delta[0] * (1 / scale)
@@ -821,8 +835,8 @@ const PathSegments = ({
       new PapCommands.VectorLayer.PatchPathPoints({
         pathToTargetLayer: activeLayerPath,
         objectUid: object.uid,
-        patcher: (path) => {
-          const point = o.path.points[pointIndex]
+        patcher: (points) => {
+          const point = points[pointIndex]
           if (!point?.out) return
 
           point.out.x += delta[0] * (1 / scale)
@@ -832,59 +846,63 @@ const PathSegments = ({
     )
   })
 
-  const bindDragPoint = useDrag(({ delta, event, first, last }) => {
-    event.stopPropagation()
+  const bindDragPoint = useDrag(
+    ({ delta, event, first, last }) => {
+      event.stopPropagation()
 
-    const { dataset } = event.currentTarget as SVGElement
-    const pointIndex = +dataset.pointIndex!
+      const { dataset } = event.currentTarget as SVGElement
+      const pointIndex = +dataset.pointIndex!
 
-    if (!activeLayerPath) return
+      if (!activeLayerPath) return
 
-    execute(
-      EditorOps.runCommand,
-      new PapCommands.VectorLayer.PatchPathPoints({
-        pathToTargetLayer: activeLayerPath,
-        objectUid: object.uid,
-        patcher: (points) => {
-          const point = points[pointIndex]
-          if (!point) return
+      execute(
+        EditorOps.runCommand,
+        new PapCommands.VectorLayer.PatchPathPoints({
+          pathToTargetLayer: activeLayerPath,
+          objectUid: object.uid,
+          patcher: (points) => {
+            const point = points[pointIndex]
+            if (!point) return
 
-          const deltaX = delta[0] * (1 / scale)
-          const deltaY = delta[1] * (1 / scale)
+            const deltaX = delta[0] * (1 / scale)
+            const deltaY = delta[1] * (1 / scale)
 
-          point.x += deltaX
-          point.y += deltaY
+            point.x += deltaX
+            point.y += deltaY
 
-          if (point.in) {
-            point.in.x += deltaX
-            point.in.y += deltaY
-          }
+            if (point.in) {
+              point.in.x += deltaX
+              point.in.y += deltaY
+            }
 
-          if (point.out) {
-            point.out.x += deltaX
-            point.out.y += deltaY
-          }
+            if (point.out) {
+              point.out.x += deltaX
+              point.out.y += deltaY
+            }
 
-          // if (last) {
-          //   object.path.freeze()
-          // }
-        },
-      })
-    )
+            // if (last) {
+            //   object.path.freeze()
+            // }
+          },
+        })
+      )
 
-    execute(EditorOps.markVectorLastUpdate)
-  })
+      execute(EditorOps.markVectorLastUpdate)
+    },
+    { threshold: 2 }
+  )
 
   const handleClickPoint = useFunk((e: MouseEvent<SVGRectElement>) => {
     e.stopPropagation()
+    console.log('hi')
 
     const { dataset } = e.currentTarget
     const pointIndex = +dataset.pointIndex!
-    const isFirstPoint = dataset.isFairstPoint != null
+    const isFirstPoint = dataset.isFirstPoint != null
     const isLastPoint = dataset.isLastPoint != null
 
-    if (currentTool !== 'shape-pen') return
-    if (!activeLayerPath) return
+    if (the(currentTool).notIn('point-cursor', 'shape-pen') || !activeLayerPath)
+      return
 
     if (vectorStroking && (isLastPoint || isFirstPoint)) {
       if (!activeLayer || !activeObject) return
@@ -899,6 +917,8 @@ const PathSegments = ({
           patch: { closed: true },
         })
       )
+
+      execute(EditorOps.setVectorStroking, null)
 
       return
     }
@@ -922,11 +942,14 @@ const PathSegments = ({
 
   const handleClickPath = useFunk((e: MouseEvent<SVGPathElement>) => {
     e.stopPropagation()
+    if (!activeLayerPath) return
 
     const { dataset } = e.currentTarget
     const pointIndex = +dataset.pointIndex!
     const point = object.path.points[pointIndex]
     const prevPoint = object.path.points[pointIndex - 1]
+
+    console.log('hi', { pointIndex, point, prevPoint })
 
     if (currentTool === 'shape-pen') {
       if (!prevPoint) return
@@ -943,25 +966,34 @@ const PathSegments = ({
       )
       const distance = PapWebMath.distanceOfPoint(prevPoint, point)
 
-      executeOperation(EditorOps.addPoint, object, pointIndex, {
-        x: pt.x,
-        y: pt.y,
-        in: PapWebMath.pointByAngleAndDistance({
-          angle: reverseAngle,
-          distance: distance / 2,
-          base: pt,
-        }),
-        out: PapWebMath.pointByAngleAndDistance({
-          angle: angle,
-          distance: distance / 2,
-          base: pt,
-        }),
-      })
+      executeOperation(
+        EditorOps.runCommand,
+        new PapCommands.VectorLayer.PatchPathPoints({
+          pathToTargetLayer: activeLayerPath,
+          objectUid: object.uid,
+          patcher: (points) => {
+            points.splice(pointIndex, 0, {
+              x: pt.x,
+              y: pt.y,
+              in: PapWebMath.pointByAngleAndDistance({
+                angle: reverseAngle,
+                distance: distance / 2,
+                base: pt,
+              }),
+              out: PapWebMath.pointByAngleAndDistance({
+                angle: angle,
+                distance: distance / 2,
+                base: pt,
+              }),
+            })
+          },
+        })
+      )
 
       return
     }
 
-    onClickPath(object.uid)
+    // onClickPath(object.uid)
   })
 
   const handleDoubleClickPath = useFunk((e: MouseEvent<SVGPathElement>) => {
@@ -976,6 +1008,7 @@ const PathSegments = ({
       x: e.clientX,
       y: e.clientY,
     })
+
     onDoubleClickPath(object.uid, pointIndex, { x: cursorPt.x, y: cursorPt.y })
   })
 
@@ -1001,6 +1034,33 @@ const PathSegments = ({
     }
   )
 
+  const bindLongPressPoint = useLongPress(
+    (e) => {
+      // stopPropagation for shape-pen(add point)
+      e.stopPropagation()
+
+      if (!activeLayerPath) return
+
+      // console.log({ ...e }, , e.target?.dataset)
+      const { dataset } = e.target as SVGRectElement
+      const objectUid = dataset.objectId!
+      const pointIndex = +dataset.pointIndex!
+      // console.log(objectUid, pointIndex)
+
+      execute(
+        EditorOps.runCommand,
+        new PapCommands.VectorLayer.PatchPathPoints({
+          pathToTargetLayer: activeLayerPath,
+          objectUid: object.uid,
+          patcher: (points) => {
+            points.splice(pointIndex, 1)
+          },
+        })
+      )
+    },
+    { threshold: 600, cancelOnMovement: 2 }
+  )
+
   // const pathHoverBind = useHover((e) => {
   //   const { dataset } = e.event.currentTarget as any as SVGPathElement
   //   const object = objects.find((obj) => obj.uid === dataset.objectId!)!
@@ -1010,7 +1070,7 @@ const PathSegments = ({
 
   const zoom = Math.max(1 / scale, 1)
 
-  const pathSegments = useMemo(() => {
+  const pathSegments = useDeepCompareMemo(() => {
     return object.path
       .mapPoints((point, prevPoint, pointIdx, points) => {
         const isActive = activeObject?.uid === object.uid
@@ -1039,9 +1099,9 @@ const PathSegments = ({
               <path
                 css={`
                   stroke: transparent;
-                  stroke-width: 2;
+                  stroke-width: 8;
                   fill: none;
-                  pointer-events: none;
+                  pointer-events: visiblePainted;
                   shape-rendering: optimizeSpeed;
                 `}
                 style={{
@@ -1049,6 +1109,8 @@ const PathSegments = ({
                 }}
                 d={segmentPath}
                 data-object-id={object.uid}
+                data-point-index={pointIdx}
+                onClick={handleClickPath}
                 onDoubleClick={handleDoubleClickPath}
               />
             </Fragment>
@@ -1118,7 +1180,7 @@ const PathSegments = ({
                     `}
                     cx={point.out.x}
                     cy={point.out.y}
-                    r={POINT_SIZE} //  * zoom
+                    r={POINT_SIZE * zoom}
                     data-object-id={object.uid}
                     data-point-index={pointIdx}
                     onDoubleClick={handleDoubleClickOutPoint}
@@ -1131,38 +1193,44 @@ const PathSegments = ({
           point:
             !renderPoint || !isActive ? null : (
               <Fragment key={`point-${object.uid}`}>
-                <rect
-                  css={`
-                    z-index: 1;
-                    pointer-events: visiblePainted;
-                    shape-rendering: optimizeSpeed;
-                  `}
-                  x={point.x}
-                  y={point.y}
-                  width={POINT_SIZE * zoom}
-                  height={POINT_SIZE * zoom}
-                  transform={`translate(${(-POINT_SIZE * zoom) / 2}, ${
-                    (-POINT_SIZE * zoom) / 2
-                  })`}
-                  style={{
-                    strokeWidth: 1 * zoom,
-                    ...(activeObjectPointIndices.includes(pointIdx)
-                      ? { fill: '#4e7fff', stroke: 'rgba(0, 0, 0, 0.2)' }
-                      : { fill: '#fff', stroke: '#4e7fff' }),
-                  }}
+                <g
                   data-object-id={object.uid}
                   data-point-index={pointIdx}
-                  data-is-first-point={isFirstPoint ? true : null}
-                  data-is-last-point={isLastPoint ? true : null}
-                  onClick={handleClickPoint}
-                  {...bindDragPoint()}
-                />
+                  {...bindLongPressPoint()}
+                >
+                  <rect
+                    css={`
+                      z-index: 1;
+                      pointer-events: visiblePainted;
+                      shape-rendering: optimizeSpeed;
+                    `}
+                    x={point.x}
+                    y={point.y}
+                    width={POINT_SIZE * zoom}
+                    height={POINT_SIZE * zoom}
+                    transform={`translate(${(-POINT_SIZE * zoom) / 2}, ${
+                      (-POINT_SIZE * zoom) / 2
+                    })`}
+                    style={{
+                      strokeWidth: 1 * zoom,
+                      ...(activeObjectPointIndices.includes(pointIdx)
+                        ? { fill: '#4e7fff', stroke: 'rgba(0, 0, 0, 0.2)' }
+                        : { fill: '#fff', stroke: '#4e7fff' }),
+                    }}
+                    data-object-id={object.uid}
+                    data-point-index={pointIdx}
+                    data-is-first-point={isFirstPoint ? true : null}
+                    data-is-last-point={isLastPoint ? true : null}
+                    onClick={handleClickPoint}
+                    {...bindDragPoint()}
+                  />
+                </g>
               </Fragment>
             ),
         }
       })
       .flat(1)
-  }, [activeObject?.uid, object, object.path.points.length, lastUpdated])
+  }, [activeObject?.uid, object, lastUpdated, activeObjectPointIndices])
 
   const elements = (
     <>

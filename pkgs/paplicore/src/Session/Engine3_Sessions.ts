@@ -131,6 +131,14 @@ export class PapSession extends Emitter<Events> {
     this.emit('activeLayerChanged', this)
   }
 
+  public get undoStackCount() {
+    return this.commandHistory.length
+  }
+
+  public get redoStackCount() {
+    return this.redoHistory.length
+  }
+
   public async runCommand(com: ICommand) {
     if (!this.document) return
 

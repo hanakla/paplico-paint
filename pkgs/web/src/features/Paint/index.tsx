@@ -8,9 +8,12 @@ import {
 } from '@hanakla/arma'
 import {
   ChangeEvent,
+  forwardRef,
   memo,
   MouseEvent,
+  PointerEvent,
   RefObject,
+  MutableRefObject,
   useEffect,
   useRef,
   useState,
@@ -41,6 +44,7 @@ import {
   PapCanvasFactory,
   PapExporter,
 } from '@paplico/core'
+import isiOS from 'is-ios'
 
 import { Sidebar } from '🙌/components/Sidebar'
 import { FilterView } from './containers/FilterView'
@@ -114,10 +118,10 @@ export const PaintPage = memo(function PaintPage({}) {
     middleware: [shift(), autoPlacement({ allowedPlacements: ['top-start'] })],
   })
 
-  const editorBound = useMeasure(editAreaRef)
   const rerender = useUpdate()
   const [sidebarOpened, sidebarToggle] = useToggle(!isNarrowMedia)
   const [stream, setStream] = useState<MediaStream | null>(null)
+
   const [saveMessage] = useNotifyConsumer('save', 1)
 
   const handleOnDrop = useFunk(async (files: File[]) => {
@@ -204,7 +208,7 @@ export const PaintPage = memo(function PaintPage({}) {
     executeOperation(NotifyOps.create, {
       area: 'save',
       timeout: 3000,
-      message: t('exports.exported'),
+      messageKey: t('exports.exported'),
     })
     setTimeout(() => URL.revokeObjectURL(url), 10000)
   })
@@ -257,12 +261,7 @@ export const PaintPage = memo(function PaintPage({}) {
   useFunkyGlobalMouseTrap(['ctrl+s', 'command+s'], (e) => {
     e.preventDefault()
 
-    executeOperation(EditorOps.autoSave, currentDocument!.uid)
-    executeOperation(NotifyOps.create, {
-      area: 'save',
-      message: t('exports.saved'),
-      timeout: 3000,
-    })
+    executeOperation(EditorOps.saveCurrentDocumentToIdb)
   })
   useFunkyGlobalMouseTrap(['ctrl+shift+s', 'command+shift+s'], (e) => {
     e.preventDefault()
@@ -289,6 +288,14 @@ export const PaintPage = memo(function PaintPage({}) {
     executeOperation(EditorOps.setTool, 'draw')
   })
 
+  useFunkyGlobalMouseTrap(['x'], () => {
+    const vectorColorTarget = EditorSelector.vectorColorTarget(getStore)
+    executeOperation(
+      EditorOps.setVectorColorTarget,
+      vectorColorTarget === 'fill' ? 'stroke' : 'fill'
+    )
+  })
+
   useFunkyGlobalMouseTrap(['e'], () =>
     executeOperation(EditorOps.setTool, 'erase')
   )
@@ -300,6 +307,49 @@ export const PaintPage = memo(function PaintPage({}) {
   useFunkyGlobalMouseTrap(['tab'], (e) => {
     e.preventDefault()
     sidebarToggle()
+  })
+
+  useFunkyGlobalMouseTrap(['command+up', 'ctrl+up'], (e) => {
+    const activeLayer = EditorSelector.activeLayer(getStore)
+    const activeLayerPath = EditorSelector.activeLayerPath(getStore)
+    const activeObject = EditorSelector.activeObject(getStore)
+
+    if (
+      activeLayer?.layerType !== 'vector' ||
+      !activeLayerPath ||
+      !activeObject
+    )
+      return
+
+    execute(
+      EditorOps.runCommand,
+      new PapCommands.VectorLayer.ReorderObjects({
+        pathToTargetLayer: activeLayerPath,
+        objectUid: activeObject.uid,
+        newIndex: { delta: -1 },
+      })
+    )
+  })
+  useFunkyGlobalMouseTrap(['command+down', 'ctrl+down'], (e) => {
+    const activeLayer = EditorSelector.activeLayer(getStore)
+    const activeLayerPath = EditorSelector.activeLayerPath(getStore)
+    const activeObject = EditorSelector.activeObject(getStore)
+
+    if (
+      activeLayer?.layerType !== 'vector' ||
+      !activeLayerPath ||
+      !activeObject
+    )
+      return
+
+    execute(
+      EditorOps.runCommand,
+      new PapCommands.VectorLayer.ReorderObjects({
+        pathToTargetLayer: activeLayerPath,
+        objectUid: activeObject.uid,
+        newIndex: { delta: 1 },
+      })
+    )
   })
 
   useFunkyGlobalMouseTrap(['ctrl+0', 'command+0'], (e) => {
@@ -331,29 +381,6 @@ export const PaintPage = memo(function PaintPage({}) {
       swapObjectBrushAndFill(o, { fallbackBrushId: PapBrushes.Brush.id })
     })
   })
-
-  const editorMultiTouchRef = useMultiFingerTouch((e) => {
-    if (e.fingers == 2) execute(EditorOps.undoCommand)
-    if (e.fingers == 3) execute(EditorOps.redoCommand)
-  })
-
-  useGesture(
-    {
-      onPinch: ({ delta: [d, r] }) => {
-        executeOperation(EditorOps.setCanvasTransform, {
-          scale: (prev) => Math.max(0.1, prev + d / 400),
-        })
-        // setRotate(rotate => rotate + r)
-      },
-
-      // onDrag: ({ delta: [deltaX, deltaY], event }) => {
-      //   // if (!event.to)
-      //   // console.log(event.touches)
-      //   setPosition(({ x, y }) => ({ x: x + deltaX, y: y + deltaY }))
-      // },
-    },
-    { domTarget: editAreaRef, eventOptions: { passive: false } }
-  )
 
   useClickAway(sidebarRef, (e) => {
     if (!isNarrowMedia) return
@@ -551,40 +578,29 @@ export const PaintPage = memo(function PaintPage({}) {
             : ''
         }, Canvas holdings ${byteToMiB(
           PapCanvasFactory.getCanvasBytes()
-        )} MiB with ${PapCanvasFactory.activeCanvasesCount()}
+        )} MiB with ${PapCanvasFactory.activeCanvasesCount()} canvases
         `
       )
     }
   }, 4000)
 
   useEffect(() => {
-    const handleCanvasWheel = (e: WheelEvent) => {
-      executeOperation(EditorOps.setCanvasTransform, {
-        pos: ({ x, y }) => ({
-          x: x - e.deltaX * 0.5,
-          y: y - e.deltaY * 0.5,
-        }),
+    if (!currentDocument) return
+    if (isiOS) {
+      execute(NotifyOps.create, {
+        area: 'save',
+        messageKey: 'exports.autoSaveDisabledInIOS',
+        timeout: 5000,
       })
 
-      e.preventDefault()
+      return
     }
-
-    editAreaRef.current?.addEventListener('wheel', handleCanvasWheel, {
-      passive: false,
-    })
-
-    return () =>
-      editAreaRef.current?.removeEventListener('wheel', handleCanvasWheel)
-  }, [])
-
-  useEffect(() => {
-    if (!currentDocument) return
 
     const autoSave = () => {
       executeOperation(EditorOps.autoSave, currentDocument!.uid)
       executeOperation(NotifyOps.create, {
         area: 'save',
-        message: t('exports.autoSaved'),
+        messageKey: t('exports.autoSaved'),
         timeout: 3000,
       })
     }
@@ -609,6 +625,7 @@ export const PaintPage = memo(function PaintPage({}) {
           flex-flow: column;
           background-color: ${({ theme }) => theme.color.background1};
           color: ${({ theme }) => theme.color.text2};
+          touch-action: none;
         `}
         {...bindDrop}
       >
@@ -640,6 +657,7 @@ export const PaintPage = memo(function PaintPage({}) {
           <>
             <div
               css={`
+                position: relative;
                 ${media.narrow`
                 display: none;
               `}
@@ -666,115 +684,32 @@ export const PaintPage = memo(function PaintPage({}) {
                   <LayerView />
 
                   <FilterView />
-
-                  <div css="display: flex; padding: 8px; margin-top: auto;">
-                    <div
-                      css="margin-right: auto; cursor: default;"
-                      onClick={sidebarToggle}
-                    >
-                      <Menu
-                        css={`
-                          width: 16px;
-                        `}
-                      />
-                    </div>
-                  </div>
                 </div>
               </Sidebar>
+              <div
+                css={`
+                  position: absolute;
+                  bottom: 0;
+                  display: flex;
+                  padding: 8px;
+                  margin-top: auto;
+                `}
+              >
+                <div
+                  css="margin-right: auto; cursor: default;"
+                  onClick={sidebarToggle}
+                >
+                  <Menu
+                    css={`
+                      width: 16px;
+                    `}
+                  />
+                </div>
+              </div>
             </div>
           </>
 
-          <div
-            ref={combineRef(editAreaRef, editorMultiTouchRef)}
-            css={css`
-              position: relative;
-              display: flex;
-              flex: 1;
-              align-items: center;
-              justify-content: center;
-              overflow: hidden;
-              background-color: ${rgba('#11111A', 0.3)};
-            `}
-            style={{
-              // prettier-ignore
-              cursor:
-              currentTool === 'cursor' ? 'default' :
-              currentTool === 'draw' ? `${theme.cursors.pencil}, auto` : // 'url(cursors/pencil.svg), auto' :
-              currentTool === 'erase' ? `${theme.cursors.eraser}, auto` : // 'url(cursors/eraser.svg), auto' :
-              currentTool === 'shape-pen' ? `${theme.cursors.pencilLine}, auto` : // 'url(cursors/pencil-line.svg), auto':
-              'default',
-            }}
-            onContextMenu={DOMUtils.preventDefaultHandler}
-          >
-            <div
-              css={css`
-                position: fixed;
-                top: 0;
-                left: 0;
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                width: 100%;
-                height: 100%;
-                z-index: 1;
-                background-color: rgba(0, 0, 0, 0.5);
-                color: ${({ theme }) => theme.exactColors.white40};
-                pointer-events: none;
-              `}
-              style={{
-                ...(dragState.over ? { opacity: 1 } : { opacity: 0 }),
-              }}
-            >
-              ドロップして画像を追加
-            </div>
-
-            <PaintCanvas canvasRef={canvasRef} />
-
-            <svg
-              // Match to Editor bounding
-              data-devmemo="Editor bounding svg"
-              css={`
-                position: absolute;
-                top: 0;
-                left: 0;
-                width: 100%;
-                height: 100%;
-                pointer-events: none;
-              `}
-              viewBox={`0 0 ${editorBound.width} ${editorBound.height}`}
-              width={editorBound.width}
-              height={editorBound.height}
-            >
-              <ControlsOverlay editorBound={editorBound} />
-            </svg>
-            <div
-              css={`
-                position: absolute;
-                left: 50%;
-                bottom: 16px;
-                transform: translateX(-50%);
-
-                ${media.narrow`
-                bottom: 0;
-                width: 100%;
-              `}
-              `}
-            >
-              <MainActions />
-            </div>
-
-            <div
-              css={`
-                position: absolute;
-                top: 16px;
-                left: 50%;
-                z-index: 10;
-                transform: translateX(-50%);
-              `}
-            >
-              <HistoryFlash />
-            </div>
-          </div>
+          <EditorArea ref={combineRef(editAreaRef)} canvasRef={canvasRef} />
 
           <>
             <Sidebar
@@ -919,7 +854,7 @@ export const PaintPage = memo(function PaintPage({}) {
                       }}
                     >
                       <Tooltip ref={saveFloat.floating}>
-                        {saveMessage?.message}
+                        {t(saveMessage?.messageKey)}
                       </Tooltip>
                     </span>
                     <Button
@@ -969,6 +904,235 @@ export const PaintPage = memo(function PaintPage({}) {
     </PaintCanvasContext.Provider>
   )
 })
+
+const EditorArea = memo(
+  forwardRef<
+    HTMLDivElement,
+    { canvasRef: MutableRefObject<HTMLCanvasElement | null> }
+  >(function EditorArea({ canvasRef }) {
+    const theme = useTheme()
+    const { execute, getStore } = useFleur()
+
+    const { currentTool } = useStore((get) => ({
+      currentTool: get(EditorStore).state.currentTool,
+    }))
+
+    const [cursorPos, setCursorPos] = useState<{ x: number; y: number } | null>(
+      null
+    )
+
+    const editAreaRef = useRef<HTMLDivElement | null>(null)
+    const editorBound = useMeasure(editAreaRef)
+
+    const handleEditAreaPointerDown = useFunk((e: PointerEvent) => {
+      const box = editAreaRef.current!.getBoundingClientRect()
+      setCursorPos({
+        x: e.clientX - box.left,
+        y: e.clientY - box.top,
+      })
+    })
+
+    const handleEditAreaPointerMove = useFunk((e: PointerEvent) => {
+      const box = editAreaRef.current!.getBoundingClientRect()
+
+      setCursorPos((prev) =>
+        prev
+          ? {
+              x: e.clientX - box.left,
+              y: e.clientY - box.top,
+            }
+          : null
+      )
+    })
+
+    const handleEditAreaPointerUp = useFunk(() => {
+      setTimeout(() => {
+        setCursorPos(null)
+      }, 100)
+    })
+
+    const editorMultiTouchRef = useMultiFingerTouch((e) => {
+      if (e.fingers == 2) execute(EditorOps.undoCommand)
+      if (e.fingers == 3) execute(EditorOps.redoCommand)
+    })
+
+    useGesture(
+      {
+        onPinch: ({ delta: [d, r] }) => {
+          execute(EditorOps.setCanvasTransform, {
+            scale: (prev) => Math.max(0.1, prev + d / 400),
+          })
+        },
+
+        onDrag: (e) => {
+          if (e.touches < 2) return
+
+          execute(EditorOps.setCanvasTransform, {
+            pos: ({ x, y }) => ({
+              x: x + e.delta[0],
+              y: y + e.delta[1],
+            }),
+          })
+        },
+      },
+      { domTarget: editAreaRef, eventOptions: { passive: false } }
+    )
+
+    useEffect(() => {
+      const handleCanvasWheel = (e: WheelEvent) => {
+        e.preventDefault()
+
+        execute(EditorOps.setCanvasTransform, {
+          pos: ({ x, y }) => ({
+            x: x - e.deltaX * 0.5,
+            y: y - e.deltaY * 0.5,
+          }),
+        })
+      }
+
+      editAreaRef.current?.addEventListener('wheel', handleCanvasWheel, {
+        passive: false,
+      })
+
+      return () =>
+        editAreaRef.current?.removeEventListener('wheel', handleCanvasWheel)
+    }, [])
+
+    return (
+      <div
+        ref={combineRef(editAreaRef, editorMultiTouchRef)}
+        css={css`
+          position: relative;
+          display: flex;
+          flex: 1;
+          align-items: center;
+          justify-content: center;
+          overflow: hidden;
+          background-color: ${rgba('#11111A', 0.3)};
+        `}
+        style={{
+          // prettier-ignore
+          cursor:
+              currentTool === 'cursor' ? 'default' :
+              currentTool === 'draw' ? `${theme.cursors.pencil}, auto` : // 'url(cursors/pencil.svg), auto' :
+              currentTool === 'erase' ? `${theme.cursors.eraser}, auto` : // 'url(cursors/eraser.svg), auto' :
+              currentTool === 'shape-pen' ? `${theme.cursors.pencilLine}, auto` : // 'url(cursors/pencil-line.svg), auto':
+              'default',
+        }}
+        onPointerDown={handleEditAreaPointerDown}
+        onPointerMove={handleEditAreaPointerMove}
+        onPointerUp={handleEditAreaPointerUp}
+        onContextMenu={DOMUtils.preventDefaultHandler}
+      >
+        <div
+          css={css`
+            position: fixed;
+            top: 0;
+            left: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 100%;
+            height: 100%;
+            z-index: 1;
+            background-color: rgba(0, 0, 0, 0.5);
+            color: ${({ theme }) => theme.exactColors.white40};
+            pointer-events: none;
+          `}
+          style={{
+            // ...(dragState.over ? { opacity: 1 } : { opacity: 0 }),
+            opacity: 0,
+          }}
+        >
+          ドロップして画像を追加
+        </div>
+
+        <PaintCanvas canvasRef={canvasRef} />
+
+        <svg
+          // Match to Editor bounding
+          data-devmemo="Editor bounding svg"
+          css={`
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+          `}
+          viewBox={`0 0 ${editorBound.width} ${editorBound.height}`}
+          width={editorBound.width}
+          height={editorBound.height}
+        >
+          <ControlsOverlay editorBound={editorBound} />
+        </svg>
+
+        <div
+          css={`
+            position: absolute;
+            width: 6px;
+            height: 6px;
+            border: 1px solid #fff;
+            opacity: 0;
+            box-shadow: inset 0 0 0 0.5px #000, 0 0 0 0.5px #000;
+            border-radius: 4px;
+
+            transition: 0.15s ease-in-out;
+            transition-property: opacity, transform;
+          `}
+          style={{
+            left: cursorPos?.x ?? 0,
+            top: cursorPos?.y ?? 0,
+            opacity: cursorPos ? 1 : 0,
+            transform: cursorPos
+              ? 'translate(-50%, -50%) scale(1)'
+              : 'translate(-50%, -50%) scale(2)',
+          }}
+        />
+
+        <div
+          css={`
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            pointer-events: none;
+          `}
+          id="canvas-overlays"
+        />
+
+        <div
+          css={`
+            position: absolute;
+            left: 50%;
+            bottom: 16px;
+            transform: translateX(-50%);
+
+            ${media.narrow`
+                bottom: 0;
+                width: 100%;
+              `}
+          `}
+        >
+          <MainActions />
+        </div>
+
+        <div
+          css={`
+            position: absolute;
+            top: 16px;
+            left: 50%;
+            z-index: 10;
+            transform: translateX(-50%);
+          `}
+        >
+          <HistoryFlash />
+        </div>
+      </div>
+    )
+  })
+)
 
 const PaintCanvas = memo(function PaintCanvas({
   canvasRef,

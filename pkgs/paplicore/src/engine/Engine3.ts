@@ -28,6 +28,15 @@ import { LowResoFilter } from '../Filters/LowReso'
 import { OutlineFilter } from '../Filters/Outline'
 import { ZoomBlurFilter } from '../Filters/ZoomBlur'
 import { KawaseBlurFilter } from '../Filters/KawaseBlur'
+import { nanoid } from 'nanoid'
+import {
+  logGroup,
+  logGroupCollapsed,
+  logGroupEnd,
+  logTime,
+  logTimeEnd,
+} from '../DebugHelper'
+import { saveAndRestoreCanvas } from '../utils/canvas'
 
 type EngineEvents = {
   rerender: void
@@ -130,7 +139,7 @@ export class PaplicoEngine {
   protected constructor({ canvas }: { canvas: HTMLCanvasElement }) {
     this.canvas = canvas
     this.canvasCtx = canvas.getContext('2d', {
-      alpha: true,
+      // alpha: false,
       // colorSpace: 'display-p3',
     })!
 
@@ -192,25 +201,44 @@ export class PaplicoEngine {
     return PaplicoEngine.layerBitmapCache.get(document)?.[layerId]
   }
 
-  public lazyRender = debounce(this.render.bind(this), 300)
+  public lazyRender = debounce(
+    (document: Document, strategy: IRenderStrategy) => {
+      return this.render(document, strategy, { lazy: true })
+    },
+    300
+  )
 
   public async render(
     document: Document,
     strategy: IRenderStrategy,
     {
       target = this.canvasCtx,
-    }: { target?: CanvasRenderingContext2D | null } = {}
+      lazy = false,
+    }: { target?: CanvasRenderingContext2D | null; lazy?: boolean } = {}
   ) {
-    const lock = await this.atomicRender.enjure({ owner: this })
+    const rid = nanoid()
+    const lock = await (lazy
+      ? this.atomicRender.enjure({ owner: this })
+      : this.atomicRender.ensureLazy({ owner: this, timeout: 100 }))
+    if (!lock) return
+
     const renderer = await this.atomicThreeRenderer.enjure({ owner: this })
     const preDestCtx = await this.atomicPreDestCtx.enjure({ owner: this })
+
+    logGroup(`render-time-${rid}`)
+    logTime(`render-${rid}`)
 
     try {
       target && setCanvasSize(target.canvas, document.width, document.height)
       setCanvasSize(preDestCtx.canvas, document.width, document.height)
 
       target?.clearRect(0, 0, document.width, document.height)
-      preDestCtx.clearRect(0, 0, document.width, document.height)
+
+      saveAndRestoreCanvas(preDestCtx, (ctx) => {
+        ctx.fillStyle = 'rgba(255,255,255,0.01)'
+        // ctx.clearRect(0, 0, document.width, document.height)
+        ctx.fillRect(0, 0, document.width, document.height)
+      })
 
       renderer.setSize(document.width, document.height, false)
       renderer.setClearColor(0x000000, 0)
@@ -225,13 +253,26 @@ export class PaplicoEngine {
       // After clear, release resource for rendering
       this.atomicThreeRenderer.release(renderer)
 
+      logTime('Essential render')
+      logGroupCollapsed('Start Strategy render')
+
       await strategy.render(this, document, preDestCtx)
-      target?.drawImage(preDestCtx.canvas, 0, 0)
+      target?.drawImage(
+        preDestCtx.canvas,
+        0,
+        0,
+        document.width,
+        document.height
+      )
+      logGroupEnd()
+      logTimeEnd('Essential render')
 
       if (target === this.canvasCtx) {
         this.mitt.emit('rerender')
       }
     } finally {
+      logTimeEnd(`render-${rid}`)
+      logGroupEnd()
       this.atomicThreeRenderer.isLocked &&
         this.atomicThreeRenderer.release(renderer)
       this.atomicPreDestCtx.release(preDestCtx)
@@ -333,6 +374,7 @@ export class PaplicoEngine {
 
     destCtx.save()
     try {
+      logTime(`essential stroke render`)
       brush.render({
         brushSetting: brushSetting,
         context: destCtx,
@@ -345,6 +387,7 @@ export class PaplicoEngine {
           height: destCtx.canvas.height,
         },
       })
+      logTimeEnd('essential stroke render')
     } finally {
       destCtx.restore()
 
@@ -353,17 +396,35 @@ export class PaplicoEngine {
     }
   }
 
-  public async renderVectorLayer(document: Document, layer: VectorLayer) {
+  public renderVectorLayer(
+    document: Document,
+    layer: VectorLayer
+  ): Promise<Uint8ClampedArray>
+  public renderVectorLayer(
+    document: Document,
+    layer: VectorLayer,
+    dest: CanvasRenderingContext2D
+  ): Promise<void>
+
+  public async renderVectorLayer(
+    document: Document,
+    layer: VectorLayer,
+    dest?: CanvasRenderingContext2D
+  ): Promise<Uint8ClampedArray | void> {
+    logGroup('renderVectorLayer()')
+
     const { width, height } = document
+    logTime('ensureBuffer for vector')
     const bufferCtx = await this.atomicBufferCtx.enjure({ owner: this })
+    logTimeEnd('ensureBuffer for vector')
 
     try {
-      const bitmap = new Uint8ClampedArray(width * height * 4)
-
       setCanvasSize(bufferCtx.canvas, width, height)
       bufferCtx.clearRect(0, 0, width, height)
 
       for (const object of [...layer.objects].reverse()) {
+        if (!object.visible) continue
+
         bufferCtx.save()
         bufferCtx.globalCompositeOperation = 'source-over'
         bufferCtx.transform(...object.matrix)
@@ -450,22 +511,28 @@ export class PaplicoEngine {
           if (brush == null)
             throw new Error(`Unregistered brush ${object.brush.brushId}`)
 
+          logTime('renderPath')
+
           await this.renderPath(
             object.brush,
             new PlainInk(),
             object.path,
             bufferCtx
           )
+
+          logTimeEnd('renderPath')
         }
 
         bufferCtx.restore()
       }
 
-      const data = bufferCtx.getImageData(0, 0, width, height).data
-      bitmap.set(data)
-
-      return bitmap
+      if (dest) {
+        dest.drawImage(bufferCtx.canvas, 0, 0)
+      } else {
+        return bufferCtx.getImageData(0, 0, width, height).data
+      }
     } finally {
+      logGroupEnd()
       this.atomicBufferCtx.release(bufferCtx)
     }
   }
@@ -477,7 +544,9 @@ export class PaplicoEngine {
     options: {
       handleLayerBitmapRequest: (
         layerUid: string
-      ) => Promise<{ missing: false; image: ImageBitmap } | { missing: true }>
+      ) => Promise<
+        { missing: false; image: CanvasImageSource } | { missing: true }
+      >
       layer: LayerTypes
       size: {
         width: number
@@ -526,10 +595,12 @@ export class PaplicoEngine {
     {
       mode,
       opacity,
+      position = { x: 0, y: 0 },
     }: {
       mode: CompositeMode | 'destination-out'
       /** 0 to 100 */
       opacity: number
+      position?: { x: number; y: number }
     }
   ) {
     compositeTo.save()
@@ -540,7 +611,7 @@ export class PaplicoEngine {
         : layerCompositeModeToCanvasCompositeMode(mode)
 
     compositeTo.globalAlpha = Math.max(0, Math.min(opacity / 100, 1))
-    compositeTo.drawImage(layerImage.canvas, 0, 0)
+    compositeTo.drawImage(layerImage.canvas, position.x, position.y)
 
     compositeTo.restore()
   }

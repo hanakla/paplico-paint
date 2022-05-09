@@ -1,5 +1,6 @@
 import {
   ChangeEvent,
+  KeyboardEvent,
   memo,
   MouseEvent,
   MutableRefObject,
@@ -13,17 +14,23 @@ import {
   Color,
   ColorChangeHandler,
   CustomPicker,
+  RGBColor,
 } from 'react-color'
 import { Alpha, Hue, Saturation } from 'react-color/lib/components/common'
-import { rgba, readableColor, rgb } from 'polished'
-import { usePopper } from 'react-popper'
-import { PapBrushes, PapCommands, PapValue } from '@paplico/core'
+import {
+  rgba,
+  readableColor,
+  rgb,
+  parseToRgb,
+  rgbToColorString,
+} from 'polished'
+import { PapCommands, PapValue } from '@paplico/core'
 import { useTranslation } from 'next-i18next'
 import { useClickAway, useToggle } from 'react-use'
 import { Brush, Close, Eraser, Pencil, Stack } from '@styled-icons/remix-line'
 import { Cursor, Menu } from '@styled-icons/remix-fill'
 import { Cursor as CursorLine } from '@styled-icons/remix-line'
-import { css, useTheme } from 'styled-components'
+import styled, { css, useTheme } from 'styled-components'
 import { Portal } from '🙌/components/Portal'
 import { FloatMenu, FloatMenuArrow } from '🙌/components/FloatMenu'
 import { LayerFloatMenu } from './LayerFloatMenu'
@@ -32,10 +39,12 @@ import { DOMUtils } from '🙌/utils/dom'
 import { pick } from '🙌/utils/object'
 import { EditorOps, EditorSelector, EditorStore } from '🙌/domains/EditorStable'
 import { letDownload, useFunk } from '@hanakla/arma'
+
 import {
   arrow,
   autoPlacement,
   autoUpdate,
+  flip,
   offset,
   shift,
   useFloating,
@@ -57,7 +66,7 @@ import { tm } from '🙌/utils/theme'
 import { deepClone } from '🙌/utils/clone'
 import { PapWebMath } from '🙌/utils/PapWebMath'
 import { media } from '🙌/utils/responsive'
-import { centering } from '🙌/utils/mixins'
+import { centering, checkerBoard } from '🙌/utils/mixins'
 import {
   ActionSheet,
   ActionSheetItem,
@@ -68,9 +77,10 @@ import { NotifyOps } from '🙌/domains/Notify'
 import { RangeInput } from '🙌/components/RangeInput'
 import { useTransactionCommand, useVectorObjectWatch } from '../../hooks'
 import { Tooltip2 } from '🙌/components/Tooltip2'
-import { the } from '../../../../utils/anyOf'
-import { useRouter } from 'next/router'
+import { the } from '🙌/utils/anyOf'
 import { BrushPresets } from '../BrushPresets'
+import { DragDots } from '🙌/components/icons/DragDots'
+import { TextInput } from '../../../../components/TextInput'
 
 export const MainActions = memo(function MainActions() {
   const theme = useTheme()
@@ -78,29 +88,26 @@ export const MainActions = memo(function MainActions() {
 
   const { execute } = useFleur()
   const {
-    currentVectorBrush,
+    displayingBrushSetting,
     currentVectorFill,
     currentTool,
-    brushSetting,
     activeLayer,
-    activeObject,
     vectorColorTarget,
   } = useStore((get) => ({
+    displayingBrushSetting: EditorSelector.displayingBrushSetting(get),
     currentVectorBrush: EditorSelector.currentVectorBrush(get),
     currentVectorFill: EditorSelector.currentVectorFill(get),
     currentTool: get(EditorStore).state.currentTool,
-    brushSetting: EditorSelector.currentBrushSetting(get),
     activeLayer: EditorSelector.activeLayer(get),
-    activeObject: EditorSelector.activeObject(get),
     vectorColorTarget: EditorSelector.vectorColorTarget(get),
   }))
 
   const [color, setColor] = useState(
-    brushSetting?.color
+    displayingBrushSetting?.color
       ? {
-          r: Math.round(brushSetting.color.r * 255),
-          g: Math.round(brushSetting.color.g * 255),
-          b: Math.round(brushSetting.color.b * 255),
+          r: Math.round(displayingBrushSetting.color.r * 255),
+          g: Math.round(displayingBrushSetting.color.g * 255),
+          b: Math.round(displayingBrushSetting.color.b * 255),
         }
       : { r: 30, g: 30, b: 30 }
   )
@@ -108,11 +115,13 @@ export const MainActions = memo(function MainActions() {
   const [pickerOpened, toggleBrushColorPicker] = useToggle(false)
   const [brushOpened, toggleBrush] = useToggle(false)
   const [layersOpened, toggleLayers] = useToggle(false)
-  const [vectorFillColorOpened, toggleVectorFillColorOpened] = useToggle(false)
+  const [vectorColorOpened, toggleVectorColorOpened] = useToggle(false)
 
-  const [brushSize, setBrushSize] = useBufferedState(brushSetting?.size ?? 0)
+  const [brushSize, setBrushSize] = useBufferedState(
+    displayingBrushSetting?.size ?? 20
+  )
   const [brushOpacity, setBrushOpacity] = useBufferedState(
-    brushSetting?.opacity ?? 1
+    displayingBrushSetting?.opacity ?? 1
   )
 
   const handleCloseAppMenu = useFunk(() => {
@@ -181,8 +190,11 @@ export const MainActions = memo(function MainActions() {
     (e: MouseEvent<HTMLDivElement>) => {
       if (DOMUtils.isChildren(e.target, e.currentTarget)) return
 
-      execute(EditorOps.setVectorColorTarget, 'stroke')
-      // toggleVectorFillColorOpened(true)
+      if (!vectorColorOpened) {
+        execute(EditorOps.setVectorColorTarget, 'stroke')
+      }
+
+      toggleVectorColorOpened()
     }
   )
 
@@ -190,13 +202,17 @@ export const MainActions = memo(function MainActions() {
     (e: MouseEvent<HTMLDivElement>) => {
       if (DOMUtils.isChildren(e.target, e.currentTarget)) return
 
-      if (!vectorFillColorOpened) {
+      if (!vectorColorOpened) {
         execute(EditorOps.setVectorColorTarget, 'fill')
       }
 
-      toggleVectorFillColorOpened()
+      toggleVectorColorOpened()
     }
   )
+
+  const handleCloseVectorColorPicker = useFunk(() => {
+    toggleVectorColorOpened(false)
+  })
 
   const appMenuOpenerRef = useRef<HTMLDivElement | null>(null)
 
@@ -207,6 +223,7 @@ export const MainActions = memo(function MainActions() {
     middleware: [
       offset(12),
       shift({ padding: 8 }),
+      flip(),
       arrow({ element: brushesArrowRef }),
     ],
   })
@@ -218,6 +235,7 @@ export const MainActions = memo(function MainActions() {
     middleware: [
       offset(12),
       shift({ padding: 8 }),
+      flip(),
       // autoPlacement({ alignment: 'start', allowedPlacements: ['top'] }),
       arrow({ element: layersArrowRef }),
     ],
@@ -261,7 +279,6 @@ export const MainActions = memo(function MainActions() {
       toggleLayers(false)
     }
   )
-  // useClickAway(vectorColorPickerPopRef, () => toggleVectorColorOpened(false))
 
   useDelayedLeave(brushColorRootRef, 1000, () => {
     toggleBrushColorPicker(false)
@@ -306,6 +323,22 @@ export const MainActions = memo(function MainActions() {
     })
   })
 
+  const [menuPos, setMenuPos] = useState<{ x: number; y: number }>({
+    x: 0,
+    y: 0,
+  })
+
+  const bindMenuPosDrag = useDrag(
+    ({ delta }) => {
+      setMenuPos((pos) => ({ x: pos.x + delta[0], y: pos.y + delta[1] }))
+      brushesFl.update()
+      layersFl.update()
+    },
+    {
+      threshold: 2,
+    }
+  )
+
   return (
     <div
       css={css`
@@ -328,7 +361,18 @@ export const MainActions = memo(function MainActions() {
           padding-bottom: max(env(safe-area-inset-bottom, 24px), 24px);
         `}
       `}
+      style={{
+        transform: `translate(${menuPos.x}px, ${menuPos.y}px)`,
+      }}
     >
+      <DragDots
+        css={`
+          margin-right: -8px;
+          opacity: 0.5;
+        `}
+        width={24}
+        {...bindMenuPosDrag()}
+      />
       <div
         css={`
           display: flex;
@@ -516,7 +560,9 @@ export const MainActions = memo(function MainActions() {
                   : undefined,
               }}
               onClick={handleClickVectorStrokeColor}
-            />
+            >
+              {!currentVectorBrush && <NoColorSlash />}
+            </div>
 
             <div
               // Fill color
@@ -539,9 +585,7 @@ export const MainActions = memo(function MainActions() {
                 background:
                   currentVectorFill?.type === 'fill'
                     ? rgba(
-                        currentVectorFill.color.r,
-                        currentVectorFill.color.g,
-                        currentVectorFill.color.b,
+                        ...normalRgbToRgbArray(currentVectorFill.color),
                         currentVectorFill.opacity
                       )
                     : currentVectorFill?.type === 'linear-gradient'
@@ -555,11 +599,14 @@ export const MainActions = memo(function MainActions() {
                     : undefined,
               }}
               onClick={handleClickVectorFillColor}
-            />
+            >
+              {!currentVectorFill && <NoColorSlash />}
+            </div>
 
             <VectorColorPicker
-              opened={vectorFillColorOpened}
+              opened={vectorColorOpened}
               target={vectorColorTarget}
+              onClose={handleCloseVectorColorPicker}
             />
           </div>
         )}
@@ -674,7 +721,10 @@ export const MainActions = memo(function MainActions() {
             <BrushPresets />
             <FloatMenuArrow
               ref={brushesArrowRef}
-              style={{ left: brushesFl.middlewareData.arrow?.x ?? 0 }}
+              style={{
+                left: brushesFl.middlewareData.arrow?.x ?? 0,
+                top: brushesFl.middlewareData.arrow?.y ?? 0,
+              }}
             />
           </FloatMenu>
         </Portal>
@@ -897,12 +947,14 @@ const AppMenu = memo(function AppMenu({
 const VectorColorPicker = memo(function VectorColorPicker({
   opened,
   target,
+  onClose,
 }: {
   opened: boolean
   target: 'fill' | 'stroke'
   // color: Color
   // onChange: ColorChangeHandler
   // onChangeComplete: ColorChangeHandler
+  onClose: () => void
 }) {
   const { t } = useTranslation('app')
 
@@ -923,7 +975,7 @@ const VectorColorPicker = memo(function VectorColorPicker({
 
   // const targetSurface = target === 'fill' ? activeObject.fill?.type : activeObject!.brush
 
-  const [currentTab, setTab] = useState<'solid' | 'gradient'>(
+  const [currentTab, setTab] = useBufferedState<'solid' | 'gradient' | 'none'>(
     // prettier-ignore
     (target === 'fill' ? (
         activeObject?.fill?.type === 'fill' ? 'solid'
@@ -933,13 +985,9 @@ const VectorColorPicker = memo(function VectorColorPicker({
       : target === 'stroke' ? 'solid' : null) ?? 'solid'
   )
   const [gradientIndices, setGradientIndices] = useState<number[]>([])
-  const [fillColor, setFillColor] = useState<Color>(() =>
-    activeObject?.fill?.type === 'fill'
-      ? {
-          r: activeObject?.fill.color.r * 255,
-          g: activeObject?.fill.color.g * 255,
-          b: activeObject?.fill.color.b * 255,
-        }
+  const [currentColor, setFillColor] = useBufferedState<RGBColor>(() =>
+    currentVectorFill?.type === 'fill'
+      ? normalRGBAToRGBA(currentVectorFill.color)
       : {
           r: 0,
           g: 0,
@@ -981,6 +1029,8 @@ const VectorColorPicker = memo(function VectorColorPicker({
   const handleClickTab = useFunk((nextTab) => {
     setTab(nextTab)
 
+    if (!activeLayerPath || !activeObject) return
+
     if (target === 'fill') {
       if (currentTab === 'solid' && nextTab === 'gradient') {
         execute(EditorOps.updateActiveObject, (o) => {
@@ -1010,9 +1060,55 @@ const VectorColorPicker = memo(function VectorColorPicker({
           }
         })
       }
+
+      if (nextTab === 'none') {
+        if (!activeLayerPath || !activeObject) return
+
+        execute(
+          EditorOps.runCommand,
+          new PapCommands.VectorLayer.PatchObjectAttr({
+            pathToTargetLayer: activeLayerPath,
+            objectUid: activeObject.uid,
+            patch: {
+              fill: null,
+            },
+          })
+        )
+      }
     }
 
     if (target === 'stroke') {
+      if (nextTab === 'none') {
+        execute(
+          EditorOps.runCommand,
+          new PapCommands.VectorLayer.PatchObjectAttr({
+            pathToTargetLayer: activeLayerPath,
+            objectUid: activeObject.uid,
+            patch: {
+              brush: null,
+            },
+          })
+        )
+      }
+
+      if (nextTab === 'solid') {
+        execute(
+          EditorOps.runCommand,
+          new PapCommands.VectorLayer.PatchObjectAttr({
+            pathToTargetLayer: activeLayerPath,
+            objectUid: activeObject.uid,
+            patch: {
+              brush: {
+                ...defaultVectorBrush,
+                ...activeObject.brush,
+                color: toRationalColor(currentColor),
+                opacity: currentColor.a != null ? currentColor.a * 100 : 100,
+              },
+            },
+          })
+        )
+      }
+
       if (currentTab === 'solid' && nextTab === 'gradient') {
         // Unsupported currently
       }
@@ -1034,43 +1130,58 @@ const VectorColorPicker = memo(function VectorColorPicker({
     // fl.update()
   })
 
-  const handleChangeStrokeColor: ColorChangeHandler = useFunk(({ rgb }) => {
-    execute(EditorOps.updateActiveObject, (obj) => {
-      obj.brush = obj.brush
-        ? { ...obj.brush, color: toRationalColor(rgb) }
-        : {
-            ...(currentVectorBrush ?? defaultVectorBrush),
-            color: toRationalColor(rgb),
-          }
-    })
+  const handleChangeColor: ColorChangeHandler = useFunk(({ rgb }) => {
+    setFillColor(rgb)
   })
 
-  const handleChangeFillColor: ColorChangeHandler = useFunk(({ rgb }) => {
+  const handleChangeCompleteColor: ColorChangeHandler = useFunk(({ rgb }) => {
     setFillColor(rgb)
 
-    execute(EditorOps.updateActiveObject, (obj) => {
-      if (!obj.fill) {
-        obj.fill = {
-          type: 'fill',
-          opacity: rgb.a ?? 1,
-          color: toRationalColor(rgb),
-        }
-      }
+    if (!activeLayerPath || !activeObject) return
 
-      if (obj.fill.type === 'fill') {
-        obj.fill = { ...obj.fill, color: toRationalColor(rgb) }
-      } else if (obj.fill.type === 'linear-gradient') {
-        const nextColorStops = deepClone(obj.fill.colorStops)
-        gradientIndices.forEach((i) => {
-          nextColorStops[i].color = toRationalRgba(rgb)
+    if (target === 'fill') {
+      execute(EditorOps.updateActiveObject, (obj) => {
+        if (!obj.fill) {
+          obj.fill = {
+            type: 'fill',
+            opacity: rgb.a ?? 1,
+            color: toRationalColor(rgb),
+          }
+        }
+
+        if (obj.fill.type === 'fill') {
+          obj.fill = { ...obj.fill, color: toRationalColor(rgb) }
+        } else if (obj.fill.type === 'linear-gradient') {
+          const nextColorStops = deepClone(obj.fill.colorStops)
+          gradientIndices.forEach((i) => {
+            nextColorStops[i].color = toRationalRgba(rgb)
+          })
+
+          obj.fill = {
+            ...obj.fill,
+            colorStops: nextColorStops,
+          }
+        }
+      })
+    } else {
+      // Stroke
+
+      execute(
+        EditorOps.runCommand,
+        new PapCommands.VectorLayer.PatchObjectAttr({
+          pathToTargetLayer: activeLayerPath,
+          objectUid: activeObject.uid,
+          patch: {
+            brush: {
+              ...defaultVectorBrush,
+              ...activeObject.brush,
+              color: toRationalColor(rgb),
+              opacity: rgb.a ?? 1,
+            },
+          },
         })
-
-        obj.fill = {
-          ...obj.fill,
-          colorStops: nextColorStops,
-        }
-      }
-    })
+      )
+    }
   })
 
   const handleChangeGradient = useFunk((colorStops: PapValue.ColorStop[]) => {
@@ -1200,6 +1311,8 @@ const VectorColorPicker = memo(function VectorColorPicker({
     cmdTransaction.commit()
   })
 
+  useClickAway(fl.refs.floating, onClose)
+
   useEffect(() => {
     fl.reference(fl.refs.floating.current!.parentElement)
 
@@ -1213,6 +1326,7 @@ const VectorColorPicker = memo(function VectorColorPicker({
     <div
       ref={fl.floating}
       css={css`
+        width: 300px;
         border-radius: 4px;
         filter: drop-shadow(0 0 1px ${({ theme }) => theme.colors.surface6});
         ${tm((o) => [o.bg.surface2])}
@@ -1228,91 +1342,96 @@ const VectorColorPicker = memo(function VectorColorPicker({
       data-ignore-click
     >
       <div>
-        {target === 'fill' && (
-          <div
-            css={`
-              position: relative;
-            `}
-          >
-            {currentVectorFill.type === 'linear-gradient' && (
-              <>
-                <GradientSlider
-                  colorStops={currentVectorFill.colorStops}
-                  onChange={handleChangeGradient}
-                  onChangeSelectIndices={handleChangeGradientIndices}
+        <div
+          css={`
+            position: relative;
+          `}
+        >
+          {currentTab === 'gradient' && (
+            <>
+              <GradientSlider
+                colorStops={
+                  currentVectorFill?.colorStops ?? [
+                    { color: { r: 0, g: 0, b: 0, a: 1 }, position: 0 },
+                    { color: { r: 1, g: 1, b: 1, a: 1 }, position: 1 },
+                  ]
+                }
+                onChange={handleChangeGradient}
+                onChangeSelectIndices={handleChangeGradientIndices}
+              />
+
+              <label
+                css={`
+                  position: relative;
+                  ${centering()}
+                  padding: 4px 8px;
+                `}
+              >
+                <span
+                  css={`
+                    display: inline-block;
+                    margin-right: 8px;
+                  `}
+                >
+                  {t('mainActions.gradientLength')}
+                </span>
+                <RangeInput
+                  min={0}
+                  max={1000}
+                  step={0.1}
+                  value={gradientLength}
+                  onChange={handleChangeGradientLength}
+                  onChangeComplete={handleCompleteGradientLength}
                 />
 
-                <label
+                <Tooltip2
+                  placement="right-end"
+                  strategy="absolute"
+                  show={showGradLen}
+                  content={<>{gradientLength}</>}
+                />
+              </label>
+              <label
+                css={`
+                  position: relative;
+                  ${centering()}
+                  padding: 4px 8px;
+                `}
+              >
+                <span
                   css={`
-                    position: relative;
-                    ${centering()}
-                    padding: 4px 8px;
+                    display: inline-block;
+                    margin-right: 8px;
                   `}
                 >
-                  <span
-                    css={`
-                      display: inline-block;
-                      margin-right: 8px;
-                    `}
-                  >
-                    {t('mainActions.gradientLength')}
-                  </span>
-                  <RangeInput
-                    min={0}
-                    max={1000}
-                    step={0.1}
-                    value={gradientLength}
-                    onChange={handleChangeGradientLength}
-                    onChangeComplete={handleCompleteGradientLength}
-                  />
+                  {t('mainActions.gradientAngle')}
+                </span>
+                <RangeInput
+                  min={0}
+                  max={360}
+                  step={0.1}
+                  value={gradientAngle}
+                  onChange={handleChangeGradientAngle}
+                  onChangeComplete={handleCompleteGradientAngle}
+                />
+                <Tooltip2
+                  placement="right-end"
+                  strategy="absolute"
+                  show={showGradAngle}
+                  content={<>{gradientAngle}</>}
+                />
+              </label>
+            </>
+          )}
 
-                  <Tooltip2
-                    placement="right-end"
-                    strategy="absolute"
-                    show={showGradLen}
-                    content={<>{gradientLength}</>}
-                  />
-                </label>
-                <label
-                  css={`
-                    position: relative;
-                    ${centering()}
-                    padding: 4px 8px;
-                  `}
-                >
-                  <span
-                    css={`
-                      display: inline-block;
-                      margin-right: 8px;
-                    `}
-                  >
-                    {t('mainActions.gradientAngle')}
-                  </span>
-                  <RangeInput
-                    min={0}
-                    max={360}
-                    step={0.1}
-                    value={gradientAngle}
-                    onChange={handleChangeGradientAngle}
-                    onChangeComplete={handleCompleteGradientAngle}
-                  />
-                  <Tooltip2
-                    placement="right-end"
-                    strategy="absolute"
-                    show={showGradAngle}
-                    content={<>{gradientAngle}</>}
-                  />
-                </label>
-              </>
-            )}
-
-            <CustomColorPicker
-              color={fillColor}
-              onChangeComplete={handleChangeFillColor}
-            />
-          </div>
-        )}
-        {target === 'stroke' && currentVectorBrush && (
+          <CustomColorPicker
+            color={currentColor}
+            onChange={handleChangeColor}
+            onChangeComplete={handleChangeCompleteColor}
+          />
+        </div>
+        {/* )} */}
+        {/* {target === 'stroke' && currentVectorBrush && (
           <ChromePicker
             css={`
               position: absolute;
@@ -1332,9 +1451,16 @@ const VectorColorPicker = memo(function VectorColorPicker({
             onChange={handleChangeStrokeColor}
             onChangeComplete={handleChangeStrokeColor}
           />
-        )}
+        )} */}
 
         <TabBar>
+          <Tab
+            tabName="none"
+            active={currentTab === 'none'}
+            onClick={handleClickTab}
+          >
+            {t('vectorColorPicker.modes.none')}
+          </Tab>
           <Tab
             tabName="solid"
             active={currentTab === 'solid'}
@@ -1342,13 +1468,15 @@ const VectorColorPicker = memo(function VectorColorPicker({
           >
             {t('vectorColorPicker.modes.solid')}
           </Tab>
-          <Tab
-            tabName="gradient"
-            active={currentTab === 'gradient'}
-            onClick={handleClickTab}
-          >
-            {t('vectorColorPicker.modes.gradient')}
-          </Tab>
+          {target === 'fill' && (
+            <Tab
+              tabName="gradient"
+              active={currentTab === 'gradient'}
+              onClick={handleClickTab}
+            >
+              {t('vectorColorPicker.modes.gradient')}
+            </Tab>
+          )}
         </TabBar>
 
         <div
@@ -1371,6 +1499,30 @@ const VectorColorPicker = memo(function VectorColorPicker({
 })
 
 const CustomColorPicker = CustomPicker(function CustomColorPicker(props) {
+  const [stringValue, setStringValue] = useBufferedState(
+    rgbToColorString({
+      red: props.rgb?.r ?? 0,
+      green: props.rgb?.g ?? 0,
+      blue: props.rgb?.b ?? 0,
+    }).slice(1)
+  )
+
+  const handleChangeColor = useFunk(
+    ({ currentTarget }: ChangeEvent<HTMLInputElement>) => {
+      const color = currentTarget.value.replace(/#/g, '')
+      console.log(color)
+      setStringValue(color)
+    }
+  )
+
+  const handleCompleteColor = useFunk(
+    ({ currentTarget }: KeyboardEvent<HTMLInputElement>) => {
+      const color = currentTarget.value.replace(/#/g, '')
+      setStringValue(color)
+      props.onChange?.(`#${color}`)
+    }
+  )
+
   return (
     <div
       css={`
@@ -1386,10 +1538,15 @@ const CustomColorPicker = CustomPicker(function CustomColorPicker(props) {
         css={`
           position: relative;
           width: 100%;
-          height: 80px;
+          height: 100px;
+          padding: 8px 8px 0;
         `}
       >
-        <Saturation {...props} onChange={props.onChange!} />
+        <Saturation
+          {...props}
+          onChange={props.onChange!}
+          pointer={HuePointer}
+        />
       </div>
       <div
         css={`
@@ -1398,7 +1555,7 @@ const CustomColorPicker = CustomPicker(function CustomColorPicker(props) {
           margin: 0 8px;
         `}
       >
-        <Hue {...props} onChange={props.onChange!} />
+        <Hue {...props} onChange={props.onChange!} pointer={Pointer} />
       </div>
 
       <div
@@ -1408,12 +1565,70 @@ const CustomColorPicker = CustomPicker(function CustomColorPicker(props) {
           margin: 0 8px;
         `}
       >
-        <Alpha {...props} onChange={props.onChange!} />
+        <Alpha {...props} onChange={props.onChange!} pointer={Pointer} />
       </div>
+
+      <div
+        css={`
+          display: flex;
+          align-items: center;
+          justify-content: flex-end;
+          position: relative;
+          margin: 0 8px;
+          text-align: right;
+        `}
+      >
+        #
+        <TextInput
+          css={`
+            width: 6em;
+          `}
+          sizing="sm"
+          value={stringValue}
+          onChange={handleChangeColor}
+          onComplete={handleCompleteColor}
+        />
+      </div>
+
       {/* <ChromePicker {...props} /> */}
     </div>
   )
 })
+
+const HuePointer = styled.div.withConfig({
+  shouldForwardProp: (prop, valid) => prop !== 'color' && valid(prop),
+})`
+  width: 10px;
+  height: 10px;
+  border: 1px solid #fff;
+  box-shadow: inset 0 0 0 0.5px #000, 0 0 0 0.5px #000;
+  border-radius: 100px;
+  transform: translate(-50%, -50%);
+`
+
+const Pointer = styled.div.withConfig({
+  shouldForwardProp: (prop, valid) => prop !== 'color' && valid(prop),
+})`
+  width: 12px;
+  height: 12px;
+  border-radius: 100px;
+  background-color: ${({ theme }) => theme.exactColors.white60};
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.15);
+  transform: translateY(-2px);
+`
+
+const NoColorSlash = styled.div`
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 180%;
+  height: 5px;
+  background-color: hsl(0, 75%, 60%);
+  border: 1px solid hsl(0, 0%, 85%);
+  transform: translate(-50%, -50%) rotate(-45deg);
+  border-radius: 4px;
+  pointer-events: none;
+`
 
 const toRationalColor = ({ r, g, b }: { r: number; g: number; b: number }) => ({
   r: r / 255,

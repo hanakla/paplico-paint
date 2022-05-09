@@ -139,7 +139,7 @@ export class CanvasHandler extends Emitter<Events> {
       await engine.renderPath(
         session.brushSetting,
         session.currentInk,
-        stroke.splinedPath,
+        stroke.splinedPath.getSimplifiedPath(),
         this.strokeCtx
       )
 
@@ -148,7 +148,6 @@ export class CanvasHandler extends Emitter<Events> {
 
     this.on('strokeComplete', async (stroke) => {
       const { activeLayer, activeLayerPath } = session
-      console.log({ activeLayer, stroke })
 
       if (!activeLayerPath) return
       if (
@@ -169,7 +168,7 @@ export class CanvasHandler extends Emitter<Events> {
         await engine.renderPath(
           session.brushSetting,
           session.currentInk,
-          stroke.splinedPath,
+          stroke.splinedPath.getSimplifiedPath(),
           this.strokeCtx
         )
 
@@ -200,7 +199,7 @@ export class CanvasHandler extends Emitter<Events> {
             object: VectorObject.create({
               x: 0,
               y: 0,
-              path: stroke.splinedPath,
+              path: stroke.splinedPath.getSimplifiedPath(),
               fill: null,
               brush:
                 session.brushSetting == null
@@ -238,15 +237,6 @@ export class CanvasHandler extends Emitter<Events> {
 
   #handleMouseDown = (e: PointerEvent) => {
     this._stroking = true
-    this.#strokingState.touches += 1
-
-    if (this.#strokingState.touches > 1) {
-      const stroke = this.currentStroke!
-      this._stroking = false
-      this.currentStroke = null
-      this.emit('strokeCancel', stroke)
-      return
-    }
 
     this.currentStroke = new Stroke()
     this.currentStroke.startTime = e.timeStamp
@@ -287,8 +277,6 @@ export class CanvasHandler extends Emitter<Events> {
   }
 
   #handleMouseUp = () => {
-    this.#strokingState.touches -= 1
-
     const { currentStroke } = this
     if (!currentStroke) return
 
@@ -298,23 +286,13 @@ export class CanvasHandler extends Emitter<Events> {
       return
     }
 
-    if (this.#strokingState.touches === 0) {
-      this.currentStroke = null
-      this._stroking = false
-    }
-
-    currentStroke.simplify()
-    currentStroke.freeze()
     this.mitt.emit('strokeComplete', currentStroke)
   }
 
   #handleTouchStart = (e: TouchEvent) => {
     this._stroking = true
-    this.#strokingState.touches += 1
 
-    console.log(this.#strokingState)
-
-    if (this.#strokingState.touches > 1) {
+    if (e.touches.length > 1) {
       const stroke = this.currentStroke!
       this._stroking = false
       this.currentStroke = null
@@ -361,10 +339,6 @@ export class CanvasHandler extends Emitter<Events> {
   }
 
   #handleTouchEnd = (e: TouchEvent) => {
-    this.#strokingState.touches -= 1
-
-    console.log('end', this.#strokingState)
-
     const { currentStroke } = this
     if (!currentStroke || !this.#strokingState) return
 
@@ -374,13 +348,6 @@ export class CanvasHandler extends Emitter<Events> {
       return
     }
 
-    if (this.#strokingState.touches <= 0) {
-      this.currentStroke = null
-      this._stroking = false
-    }
-
-    currentStroke.simplify()
-    currentStroke.freeze()
     this.mitt.emit('strokeComplete', currentStroke)
   }
 }

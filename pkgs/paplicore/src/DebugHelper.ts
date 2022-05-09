@@ -76,3 +76,86 @@ export const logImage = async (
 
   console.groupEnd()
 }
+
+export const disableLog = true
+
+export const logGroup: Console['group'] = disableLog
+  ? () => {}
+  : console.group.bind(console)
+
+export const logGroupCollapsed: Console['group'] = disableLog
+  ? () => {}
+  : console.groupCollapsed.bind(console)
+
+export const logGroupEnd: Console['groupEnd'] = disableLog
+  ? () => {}
+  : console.groupEnd.bind(console)
+
+export const logTime: Console['time'] = disableLog
+  ? () => {}
+  : console.time.bind(console)
+export const logTimeEnd: Console['timeEnd'] = disableLog
+  ? () => {}
+  : console.timeEnd.bind(console)
+
+export const timeSumming = (label: string) => {
+  let sumTime = 0
+  let calls = 0
+  let max = -Infinity
+  let min = Infinity
+  let maxDetail: any = [undefined]
+  let minDetail: any = [undefined]
+  let lastStartTime: number | null = null
+  let times: number[] = []
+
+  return {
+    time: () => {
+      lastStartTime = performance.now()
+    },
+    timeEnd: (...details: any[]) => {
+      if (lastStartTime) {
+        const time = performance.now() - lastStartTime
+        sumTime += time
+
+        times.push(time)
+        calls++
+        max = Math.max(max, time)
+        min = Math.min(min, time)
+
+        if (time === max) {
+          maxDetail = details
+        }
+        if (time === min) {
+          minDetail = details
+        }
+
+        lastStartTime = null
+      }
+    },
+    log: () => {
+      if (!timeSumming.enabled) return
+
+      console.groupCollapsed(
+        `%c🕛 Time to estimate ${label}:%c ${roundString(
+          sumTime
+        )}ms by ${calls} calls\n[avg] ${roundString(
+          sumTime / calls
+        )}ms / [max] ${roundString(max)}ms / [min] ${roundString(min)}ms)`,
+        'font-weight:bold;',
+        ''
+      )
+      console.log(
+        'Times',
+        times.sort((a, b) => b - a)
+      )
+      console.log('Max detail', ...maxDetail)
+      console.log('Min detail', ...minDetail)
+      console.groupEnd()
+    },
+  }
+}
+
+timeSumming.enabled = !disableLog
+
+const roundString = (num: number, digits = 3) =>
+  (Math.round(num * 10 ** digits) / 10 ** digits).toString()

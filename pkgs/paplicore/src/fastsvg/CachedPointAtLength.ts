@@ -4,6 +4,7 @@ import point from 'point-at-length'
 // For faster point-at-length searching
 export const cachedPointAtLength = (path: string) => {
   const pal = point(path)
+
   const points = (pal as any)._path as [number, number][]
   const lengthIndex: number[] =
     [] /** array of length, array index points to points */

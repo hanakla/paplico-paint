@@ -1,6 +1,6 @@
 import simplify from '@luncheon/simplify-svg-path'
-import { pathBounds } from '../fastsvg/pathBounds'
 
+import { pathBounds } from '../fastsvg/pathBounds'
 import { assign, deepClone } from '../utils'
 import { mapPoints } from '../PapHelpers'
 import {
@@ -10,6 +10,8 @@ import {
 import prand from 'pure-rand'
 import { ISilkDOMElement } from './ISilkDOMElement'
 import { lerp } from '../PapMath'
+import { parseSVGPath } from '../fastsvg/parse'
+import abs from 'abs-svg-path'
 
 export declare namespace Path {
   export type Attributes = {
@@ -30,7 +32,9 @@ export declare namespace Path {
   ]
 
   export type PathPoint = {
+    /** Absolute position on canvas */
     in: { x: number; y: number } | null
+    /** Absolute position on canvas */
     out: { x: number; y: number } | null
     // c1x: number
     // c1y: number
@@ -40,6 +44,7 @@ export declare namespace Path {
     y: number
     /** 0 to 1 */
     pressure?: number | null
+    /** milliseconds to this point from previous point */
     deltaTime?: number
   }
 
@@ -113,28 +118,6 @@ export class Path implements ISilkDOMElement {
     return this.getFreshSVGPath()
   }
 
-  // public getWeightAt(t: number) {
-  //   if (!this.weightPoints) {
-  //     this.calcAndCacheWeightPoints()
-  //   }
-
-  //   if (t < 0 || t > 1) return 0
-
-  //   for (let idx = 0, l = this.weightPoints.length; idx < l; idx++) {
-  //     const [at, weight] = this.weightPoints[idx]
-  //     if (at >= t) return lerp(weight, this.weightPoints[idx + 1][1] ?? 0, t)
-  //   }
-
-  //   return 0
-  // }
-
-  // private calcAndCacheWeightPoints() {
-  //   const len = this.getTotalLength()
-  //   this.points.forEach(p => {
-  //     getLength
-  //   })
-  // }
-
   public getBoundingBox(): Path.PathBBox {
     if (this._cachedBounds) return this._cachedBounds
 
@@ -154,23 +137,12 @@ export class Path implements ISilkDOMElement {
     }
   }
 
-  // public updatePoints(
-  //   process: (current: {
-  //     start: Path.StartPoint
-  //     points: Path.PathPoint[]
-  //   }) => { start: Path.StartPoint; points: Path.PathPoint[] }
-  // ) {
-  //   const { start, points } = process({
-  //     start: this.start,
-  //     points: this.points,
-  //   })
-
-  //   this.start = start
-  //   this.points = points
-  // }
-
   public getTotalLength(): number {
     return this.pal.length()
+  }
+
+  public getPointAt(t: number): { x: number; y: number } {
+    return this.getPointAtLength(t * this.getTotalLength())
   }
 
   public getPointAtLength(pos: number): { x: number; y: number } {
@@ -231,16 +203,103 @@ export class Path implements ISilkDOMElement {
     )
   }
 
-  public simplify(
-    options: {
-      tolerance?: number
-      precision?: number
-    } = {}
-  ) {
-    // simplify(
-    //   this.points.map((p) => ({ x: p.x, y: p.y })),
-    //   { ...options, closed: this.closed }
-    // )
+  public getSequencialPressureAtLengthReader() {
+    let prevLen = 0
+    let lastPoint = this.getNearPointIdxAtLength(0)
+    const total = this.getTotalLength()
+
+    const fallbackLast = this.closed
+      ? { index: 0, element: this.points[0] }
+      : {
+          index: this.points.length - 1,
+          element: this.points[this.points.length - 1],
+        }
+
+    const reader = {
+      getPressureAt: (t: number) => {
+        const len = total * t
+        return reader.getPressureAtLength(len)
+      },
+      getPressureAtLength: (len: number) => {
+        if (len < prevLen) {
+          throw new Error(
+            `sequencialPressureAtLengthGetter: Querying length too small than previous length`
+          )
+        }
+
+        const prev = findIndex(this.points, (p) => p.pressure != null, {
+          from: lastPoint.index,
+          increments: -1,
+        }) ?? { index: 0, element: this.points[0] }
+
+        const next =
+          findIndex(this.points, (p) => p.pressure != null, {
+            from: lastPoint.index + 1,
+            increments: 1,
+          }) ?? fallbackLast
+
+        const prevLength = this.pal.lengthOfPoint(prev.index).length
+        const nextLength = this.pal.lengthOfPoint(next.index).length
+        const segmentLength = nextLength - prevLength
+
+        // SEE: https://developer.mozilla.org/ja/docs/Web/API/PointerEvent/pressure#return_value
+        const defaultPressure = 0.5
+        const tAtFragment =
+          segmentLength === 0 ? 1 : (len - prevLength) / segmentLength
+
+        return lerp(
+          prev.element.pressure ?? defaultPressure,
+          next.element.pressure ?? defaultPressure,
+          tAtFragment
+        )
+      },
+    }
+
+    return reader
+  }
+
+  public getSimplifiedPath({
+    tolerance = 3,
+    precision = 4,
+  }: {
+    tolerance?: number
+    precision?: number
+  } = {}) {
+    const stringPath = simplify(
+      this.points.map((p) => [p.x, p.y]),
+      { tolerance, precision, closed: this.closed }
+    )
+
+    const svgPoints = abs(parseSVGPath(stringPath)) as [string, ...number[]][]
+    const pal = cachedPointAtLength(stringPath)
+
+    const newPoints = svgPoints.map(([cmd, ...args], idx): Path.PathPoint => {
+      const next = svgPoints[idx + 1]
+
+      switch (cmd) {
+        case 'M':
+          return {
+            x: args[0],
+            y: args[1],
+            in: null,
+            out: next ? { x: next[1], y: next[2] } : null,
+            pressure: this.getPressureAtLength(pal.lengthOfPoint(idx).length),
+          }
+        case 'C':
+          return {
+            x: args[4],
+            y: args[5],
+            in: { x: args[2], y: args[3] },
+            out: next ? { x: next[1], y: next[2] } : null,
+            pressure: this.getPressureAtLength(pal.lengthOfPoint(idx).length),
+          }
+      }
+    })
+
+    return assign(new Path(), {
+      points: newPoints,
+      closed: this.closed,
+    })
   }
 
   public mapPoints<T>(
@@ -265,11 +324,12 @@ export class Path implements ISilkDOMElement {
 
     this._cachedSvgPath = this.getFreshSVGPath()
     this._pal = cachedPointAtLength(this.svgPath)
+    this._cachedBounds = null
+    this._cachedBounds = this.getBoundingBox()
   }
 
   /** Freeze changes and cache heavily process results */
   public freeze() {
-    console.trace('freeze')
     if (this._isFreezed) throw new Error('Path is already freezed')
 
     this._cachedSvgPath = this.getFreshSVGPath()
@@ -338,12 +398,6 @@ const pointsToSVGPath = (points: Path.PathPoint[], closed: boolean) => {
     ).join(' '),
     closed ? 'Z' : '',
   ].join(' ')
-}
-
-const rangeMather = <T>(min: number, max: number, result: T) => {
-  return {
-    match: (value: number) => (value <= max && value >= min ? result : false),
-  }
 }
 
 const findIndex = <T>(

@@ -1,7 +1,7 @@
-import { Path } from '../DOM/Path'
 import spline from '@yr/catmull-rom-spline'
 import { nanoid } from 'nanoid'
-import simplify from 'simplify-js'
+
+import { Path } from '../DOM/Path'
 import { Nullish } from '../utils'
 
 type StrokePoint = [
@@ -40,6 +40,7 @@ export class Stroke {
 
   public get splinedPath() {
     if (this._splined) return this._splined
+    if (this.points.length < 3) return this.path
 
     const rawPoints = this.points.map(([x, y]) => [x, y] as [number, number])
     const splined = spline.points(rawPoints) as number[][]
@@ -94,27 +95,13 @@ export class Stroke {
     this._splined = null
   }
 
-  public simplify() {
-    // const points = simplify(this.path.points)
-    // pressureAtのマップを先に作る
-    // this.path.points = points.map((p) => ({
-    //   x: p.x,
-    //   y: p.y,
-    //   in: null,
-    //   out: null,
-    //   pressure: null,
-    // }))
-  }
-
   public freeze() {
     // Warm caches
-    if (!this._path) this.path.closed
-    if (!this._splined) this.splinedPath.closed
-
-    this._path?.freeze()
-    this._splined?.freeze()
-
-    Object.freeze(this)
-    Object.freeze(this.points)
+    // if (!this._path) this.path.closed
+    // if (!this._splined) this.splinedPath.closed
+    // this._path?.freeze()
+    // this._splined?.freeze()
+    // Object.freeze(this)
+    // Object.freeze(this.points)
   }
 }

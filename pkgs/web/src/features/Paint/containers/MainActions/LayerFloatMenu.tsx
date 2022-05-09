@@ -37,6 +37,7 @@ import {
   useSortable,
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable'
+import deepEqual from 'fast-deep-equal'
 
 import { Portal } from '🙌/components/Portal'
 import { centering, checkerBoard, rangeThumb } from '🙌/utils/mixins'
@@ -64,6 +65,7 @@ import { useLongPress } from 'use-long-press'
 import { LayerConvertToGroup } from '@paplico/core/dist/Session/Commands/LayerConvertToGroup'
 import { restrictToFirstScrollableAncestor } from '@dnd-kit/modifiers'
 import { createSlice, useLysSlice, useLysSliceRoot } from '@fleur/lys'
+import { DragDots } from '🙌/components/icons/DragDots'
 
 export const LayerFloatMenu = memo(
   forwardRef<HTMLDivElement, {}>(function LayerFloatMenu(_, ref) {
@@ -95,6 +97,13 @@ export const LayerFloatMenu = memo(
           targetIndex: moves.targetIndex,
         })
       )
+    })
+
+    const handleToggleLayerCollapse = useFunk((id) => {
+      setCollapsed((state) => {
+        state[id] = !(state[id] ?? true)
+        console.log(state, id)
+      })
     })
 
     const handleClickAddLayer = useFunk(() => {
@@ -196,12 +205,7 @@ export const LayerFloatMenu = memo(
                   key={entry.id}
                   entry={entry}
                   childrenOpened={collapsed[entry.id] === false}
-                  onToggleCollapse={(id) =>
-                    setCollapsed((state) => {
-                      state[id] = !(state[id] ?? true)
-                      console.log(state, id)
-                    })
-                  }
+                  onToggleCollapse={handleToggleLayerCollapse}
                 />
               ))}
             </SortableContext>
@@ -283,7 +287,7 @@ export const LayerFloatMenu = memo(
 )
 
 const SortableLayerItem = memo(
-  function LayerFloatItem({
+  function SortableLayerItem({
     entry,
     childrenOpened,
     onToggleCollapse,
@@ -393,13 +397,6 @@ const SortableLayerItem = memo(
       )
     })
 
-    const handleClickSortHandler = useFunk((e: MouseEvent<SVGElement>) => {
-      e.stopPropagation()
-
-      if (sortingTargetIndex) {
-      }
-    })
-
     const handleCloseFilterSheet = useFunk(() => {
       setFiltersSheetOpen(false)
     })
@@ -407,7 +404,7 @@ const SortableLayerItem = memo(
     return (
       <div
         ref={setNodeRef}
-        css={css`
+        css={`
           display: flex;
           gap: 4px;
           width: 100%;
@@ -530,11 +527,10 @@ const SortableLayerItem = memo(
           data-dont-close-layer-float
           data-ignore-open-layer-menu
           onTouchStart={DOMUtils.preventDefaultHandler}
-          onClick={handleClickSortHandler}
-          // {...attributes}
-          // {...listeners}
+          {...attributes}
+          {...listeners}
         >
-          <Menu
+          <DragDots
             width={16}
             css={`
               ${tm((o) => [o.font.text3])}
@@ -578,7 +574,9 @@ const SortableLayerItem = memo(
       </div>
     )
   },
-  (prev, next) => shallowEquals(prev.entry, next.entry)
+  (prev, next) => {
+    return deepEqual(prev, next)
+  }
 )
 
 const FiltersSheet = memo(function FiltersSheet({
@@ -694,7 +692,7 @@ const FiltersSheet = memo(function FiltersSheet({
           </span>
         </div>
         <header
-          css={css`
+          css={`
             display: flex;
             gap: 8px;
             padding-bottom: 8px;
@@ -804,30 +802,32 @@ const FiltersSheet = memo(function FiltersSheet({
         </div>
       </div>
 
-      <ActionSheet
-        opened={addFilterSheetOpened}
-        onClose={handleCloseAddFilterSheet}
-        fill={false}
-      >
-        <div
-          css={`
-            padding-top: 40px;
-          `}
-          data-dont-close-layer-float
+      <Portal>
+        <ActionSheet
+          opened={addFilterSheetOpened}
+          onClose={handleCloseAddFilterSheet}
+          fill={false}
         >
-          <ActionSheetItemGroup>
-            {registeredFilters.map((filter) => (
-              <ActionSheetItem
-                key={filter.id}
-                onClick={handleClickAddFilter}
-                data-filter-id={filter.id}
-              >
-                {t(`filters.${filter.id}`)}
-              </ActionSheetItem>
-            ))}
-          </ActionSheetItemGroup>
-        </div>
-      </ActionSheet>
+          <div
+            css={`
+              padding-top: 40px;
+            `}
+            data-dont-close-layer-float
+          >
+            <ActionSheetItemGroup>
+              {registeredFilters.map((filter) => (
+                <ActionSheetItem
+                  key={filter.id}
+                  onClick={handleClickAddFilter}
+                  data-filter-id={filter.id}
+                >
+                  {t(`filters.${filter.id}`)}
+                </ActionSheetItem>
+              ))}
+            </ActionSheetItemGroup>
+          </div>
+        </ActionSheet>
+      </Portal>
     </ActionSheet>
   )
 })
@@ -950,7 +950,7 @@ const SortableFilterItem = ({
         {...attributes}
         // onClick={handleClickSortHandler}
       >
-        <Menu width={16} />
+        <DragDots width={16} />
       </div>
 
       {selected && (

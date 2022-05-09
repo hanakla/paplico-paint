@@ -19,6 +19,7 @@ import { assign, shallowEquals } from '🙌/utils/object'
 import { log, trace, warn } from '🙌/utils/log'
 import { exportProject } from './EditorStable/exportProject'
 import { NotifyOps } from './Notify'
+import { nanoid } from 'nanoid'
 
 type EditorMode = 'pc' | 'sp' | 'tablet'
 type EditorPage = 'home' | 'app'
@@ -312,9 +313,31 @@ export const [EditorStore, EditorOps] = minOps('Editor', {
         .currentDocument as unknown as PapDOM.Document | null
       if (!document) return
 
+      // When OffscreenCanvas available, auto save progress in background
       if (typeof OffscreenCanvas !== 'undefined') {
         const { buffer } = exportProject(document, x.getStore)
-        autoSaveWorker?.postMessage({ buffer }, [buffer])
+
+        const isSuccess = await new Promise<boolean>((resolve) => {
+          const requestId = nanoid()
+
+          const callback = (e: WorkerEventMap['message']) => {
+            if (e.data.id !== requestId) return
+            autoSaveWorker?.removeEventListener('message', callback)
+            resolve(e.data.success)
+          }
+          autoSaveWorker?.addEventListener('message', callback)
+          autoSaveWorker?.postMessage({ id: requestId, buffer }, [buffer])
+        })
+
+        x.executeOperation(NotifyOps.create, {
+          area: 'save',
+          ...(isSuccess
+            ? {
+                messageKey: 'exports.autoSaved',
+                timeout: 1000,
+              }
+            : { messageKey: 'exports.saveFailed', timeout: 3000 }),
+        })
       } else {
         await x.executeOperation(EditorOps.saveCurrentDocumentToIdb)
       }
@@ -359,6 +382,19 @@ export const [EditorStore, EditorOps] = minOps('Editor', {
             }, 'image/png')
           }),
           updatedAt: new Date(),
+        })
+
+        x.executeOperation(NotifyOps.create, {
+          area: 'save',
+          messageKey: 'exports.saved',
+          timeout: 3000,
+        })
+      } catch (e) {
+        x.executeOperation(NotifyOps.create, {
+          area: 'save',
+          messageKey: 'exports.saveFailed',
+          extra: e.message,
+          timeout: 3000,
         })
       } finally {
         db.close()
@@ -558,7 +594,8 @@ export const [EditorStore, EditorOps] = minOps('Editor', {
 
         d.activeObjectId = objectId
 
-        trace('activeObject changed', { objectId })
+        if (x.state.activeObjectId !== objectId)
+          trace('activeObject changed', { objectId })
       })
     },
     setSelectedObjectPoints: (x, indices: number[]) => {
@@ -589,6 +626,7 @@ export const [EditorStore, EditorOps] = minOps('Editor', {
       )
 
       await x.executeOperation(EditorOps.rerenderCanvas)
+      x.commit({})
     },
     undoCommand: async (x) => {
       const cmd = await x.state.session?.undo()
@@ -597,12 +635,20 @@ export const [EditorStore, EditorOps] = minOps('Editor', {
         x.state.renderStrategy?.markUpdatedLayerId(p.slice(-1)[0])
       )
 
-      await x.executeOperation(NotifyOps.create, {
-        area: 'commandFlash',
-        timeout: 1000,
-        messageKey: 'undo',
-      })
-      await x.executeOperation(EditorOps.rerenderCanvas)
+      if (cmd) {
+        await x.executeOperation(NotifyOps.create, {
+          area: 'commandFlash',
+          timeout: 1000,
+          messageKey: 'undo',
+        })
+        await x.executeOperation(EditorOps.rerenderCanvas)
+      } else {
+        await x.executeOperation(NotifyOps.create, {
+          area: 'commandFlash',
+          timeout: 1000,
+          messageKey: 'undoEmpty',
+        })
+      }
     },
     redoCommand: async (x) => {
       const cmd = await x.state.session?.redo()
@@ -611,12 +657,20 @@ export const [EditorStore, EditorOps] = minOps('Editor', {
         x.state.renderStrategy?.markUpdatedLayerId(p.slice(-1)[0])
       )
 
-      await x.executeOperation(NotifyOps.create, {
-        area: 'commandFlash',
-        timeout: 1000,
-        messageKey: 'redo',
-      })
-      await x.executeOperation(EditorOps.rerenderCanvas)
+      if (cmd) {
+        await x.executeOperation(NotifyOps.create, {
+          area: 'commandFlash',
+          timeout: 1000,
+          messageKey: 'redo',
+        })
+        await x.executeOperation(EditorOps.rerenderCanvas)
+      } else {
+        await x.executeOperation(NotifyOps.create, {
+          area: 'commandFlash',
+          timeout: 1000,
+          messageKey: 'redoEmpty',
+        })
+      }
     },
 
     markVectorLastUpdate: (x) => {
@@ -769,28 +823,6 @@ export const [EditorStore, EditorOps] = minOps('Editor', {
         })
       )
     },
-    addPoint: (
-      x,
-      objectOrId: PapDOM.VectorObject | string,
-      segmentIndex: number,
-      point: PapDOM.Path.PathPoint
-    ) => {
-      x.commit((d) => {
-        if (!d.engine || d.session?.activeLayer?.layerType !== 'vector') return
-
-        const { activeLayer } = d.session
-        const object =
-          typeof objectOrId === 'string'
-            ? activeLayer?.objects.find((obj) => obj.uid === d.activeObjectId)
-            : objectOrId
-        if (!object) throw new Error(`Object(id: ${objectOrId}) not found`)
-        object.path.points.splice(segmentIndex, 0, point)
-
-        d.renderStrategy?.markUpdatedLayerId(activeLayer.uid!)
-      })
-
-      x.executeOperation(EditorOps.rerenderCanvas)
-    },
     deleteSelectedFilters: (x) => {
       x.commit((d) => {
         if (!d.activeLayerPath) return
@@ -841,7 +873,7 @@ export const EditorSelector = {
 
   defaultVectorBrush: selector(
     (): PapSession.BrushSetting => ({
-      brushId: '@paplico/brush',
+      brushId: '@paplico/brushes/brush',
       color: { r: 26, g: 26, b: 26 },
       opacity: 1,
       size: 1,
@@ -889,6 +921,22 @@ export const EditorSelector = {
   // #endregion
 
   // #region Session proxies
+  displayingBrushSetting: selector((get) => {
+    const { session, activeObjectId } = get(EditorStore)
+
+    if (session?.activeLayer?.layerType !== 'vector')
+      return session?.brushSetting
+
+    const object = session?.activeLayer?.objects.find(
+      (obj) => obj.uid === activeObjectId
+    )
+
+    if (!object) return session?.brushSetting ?? null
+
+    return object.brush
+  }),
+
+  /** @deprecated Use displayingBrushSetting instead */
   currentBrushSetting: selector(
     (get) => get(EditorStore).session?.brushSetting ?? null
   ),
@@ -905,7 +953,7 @@ export const EditorSelector = {
     if (!object) return session?.brushSetting ?? null
     return object.brush
   }),
-  currentVectorFill: selector((get): PapValue.FillSetting => {
+  currentVectorFill: selector((get): PapValue.FillSetting | null => {
     const defaultFill: PapValue.FillSetting = {
       type: 'fill',
       color: { r: 0.2, g: 0.2, b: 0.2 },
@@ -916,11 +964,12 @@ export const EditorSelector = {
     if (session?.activeLayer?.layerType !== 'vector')
       return currentFill ?? defaultFill
 
+    // When vector object is selected, use its fill
     const object = session?.activeLayer?.objects.find(
       (obj) => obj.uid === activeObjectId
     )
 
-    if (object?.fill) return object.fill
+    if (object) return object.fill
     return currentFill ?? defaultFill
   }),
 

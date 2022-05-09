@@ -23,6 +23,7 @@ export default function ManyLayers() {
   const sessionRef = useRef<PapSession | null>(null)
   const benchRef = useRef<{ start: () => void; stop: () => void } | null>(null)
   const [strategy, setStrategy] = useState<'difference' | 'full'>('difference')
+  const [fps, setFps] = useState('-')
 
   useAsyncEffect(async () => {
     setTimeout(async () => {
@@ -95,6 +96,7 @@ export default function ManyLayers() {
           console.log(
             `current fps: ${frames} frames in ${time - lastLogTime}ms`
           )
+          setFps(`${frames}`)
           lastLogTime = time
           frames = 0
         }
@@ -170,6 +172,7 @@ export default function ManyLayers() {
           </Button>
         </Stack>
       </div>
+      <div>{fps}fps</div>
       <canvas
         ref={ref}
         css={`

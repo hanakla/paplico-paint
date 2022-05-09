@@ -1,43 +1,66 @@
+import { useFunk } from '@hanakla/arma'
 import { rgba } from 'polished'
-import { forwardRef, DetailedHTMLProps, InputHTMLAttributes } from 'react'
+import {
+  forwardRef,
+  DetailedHTMLProps,
+  InputHTMLAttributes,
+  KeyboardEvent,
+} from 'react'
 import { css } from 'styled-components'
 import { media } from '../utils/responsive'
-import { tm } from '../utils/theme'
+import { ThemeProp, tm } from '../utils/theme'
 
-export const TextInput = forwardRef<
-  HTMLInputElement,
-  DetailedHTMLProps<InputHTMLAttributes<HTMLInputElement>, HTMLInputElement>
->((props, ref) => {
-  return (
-    <input
-      ref={ref}
-      css={css`
-        width: 100%;
-        padding: 8px 4px;
-        appearance: none;
-        background-color: transparent;
-        border: none;
-        border-radius: 2px;
-        color: inherit;
-        outline: none;
+type Props = {
+  sizing?: 'md' | 'sm'
+  onComplete?: (e: KeyboardEvent<HTMLInputElement>) => void
+} & DetailedHTMLProps<InputHTMLAttributes<HTMLInputElement>, HTMLInputElement>
 
-        ${tm((o) => [o.bg.surface3, o.typography(14)])}
+export const TextInput = forwardRef<HTMLInputElement, Props>(
+  ({ sizing = 'md', onComplete, ...props }, ref) => {
+    const handleKeyDown = useFunk((e: KeyboardEvent<HTMLInputElement>) => {
+      props.onKeyDown?.(e)
+      if (e.key === 'Enter') onComplete?.(e)
+    })
 
-        &::placeholder {
-          color: ${({ theme }) => theme.colors.whiteFade50};
-        }
+    return (
+      <input
+        ref={ref}
+        css={`
+          width: 100%;
+          padding: 8px 4px;
+          appearance: none;
+          background-color: transparent;
+          border: none;
+          border-radius: 2px;
+          color: inherit;
+          outline: none;
 
-        ${media.narrow`
-          font-size: 16px;
+          ${tm((o) => [o.bg.surface3, o.typography(14)])}
+
+          &::placeholder {
+            color: ${({ theme }: ThemeProp) => theme.colors.whiteFade50};
+          }
+
+          ${sizing === 'sm' &&
+          css`
+            padding: 4px 2px;
+            font-size: 14px;
+          `}
+
+          ${media.narrow`
+            font-size: 16px;
+          `}
+
+
+          &:focus {
+            color: ${({ theme }: ThemeProp) => theme.text.inputActive};
+            /* background-color: ${({ theme }) => theme.colors.whiteFade20}; */
+          }
         `}
-
-        &:focus {
-          color: ${({ theme }) => theme.text.inputActive};
-          /* background-color: ${({ theme }) => theme.colors.whiteFade20}; */
-        }
-      `}
-      type="text"
-      {...props}
-    />
-  )
-})
+        type="text"
+        {...props}
+        onKeyDown={handleKeyDown}
+      />
+    )
+  }
+)

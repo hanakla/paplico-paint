@@ -11,7 +11,7 @@ import {
   MutableRefObject,
   createRef,
 } from 'react'
-import { useUpdate } from 'react-use'
+import { usePrevious, useUpdate } from 'react-use'
 import { PapDOM, PapSerializer, PapCommands } from '@paplico/core'
 import { EditorOps, EditorSelector, EditorStore } from '🙌/domains/EditorStable'
 import { NotifyOps } from '🙌/domains/Notify'
@@ -83,7 +83,7 @@ export const usePaplicoExporter = () => {
       execute(NotifyOps.create, {
         area: 'save',
         timeout: 3000,
-        message: t('exports.exported'),
+        messageKey: t('exports.exported'),
       })
 
       setTimeout(() => URL.revokeObjectURL(url), 10000)
@@ -109,6 +109,18 @@ export const useLayerWatch = (layer: PapDOM.LayerTypes | null | undefined) => {
     layer?.on('updated', rerender)
     return () => layer?.off('updated', rerender)
   }, [layer?.uid, rerender])
+}
+
+export const useLayerListWatch = (
+  layers: Array<PapDOM.LayerTypes | null | undefined>
+) => {
+  const rerender = useUpdate()
+  // const prev = usePrevious(layers)
+
+  useEffect(() => {
+    layers.forEach((l) => l?.on('updated', rerender))
+    return () => layers.forEach((l) => l?.off('updated', rerender))
+  })
 }
 
 export const useVectorObjectWatch = (

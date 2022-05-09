@@ -1,8 +1,8 @@
-import { useAsyncEffect } from '@hanakla/arma'
+import { loadImageFromBlob, useAsyncEffect, useFunk } from '@hanakla/arma'
 import { GetServerSideProps } from 'next'
 import { useRouter } from 'next/router'
 import { rgba } from 'polished'
-import { useEffect, useRef, useState } from 'react'
+import { MouseEvent, useEffect, useRef, useState } from 'react'
 import {
   CanvasHandler,
   RenderStrategies,
@@ -16,23 +16,59 @@ import { Button } from '🙌/components/Button'
 import { Stack } from '🙌/components/Stack'
 import { DevLayout } from '🙌/layouts/DevLayout'
 import { centering, checkerBoard } from '🙌/utils/mixins'
+import { DifferenceRender } from '@paplico/core/dist/engine/RenderStrategy/DifferenceRender'
+import { roundString } from '../../utils/StringUtils'
 
 export default function Debug() {
   const router = useRouter()
-  const ref = useRef<HTMLCanvasElement | null>(null)
+  const canvasRef = useRef<HTMLCanvasElement | null>(null)
   const sessionRef = useRef<PapSession | null>(null)
   const benchRef = useRef<{ start: () => void; stop: () => void } | null>(null)
+  const controlRef = useRef<{ toggleFilters: () => void } | null>(null)
+
+  const [imageUrl, setImageUrl] = useState('')
   const [strategy, setStrategy] = useState<'difference' | 'full'>('difference')
+  const [bgColor, setBGColor] = useState('#fff')
+  const [point, setPointedColor] = useState({
+    x: -1,
+    y: -1,
+    r: 0,
+    g: 0,
+    b: 0,
+    a: 0,
+  })
+
+  const handleCanvasMouseMove = useFunk((e: MouseEvent<HTMLCanvasElement>) => {
+    const box = canvasRef.current!.getBoundingClientRect()
+    const pos = {
+      x: Math.floor(e.clientX - box.left),
+      y: Math.floor(e.clientY - box.top),
+    }
+    const pixel = canvasRef.current
+      ?.getContext('2d')!
+      .getImageData(pos.x, pos.y, 1, 1)
+    if (!pixel) return
+
+    setPointedColor({
+      x: pos.x,
+      y: pos.y,
+      r: pixel.data[0],
+      g: pixel.data[1],
+      b: pixel.data[2],
+      a: pixel.data[3],
+    })
+  })
 
   useAsyncEffect(async () => {
     setTimeout(async () => {
       const engine = ((window as any)._engine = await PaplicoEngine.create({
-        canvas: ref.current!,
+        canvas: canvasRef.current!,
       }))
       const session =
         (sessionRef.current =
         (window as any)._session =
           await PapSession.create())
+
       session.renderStrategy = new RenderStrategies.DifferenceRender()
 
       session.pencilMode = 'draw'
@@ -42,7 +78,7 @@ export default function Debug() {
         color: { r: 0.2, g: 0.2, b: 0.2 },
       })
 
-      new CanvasHandler(ref.current!).connect(
+      new CanvasHandler(canvasRef.current!).connect(
         session,
         session.renderStrategy as any,
         engine
@@ -52,7 +88,9 @@ export default function Debug() {
         const document = PapDOM.Document.create({ width: 1000, height: 1000 })
         const raster = PapDOM.RasterLayer.create({ width: 1000, height: 1000 })
         const strategy = new RenderStrategies.FullRender()
-        const vector = PapDOM.VectorLayer.create({})
+        const vector = PapDOM.VectorLayer.create({
+          compositeMode: 'overlay',
+        })
         const bgLayer = PapDOM.VectorLayer.create({})
         const filter = PapDOM.FilterLayer.create({})
 
@@ -100,7 +138,7 @@ export default function Debug() {
           //   brushId: PapBrushes.ScatterBrush.id,
           //   color: { r: 0, g: 0, b: 0 },
           //   opacity: 1,
-          //   size: 2,
+          //   size: 4,
           //   specific: {},
           // }
           obj.brush = null
@@ -156,7 +194,7 @@ export default function Debug() {
           // }),
           // PapDOM.Filter.create({
           //   filterId: '@paplico/filters/zoom-blur',
-          //   visible: true,
+          //   visible: false,
           //   settings: engine.toolRegistry.getFilterInstance(
           //     '@paplico/filters/zoom-blur'
           //   )!.initialConfig,
@@ -188,10 +226,22 @@ export default function Debug() {
         session.setDocument(document)
         session.setActiveLayer([vector.uid])
 
-        ref.current!.width = document.width
-        ref.current!.height = document.height
+        canvasRef.current!.width = document.width
+        canvasRef.current!.height = document.height
 
         await engine.render(document, strategy)
+
+        const { image, url } = await loadImageFromBlob(
+          await new Promise<Blob>((r) =>
+            canvasRef
+              .current!.getContext('2d')!
+              .canvas.toBlob((b) => r(b!), 'image/png')
+          )
+        )
+
+        setImageUrl(url)
+
+        window.document.getElementById('hihi')?.appendChild(engine.gl.gl.canvas)
 
         console.log({
           engine,
@@ -199,11 +249,18 @@ export default function Debug() {
           document,
           rerender: () => engine.render(document, strategy),
         })
-      }
 
-      benchRef.current = {
-        start: () => {},
-        stop: () => {},
+        controlRef.current = {
+          toggleFilters: () => {
+            vector.filters.forEach(
+              (filter) => (filter.visible = !filter.visible)
+            )
+            ;(session.renderStrategy as DifferenceRender).markUpdatedLayerId(
+              vector.uid
+            )
+            engine.render(session.document!, session.renderStrategy)
+          },
+        }
       }
 
       let frames = 0
@@ -241,70 +298,182 @@ export default function Debug() {
 
   return (
     <DevLayout>
-      <div
+      <Stack
         css={`
-          display: flex;
-          gap: 8px;
           padding: 8px;
-          flex-flow: row;
         `}
+        dir="vertical"
       >
-        <Stack
-          css={`
-            ${centering()}
-          `}
-          dir="horizontal"
-        >
-          <strong>モード</strong>
-          <Button
-            kind={strategy === 'difference' ? 'primary' : 'normal'}
-            onClick={() => {
-              setStrategy('difference')
-              sessionRef.current!.setRenderStrategy(
-                new RenderStrategies.DifferenceRender()
-              )
-            }}
+        <Stack dir="horizontal" gap={16}>
+          <Stack
+            css={`
+              ${centering()}
+            `}
+            dir="horizontal"
           >
-            DifferenceRender
-          </Button>
-          <Button
-            kind={strategy === 'full' ? 'primary' : 'normal'}
-            onClick={() => {
-              setStrategy('full')
-              sessionRef.current!.setRenderStrategy(
-                new RenderStrategies.FullRender()
-              )
-            }}
+            <strong>モード</strong>
+            <Button
+              kind={strategy === 'difference' ? 'primary' : 'normal'}
+              onClick={() => {
+                setStrategy('difference')
+                sessionRef.current!.setRenderStrategy(
+                  new RenderStrategies.DifferenceRender()
+                )
+              }}
+            >
+              DifferenceRender
+            </Button>
+            <Button
+              kind={strategy === 'full' ? 'primary' : 'normal'}
+              onClick={() => {
+                setStrategy('full')
+                sessionRef.current!.setRenderStrategy(
+                  new RenderStrategies.FullRender()
+                )
+              }}
+            >
+              FullRender
+            </Button>
+          </Stack>
+
+          <Stack
+            css={`
+              ${centering()}
+            `}
+            dir="horizontal"
           >
-            FullRender
-          </Button>
+            <strong>ベンチマーク</strong>
+            <Button kind="normal" onClick={() => benchRef.current!.start()}>
+              開始
+            </Button>
+            <Button kind="normal" onClick={() => benchRef.current!.stop()}>
+              停止
+            </Button>
+          </Stack>
+
+          <Stack
+            css={`
+              ${centering()}
+            `}
+            dir="horizontal"
+          >
+            背景色
+            <BGColor color="#fff" onClick={(color) => setBGColor(color)} />
+            <BGColor color="#000" onClick={(color) => setBGColor(color)} />
+            <BGColor color="#aaa" onClick={(color) => setBGColor(color)} />
+          </Stack>
         </Stack>
 
-        <Stack
-          css={`
-            ${centering()}
-          `}
-          dir="horizontal"
-        >
-          <strong>ベンチマーク</strong>
-          <Button kind="normal" onClick={() => benchRef.current!.start()}>
-            開始
-          </Button>
-          <Button kind="normal" onClick={() => benchRef.current!.stop()}>
-            停止
-          </Button>
+        <Stack dir="horizontal" gap={16}>
+          <Stack
+            css={`
+              ${centering()}
+            `}
+            dir="horizontal"
+          >
+            <Button
+              kind="normal"
+              onClick={() => controlRef.current!.toggleFilters()}
+            >
+              フィルター切り替え
+            </Button>
+          </Stack>
         </Stack>
-      </div>
-      <canvas
-        ref={ref}
+
+        <div>
+          <span
+            css={`
+              ${checkerBoard({ size: 8 })}
+            `}
+          >
+            <span
+              css={`
+                display: inline-block;
+                float: left;
+                margin-right: 4px;
+                width: 24px;
+                height: 24px;
+                border: 1px solid #000;
+              `}
+              style={{
+                backgroundColor: rgba(
+                  point.r,
+                  point.g,
+                  point.b,
+                  Math.round((point.a / 255) * 10 ** 2) / 10 ** 2
+                ),
+              }}
+            />
+          </span>
+          Coord: {point.x} {point.y}
+          <br />
+          R: {roundString(point.r / 255, 2)} ({point.r}) G:{' '}
+          {roundString(point.g / 255, 2)} ({point.g}) B:{' '}
+          {roundString(point.b / 255, 2)} ({point.b}) A:{' '}
+          {roundString(point.a / 255, 2)} ({point.a})
+        </div>
+      </Stack>
+
+      <Stack
         css={`
-          margin: 16px;
-          box-shadow: 0 0 4px ${rgba('#000', 0.4)};
-          /* background-color: red; */
-          /* ${checkerBoard({ size: 8 })} */
+          background-color: ${bgColor};
         `}
-      />
+        dir="horizontal"
+      >
+        <div>
+          Canvas <br />
+          <canvas
+            ref={canvasRef}
+            css={`
+              width: 400px;
+              height: 400px;
+              margin: 16px;
+              box-shadow: 0 0 4px ${rgba('#000', 0.4)};
+              /* background-color: red; */
+              /* ${checkerBoard({ size: 8 })} */
+              transition: none !important;
+            `}
+            onMouseMove={handleCanvasMouseMove}
+          />
+        </div>
+
+        <div>
+          Exported (&lt;img /&gt;)
+          <br />
+          <img
+            css={`
+              width: 400px;
+              height: 400px;
+            `}
+            src={imageUrl}
+          />
+        </div>
+
+        <div id="hihi" />
+      </Stack>
     </DevLayout>
+  )
+}
+
+const BGColor = ({
+  color,
+  onClick,
+}: {
+  color: string
+  onClick: (color: string) => void
+}) => {
+  return (
+    <div
+      css={`
+        width: 24px;
+        height: 24px;
+        border: 1px solid #000;
+      `}
+      style={{ backgroundColor: color }}
+      onClick={() => {
+        onClick(color)
+      }}
+    />
   )
 }
 

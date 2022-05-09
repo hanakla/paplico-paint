@@ -1,6 +1,7 @@
 import { fit } from 'object-fit-math'
 import { rgba } from 'polished'
 import { ReactNode } from 'react'
+import { useGesture } from 'react-use-gesture'
 import { css } from 'styled-components'
 import { centering } from '../utils/mixins'
 
@@ -11,6 +12,7 @@ export const AspectPreview = ({
   maxHeight,
   dotted = false,
   children,
+  onDrag,
 }: {
   width: number
   height: number
@@ -18,11 +20,19 @@ export const AspectPreview = ({
   maxHeight: number
   dotted?: boolean
   children?: ReactNode
+  onDrag?: (e: { delta: [number, number] }) => void
 }) => {
   const size = fit(
     { width: maxWidth, height: maxHeight },
     { width, height },
     'contain'
+  )
+
+  const bindGesture = useGesture(
+    {
+      onDrag,
+    },
+    {}
   )
 
   return (
@@ -53,6 +63,7 @@ export const AspectPreview = ({
         width: size.width,
         height: size.height,
       }}
+      {...bindGesture()}
     >
       <div
         css={`

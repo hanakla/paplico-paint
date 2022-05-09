@@ -14,6 +14,7 @@ import { shallowEquals } from '🙌/utils/object'
 import { generateBrushThumbnail } from '../helpers'
 import { useFleur } from '🙌/utils/hooks'
 import { BRUSH_PRESETS } from '../constants'
+import { memo } from 'react'
 
 export function BrushPresets() {
   const { t } = useTranslation('app')
@@ -89,7 +90,7 @@ export function BrushPresets() {
   )
 }
 
-const BrushItem = ({
+const BrushItem = memo(function BrushItem({
   brushId,
   name,
   preset,
@@ -99,7 +100,7 @@ const BrushItem = ({
   name: string
   preset: Partial<PapValue.BrushSetting>
   onSelected: (setting: Partial<PapValue.BrushSetting>) => void
-}) => {
+}) {
   const theme = useTheme()
   const { engine, currentBrushSetting } = useStore((get) => ({
     engine: get(EditorStore).state.engine,
@@ -166,4 +167,4 @@ const BrushItem = ({
       </div>
     </div>
   )
-}
+})

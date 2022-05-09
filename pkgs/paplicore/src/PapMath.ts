@@ -6,3 +6,5 @@ const normalizeDegree = (angle: number) => {
 }
 
 export const radToDeg = (rad: number) => normalizeDegree((rad * 180) / Math.PI)
+
+export const degToRad = (deg: number) => normalizeDegree(deg) * (Math.PI / 180)

@@ -1,10 +1,8 @@
-import { ThemeProp } from '@charcoal-ui/styled'
 import { autoUpdate, Placement, useFloating } from '@floating-ui/react-dom'
 import { useFunk } from '@hanakla/arma'
 import { ArrowDownS, Check } from '@styled-icons/remix-line'
-import { rgba, transparentize } from 'polished'
+import { rgba } from 'polished'
 import { useMemo, MouseEvent, useRef, useEffect } from 'react'
-import { usePopper } from 'react-popper'
 import { useClickAway, useToggle } from 'react-use'
 import { css } from 'styled-components'
 

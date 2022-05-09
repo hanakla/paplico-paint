@@ -13,11 +13,20 @@ import {
   Color,
   CanvasTexture,
   InstancedBufferAttribute,
+  Vector3,
+  Curve,
 } from 'three'
-import { lerp, radToDeg } from '../PapMath'
+import { degToRad, lerp, radToDeg } from '../PapMath'
 import * as Textures from './ScatterTexture/assets'
 import { mergeToNew } from '../utils'
-import { logImage } from '../DebugHelper'
+import {
+  logGroup,
+  logGroupEnd,
+  logImage,
+  logTime,
+  logTimeEnd,
+  timeSumming,
+} from '../DebugHelper'
 
 const _object = new Object3D()
 const _translate2d = new Vector2()
@@ -153,17 +162,25 @@ export class ScatterBrush implements IBrush {
       brushSetting.specific
     )
 
+    logGroup('ScatterBrush')
+    inputPath = inputPath.clone()
+    inputPath.freeze()
+
     const { color } = brushSetting
 
-    const path = new ThreePath()
+    // #region Building path for instancing
+    const threePath = new ThreePath()
+    threePath.arcLengthDivisions = 10
+
     const [start] = inputPath.points
 
-    path.moveTo(start.x / destSize.width, start.y / destSize.height)
+    threePath.moveTo(start.x / destSize.width, start.y / destSize.height)
+
+    logTime('Scatter: mapPoints')
 
     inputPath.mapPoints(
       (point, prev) => {
-        // console.log({ point })
-        path.bezierCurveTo(
+        threePath.bezierCurveTo(
           (prev?.out?.x ?? prev!.x) / destSize.width,
           (prev?.out?.y ?? prev!.y) / destSize.height,
           (point.in?.x ?? point.x) / destSize.width,
@@ -175,9 +192,15 @@ export class ScatterBrush implements IBrush {
       { startOffset: 1 }
     )
 
+    logTimeEnd('Scatter: mapPoints')
+
     if (inputPath.closed) {
-      path.lineTo(start.x, start.y)
+      threePath.closePath()
     }
+
+    const freezedInputPath = freezeThreePath(threePath)
+
+    // #endregion
 
     const material = this.materials[specific.texture]
     material.needsUpdate = true
@@ -187,18 +210,42 @@ export class ScatterBrush implements IBrush {
     //   console.log({ shader })
     // }
 
-    const counts = Math.ceil(path.getLength() * specific.divisions)
+    let counts = Math.ceil(threePath.getLength() * specific.divisions)
+
+    // if (counts > 1_000_000) {
+    //   console.log(inputPath)
+    //   counts = 500000
+    // }
+
     const opacities = new Float32Array(counts)
     const mesh = new InstancedMesh(this.geometry, material, counts)
 
-    this.scene.add(mesh)
-
     const seed = fastRandom(inputPath.randomSeed)
+    const pressureReader = inputPath.getSequencialPressureAtLengthReader()
     // const totalLength = inputPath.getTotalLength()
+    logTime('Scatter: set atributes')
+
+    const perf_misc = timeSumming(`misc at will calls ${counts} times`)
+    const perf_getPoint = timeSumming(`getPoint at will calls ${counts} times`)
+    const perf_pressureAtTime = timeSumming(
+      `Pressure at will calls ${counts} times`
+    )
+    const perf_getTangent = timeSumming(
+      `getTangentAt at will calls ${counts} times`
+    )
+    const perf_rand = timeSumming(`devRand at will calls ${counts} times`)
+    const perf_render = timeSumming(`Render with ${counts} instances`)
+
     for (let idx = 0; idx < counts; idx++) {
       const frac = idx / counts
 
-      path.getPoint(frac, _translate2d)
+      perf_rand.time()
+      const randomFloat = seed.nextFloat()
+      perf_rand.timeEnd()
+
+      perf_getPoint.time()
+      freezedInputPath.sequencialGetPoint(frac, _translate2d)
+      perf_getPoint.timeEnd({ frac, index: idx })
 
       _object.position.set(
         MathUtils.lerp(-destSize.width / 2, destSize.width / 2, _translate2d.x),
@@ -216,10 +263,12 @@ export class ScatterBrush implements IBrush {
         : frac >= (1 - .15) ? MathUtils.lerp(1 - specific.inOutInfluence, 1, Math.min(1 - frac, 0.15) / 0.15)
         : 1
 
+      perf_pressureAtTime.time()
       const pressureWeight =
         0.2 +
         0.8 * (1 - specific.pressureInfluence) +
-        inputPath.getPressureAt(frac) * 0.8 * specific.pressureInfluence
+        pressureReader.getPressureAt(frac) * 0.8 * specific.pressureInfluence
+      perf_pressureAtTime.timeEnd({ frac, index: idx })
 
       // fade(1) * influence(1) = 1 入り抜き影響済みの太さ
       // fade(1) * influence(0) = 0 入り抜き影響済みの太さ
@@ -234,13 +283,15 @@ export class ScatterBrush implements IBrush {
         1
       )
 
-      const tangent = path.getTangent(frac).normalize()
+      perf_getTangent.time()
+      const tangent = freezedInputPath.sequencialGetTangent(frac).normalize()
       const angle = Math.atan2(tangent.x, tangent.y)
+      perf_getTangent.timeEnd({ frac, index: idx })
 
-      _object.rotation.z =
-        radToDeg(Math.floor(angle)) +
-        -1 +
-        seed.nextFloat() * 360 * specific.randomRotation
+      perf_misc.time()
+      _object.rotation.z = degToRad(
+        radToDeg(angle) + -1 + randomFloat * 360 * specific.randomRotation
+      )
 
       _object.translateX(
         lerp(-specific.scatterRange, specific.scatterRange, Math.cos(angle))
@@ -252,20 +303,33 @@ export class ScatterBrush implements IBrush {
       _object.updateMatrix()
 
       mesh.setMatrixAt(idx, _object.matrix)
-      opacities[idx] = fadeWeight
+      // opacities[idx] = fadeWeight
+      perf_misc.timeEnd()
     }
+    logTimeEnd('Scatter: set atributes')
 
-    this.geometry.setAttribute(
-      'opacities',
-      new InstancedBufferAttribute(opacities, 1)
-    )
-    this.geometry.attributes.opacities.needsUpdate = true
+    perf_getPoint.log()
+    perf_getTangent.log()
+    perf_pressureAtTime.log()
+    perf_rand.log()
+    perf_misc.log()
+
+    // this.geometry.setAttribute(
+    //   'opacities',
+    //   new InstancedBufferAttribute(opacities, 1)
+    // )
+    // this.geometry.attributes.opacities.needsUpdate = true
+    perf_render.time()
+    this.scene.add(mesh)
     renderer.render(this.scene, camera)
+    perf_render.timeEnd()
+    perf_render.log()
 
     ctx.globalAlpha = brushSetting.opacity
     ctx.drawImage(renderer.domElement, 0, 0)
 
     this.scene.remove(mesh)
+    logGroupEnd()
   }
 }
 
@@ -292,3 +356,162 @@ void main() {
   gl_Position = projectionMatrix * modelViewPosition;
 }
 `
+
+const freezeThreePath = (path: ThreePath) => {
+  const lengthIndex = path.getCurveLengths()
+
+  path.curves.forEach((curve, idx) => {
+    curve.arcLengthDivisions = 10
+
+    const lengths = curve.getLengths()
+    curve.getLengths = () => lengths
+
+    const length = curve.getLength()
+    curve.getLength = () => length
+  })
+
+  const pathLength = path.getLength()
+  path.getLength = () => pathLength
+
+  // https://github.com/mrdoob/three.js/blob/master/src/extras/core/CurvePath.js#L51
+  path.getPoint = (() => {
+    return (t: number, target?: THREE.Vector2) => {
+      const d = t * path.getLength()
+      const near = binarySearch(lengthIndex, d)
+
+      let i = near
+
+      while (i < lengthIndex.length) {
+        if (lengthIndex[i] >= d) {
+          const diff = lengthIndex[i] - d
+          const curve = path.curves[i]
+
+          const segmentLength = curve.getLength()
+          const u = segmentLength === 0 ? 0 : 1 - diff / segmentLength
+
+          return curve.getPointAt(u, target)
+        }
+
+        i++
+      }
+
+      return null
+    }
+  })()
+
+  // const createSeqGetPointAt = (path: ThreePath) => {
+  //   let lastCurveIndex: number
+
+  //   const methods = {
+  //     getPoint: (t: number, target?: Vector2) => {
+  //       const d = t * path.getLength()
+  //       const near = binarySearch(lengthIndex, d)
+
+  //       let i = near
+
+  //       while (i < lengthIndex.length) {
+  //         if (lengthIndex[i] >= d) {
+  //           const diff = lengthIndex[i] - d
+  //           const curve = path.curves[i]
+
+  //           const segmentLength = curve.getLength()
+  //           const u = segmentLength === 0 ? 0 : 1 - diff / segmentLength
+
+  //           // return curve.getPointAt(u, target)
+  //           return curve.getPoi(u, target)
+  //         }
+
+  //         i++
+  //       }
+
+  //       return null
+  //     },
+  //     getPointAt: (u: number, target?: Vector2) => {
+  //       const t = getUtoTmapping(u)
+  //       return methods.getPoint(t, target)
+  //     },
+  //   }
+
+  //   return methods
+  // }
+
+  return {
+    sequencialGetPoint: (() => {
+      let lastT = 0
+      let lastIndex = 0
+
+      return (t: number, target: THREE.Vector2) => {
+        if (t < lastT) throw new Error('t must be greater than lastT')
+
+        const d = t * pathLength
+        let i = lastIndex
+
+        while (i < lengthIndex.length) {
+          if (lengthIndex[i] >= d) {
+            const diff = lengthIndex[i] - d
+            const curve = path.curves[i]
+
+            const segmentLength = curve.getLength()
+            const u = segmentLength === 0 ? 0 : 1 - diff / segmentLength
+
+            lastT = t
+            lastIndex = i
+            return curve.getPointAt(u, target)
+          }
+
+          i++
+        }
+
+        return null
+      }
+    })(),
+    sequencialGetTangent: (() => {
+      let lastT = 0
+
+      return (t: number, target?: THREE.Vector2) => {
+        if (t < lastT) throw new Error('t must be greater than lastT')
+
+        const delta = 0.0001
+        let t1 = lastT - delta
+        let t2 = lastT + delta
+
+        // Capping in case of danger
+
+        if (t1 < 0) t1 = 0
+        if (t2 > 1) t2 = 1
+
+        const pt1 = path.getPoint(t1)
+        const pt2 = path.getPoint(t2)
+
+        const tangent =
+          target || (pt1.isVector2 ? new Vector2() : new Vector3())
+
+        tangent.copy(pt2).sub(pt1).normalize()
+
+        lastT = t
+        return tangent
+      }
+    })(),
+  }
+}
+
+// SEE: https://stackoverflow.com/questions/60343999/binary-search-in-typescript-vs-indexof-how-to-get-performance-properly
+function binarySearch(sortedArray: number[], seekElement: number): number {
+  let startIndex = 0
+  let endIndex: number = sortedArray.length - 1
+  let minNearIdx: number = 0
+
+  while (startIndex <= endIndex) {
+    const mid = startIndex + Math.floor((endIndex - startIndex) / 2)
+    const guess = sortedArray[mid]
+    if (guess === seekElement) {
+      return mid
+    } else if (guess > seekElement) {
+      minNearIdx = endIndex = mid - 1
+    } else {
+      startIndex = mid + 1
+    }
+  }
+
+  return minNearIdx!
+}

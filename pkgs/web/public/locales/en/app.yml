@@ -11,6 +11,8 @@ untitled: Untitled
 remove: Remove
 
 commandFlash:
+  undoEmpty: There is no undo item
+  redoEmpty: There is no redo item
   undo: Undo
   redo: Redo
 
@@ -35,7 +37,9 @@ notify:
 exports:
   autoSaved: File was autosaved!
   saved: File was saved!
+  saveFailed: Failed to saving...
   exported: Image was exported!
+  autoSaveDisabledInIOS: Auto save disabled in iOS devices
 
 vectorColorPicker:
   noFill: Fill none

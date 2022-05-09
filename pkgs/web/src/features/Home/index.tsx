@@ -1,6 +1,6 @@
 import { MouseEvent, useState } from 'react'
 import styled, { css, useTheme } from 'styled-components'
-import { PapDOM, PapHelper, PapSerializer } from '@paplico/core'
+import { PapDOM, PapHelper } from '@paplico/core'
 import { useStore } from '@fleur/react'
 import { Moon, Sun } from '@styled-icons/remix-fill'
 import { DragDrop, File } from '@styled-icons/remix-line'
@@ -29,7 +29,6 @@ import {
   ContextMenuItem,
 } from '🙌/components/ContextMenu'
 import { NotifyOps } from '../../domains/Notify'
-import { useFunkyGlobalMouseTrap } from '../../hooks/useMouseTrap'
 import { NewItemModal } from '../../modals/NewItemModal'
 import { createDocumentWithSize } from './utils'
 import { AspectPreview } from '../../components/AspectPreview'
@@ -197,6 +196,7 @@ export const HomeContent = () => {
       `}
     >
       <Sidebar
+        side="left"
         css={`
           width: 200px;
 
@@ -233,11 +233,13 @@ export const HomeContent = () => {
               `}
             >
               {[
-                { name: '縦長', size: [1080, 1920] },
-                { name: '横長', size: [1920, 1080] },
+                { name: t('sizePresets.hdLandscape'), size: [1920, 1080] },
+                { name: t('sizePresets.hdPortrait'), size: [1080, 1920] },
 
-                { name: 'A4(縦) 300dpi', size: [2480, 3508] },
-                { name: 'A4(横) 300dpi', size: [3508, 2480] },
+                { name: t('sizePresets.a4Landscape'), size: [3508, 2480] },
+                { name: t('sizePresets.a4Portrait'), size: [2480, 3508] },
+
+                { name: t('sizePresets.twitterHeader'), size: [1500, 500] },
               ].map((preset, idx) => (
                 <div
                   key={idx}
@@ -306,11 +308,20 @@ export const HomeContent = () => {
                 onClick={handleClickSpecifiedSize}
                 tabIndex={-1}
               >
-                <File
+                <div
                   css={`
-                    width: 64px;
+                    ${centering()}
+                    width: 100%;
+                    height: 100px;
                   `}
-                />
+                >
+                  <File
+                    css={`
+                      width: 64px;
+                      color: ${rgba('#aaa', 0.5)};
+                    `}
+                  />
+                </div>
                 <div
                   css={`
                     margin: 8px 0 8px;

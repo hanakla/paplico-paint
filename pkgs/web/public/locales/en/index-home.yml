@@ -4,3 +4,10 @@ savedItems: Auto saved items
 untitled: Untitled
 removeDocumentConfirm: Deleted items cannot be restored. Do you seriously want to delete it?
 customSize: Specify size
+
+sizePresets:
+  hdPortrait: '9:16 (2K)'
+  hdLandscape: '16:9 (2K)'
+  a4Portrait: 'A4 300dpi\n Portrait'
+  a4Landscape: 'A4 300dpi\n Landscape'
+  twitterHeader: 'Twitter header'

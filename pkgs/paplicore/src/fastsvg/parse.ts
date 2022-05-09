@@ -59,6 +59,8 @@ export const parseSVGPath = function parseSVGPath(path: string) {
     }
 
     if (parsedArgs.length < argLength[type]) {
+      console.warn(command, args, matches)
+      debugger
       throw new Error('malformed path data')
     }
 

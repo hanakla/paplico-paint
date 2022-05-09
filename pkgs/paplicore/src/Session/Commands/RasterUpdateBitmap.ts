@@ -1,4 +1,4 @@
-import { init, compress, decompress } from '@bokuweb/zstd-wasm'
+// import { init, compress, decompress } from '@bokuweb/zstd-wasm'
 
 import { PapDOMDigger } from '../../PapDOMDigger'
 import { ICommand } from '../ICommand'
@@ -24,7 +24,7 @@ export class RasterUpdateBitmap implements ICommand {
   }
 
   async do(document: Document) {
-    await init()
+    // await init()
 
     const layer = PapDOMDigger.findLayer(document, this.pathToTargetLayer, {
       kind: 'raster',
@@ -32,12 +32,13 @@ export class RasterUpdateBitmap implements ICommand {
     })
 
     this.previousImage = new Uint8Array(layer.bitmap.length)
-    this.previousImage.set(layer.bitmap) // compress(new Uint8Array(layer.bitmap))
+    this.previousImage.set(layer.bitmap)
+
     layer.updateBitmap((bitmap) => this.updater(bitmap))
   }
 
   async undo(document: Document): Promise<void> {
-    await init()
+    // await init()
 
     const layer = PapDOMDigger.findLayer(document, this.pathToTargetLayer, {
       kind: 'raster',
@@ -57,7 +58,7 @@ export class RasterUpdateBitmap implements ICommand {
   }
 
   async redo(document: Document): Promise<void> {
-    await init()
+    // await init()
 
     const layer = PapDOMDigger.findLayer(document, this.pathToTargetLayer, {
       kind: 'raster',

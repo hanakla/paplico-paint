@@ -11,9 +11,13 @@ import {
   useRef,
   useState,
 } from 'react'
-import { useUpdate } from 'react-use'
+import { usePrevious, useUpdate } from 'react-use'
+import deepEqual from 'fast-deep-equal'
+
+import { deepClone } from './clone'
 import { shallowEquals } from './object'
 import { isIpadOS } from './responsive'
+import { useFunk } from '@hanakla/arma'
 
 export const useMedia = (query: string, defaultState?: boolean) => {
   if (defaultState === undefined) {
@@ -86,7 +90,7 @@ export const useIdentifiedRef = <T>(initialValue: T) => {
 export const useBufferedState = <T, S = T>(
   original: T | (() => T),
   transform?: (value: T) => S
-) => {
+): [S, (value: S | ((prevState: S) => S)) => S] => {
   const originalValue =
     typeof original === 'function' ? (original as any)() : original
   const [state, setState] = useState<S | T>(
@@ -125,9 +129,10 @@ export const useDebouncedFunk = <T extends (...args: any[]) => unknown>(
 
 export const useMultiFingerTouch = (
   callback: (e: TouchEvent & { fingers: number }) => void,
-  { threshold = 100 }: { threshold?: number } = {}
+  { threshold = 300 }: { threshold?: number } = {}
 ): Ref<HTMLElement | SVGElement> => {
   const [ref, setRef] = useState<HTMLElement | SVGElement | null>(null)
+  const callbackRef = useFunk(callback)
 
   useEffect(() => {
     if (!ref) return
@@ -149,7 +154,7 @@ export const useMultiFingerTouch = (
       }
     }
 
-    const throttledCallback = throttle(callback, threshold)
+    const throttledCallback = throttle(callbackRef, threshold)
 
     const onTouchStart = (e: TouchEvent) => {
       if (firstTouchTime != null && Date.now() - firstTouchTime > threshold) {
@@ -187,7 +192,7 @@ export const useMultiFingerTouch = (
       ;(ref as HTMLElement).removeEventListener('touchstart', onTouchStart)
       ;(ref as HTMLElement).removeEventListener('touchend', onTouchEnd)
     }
-  }, [ref, callback, threshold])
+  }, [ref, threshold])
 
   return (el: HTMLElement | SVGElement | null) => {
     setRef(el)
@@ -242,6 +247,17 @@ export const useAutoUpdateFloating = (fl: UseFloatingReturn) => {
   }, [fl.refs.reference, fl.refs.floating, fl.update])
 }
 
+export const createAutoUpdate = (fl: UseFloatingReturn) => {
+  if (!fl.refs.reference.current || !fl.refs.floating.current) return
+
+  return autoUpdate(
+    fl.refs.reference.current,
+    fl.refs.floating.current,
+    fl.update,
+    { ancestorResize: true, ancestorScroll: true, elementResize: false }
+  )
+}
+
 export const useIsomorphicLayoutEffect =
   typeof window !== 'undefined' ? useLayoutEffect : useEffect
 
@@ -254,4 +270,19 @@ export const useFleur = () => {
     }),
     []
   )
+}
+
+export const useDeepCompareMemo = <T, D>(factory: () => T, value: D) => {
+  const prevValue = useRef<T | null>(null)
+  prevValue.current ??= factory()
+
+  const prevDeps = useRef<D | null>(value)
+  prevDeps.current ??= deepClone(value) as D
+
+  if (!deepEqual(prevDeps.current, value)) {
+    prevValue.current = factory()
+    prevDeps.current = deepClone(value) as D
+  }
+
+  return prevValue.current
 }

@@ -6,7 +6,8 @@ import { useEffect } from 'react'
 export type Notify =
   | {
       area: 'save'
-      message: string
+      messageKey: string
+      extra?: string
       timeout: number
     }
   | {

@@ -11,6 +11,8 @@ untitled: タイトル未設定
 remove: 削除
 
 commandFlash:
+  undoEmpty: これ以上戻せません
+  redoEmpty: やり直し出来ません
   undo: もとに戻す
   redo: やり直す
 
@@ -37,11 +39,14 @@ notify:
 exports:
   autoSaved: 自動保存されています
   saved: 保存しました！
+  saveFailed: 保存に失敗しました {{extra}}
   exported: 書き出しました！
+  autoSaveDisabledInIOS: iOSデバイスでは自動保存されません
 
 vectorColorPicker:
   noFill: 塗りなし
   modes:
+    none: なし
     solid: カラー
     gradient: グラデーション
 

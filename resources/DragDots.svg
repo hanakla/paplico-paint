@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+    <g id="a"/>
+    <g id="b">
+        <g>
+            <g>
+                <circle cx="8.69" cy="5.61" r="1.5"/>
+                <circle cx="8.69" cy="12" r="1.5"/>
+                <circle cx="8.69" cy="18.39" r="1.5"/>
+            </g>
+            <g>
+                <circle cx="15.31" cy="5.61" r="1.5"/>
+                <circle cx="15.31" cy="12" r="1.5"/>
+                <circle cx="15.31" cy="18.39" r="1.5"/>
+            </g>
+        </g>
+    </g>
+    <g id="c"/>
+    <g id="d"/>
+</svg>

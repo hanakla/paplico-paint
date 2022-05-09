@@ -124,23 +124,19 @@ export const PaintPage = memo(function PaintPage({}) {
 
   const [saveMessage] = useNotifyConsumer('save', 1)
 
-  const handleOnDrop = useFunk(async (files: File[]) => {
+  const handleOnDrop = useFunk(async ([file]: File[]) => {
     if (!currentDocument) return
 
-    let lastLayerId: string | null = activeLayer?.uid ?? null
+    const { image } = await loadImageFromBlob(file)
+    const layer = await PapHelper.imageToLayer(image)
 
-    for (const file of files) {
-      const { image } = await loadImageFromBlob(file)
-      const layer = await PapHelper.imageToLayer(image)
-
-      executeOperation(EditorOps.updateDocument, (document) => {
-        document.addLayer(layer, {
-          aboveLayerId: lastLayerId,
-        })
+    execute(
+      EditorOps.runCommand,
+      new PapCommands.Document.AddLayer({
+        layer,
       })
-
-      lastLayerId = layer.uid
-    }
+    )
+    execute(EditorOps.setActiveLayer, [layer.uid])
   })
 
   const handleChangeDisableFilters = useFunk(

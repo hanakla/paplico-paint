@@ -159,6 +159,7 @@ export const MainActions = memo(function MainActions() {
 
   const handleChangeToPencilMode = useFunk(() => {
     if (currentTool === 'draw') {
+      brushesFl.update()
       toggleBrush(true)
       return
     }
@@ -291,10 +292,12 @@ export const MainActions = memo(function MainActions() {
 
   const bindBrushSizeDrag = useDrag(({ delta, first, last, event }) => {
     if (first) {
+      execute(EditorOps.setBrushSizeChanging, true)
       ;(event.currentTarget as HTMLDivElement).requestPointerLock?.()
     }
 
     if (last) {
+      execute(EditorOps.setBrushSizeChanging, false)
       document.exitPointerLock?.()
     }
 
@@ -415,12 +418,14 @@ export const MainActions = memo(function MainActions() {
               left: 50%;
               transform: translate(-50%, -50%);
               background-color: #000;
+
               border-radius: 100px;
             `}
             style={{ width: brushSize, height: brushSize }}
           />
           <div
             css={`
+              color: #fff;
               mix-blend-mode: difference;
             `}
           >
@@ -675,6 +680,7 @@ export const MainActions = memo(function MainActions() {
         <div
           ref={brushesFl.reference}
           css={`
+            position: relative;
             ${centering()}
             padding:4px;
             border-radius: 0;
@@ -686,6 +692,22 @@ export const MainActions = memo(function MainActions() {
           }}
           onClick={handleChangeToPencilMode}
         >
+          <span
+            css={`
+              position: absolute;
+              top: 4px;
+              left: 50%;
+              display: inline-block;
+              width: 4px;
+              height: 4px;
+              padding-left: none !important;
+              padding-right: none !important;
+              transform: translateX(-50%);
+              background-color: #fff;
+              mix-blend-mode: difference;
+              border-radius: 50%;
+            `}
+          />
           <Brush width={24} />
         </div>
 

@@ -54,10 +54,10 @@ export const VectorLayerControl = () => {
   const { execute, getStore } = useFleur()
 
   const {
-    engine,
     canvasScale,
     activeLayer,
     activeLayerPath,
+    brushSizeChanging,
     currentDocument,
     currentTool,
     vectorStroking,
@@ -68,8 +68,8 @@ export const VectorLayerControl = () => {
     vectorFocusing,
     activeObject,
   } = useStore((get) => ({
-    engine: get(EditorStore).state.engine,
     canvasScale: EditorSelector.canvasScale(get),
+    brushSizeChanging: EditorSelector.brushSizeChanging(get),
     activeLayer: EditorSelector.activeLayer(get),
     activeLayerPath: EditorSelector.activeLayerPath(get),
     currentDocument: EditorSelector.currentDocument(get),
@@ -594,9 +594,15 @@ export const VectorLayerControl = () => {
             // onClickPath={handleClickPath}
             onDoubleClickPath={handleDoubleClickPath}
             onHoverStateChange={handleHoverChangePath}
-            showPaths={true}
-            showPoints={the(currentTool).in('point-cursor', 'shape-pen')}
-            showControls={the(currentTool).in('point-cursor', 'shape-pen')}
+            showPaths={!brushSizeChanging}
+            showPoints={
+              !brushSizeChanging &&
+              the(currentTool).in('point-cursor', 'shape-pen')
+            }
+            showControls={
+              !brushSizeChanging &&
+              the(currentTool).in('point-cursor', 'shape-pen')
+            }
           />
 
           {currentTool === 'cursor' && (

@@ -161,25 +161,6 @@ export const LayerView = memo(function LayerView() {
     }
   )
 
-  const handleChangeFile = useFunk(
-    async ({ currentTarget }: ChangeEvent<HTMLInputElement>) => {
-      const [file] = Array.from(currentTarget.files!)
-      if (!file) return
-
-      const lastLayerId = activeLayer?.uid
-      const { image } = await loadImageFromBlob(file)
-      const layer = await PapHelper.imageToLayer(image)
-      executeOperation(EditorOps.addLayer, layer, { aboveLayerId: lastLayerId })
-
-      currentTarget.value = ''
-    }
-  )
-
-  // const handleLayerSortEnd: SortEndHandler = useFunk((sort) => {
-  //   executeOperation(EditorOps.moveLayer)
-  //   // layerControls.moveLayer(sort.oldIndex, sort.newIndex)
-  // })
-
   const handleLayerDragStart = useFunk(() => {
     setLayerSorting(true)
   })
@@ -762,7 +743,11 @@ const SortableLayerItem = memo(
     shallowEquals(prev.entry.path, next.entry.path)
 )
 
-const SortableObjectItem = memo(({ entry }: { entry: FlatLayerEntry }) => {
+const SortableObjectItem = memo(function SortableObjectItem({
+  entry,
+}: {
+  entry: FlatLayerEntry
+}) {
   if (entry.type !== 'object') return null
   const { id, object, parentPath, depth } = entry
 

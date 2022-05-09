@@ -52,7 +52,6 @@ import { DOMUtils } from '🙌/utils/dom'
 import { EditorOps, EditorSelector, EditorStore } from '🙌/domains/EditorStable'
 import { useFleur } from '🙌/utils/hooks'
 import { Checkbox } from '🙌/components/Checkbox'
-import { shallowEquals } from '🙌/utils/object'
 import { tm } from '🙌/utils/theme'
 import { FilterSettings } from '../FilterSettings'
 import { calcLayerMove, FlatLayerEntry, flattenLayers } from '../../helpers'
@@ -62,10 +61,18 @@ import {
   useLayerWatch,
 } from '../../hooks'
 import { useLongPress } from 'use-long-press'
-import { LayerConvertToGroup } from '@paplico/core/dist/Session/Commands/LayerConvertToGroup'
-import { restrictToFirstScrollableAncestor } from '@dnd-kit/modifiers'
+import {
+  restrictToFirstScrollableAncestor,
+  restrictToVerticalAxis,
+} from '@dnd-kit/modifiers'
 import { createSlice, useLysSlice, useLysSliceRoot } from '@fleur/lys'
 import { DragDots } from '🙌/components/icons/DragDots'
+import {
+  ContextMenu,
+  ContextMenuItem,
+  ContextMenuParam,
+  useContextMenu,
+} from '🙌/components/ContextMenu'
 
 export const LayerFloatMenu = memo(
   forwardRef<HTMLDivElement, {}>(function LayerFloatMenu(_, ref) {
@@ -147,9 +154,13 @@ export const LayerFloatMenu = memo(
             throw new Error('なんかおかしなっとるで')
         }
 
-        execute(EditorOps.addLayer, layer, {
-          aboveLayerId: activeLayer?.uid ?? null,
-        })
+        execute(
+          EditorOps.runCommand,
+          new PapCommands.Document.AddLayer({
+            layer,
+            aboveOnLayerId: activeLayer?.uid ?? null,
+          })
+        )
         toggleAddLayerSheetOpened(false)
       }
     )
@@ -194,20 +205,27 @@ export const LayerFloatMenu = memo(
           <DndContext
             collisionDetection={closestCenter}
             onDragEnd={handleLayerDragEnd}
-            modifiers={[restrictToFirstScrollableAncestor]}
+            modifiers={[
+              restrictToVerticalAxis,
+              restrictToFirstScrollableAncestor,
+            ]}
           >
             <SortableContext
               items={flatLayers.map((entry) => entry.id)}
               strategy={verticalListSortingStrategy}
             >
-              {flatLayers.map((entry) => (
-                <SortableLayerItem
-                  key={entry.id}
-                  entry={entry}
-                  childrenOpened={collapsed[entry.id] === false}
-                  onToggleCollapse={handleToggleLayerCollapse}
-                />
-              ))}
+              {flatLayers.map((entry) =>
+                entry.type === 'layer' ? (
+                  <SortableLayerItem
+                    key={entry.id}
+                    entry={entry}
+                    childrenOpened={collapsed[entry.id] === false}
+                    onToggleCollapse={handleToggleLayerCollapse}
+                  />
+                ) : (
+                  <SortableObjectItem key={entry.id} entry={entry} />
+                )
+              )}
             </SortableContext>
           </DndContext>
         </div>
@@ -578,6 +596,91 @@ const SortableLayerItem = memo(
     return deepEqual(prev, next)
   }
 )
+
+const SortableObjectItem = memo(function SortableObjectItem({
+  entry,
+}: {
+  entry: FlatLayerEntry
+}) {
+  if (entry.type !== 'object') return null
+  const { id, object, parentPath, depth } = entry
+
+  const { t } = useTranslation('app')
+  const theme = useTheme()
+  const { execute } = useFleur()
+  const { activeObject } = useStore((get) => ({
+    activeObject: EditorSelector.activeObject(get),
+  }))
+
+  const { attributes, listeners, setNodeRef, transform, transition } =
+    useSortable({
+      id: entry.id,
+      animateLayoutChanges: ({ isSorting, wasDragging }) =>
+        isSorting || wasDragging ? false : true,
+    })
+
+  const handleClickObject = useFunk(
+    ({ currentTarget }: MouseEvent<HTMLDivElement>) => {
+      execute(
+        EditorOps.setActiveObject,
+        currentTarget.dataset.objectId ?? null,
+        parentPath
+      )
+    }
+  )
+
+  const handleClickRemoveObject = useFunk(() => {
+    execute(
+      EditorOps.runCommand,
+      new PapCommands.VectorLayer.DeleteObject({
+        pathToTargetLayer: parentPath,
+        objectUid: object.uid,
+      })
+    )
+  })
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+  }
+
+  return (
+    <>
+      <div
+        ref={setNodeRef}
+        css={`
+          display: flex;
+          padding: 6px 8px;
+          margin-left: 16px;
+        `}
+        style={{
+          ...style,
+          marginLeft: depth * 16,
+          backgroundColor:
+            activeObject?.uid === object.uid
+              ? theme.surface.sidebarListActive
+              : undefined,
+        }}
+      >
+        <div
+          css={`
+            flex: 1;
+          `}
+          data-object-id={object.uid}
+          onClick={handleClickObject}
+          {...attributes}
+          {...listeners}
+        >
+          {t('layerView.object.path')}
+        </div>
+
+        <div onClick={handleClickRemoveObject}>
+          <DeleteBin width={16} />
+        </div>
+      </div>
+    </>
+  )
+})
 
 const FiltersSheet = memo(function FiltersSheet({
   opened,

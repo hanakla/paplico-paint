@@ -69,7 +69,7 @@ interface State {
   vectorColorTarget: 'fill' | 'stroke'
   canvasScale: number
   canvasPosition: { x: number; y: number }
-
+  brushSizeChanging: boolean
   selectedLayerUids: string[]
 
   currentDocument: PapDOM.Document | null
@@ -120,6 +120,8 @@ export const [EditorStore, EditorOps] = minOps('Editor', {
     canvasScale: 1,
     canvasPosition: { x: 0, y: 0 },
     vectorColorTarget: 'fill',
+    brushSizeChanging: false,
+    selectedLayerUids: [],
 
     currentDocument: null,
     documentFetchStatus: Object.create(null),
@@ -136,7 +138,6 @@ export const [EditorStore, EditorOps] = minOps('Editor', {
     clipboard: null,
     vectorLastUpdated: 0,
 
-    selectedLayerUids: [],
     _lastRenderTime: 0,
     _rerenderTimerId: null,
   }),
@@ -677,17 +678,11 @@ export const [EditorStore, EditorOps] = minOps('Editor', {
       x.commit({ vectorLastUpdated: Date.now() })
     },
 
-    updateDocument: (
-      x,
-      proc: (document: PapDOM.Document) => void,
-      { skipRerender = false }: { skipRerender?: boolean } = {}
-    ) => {
-      if (!x.state.currentDocument) return
-
-      x.commit((draft) => proc(draft.currentDocument as PapDOM.Document))
-
-      !skipRerender && x.executeOperation(EditorOps.rerenderCanvas)
+    setBrushSizeChanging: (x, brushSizeChanging: boolean) => {
+      x.commit({ brushSizeChanging })
     },
+
+    /** @deprecated */
     updateLayer: (
       x,
       pathToLayer: string[] | null | undefined,
@@ -704,48 +699,7 @@ export const [EditorStore, EditorOps] = minOps('Editor', {
 
       !skipRerender && x.executeOperation(EditorOps.rerenderCanvas)
     },
-    updateRasterLayer: (
-      x,
-      pathToLayer: string[] | null | undefined,
-      proc: (layer: PapDOM.RasterLayer) => void,
-      { skipRerender = false }: { skipRerender?: boolean } = {}
-    ) => {
-      if (!x.state.currentDocument) return
-
-      x.commit((d) => {
-        if (!d.currentDocument || !pathToLayer) return
-
-        const layer = PapDOMDigger.findLayer(d.currentDocument, pathToLayer, {
-          kind: 'raster',
-          strict: true,
-        })
-
-        layer.update(proc)
-        pathToLayer &&
-          d.renderStrategy!.markUpdatedLayerId(pathToLayer.slice(-1)[0])
-      })
-
-      !skipRerender && x.executeOperation(EditorOps.rerenderCanvas)
-    },
-    updateVectorLayer: (
-      x,
-      pathToLayer: string[] | null | undefined,
-      proc: (layer: PapDOM.VectorLayer) => void,
-      { skipRerender = false }: { skipRerender?: boolean } = {}
-    ) => {
-      if (!pathToLayer) return
-
-      x.commit((d) => {
-        PapDOMDigger.findLayer(d.currentDocument!, pathToLayer, {
-          kind: 'vector',
-        })?.update(proc)
-
-        d.renderStrategy!.markUpdatedLayerId(pathToLayer.slice(-1)[0])
-        d.vectorLastUpdated = Date.now()
-      })
-
-      !skipRerender && x.executeOperation(EditorOps.rerenderCanvas)
-    },
+    /** @deprecated */
     updateFilter: (
       x,
       layerId: string | null,
@@ -767,6 +721,7 @@ export const [EditorStore, EditorOps] = minOps('Editor', {
 
       !skipRerender && x.executeOperation(EditorOps.rerenderCanvas)
     },
+    /** @deprecated */
     updateActiveObject: (
       x,
       proc: (object: PapDOM.VectorObject) => void,
@@ -789,57 +744,7 @@ export const [EditorStore, EditorOps] = minOps('Editor', {
 
       !skipRerender && x.executeOperation(EditorOps.rerenderCanvas)
     },
-    addLayer: (
-      x,
-      newLayer: PapDOM.LayerTypes,
-      { aboveLayerId }: { aboveLayerId?: string | null }
-    ) => {
-      x.commit((d) => {
-        d.session!.document?.addLayer(newLayer, { aboveLayerId })
-        d.session!.setActiveLayer([newLayer.uid])
-        d.engine!.render(d.currentDocument!, d.session?.renderStrategy!)
-
-        d.renderStrategy?.markUpdatedLayerId(newLayer.uid)
-      })
-    },
-    moveLayer(x, pathToParent: string[], oldIndex: number, newIndex: number) {
-      x.commit((d) =>
-        d.currentDocument?.sortLayer((layers) => {
-          if (pathToParent.length === 0) {
-            return arrayMove(layers, oldIndex, newIndex)
-          }
-
-          const parent = PapDOMDigger.findLayer({ layers }, pathToParent, {
-            kind: 'group',
-          })!
-
-          console.log(pathToParent, parent.layers, oldIndex, newIndex)
-
-          parent.update((l) => {
-            arrayMove(l.layers, oldIndex, newIndex)
-          })
-
-          return layers
-        })
-      )
-    },
-    deleteSelectedFilters: (x) => {
-      x.commit((d) => {
-        if (!d.activeLayerPath) return
-
-        PapDOMDigger.findLayer(d.currentDocument!, d.activeLayerPath)?.update(
-          (layer) => {
-            for (const filterId of Object.keys(d.selectedFilterIds)) {
-              const idx = layer.filters.findIndex((f) => f.uid === filterId)
-              if (idx === -1) continue
-              layer.filters.splice(idx, 1)
-            }
-          }
-        )
-      })
-
-      x.executeOperation(EditorOps.rerenderCanvas)
-    },
+    /** @deprecated */
     deleteSelectedObjectPoints: async (x) => {
       if (
         !x.state.activeLayerPath ||
@@ -906,6 +811,7 @@ export const EditorSelector = {
     // return sessions[activeSessionId].canvasPosition ?? { x: 0, y: 0 }
     return get(EditorStore).canvasPosition
   }),
+  brushSizeChanging: selector((get) => get(EditorStore).brushSizeChanging),
   currentTool: selector((get) => get(EditorStore).currentTool),
   vectorColorTarget: selector((get) => get(EditorStore).vectorColorTarget),
 

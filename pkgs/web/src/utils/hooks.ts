@@ -179,6 +179,10 @@ export const useMultiFingerTouch = (
         idents.clear()
         firstTouchTime = null
       }
+
+      Array.from(e.touches).forEach(({ identifier }) =>
+        idents.delete(identifier)
+      )
     }
 
     ;(ref as HTMLElement).addEventListener('touchstart', onTouchStart, {

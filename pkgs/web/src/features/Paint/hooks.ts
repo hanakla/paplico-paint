@@ -45,7 +45,7 @@ export const usePaplicoExporter = () => {
           (await window.showSaveFilePicker({
             types: [
               {
-                description: 'Silk project',
+                description: 'Paplico project',
                 accept: { 'application/octet-stream': '.paplc' },
               },
             ],

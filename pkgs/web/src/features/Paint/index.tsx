@@ -161,7 +161,7 @@ export const PaintPage = memo(function PaintPage({}) {
         (await window.showSaveFilePicker({
           types: [
             {
-              description: 'Silk project',
+              description: 'Paplico project',
               accept: { 'application/octet-stream': '.paplc' },
             },
           ],
@@ -385,7 +385,7 @@ export const PaintPage = memo(function PaintPage({}) {
     sidebarToggle(false)
   })
 
-  // Initialize Silk
+  // Initialize Paplico
   useAsyncEffect(async () => {
     ;(window as any).engine = engine.current = await PaplicoEngine.create({
       canvas: canvasRef.current!,

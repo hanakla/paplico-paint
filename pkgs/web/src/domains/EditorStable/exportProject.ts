@@ -5,7 +5,7 @@ export const exportProject = (
   document: PapDOM.Document,
   getStore: StoreGetter
 ) => {
-  const extra = { SILK_EDITOR: {} }
+  const extra = { PAPLICO_EDITOR: {} }
   const bin = PapSerializer.exportDocument(document, extra)
   const blob = new Blob([bin], { type: 'application/octet-stream' })
 

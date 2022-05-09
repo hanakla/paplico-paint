@@ -89,6 +89,7 @@ export const MainActions = memo(function MainActions() {
   const { execute } = useFleur()
   const {
     displayingBrushSetting,
+    currentVectorBrush,
     currentVectorFill,
     currentTool,
     activeLayer,
@@ -368,9 +369,9 @@ export const MainActions = memo(function MainActions() {
       <DragDots
         css={`
           margin-right: -8px;
-          opacity: 0.5;
         `}
         width={24}
+        fillOpacity={0.5}
         {...bindMenuPosDrag()}
       />
       <div

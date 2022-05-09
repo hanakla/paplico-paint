@@ -12,6 +12,7 @@ import {
   closestCenter,
   DndContext,
   DragEndEvent,
+  DragOverlay,
   PointerSensor,
   useSensor,
   useSensors,
@@ -21,7 +22,10 @@ import {
   useSortable,
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable'
-import { restrictToVerticalAxis } from '@dnd-kit/modifiers'
+import {
+  restrictToFirstScrollableAncestor,
+  restrictToVerticalAxis,
+} from '@dnd-kit/modifiers'
 import { useFleurContext, useStore } from '@fleur/react'
 import { useFunk } from '@hanakla/arma'
 import { CSS } from '@dnd-kit/utilities'
@@ -40,6 +44,10 @@ import { isEventIgnoringTarget } from '../helpers'
 import { SidebarPane } from '🙌/components/SidebarPane'
 import { useFleur } from '🙌/utils/hooks'
 import { useLayerWatch } from '../hooks'
+import { DisableOnInputPointerSensor } from '../dndkit-helper'
+import { pick } from '../../../utils/object'
+import { DragDots } from '../../../components/icons/DragDots'
+import { ThemeProp } from '../../../utils/theme'
 
 export const FilterView = memo(() => {
   const { t } = useTranslation('app')
@@ -63,7 +71,9 @@ export const FilterView = memo(() => {
   })
 
   const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 4 } })
+    useSensor(DisableOnInputPointerSensor, {
+      activationConstraint: { distance: 4 },
+    })
   )
 
   const handleClickOpenFilter = useFunk((e: MouseEvent<SVGElement>) => {
@@ -190,7 +200,10 @@ export const FilterView = memo(() => {
           {activeLayer && (
             <DndContext
               collisionDetection={closestCenter}
-              modifiers={[restrictToVerticalAxis]}
+              modifiers={[
+                restrictToVerticalAxis,
+                restrictToFirstScrollableAncestor,
+              ]}
               onDragEnd={handleFilterSortEnd}
               sensors={sensors}
             >
@@ -222,8 +235,14 @@ const FilterItem = memo(function FilterItem({
   const { execute } = useFleur()
 
   const contextMenu = useContextMenu()
-  const { attributes, listeners, setNodeRef, transform, transition } =
-    useSortable({ id: filter.uid })
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: filter.uid })
 
   const { activeLayer, activeLayerPath, selectedFilterIds } = useStore(
     (get) => ({
@@ -288,7 +307,11 @@ const FilterItem = memo(function FilterItem({
       onDoubleClick={handleDoubleClick}
       onContextMenu={handleContextMenu}
       style={{
-        transform: CSS.Transform.toString(transform),
+        transform: CSS.Transform.toString({
+          scaleX: 1,
+          scaleY: 1,
+          ...pick(transform ?? { x: 0, y: 0 }, ['x', 'y']),
+        }),
         transition: transition,
       }}
       {...attributes}
@@ -296,9 +319,10 @@ const FilterItem = memo(function FilterItem({
     >
       <div
         css={`
-          display: flex;
+          ${centering({ x: false, y: true })}
           flex: 1;
-          padding: 4px;
+          padding: 2px;
+          gap: 4px;
         `}
         style={{
           backgroundColor: active ? theme.surface.sidebarListActive : undefined,
@@ -306,7 +330,6 @@ const FilterItem = memo(function FilterItem({
       >
         <div
           css={`
-            ${centering}
             flex: none;
             width: 12px;
           `}
@@ -325,8 +348,7 @@ const FilterItem = memo(function FilterItem({
 
         <div
           css={`
-            ${centering()}
-            padding: 4px;
+            padding: 3px;
           `}
           style={{
             ...(filter.visible ? {} : { opacity: 0.5 }),
@@ -336,28 +358,26 @@ const FilterItem = memo(function FilterItem({
         >
           {filter.visible ? (
             <Eye
-              css={css`
-                width: 16px;
-                vertical-align: bottom;
-                color: ${({ theme }) => theme.colors.white10};
+              css={`
+                color: ${({ theme }: ThemeProp) => theme.colors.white10};
               `}
+              width={16}
             />
           ) : (
-            <EyeClose
-              css={`
-                width: 16px;
-                vertical-align: bottom;
-              `}
-            />
+            <EyeClose width={16} />
           )}
         </div>
 
         <div
           css={`
-            ${centering()}
+            flex: 1;
           `}
         >
           {t(`filters.${filter.filterId}`)}
+        </div>
+
+        <div>
+          <DragDots width={16} fillOpacity={0.5} />
         </div>
       </div>
 
@@ -367,7 +387,7 @@ const FilterItem = memo(function FilterItem({
         `}
       />
 
-      {propsOpened && (
+      {propsOpened && !isDragging && (
         <div
           css={`
             padding: 8px;
@@ -379,11 +399,13 @@ const FilterItem = memo(function FilterItem({
         </div>
       )}
 
-      <ContextMenu id={contextMenu.id}>
-        <ContextMenuItem onClick={handleClickRemove}>
-          {t('remove')}
-        </ContextMenuItem>
-      </ContextMenu>
+      <Portal>
+        <ContextMenu id={contextMenu.id}>
+          <ContextMenuItem onClick={handleClickRemove}>
+            {t('remove')}
+          </ContextMenuItem>
+        </ContextMenu>
+      </Portal>
     </div>
   )
 })

@@ -12,6 +12,7 @@ import { BrushSetting } from '../Value'
 import { PaplicoEngine } from '../engine/Engine3'
 import { assign } from '../utils'
 import { ICommand } from './ICommand'
+import { CommandHooks, CommandHook, CommandHookEvent } from './CommandHooks'
 import { PapDOMDigger } from '../PapDOMDigger'
 
 type Events = {
@@ -27,7 +28,11 @@ type Events = {
 type PencilMode = 'none' | 'draw' | 'erase'
 
 export declare namespace PapSession {
-  export type BrushSetting = CurrentBrushSetting
+  export type {
+    CommandHookEvent,
+    CommandHook,
+    CurrentBrushSetting as BrushSetting,
+  }
 }
 
 /**
@@ -66,6 +71,7 @@ export class PapSession extends Emitter<Events> {
   public commandHistory: ICommand[] = []
   public redoHistory: ICommand[] = []
   // protected currentCommandTransaction = []
+  public commandHook = new CommandHooks()
 
   public historyLimit = 30
 

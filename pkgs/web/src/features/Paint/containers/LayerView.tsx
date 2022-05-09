@@ -86,6 +86,7 @@ export const LayerView = memo(function LayerView() {
   const { t } = useTranslation('app')
 
   const rerender = useUpdate()
+  const { execute } = useFleur()
   const { executeOperation } = useFleurContext()
   const { activeLayer, currentDocument, layers } = useStore((get) => ({
     activeLayer: EditorSelector.activeLayer(get),
@@ -147,7 +148,15 @@ export const LayerView = memo(function LayerView() {
           throw new Error('なんかおかしなっとるで')
       }
 
-      executeOperation(EditorOps.addLayer, layer, { aboveLayerId: lastLayerId })
+      execute(
+        EditorOps.runCommand,
+        new PapCommands.Document.AddLayer({
+          layer,
+          aboveOnLayerId: lastLayerId,
+        })
+      )
+      execute(EditorOps.setActiveLayer, [layer.uid])
+
       toggleAddLayerOpened(false)
     }
   )

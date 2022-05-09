@@ -1,5 +1,9 @@
 import { Document } from '../DOM'
 
+export type CommandConstructor = {
+  new (...args: any[]): ICommand
+}
+
 export interface ICommand {
   readonly name: string
 

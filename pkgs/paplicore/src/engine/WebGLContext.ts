@@ -1,6 +1,5 @@
 import { setCanvasSize } from '../utils'
 import { createContext2D, createWebGLContext } from '../Engine3_CanvasFactory'
-import { logImage } from '../DebugHelper'
 import { saveAndRestoreCanvas } from '../utils/canvas'
 
 type Uniform =
@@ -85,7 +84,7 @@ export class WebGLContext {
       premultipliedAlpha: true,
     }))
     gl.canvas.id = '__paplico-fx-gl-canvas'
-    gl.canvas.setAttribute('name', '__paplico-fx-gl-canvas')
+    gl.canvas.setAttribute?.('name', '__paplico-fx-gl-canvas')
 
     setCanvasSize(this.gl.canvas, 1, 1)
     gl.viewport(0, 0, 1, 1)

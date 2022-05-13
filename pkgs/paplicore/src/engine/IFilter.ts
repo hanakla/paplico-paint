@@ -17,7 +17,7 @@ export type FilterContext<Settings = Record<string, any>> = {
     | {
         missing: true
       }
-    | { missing: false; image: ImageBitmap }
+    | { missing: false; image: TexImageSource }
   >
   size: { width: number; height: number }
   /** Mutation safe copied object */

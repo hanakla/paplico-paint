@@ -1,6 +1,6 @@
 import { Active, Over } from '@dnd-kit/core'
 import { rgba } from 'polished'
-import { PaplicoEngine, PapDOM, PapInks, PapValue } from '@paplico/core'
+import { PaplicoEngine, PapDOM, PapInks, PapValueTypes } from '@paplico/core'
 import { assign } from '🙌/utils/object'
 
 export const isEventIgnoringTarget = (target: EventTarget | null) => {
@@ -269,7 +269,7 @@ export const normalRGBAToRGBA = (color: {
 
 export const colorStopsToCssGradient = (
   degree: number,
-  colorStops: PapValue.ColorStop[]
+  colorStops: PapValueTypes.ColorStop[]
 ): string => {
   return `linear-gradient(${degree}deg, ${colorStops
     .map(

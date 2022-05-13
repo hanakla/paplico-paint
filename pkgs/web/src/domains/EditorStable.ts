@@ -1,14 +1,14 @@
 import { action, actions, minOps, selector } from '@fleur/fleur'
-import arrayMove from 'array-move'
 import {
   PapSession,
   PaplicoEngine,
   PapDOM,
-  PapValue,
+  PapValueTypes,
   RenderStrategies,
   PapSerializer,
   PapDOMDigger,
   PapCommands,
+  PapMath,
 } from '@paplico/core'
 
 import { BrushSetting } from '🙌/../@paplico/core/dist/Value'
@@ -17,9 +17,11 @@ import { LocalStorage } from '🙌/infra/LocalStorage'
 import { the } from '🙌/utils/anyOf'
 import { assign, shallowEquals } from '🙌/utils/object'
 import { log, trace, warn } from '🙌/utils/log'
-import { exportProject } from './EditorStable/exportProject'
+import { exportProject, extractEditorMeta } from './EditorStable/exportProject'
 import { NotifyOps } from './Notify'
 import { nanoid } from 'nanoid'
+import { rescue } from '@hanakla/arma'
+import { uniqBy } from '../utils/array'
 
 type EditorMode = 'pc' | 'sp' | 'tablet'
 type EditorPage = 'home' | 'app'
@@ -35,11 +37,17 @@ type VectorStroking = {
   isTail: boolean
 }
 
+export type ColorHistoryEntry = {
+  id: string
+  lastUsedAt: number
+  color: PapValueTypes.Color.RGBColor
+}
+
 interface State {
   savedItems: {
     uid: string
     title: string
-    thumbnailUrl: string
+    thumbnailUrl: string | null
     updatedAt: Date
   }[]
 
@@ -70,14 +78,16 @@ interface State {
   canvasScale: number
   canvasPosition: { x: number; y: number }
   brushSizeChanging: boolean
+  highlightedLayerUids: string[]
   selectedLayerUids: string[]
+  colorHistory: ColorHistoryEntry[]
 
   currentDocument: PapDOM.Document | null
   documentFetchStatus: Record<string, { found: boolean | null }>
   renderSetting: PaplicoEngine.RenderSetting
   currentTool: Tool
-  currentFill: PapValue.FillSetting | null
-  currentStroke: PapValue.BrushSetting | null
+  currentFill: PapValueTypes.FillSetting | null
+  currentStroke: PapValueTypes.BrushSetting | null
   activeLayerPath: string[] | null
   activeObjectId: string | null
   activeObjectPointIndices: number[]
@@ -121,7 +131,9 @@ export const [EditorStore, EditorOps] = minOps('Editor', {
     canvasPosition: { x: 0, y: 0 },
     vectorColorTarget: 'fill',
     brushSizeChanging: false,
+    highlightedLayerUids: [],
     selectedLayerUids: [],
+    colorHistory: [],
 
     currentDocument: null,
     documentFetchStatus: Object.create(null),
@@ -152,7 +164,7 @@ export const [EditorStore, EditorOps] = minOps('Editor', {
           .map((d) => ({
             uid: d.uid,
             title: d.title,
-            thumbnailUrl: URL.createObjectURL(d.thumbnail),
+            thumbnailUrl: d.thumbnail ? URL.createObjectURL(d.thumbnail) : null,
             updatedAt: d.updatedAt,
           }))
           .sort((a, b) => +b.updatedAt - +a.updatedAt),
@@ -174,6 +186,7 @@ export const [EditorStore, EditorOps] = minOps('Editor', {
       x.commit((d) => (d.documentFetchStatus[doc.uid] = { found: null }))
 
       await x.executeOperation(EditorOps.createSession, doc)
+      await x.executeOperation(EditorOps.restoreStateFromDocumentMeta, extra)
       x.commit({ editorPage: 'app' })
     },
     async loadDocumentFromIdb(x, documentUid: string) {
@@ -189,6 +202,14 @@ export const [EditorStore, EditorOps] = minOps('Editor', {
       )
 
       await x.executeOperation(EditorOps.createSession, document)
+      await x.executeOperation(EditorOps.restoreStateFromDocumentMeta, extra)
+    },
+    restoreStateFromDocumentMeta(x, meta: any) {
+      const editorExtra = extractEditorMeta(meta)
+
+      x.commit((d) => {
+        d.colorHistory = editorExtra.colorHistory
+      })
     },
 
     // #region Engine & Session
@@ -371,17 +392,25 @@ export const [EditorStore, EditorOps] = minOps('Editor', {
         ctx.clearRect(0, 0, canvas.width, canvas.height)
         ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height)
 
+        // Continue saving even if an error occurs in thumbnail generation.
+        const [thumbnail, err] = await rescue(
+          () =>
+            new Promise<Blob>((resolve) => {
+              canvas.toBlob((blob) => {
+                if (!blob) throw new Error('Failed to toBlob')
+                resolve(blob)
+              }, 'image/png')
+            })
+        )
+
+        if (err) console.warn('Error caused by thumbnail generation', err)
+
         await db.put('projects', {
           uid: document.uid,
           title: document.title,
           bin: blob,
           hasSavedOnce: prev?.hasSavedOnce ?? false,
-          thumbnail: await new Promise<Blob>((resolve) => {
-            canvas.toBlob((blob) => {
-              if (!blob) throw new Error('Failed to toBlob')
-              resolve(blob)
-            }, 'image/png')
-          }),
+          thumbnail: thumbnail,
           updatedAt: new Date(),
         })
 
@@ -492,6 +521,14 @@ export const [EditorStore, EditorOps] = minOps('Editor', {
       x.commit({ vectorColorTarget: target })
     },
 
+    setHighlightedLayers(x, updater: (ids: string[]) => string[]) {
+      x.commit({
+        highlightedLayerUids: updater(
+          x.unwrapReadonly(x.state.highlightedLayerUids)
+        ),
+      })
+    },
+
     setLayerSelection(x, mod: (uids: string[]) => string[]) {
       x.commit((d) => {
         d.selectedLayerUids = mod(d.selectedLayerUids)
@@ -500,32 +537,42 @@ export const [EditorStore, EditorOps] = minOps('Editor', {
     // #endregion
 
     // #region Paint tools and Tool session
-    setFill: (x, fill: PapValue.FillSetting | null) => {
+    setFill: (x, fill: PapValueTypes.FillSetting | null) => {
       x.commit({ currentFill: fill })
-    },
-    setStroke: (x, stroke: PapValue.BrushSetting | null) => {
-      x.commit({ currentStroke: stroke })
     },
     setBrushSetting(x, setting: Partial<BrushSetting>) {
       x.commit((d) => {
         d.session!.setBrushSetting(setting)
 
-        if (
-          d.currentTool !== 'draw' &&
-          d.session?.activeLayer?.layerType === 'vector' &&
-          d.activeObjectId != null
-        ) {
+        if (d.session && d.currentTool !== 'draw' && d.activeObjectId != null) {
+          console.log('on')
           x.executeOperation(
             EditorOps.runCommand,
             new PapCommands.VectorLayer.PatchObjectAttr({
               pathToTargetLayer: x.unwrapReadonly(x.state.activeLayerPath!),
               objectUid: x.state.activeObjectId!,
-              patch: {
-                brush: d.session.brushSetting,
+              patcher: (o) => {
+                o.brush = d.session!.brushSetting
               },
             })
           )
         }
+      })
+    },
+    addColorHistory(x, color: PapValueTypes.Color.RGBColor) {
+      x.commit((state) => {
+        state.colorHistory = uniqBy(
+          [
+            ...state.colorHistory,
+            { id: nanoid(), lastUsedAt: Date.now(), color },
+          ],
+          (entry) => {
+            const c = PapMath.normalRgbToRawRgb(entry.color)
+            return (c.r << 16) | (c.g << 8) | c.b
+          }
+        )
+          .sort((a, b) => b.lastUsedAt - a.lastUsedAt)
+          .slice(0, 50)
       })
     },
 
@@ -538,7 +585,9 @@ export const [EditorStore, EditorOps] = minOps('Editor', {
           new PapCommands.VectorLayer.PatchObjectAttr({
             pathToTargetLayer: x.unwrapReadonly(activeLayerPath),
             objectUid: activeObject.uid,
-            patch: { brush: Object.assign({}, activeObject.brush, stroke) },
+            patcher: (o) => {
+              o.brush = Object.assign({}, activeObject.brush, stroke)
+            },
           })
         )
       }
@@ -672,6 +721,12 @@ export const [EditorStore, EditorOps] = minOps('Editor', {
           messageKey: 'redoEmpty',
         })
       }
+    },
+    revertCommand: async (
+      x,
+      { whenCommandIs }: { whenCommandIs?: PapCommands.AnyCommandType }
+    ) => {
+      await x.state.session?.revertLatestCommand({ whenCommandIs })
     },
 
     markVectorLastUpdate: (x) => {
@@ -814,7 +869,11 @@ export const EditorSelector = {
   brushSizeChanging: selector((get) => get(EditorStore).brushSizeChanging),
   currentTool: selector((get) => get(EditorStore).currentTool),
   vectorColorTarget: selector((get) => get(EditorStore).vectorColorTarget),
+  colorHistory: selector((get) => get(EditorStore).colorHistory),
 
+  isInHighlightedLayer: selector((get) => {
+    return (uid: string) => get(EditorStore).highlightedLayerUids.includes(uid)
+  }),
   selectedLayerUids: selector((get) => get(EditorStore).selectedLayerUids),
   // #endregion
 
@@ -859,8 +918,8 @@ export const EditorSelector = {
     if (!object) return session?.brushSetting ?? null
     return object.brush
   }),
-  currentVectorFill: selector((get): PapValue.FillSetting | null => {
-    const defaultFill: PapValue.FillSetting = {
+  currentVectorFill: selector((get): PapValueTypes.FillSetting | null => {
+    const defaultFill: PapValueTypes.FillSetting = {
       type: 'fill',
       color: { r: 0.2, g: 0.2, b: 0.2 },
       opacity: 1,

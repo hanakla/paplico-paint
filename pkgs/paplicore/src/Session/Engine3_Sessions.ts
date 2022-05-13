@@ -10,7 +10,7 @@ import { IRenderStrategy } from '../engine/RenderStrategy/IRenderStrategy'
 import { RenderStrategies } from '../engine/RenderStrategy'
 import { BrushSetting } from '../Value'
 import { PaplicoEngine } from '../engine/Engine3'
-import { assign } from '../utils'
+import { assign } from '../utils/object'
 import { ICommand } from './ICommand'
 import { CommandHooks, CommandHook, CommandHookEvent } from './CommandHooks'
 import { PapDOMDigger } from '../PapDOMDigger'
@@ -81,6 +81,14 @@ export class PapSession extends Emitter<Events> {
     if (process.env.NODE_ENV === 'development') {
       this.on('*', (e) => console.log('session: ', e))
     }
+
+    this.commandHook.on('*', (e) => {
+      if (this.renderStrategy instanceof RenderStrategies.DifferenceRender) {
+        for (const path of e.command.effectedLayers) {
+          this.renderStrategy.markUpdatedLayerId(path.slice(-1)[0])
+        }
+      }
+    })
   }
 
   public setDocument(document: Document | null) {
@@ -145,15 +153,16 @@ export class PapSession extends Emitter<Events> {
     return this.redoHistory.length
   }
 
-  public async runCommand(com: ICommand) {
+  public async runCommand(cmd: ICommand) {
     if (!this.document) return
 
-    await com.do(this.document)
+    await cmd.do(this.document)
 
-    this.commandHistory.push(com)
+    this.commandHistory.push(cmd)
     this.commandHistory = this.commandHistory.slice(-this.historyLimit)
     this.redoHistory = []
 
+    this.commandHook.emit(cmd, { runBy: 'do' })
     this.emit('historyChanged', this)
   }
 
@@ -166,6 +175,7 @@ export class PapSession extends Emitter<Events> {
     await cmd.undo(this.document)
     this.redoHistory.push(cmd)
 
+    this.commandHook.emit(cmd, { runBy: 'undo' })
     this.emit('historyChanged', this)
 
     return cmd
@@ -180,9 +190,27 @@ export class PapSession extends Emitter<Events> {
     await cmd.redo(this.document)
     this.commandHistory.push(cmd)
 
+    this.commandHook.emit(cmd, { runBy: 'redo' })
     this.emit('historyChanged', this)
 
     return cmd
+  }
+
+  public async revertLatestCommand({
+    whenCommandIs,
+  }: {
+    whenCommandIs?: ICommand
+  }) {
+    if (!this.document) return
+
+    const [cmd] = this.commandHistory.slice(-1)
+    if (!cmd || (whenCommandIs !== undefined && whenCommandIs !== cmd)) return
+
+    this.commandHistory.splice(-1)
+
+    await cmd.undo(this.document)
+    this.commandHook.emit(cmd, { runBy: 'revert' })
+    this.emit('historyChanged', this)
   }
 
   public get activeLayer() {

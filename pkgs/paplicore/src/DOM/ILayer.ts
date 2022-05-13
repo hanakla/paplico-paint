@@ -1,5 +1,6 @@
 import { type Emitter } from '../Engine3_Emitter'
 import { type ISilkDOMElement } from './ISilkDOMElement'
+import { FeatureTagMixin } from './internal/featureTag'
 
 export type CompositeMode =
   | 'normal'
@@ -12,7 +13,7 @@ export type LayerEvents<T extends ILayer> = {
   updated: T
 }
 
-export type LayerProperties = {
+type LayerAttributes = {
   uid: string
   layerType: 'raster' | 'vector' | 'filter' | 'group' | 'text' | 'reference'
   name: string
@@ -22,22 +23,27 @@ export type LayerProperties = {
   /** 0 to 100 */
   opacity: number
 
-  width: number
-  height: number
   x: number
   y: number
+
+  features: { [featureName: string]: Record<string, any> }
 }
 
 export declare namespace ILayer {
-  export type Attributes = LayerProperties
-  export type SerializedAttributes = LayerProperties
+  export type Attributes = LayerAttributes
+  export type SerializedAttributes = LayerAttributes
 }
 
 export interface ILayer
   // Emitter<LayerEvents<any>>,
-  extends LayerProperties,
+  extends LayerAttributes,
     ISilkDOMElement {
   update(proc: (layer: this) => void): void
+
+  hasFeature: FeatureTagMixin.HasFeature
+  enableFeature: FeatureTagMixin.EnableFeature
+  getFeatureSetting: FeatureTagMixin.GetFeatureSetting
+  patchFeatureSetting: FeatureTagMixin.PatchFeatureSetting
 
   serialize(): any
   clone(): this

@@ -7,3 +7,16 @@ export const arrayChunk = <T>(arr: T[], size: number): T[][] => {
 
   return chunks
 }
+
+export const mapSeries = async <T, R>(
+  arr: T[],
+  fn: (item: T, index: number, list: T[]) => R | Promise<R>
+): Promise<R[]> => {
+  const results: R[] = []
+
+  for (let i = 0, l = arr.length; i < l; i++) {
+    results.push(await fn(arr[i], i, arr))
+  }
+
+  return results
+}

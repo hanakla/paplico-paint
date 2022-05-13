@@ -1,8 +1,6 @@
 import { PapDOMDigger } from '../../PapDOMDigger'
 import { ICommand } from '../ICommand'
-import { LayerProperties } from '../../DOM/ILayer'
 import { Document, GroupLayer } from '../../DOM'
-import { assign, pick } from '../../utils'
 
 export class LayerConvertToGroup implements ICommand {
   public readonly name = 'LayerConvertToGroup'
@@ -19,6 +17,7 @@ export class LayerConvertToGroup implements ICommand {
 
   async do(document: Document) {
     this.group = GroupLayer.create({ layers: [] })
+
     const groupInsertionPos = document.layers.findIndex(
       (l) => l.uid === this.groupingLayerPathes[0][0]
     )

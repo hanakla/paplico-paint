@@ -3,7 +3,8 @@ import { Emitter } from '../Engine3_Emitter'
 import { PapSession } from '../Session/Engine3_Sessions'
 import { DifferenceRender } from './RenderStrategy/DifferenceRender'
 import { Stroke } from './Stroke'
-import { deepClone, setCanvasSize } from '../utils'
+import { setCanvasSize } from '../utils'
+import { deepClone } from '../utils/object'
 import { LayerTypes, RasterLayer, VectorLayer, VectorObject } from '../DOM'
 import { createContext2D } from '../Engine3_CanvasFactory'
 import { Commands } from '../Session/Commands'
@@ -140,7 +141,8 @@ export class CanvasHandler extends Emitter<Events> {
         session.brushSetting,
         session.currentInk,
         stroke.splinedPath.getSimplifiedPath(),
-        this.strokeCtx
+        this.strokeCtx,
+        { hintInput: null }
       )
 
       await engine.render(session.document, strategy)
@@ -169,7 +171,8 @@ export class CanvasHandler extends Emitter<Events> {
           session.brushSetting,
           session.currentInk,
           stroke.splinedPath.getSimplifiedPath(),
-          this.strokeCtx
+          this.strokeCtx,
+          { hintInput: await activeLayer.imageBitmap }
         )
 
         engine.compositeLayers(this.strokeCtx, this.compositeSourceCtx, {
@@ -212,7 +215,7 @@ export class CanvasHandler extends Emitter<Events> {
 
       strategy.markUpdatedLayerId(activeLayer.uid)
       strategy.setLayerOverride(null)
-      await engine.lazyRender(session.document, strategy)
+      engine.lazyRender(session.document, strategy)
       this.mitt.emit('canvasUpdated')
     })
 

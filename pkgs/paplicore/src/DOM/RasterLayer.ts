@@ -1,14 +1,42 @@
 import { CompositeMode, ILayer } from './ILayer'
 import { v4 } from 'uuid'
-import { assign, fakeRejectedPromise, pick } from '../utils'
+import { fakeRejectedPromise } from '../utils'
+import { assign, pick } from '../utils/object'
 import { Filter } from './Filter'
 import { Emitter } from '../Engine3_Emitter'
+import * as featureTag from './internal/featureTag'
+import { Requiring } from '../utils/types'
 
 type Events = {
   updated: ILayer
 }
 
+export declare namespace RasterLayer {
+  export type Attributes = ILayer.Attributes & {
+    width: number
+    height: number
+  }
+
+  export type PatchableAttributes = Omit<Attributes, 'uid' | 'layerType'>
+}
+
 export class RasterLayer extends Emitter<Events> implements ILayer {
+  public static readonly patchableAttributes: readonly (keyof RasterLayer.PatchableAttributes)[] =
+    Object.freeze([
+      'name',
+      'visible',
+      'lock',
+      'compositeMode',
+      'opacity',
+
+      'width',
+      'height',
+      'x',
+      'y',
+
+      'features',
+    ])
+
   public readonly layerType = 'raster'
 
   public readonly uid: string = `rasterlayer-${v4()}`
@@ -23,7 +51,8 @@ export class RasterLayer extends Emitter<Events> implements ILayer {
   public x: number = 0
   public y: number = 0
 
-  public filters: Filter[] = []
+  public readonly filters: Filter[] = []
+  public readonly features = Object.create(null)
 
   public readonly bitmap: Uint8ClampedArray = null as any
   private _imageBitmapPromise: Promise<ImageBitmap> =
@@ -32,27 +61,22 @@ export class RasterLayer extends Emitter<Events> implements ILayer {
   /** Mark for re-rendering decision */
   protected _lastUpdatedAt = Date.now()
 
-  public static create({
-    name,
-    width,
-    height,
-  }: {
-    name?: string
-    width: number
-    height: number
-  }) {
+  public static create(
+    attrs: Requiring<
+      Partial<RasterLayer.PatchableAttributes>,
+      'width' | 'height'
+    >
+  ): RasterLayer {
     const layer = new RasterLayer()
 
     assign(layer, {
-      name,
-      bitmap: new Uint8ClampedArray(width * height * 4),
-      width: width,
-      height: height,
+      bitmap: new Uint8ClampedArray(attrs.width * attrs.height * 4),
+      ...pick(attrs, RasterLayer.patchableAttributes),
     })
 
     if (process.env.NODE_ENV !== 'test') {
       layer._imageBitmapPromise = createImageBitmap(
-        new ImageData(layer.bitmap, width, height)
+        new ImageData(layer.bitmap, attrs.width, attrs.height)
       )
     } else {
       layer._imageBitmapPromise = Promise.resolve(null as any)
@@ -75,6 +99,7 @@ export class RasterLayer extends Emitter<Events> implements ILayer {
       y: obj.y,
       bitmap: obj.bitmap,
       filters: obj.filters.map((filter: any) => Filter.deserialize(filter)),
+      features: obj.features,
     })
 
     layer._imageBitmapPromise = createImageBitmap(
@@ -87,6 +112,11 @@ export class RasterLayer extends Emitter<Events> implements ILayer {
   protected constructor() {
     super()
   }
+
+  public hasFeature = featureTag.hasFeature
+  public enableFeature = featureTag.enableFeature
+  public getFeatureSetting = featureTag.getFeatureSetting
+  public patchFeatureSetting = featureTag.patchFeatureSetting
 
   public get imageBitmap(): Promise<ImageBitmap> {
     return this._imageBitmapPromise
@@ -138,6 +168,7 @@ export class RasterLayer extends Emitter<Events> implements ILayer {
       y: this.y,
       filters: this.filters.map((f) => f.serialize()),
       bitmap: this.bitmap,
+      features: this.features,
     }
   }
 

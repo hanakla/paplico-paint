@@ -10,6 +10,7 @@ import {
   PapBrushes,
   PapDOM,
   PapSession,
+  PapFilters,
 } from '@paplico/core'
 
 import { Button } from '🙌/components/Button'
@@ -87,15 +88,49 @@ export default function Debug() {
       {
         const document = PapDOM.Document.create({ width: 1000, height: 1000 })
         const raster = PapDOM.RasterLayer.create({ width: 1000, height: 1000 })
-        const strategy = new RenderStrategies.FullRender()
+        const strategy = session.renderStrategy
         const vector = PapDOM.VectorLayer.create({
-          compositeMode: 'overlay',
+          // compositeMode: 'overlay',
         })
-        const bgLayer = PapDOM.VectorLayer.create({})
+        const bgLayer = PapDOM.VectorLayer.create({ visible: true })
+        const displacement = PapDOM.VectorLayer.create({ visible: false })
         const filter = PapDOM.FilterLayer.create({})
+
+        displacement.objects.push(
+          PapDOM.VectorObject.create({
+            visible: true,
+            x: 0,
+            y: 0,
+            path: PapDOM.Path.create({
+              points: [
+                { x: document.width, y: 0, in: null, out: null },
+                { x: document.width, y: document.height, in: null, out: null },
+                { x: 0, y: document.height, in: null, out: null },
+              ],
+
+              closed: true,
+            }),
+            brush: null,
+            fill: {
+              type: 'linear-gradient',
+              colorStops: [
+                // { color: { r: 1, g: 0, b: 0, a: 1 }, position: 0 },
+                { color: { r: 0, g: 0, b: 0, a: 1 }, position: 0 },
+                { color: { r: 0, g: 1, b: 0, a: 1 }, position: 1 },
+              ],
+              start: { x: document.width / 2, y: -document.height / 2 },
+              end: {
+                x: document.width / 2,
+                y: document.height / 2,
+              },
+              opacity: 1,
+            },
+          })
+        )
 
         bgLayer.objects.push(
           PapDOM.VectorObject.create({
+            visible: true,
             x: 0,
             y: 0,
             path: PapDOM.Path.create({
@@ -110,29 +145,31 @@ export default function Debug() {
             brush: null,
             fill: {
               type: 'fill',
-              color: { r: 0, g: 0, b: 0 },
+              color: { r: 195 / 255, g: 221 / 255, b: 25 / 255 },
               opacity: 1,
             },
           })
         )
 
         {
-          const path = PapDOM.Path.create({
-            points: [
-              { x: 0, y: 0, in: null, out: null },
-              { x: 200, y: 500, in: null, out: null },
-              { x: 600, y: 500, in: null, out: null },
-              {
-                x: 1000,
-                y: 1000,
-                in: null,
-                out: null,
-              },
-            ],
-            closed: true,
+          const obj = PapDOM.VectorObject.create({
+            x: 0,
+            y: 0,
+            path: PapDOM.Path.create({
+              points: [
+                { x: 0, y: 0, in: null, out: null },
+                { x: 200, y: 500, in: null, out: null },
+                { x: 600, y: 500, in: null, out: null },
+                {
+                  x: 1000,
+                  y: 1000,
+                  in: null,
+                  out: null,
+                },
+              ],
+              closed: true,
+            }),
           })
-
-          const obj = PapDOM.VectorObject.create({ x: 0, y: 0, path })
 
           // obj.brush = {
           //   brushId: PapBrushes.ScatterBrush.id,
@@ -149,8 +186,8 @@ export default function Debug() {
             start: { x: -100, y: -100 },
             end: { x: 100, y: 100 },
             colorStops: [
-              { color: { r: 0, g: 255, b: 255, a: 1 }, position: 0 },
-              { color: { r: 255, g: 255, b: 0, a: 1 }, position: 1 },
+              { color: { r: 255, g: 255, b: 0, a: 1 }, position: 0 },
+              { color: { r: 0, g: 255, b: 255, a: 1 }, position: 1 },
             ],
           }
 
@@ -178,6 +215,15 @@ export default function Debug() {
           //     size: 100,
           //   },
           // }),
+          PapDOM.Filter.create({
+            filterId: '@paplico/filters/noise',
+            visible: true,
+            settings: {
+              ...engine.toolRegistry.getFilterInstance(
+                '@paplico/filters/noise'
+              )!.initialConfig,
+            },
+          }),
           // PapDOM.Filter.create({
           //   filterId: '@paplico/gauss-blur',
           //   visible: true,
@@ -199,17 +245,6 @@ export default function Debug() {
           //     '@paplico/filters/zoom-blur'
           //   )!.initialConfig,
           // }),
-          PapDOM.Filter.create({
-            filterId: '@paplico/filters/kawase-blur',
-            visible: true,
-            settings: engine.toolRegistry.getFilterInstance(
-              '@paplico/filters/kawase-blur'
-            )!.initialConfig,
-          }),
-          ...[]
-        )
-
-        filter.filters = [
           // PapDOM.Filter.create({
           //   filterId: '@paplico/filters/kawase-blur',
           //   visible: true,
@@ -217,11 +252,35 @@ export default function Debug() {
           //     '@paplico/filters/kawase-blur'
           //   )!.initialConfig,
           // }),
-        ]
+          PapDOM.Filter.create<PapFilters.UVReplaceFilter>({
+            filterId: '@paplico/filters/uvreplace',
+            visible: false,
+            settings: {
+              ...(engine.toolRegistry.getFilterInstance(
+                '@paplico/filters/uvreplace'
+              )!.initialConfig as any),
+              replacement: 'delta',
+              replaceMapLayerUid: displacement.uid,
+              movementPx: [10, 0],
+            },
+          }),
+          ...[]
+        )
 
-        // document.addLayer(bgLayer)
-        document.addLayer(raster)
-        document.addLayer(vector, { aboveLayerId: raster.uid })
+        // filter.filters = [
+        //   // PapDOM.Filter.create({
+        //   //   filterId: '@paplico/filters/kawase-blur',
+        //   //   visible: true,
+        //   //   settings: engine.toolRegistry.getFilterInstance(
+        //   //     '@paplico/filters/kawase-blur'
+        //   //   )!.initialConfig,
+        //   // }),
+        // ]
+
+        document.addLayer(displacement)
+        document.addLayer(bgLayer)
+        document.addLayer(vector, { aboveLayerId: bgLayer.uid })
+        // document.addLayer(raster)
         // document.addLayer(filter, { aboveLayerId: vector.uid })
         session.setDocument(document)
         session.setActiveLayer([vector.uid])
@@ -252,9 +311,12 @@ export default function Debug() {
 
         controlRef.current = {
           toggleFilters: () => {
-            vector.filters.forEach(
-              (filter) => (filter.visible = !filter.visible)
-            )
+            vector.filters.forEach((filter) => {
+              filter.visible = !filter.visible
+              console.log(
+                `${filter.visible ? 'ENABLED' : 'DISABLED'}: ${filter.filterId}`
+              )
+            })
             ;(session.renderStrategy as DifferenceRender).markUpdatedLayerId(
               vector.uid
             )

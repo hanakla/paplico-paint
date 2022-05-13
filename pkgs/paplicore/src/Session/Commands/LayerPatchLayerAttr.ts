@@ -1,21 +1,21 @@
 import { PapDOMDigger } from '../../PapDOMDigger'
 import { ICommand } from '../ICommand'
-import { LayerProperties } from '../../DOM/ILayer'
+import { ILayer } from '../../DOM/ILayer'
 import { Document } from '../../DOM'
-import { assign, pick } from '../../utils'
+import { assign, pick } from '../../utils/object'
 
 export class LayerPatchLayerAttr implements ICommand {
   public readonly name = 'LayerPatchLayerAttr'
 
-  private patch: Partial<LayerProperties> = {}
-  private revertPatch: Partial<LayerProperties> = {}
+  private patch: Partial<ILayer.Attributes> = {}
+  private revertPatch: Partial<ILayer.Attributes> = {}
   private pathToTargetLayer: string[]
 
   constructor({
     patch,
     pathToTargetLayer,
   }: {
-    patch: Partial<LayerProperties>
+    patch: Partial<ILayer.Attributes>
     pathToTargetLayer: string[]
   }) {
     this.patch = patch
@@ -28,7 +28,7 @@ export class LayerPatchLayerAttr implements ICommand {
     })
 
     this.revertPatch = pick(
-      layer as LayerProperties,
+      layer as ILayer.Attributes,
       Object.keys(this.patch) as any
     )
 
@@ -42,9 +42,9 @@ export class LayerPatchLayerAttr implements ICommand {
   }
 
   async redo(document: Document): Promise<void> {
-    PapDOMDigger.findLayer(document, this.pathToTargetLayer, {
-      kind: 'vector',
-    })!.update((l) => assign(l, this.patch))
+    PapDOMDigger.findLayer(document, this.pathToTargetLayer, {})!.update((l) =>
+      assign(l, this.patch)
+    )
   }
 
   get effectedLayers(): string[][] {

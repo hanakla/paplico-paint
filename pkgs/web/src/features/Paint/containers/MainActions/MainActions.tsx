@@ -24,7 +24,7 @@ import {
   parseToRgb,
   rgbToColorString,
 } from 'polished'
-import { PapCommands, PapValue } from '@paplico/core'
+import { PapCommands, PapValueTypes } from '@paplico/core'
 import { useTranslation } from 'next-i18next'
 import { useClickAway, useToggle } from 'react-use'
 import { Brush, Close, Eraser, Pencil, Stack } from '@styled-icons/remix-line'
@@ -695,18 +695,21 @@ export const MainActions = memo(function MainActions() {
           <span
             css={`
               position: absolute;
-              top: 4px;
+              top: -2px;
               left: 50%;
               display: inline-block;
-              width: 4px;
-              height: 4px;
               padding-left: none !important;
               padding-right: none !important;
               transform: translateX(-50%);
-              background-color: #fff;
+              border: 4px solid;
+              border-color: transparent transparent #fff transparent;
               mix-blend-mode: difference;
-              border-radius: 50%;
+              transition: opacity 0.2s ease-in-out;
+              opacity: 0;
             `}
+            style={{
+              opacity: currentTool === 'draw' ? 1 : 0,
+            }}
           />
           <Brush width={24} />
         </div>
@@ -725,7 +728,12 @@ export const MainActions = memo(function MainActions() {
             }}
             onClick={handleChangeToEraceMode}
           >
-            <Eraser css="width:24px; vertical-align:bottom;" />
+            <Eraser
+              css={`
+                width: 24px;
+                vertical-align: bottom;
+              `}
+            />
           </div>
         )}
 
@@ -1092,8 +1100,8 @@ const VectorColorPicker = memo(function VectorColorPicker({
           new PapCommands.VectorLayer.PatchObjectAttr({
             pathToTargetLayer: activeLayerPath,
             objectUid: activeObject.uid,
-            patch: {
-              fill: null,
+            patcher: (attrs) => {
+              attrs.fill = null
             },
           })
         )
@@ -1107,8 +1115,8 @@ const VectorColorPicker = memo(function VectorColorPicker({
           new PapCommands.VectorLayer.PatchObjectAttr({
             pathToTargetLayer: activeLayerPath,
             objectUid: activeObject.uid,
-            patch: {
-              brush: null,
+            patcher: (attrs) => {
+              attrs.brush = null
             },
           })
         )
@@ -1120,13 +1128,13 @@ const VectorColorPicker = memo(function VectorColorPicker({
           new PapCommands.VectorLayer.PatchObjectAttr({
             pathToTargetLayer: activeLayerPath,
             objectUid: activeObject.uid,
-            patch: {
-              brush: {
+            patcher: (attrs) => {
+              attrs.brush = {
                 ...defaultVectorBrush,
-                ...activeObject.brush,
+                ...attrs.brush,
                 color: toRationalColor(currentColor),
                 opacity: currentColor.a != null ? currentColor.a * 100 : 100,
-              },
+              }
             },
           })
         )
@@ -1194,29 +1202,31 @@ const VectorColorPicker = memo(function VectorColorPicker({
         new PapCommands.VectorLayer.PatchObjectAttr({
           pathToTargetLayer: activeLayerPath,
           objectUid: activeObject.uid,
-          patch: {
-            brush: {
+          patcher: (attrs) => {
+            attrs.brush = {
               ...defaultVectorBrush,
-              ...activeObject.brush,
+              ...attrs.brush,
               color: toRationalColor(rgb),
               opacity: rgb.a ?? 1,
-            },
+            }
           },
         })
       )
     }
   })
 
-  const handleChangeGradient = useFunk((colorStops: PapValue.ColorStop[]) => {
-    execute(EditorOps.updateActiveObject, (obj) => {
-      if (obj.fill?.type !== 'linear-gradient') return
+  const handleChangeGradient = useFunk(
+    (colorStops: PapValueTypes.ColorStop[]) => {
+      execute(EditorOps.updateActiveObject, (obj) => {
+        if (obj.fill?.type !== 'linear-gradient') return
 
-      obj.fill = {
-        ...obj.fill,
-        colorStops,
-      }
-    })
-  })
+        obj.fill = {
+          ...obj.fill,
+          colorStops,
+        }
+      })
+    }
+  )
 
   const handleChangeGradientIndices = useFunk((indices: number[]) => {
     if (activeObject?.fill?.type !== 'linear-gradient') return
@@ -1257,18 +1267,17 @@ const VectorColorPicker = memo(function VectorColorPicker({
       fill.start = pointS
       fill.end = pointE
 
-      cmdTransaction.doAndAdd(
-        new PapCommands.VectorLayer.PatchObjectAttr({
-          pathToTargetLayer: activeLayerPath,
-          objectUid: activeObject.uid,
-          patch:
-            target === 'fill'
-              ? {
-                  fill,
-                }
-              : {},
-        })
-      )
+      if (target === 'fill') {
+        cmdTransaction.doAndAdd(
+          new PapCommands.VectorLayer.PatchObjectAttr({
+            pathToTargetLayer: activeLayerPath,
+            objectUid: activeObject.uid,
+            patcher: (attrs) => {
+              attrs.fill = fill
+            },
+          })
+        )
+      }
     }
   )
 
@@ -1314,18 +1323,17 @@ const VectorColorPicker = memo(function VectorColorPicker({
       //   act: SilkWebMath.radToDeg(SilkWebMath.angleOfPoints(pointS, pointE)),
       // })
 
-      cmdTransaction.doAndAdd(
-        new PapCommands.VectorLayer.PatchObjectAttr({
-          pathToTargetLayer: activeLayerPath,
-          objectUid: activeObject.uid,
-          patch:
-            target === 'fill'
-              ? {
-                  fill: nextFill,
-                }
-              : {},
-        })
-      )
+      if (target === 'fill') {
+        cmdTransaction.doAndAdd(
+          new PapCommands.VectorLayer.PatchObjectAttr({
+            pathToTargetLayer: activeLayerPath,
+            objectUid: activeObject.uid,
+            patcher: (attrs) => {
+              attrs.fill = nextFill
+            },
+          })
+        )
+      }
     }
   )
 
@@ -1411,8 +1419,9 @@ const VectorColorPicker = memo(function VectorColorPicker({
                   placement="right-end"
                   strategy="absolute"
                   show={showGradLen}
-                  content={<>{gradientLength}</>}
-                />
+                >
+                  {gradientLength}
+                </Tooltip2>
               </label>
               <label
                 css={`
@@ -1437,12 +1446,14 @@ const VectorColorPicker = memo(function VectorColorPicker({
                   onChange={handleChangeGradientAngle}
                   onChangeComplete={handleCompleteGradientAngle}
                 />
+
                 <Tooltip2
                   placement="right-end"
                   strategy="absolute"
                   show={showGradAngle}
-                  content={<>{gradientAngle}</>}
-                />
+                >
+                  {gradientAngle}
+                </Tooltip2>
               </label>
             </>
           )}

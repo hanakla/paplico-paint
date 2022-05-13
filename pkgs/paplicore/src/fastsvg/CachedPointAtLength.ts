@@ -13,14 +13,27 @@ export const cachedPointAtLength = (path: string) => {
   const warmResult = walk(null, 0, true)
   const length = warmResult.length
 
-  return {
+  const atGetter = {
     _index: lengthIndex,
     _points: points,
-    at: (len: number) => {
-      const nearIdx = indexOfPoint[binarySearch(lengthIndex, len)]
-      return walk(len, nearIdx).pos as [number, number]
+    at: (len: number, { hintIndexGTEq }: { hintIndexGTEq?: number } = {}) => {
+      return atGetter.atWithDetail(len, { hintIndexGTEq }).pos as [
+        number,
+        number
+      ]
     },
-    lengthNearAtNearPoint: (len: number) => {
+    atWithDetail: (
+      len: number,
+      { hintIndexGTEq }: { hintIndexGTEq?: number } = {}
+    ) => {
+      if (hintIndexGTEq === undefined) {
+        return walk(len, hintIndexGTEq)
+      }
+
+      const nearIdx = indexOfPoint[binarySearch(lengthIndex, len)]
+      return walk(len, nearIdx)
+    },
+    nearPointAtLength: (len: number) => {
       const nearIndex = indexOfPoint[binarySearch(lengthIndex, len)]
 
       return {
@@ -37,6 +50,8 @@ export const cachedPointAtLength = (path: string) => {
     },
     length: () => length,
   }
+
+  return atGetter
 
   // SEE: https://github.com/substack/point-at-length/blob/master/index.js#L23
   // with indexing
@@ -57,7 +72,7 @@ export const cachedPointAtLength = (path: string) => {
         warm && lengthIndex.push(len)
 
         if (pos === 0) {
-          return { length: len, pos: cur }
+          return { length: len, pos: cur, lastIndex: i }
         }
       } else if (p[0] === 'C') {
         prev[0] = p0[0] = cur[0]
@@ -82,7 +97,7 @@ export const cachedPointAtLength = (path: string) => {
               cur[1] * (1 - dv) + prev[1] * dv,
             ]
 
-            return { length: len, pos: npos }
+            return { length: len, pos: npos, lastIndex: i }
           }
           prev[0] = cur[0]
           prev[1] = cur[1]
@@ -114,7 +129,7 @@ export const cachedPointAtLength = (path: string) => {
               cur[1] * (1 - dv) + prev[1] * dv,
             ]
 
-            return { length: len, pos: npos }
+            return { length: len, pos: npos, lastIndex: i }
           }
           prev[0] = cur[0]
           prev[1] = cur[1]
@@ -139,7 +154,7 @@ export const cachedPointAtLength = (path: string) => {
             cur[1] * (1 - dv) + prev[1] * dv,
           ]
 
-          return { length: len, pos: npos }
+          return { length: len, pos: npos, lastIndex: i }
         }
         prev[0] = cur[0]
         prev[1] = cur[1]
@@ -151,7 +166,7 @@ export const cachedPointAtLength = (path: string) => {
     }
 
     warm && lengthIndex.push(len)
-    return { length: len, pos: cur }
+    return { length: len, pos: cur, lastIndex: i }
 
     function xof_C(p: number[], t: number) {
       const _ = 1 - t

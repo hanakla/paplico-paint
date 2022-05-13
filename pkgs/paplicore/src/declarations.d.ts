@@ -35,6 +35,11 @@ declare module 'fast-random' {
   export = fastRandom
 }
 
+declare module 'abs-svg-path' {
+  const _: (path: [string, ...number[]][]) => [string, ...number[]][]
+  export = _
+}
+
 declare module '*.png' {
   const _: string
   export default _

@@ -102,3 +102,21 @@ vec4 screenMix(vec4 fore, vec4 back) {
   return vec4(result, alpha);
 }
 `
+
+export const repeatClamp_func = (funcName = 'repeatClamp') => `
+vec4 ${funcName}(float t) {
+  return mod(t, 1.0);
+}
+`
+
+export const mirroredRepeat_func = (funcName = 'mirroredRepeatClamp') => `
+vec4 ${funcName}(float t) {
+  if (mod(floor(t), 2.0) == 0.0) {
+    // is even
+    return mod(t, 1.0);
+  } else {
+    // is odd
+    return 1.0 - mod(t, 1.0);
+  }
+}
+`

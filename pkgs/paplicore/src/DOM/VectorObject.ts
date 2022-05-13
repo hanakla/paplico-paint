@@ -6,35 +6,52 @@ import { ISilkDOMElement } from './ISilkDOMElement'
 import { Path } from './Path'
 import { BrushSetting } from '../Value/BrushSetting'
 import { FillSetting } from '../Value/FillSetting'
-import { assign, deepClone } from '../utils'
+import { assign, deepClone } from '../utils/object'
+import { Requiring } from '../utils/types'
+
+type Events = {
+  updated: VectorObject
+}
 
 export declare namespace VectorObject {
-  interface Attributes {
+  export interface Attributes {
+    uid: string
     x: number
     y: number
     visible: boolean
     lock: boolean
     /** 0..360 */
     rotate: number
+    /** 100% = 1.0 */
     scale: [number, number]
     brush: BrushSetting | null
     fill: FillSetting | null
   }
 
-  interface SerializedAttibutes extends Attributes {
+  export type PatchableAttributes = Omit<Attributes, 'uid'>
+
+  export interface SerializedAttibutes extends Attributes {
     uid: string
     path: Path.SerializedAttibutes
   }
-}
-
-type Events = {
-  updated: VectorObject
 }
 
 export class VectorObject
   extends Emitter<Events>
   implements ISilkDOMElement, VectorObject.Attributes
 {
+  public static readonly patchableAttributes: readonly (keyof VectorObject.Attributes)[] =
+    Object.freeze([
+      'x',
+      'y',
+      'visible',
+      'lock',
+      'rotate',
+      'scale',
+      'brush',
+      'fill',
+    ])
+
   public readonly uid: string = `vectorobj-${v4()}`
 
   public x: number = 0
@@ -55,34 +72,12 @@ export class VectorObject
   protected _contentUpdatedAt = Date.now()
 
   public static create({
-    x,
-    y,
     path = Path.create({ points: [], closed: false }),
-    brush = {
-      brushId: '@paplico/brushes/brush',
-      color: { r: 0, g: 0, b: 0 },
-      size: 1,
-      opacity: 1,
-      specific: null,
-    },
-    fill = {
-      type: 'fill',
-      color: { r: 0, g: 0, b: 0 },
-      opacity: 1,
-    },
-  }: {
-    x: number
-    y: number
-    path: Path
-    brush?: BrushSetting | null
-    fill?: FillSetting | null
-  }) {
+    ...attrs
+  }: Partial<VectorObject.PatchableAttributes & { path: Path }>) {
     return assign(new VectorObject(), {
-      x: x,
-      y: y,
       path,
-      brush,
-      fill,
+      ...attrs,
     })
   }
 

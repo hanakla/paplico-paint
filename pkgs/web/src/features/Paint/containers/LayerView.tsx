@@ -53,7 +53,7 @@ import {
   isEventIgnoringTarget,
 } from '../helpers'
 import { SidebarPane } from '🙌/components/SidebarPane'
-import { tm } from '🙌/utils/theme'
+import { ThemeProp, tm } from '🙌/utils/theme'
 import {
   closestCenter,
   DndContext,
@@ -72,7 +72,6 @@ import { Tooltip2 } from '🙌/components/Tooltip2'
 import { useBufferedState, useDebouncedFunk, useFleur } from '🙌/utils/hooks'
 import { shallowEquals } from '🙌/utils/object'
 import { useHover } from 'react-use-gesture'
-import { createSlice, useLysSliceRoot, useLysSlice } from '@fleur/lys'
 import { CommandOps } from '../../../domains/Commands'
 import {
   useLayerWatch,
@@ -81,6 +80,7 @@ import {
   useLayerListWatch,
 } from '../hooks'
 import { shift, useFloating } from '@floating-ui/react-dom'
+import { LayerNameText } from '../../../components/LayerNameText'
 
 export const LayerView = memo(function LayerView() {
   const { t } = useTranslation('app')
@@ -93,7 +93,6 @@ export const LayerView = memo(function LayerView() {
     layers: EditorSelector.layers(get),
     currentDocument: EditorSelector.currentDocument(get),
   }))
-  const [layeViewState, layerViewActions] = useLysSliceRoot(layerViewSlice)
 
   const [layerSorting, setLayerSorting] = useState(false)
   const [layerTypeOpened, toggleAddLayerOpened] = useToggle(false)
@@ -180,7 +179,17 @@ export const LayerView = memo(function LayerView() {
     )
   })
 
-  const container = useFunk((children: ReactNode) => <div>{children}</div>)
+  const container = useFunk((children: ReactNode) => (
+    <div
+      css={`
+        display: flex;
+        flex-flow: column;
+        flex: 1;
+      `}
+    >
+      {children}
+    </div>
+  ))
 
   useEffect(() => {
     const doc = currentDocument
@@ -223,13 +232,15 @@ export const LayerView = memo(function LayerView() {
 
       <div
         css={`
-          margin-left: auto;
+          display: flex;
           padding: 4px;
+          ${tm((o) => [o.border.default.bottom])}
         `}
       >
         <div
           css={`
             display: flex;
+            margin-left: auto;
             justify-content: flex-end;
             user-select: none;
           `}
@@ -286,7 +297,9 @@ export const LayerView = memo(function LayerView() {
 
       <div
         css={`
-          height: 30vh;
+          flex: 1;
+          /* background-color: ${({ theme }: ThemeProp) =>
+            theme.exactColors.blackFade20}; */
         `}
         style={{ overflow: layerSorting ? 'hidden' : 'auto' }}
       >
@@ -357,17 +370,18 @@ const SortableLayerItem = memo(
     const theme = useTheme()
 
     const { execute } = useFleur()
-    const [layeViewState, layerViewActions] = useLysSlice(layerViewSlice)
-    const { activeLayer, thumbnailUrlOfLayer, selectedLayerUids } = useStore(
-      (get) => ({
-        activeLayer: EditorSelector.activeLayer(get),
-        activeLayerPath: EditorSelector.activeLayerPath(get),
-        currentDocument: EditorSelector.currentDocument(get),
-        thumbnailUrlOfLayer: EditorSelector.thumbnailUrlOfLayer(get),
-        activeObjectId: get(EditorStore).state.activeObjectId,
-        selectedLayerUids: EditorSelector.selectedLayerUids(get),
-      })
-    )
+
+    const {
+      activeLayer,
+      thumbnailUrlOfLayer,
+      isInHighlightedLayer,
+      selectedLayerUids,
+    } = useStore((get) => ({
+      activeLayer: EditorSelector.activeLayer(get),
+      thumbnailUrlOfLayer: EditorSelector.thumbnailUrlOfLayer(get),
+      isInHighlightedLayer: EditorSelector.isInHighlightedLayer(get),
+      selectedLayerUids: EditorSelector.selectedLayerUids(get),
+    }))
 
     const [objectsOpened, toggleObjectsOpened] = useToggle(false)
 
@@ -508,8 +522,9 @@ const SortableLayerItem = memo(
     const bindReferenceHover = useHover(({ hovering }) => {
       if (layer.layerType !== 'reference') return
 
-      layerViewActions.set({
-        hoveredReferenceTargetUid: hovering ? layer.referencedLayerId : null,
+      execute(EditorOps.setHighlightedLayers, (ids) => {
+        if (hovering) [...ids, layer.referencedLayerId]
+        else ids.filter((id) => id !== layer.referencedLayerId)
       })
     })
 
@@ -517,6 +532,11 @@ const SortableLayerItem = memo(
 
     return (
       <div ref={setNodeRef} style={style} {...attributes} {...listeners}>
+        {process.env.NODE_ENV === 'development' && (
+          <Tooltip2 placement="right" usePortal>
+            <>uid: {layer.uid}</>
+          </Tooltip2>
+        )}
         <div
           ref={combineRef(rootRef)}
           css={`
@@ -540,7 +560,7 @@ const SortableLayerItem = memo(
               backgroundColor:
                 activeLayer?.uid === layer.uid ? theme.surface.sidebarListActive
                 : selectedLayerUids.includes(layer.uid) ? rgba(theme.surface.sidebarListActive, .2)
-                : layeViewState.isReferencerHovered(layer.uid) ? theme.exactColors.orange20
+                : isInHighlightedLayer(layer.uid) ? theme.exactColors.orange20
                 : '',
               color:
                 activeLayer?.uid === layer.uid
@@ -631,50 +651,48 @@ const SortableLayerItem = memo(
                 padding: 0 2px;
               `}
             >
-              <Tooltip2
-                placement="right"
-                content={t(`layerType.${layer.layerType}`)}
-              >
-                {layer.layerType === 'filter' && (
-                  <Filter3
-                    css={`
-                      font-size: 16px;
-                    `}
-                  />
-                )}
-                {layer.layerType === 'raster' && (
-                  <Brush
-                    css={`
-                      font-size: 16px;
-                    `}
-                  />
-                )}
-                {layer.layerType === 'text' &&
-                  // <Text
-                  //   css={`
-                  //     font-size: 16px;
-                  //   `}
-                  // />
-                  'T'}
-                {layer.layerType === 'vector' && (
-                  <Shape
-                    css={`
-                      font-size: 16px;
-                    `}
-                  />
-                )}
-                {layer.layerType === 'reference' && (
-                  <Guide
-                    css={`
-                      font-size: 16px;
-                      border-bottom: 1px solid currentColor;
-                      cursor: pointer;
-                    `}
-                    onClick={handleChangeActiveLayerToReferenceTarget}
-                    {...bindReferenceHover()}
-                  />
-                )}
+              <Tooltip2 placement="right">
+                {t(`layerType.${layer.layerType}`)}
               </Tooltip2>
+              {layer.layerType === 'filter' && (
+                <Filter3
+                  css={`
+                    font-size: 16px;
+                  `}
+                />
+              )}
+              {layer.layerType === 'raster' && (
+                <Brush
+                  css={`
+                    font-size: 16px;
+                  `}
+                />
+              )}
+              {layer.layerType === 'text' &&
+                // <Text
+                //   css={`
+                //     font-size: 16px;
+                //   `}
+                // />
+                'T'}
+              {layer.layerType === 'vector' && (
+                <Shape
+                  css={`
+                    font-size: 16px;
+                  `}
+                />
+              )}
+              {layer.layerType === 'reference' && (
+                <Guide
+                  css={`
+                    font-size: 16px;
+                    border-bottom: 1px solid currentColor;
+                    cursor: pointer;
+                  `}
+                  onClick={handleChangeActiveLayerToReferenceTarget}
+                  {...bindReferenceHover()}
+                />
+              )}
             </div>
 
             <div
@@ -689,17 +707,7 @@ const SortableLayerItem = memo(
                 }
               `}
             >
-              <FakeInput
-                css={`
-                  font-size: 12px;
-                  pointer-events: none;
-                  background: transparent;
-                `}
-                value={layer.name}
-                placeholder={`<${t(`layerType.${layer.layerType}`)}>`}
-                onChange={handleChangeLayerName}
-                disabled
-              />
+              <LayerNameText name={layer.name} layerType={layer.layerType} />
             </div>
           </div>
         </div>
@@ -908,9 +916,6 @@ const ActiveLayerPane = memo(function ActiveLayerPane() {
         </span>
 
         <SelectBox
-          css={`
-            padding: 2px 4px;
-          `}
           items={[
             ...(!activeLayer ? [{ value: '', label: '---' }] : []),
             { value: 'normal', label: t('compositeModes.normal') },
@@ -971,16 +976,5 @@ const ObjectItem = memo(() => {
     transition,
   }
 })
-
-const layerViewSlice = createSlice(
-  {
-    actions: {},
-    computed: {
-      isReferencerHovered: (state) => (layerUid: string) =>
-        layerUid === state.hoveredReferenceTargetUid,
-    },
-  },
-  () => ({ hoveredReferenceTargetUid: null as string | null })
-)
 
 type LayerContextMenuParam = ContextMenuParam<{ layerPath: string[] }>

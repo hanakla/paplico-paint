@@ -62,7 +62,7 @@ export const logImage = async (
 
   const content = [
     `%cLogImage%c ${label} image log (full image in %o)`,
-    'padding:2px 4px;background:linear-gradient(40deg, #f25847, #f8be12);color:#fff;border-radius:4px;',
+    'padding:2px 4px; background:linear-gradient(40deg, #f25847, #f8be12);color:#fff;border-radius:4px;',
     '',
     blobUrl,
   ]
@@ -71,38 +71,53 @@ export const logImage = async (
 
   console.log(
     '%c+',
-    `font-size: 0px; padding: 128px; color: transparent; background: url(${imageUrl}) center/contain;`
+    `font-size: 0px; padding: 128px; color: transparent; background: url(${imageUrl}) center/contain no-repeat; border: 1px solid #444;`
   )
 
   console.groupEnd()
 }
 
-export const disableLog = true
+if (typeof window !== 'undefined' && window !== null) {
+  ;(window as any).logImage = logImage
+}
 
-export const logGroup: Console['group'] = disableLog
-  ? () => {}
-  : console.group.bind(console)
+export let disableLog = false
 
-export const logGroupCollapsed: Console['group'] = disableLog
-  ? () => {}
-  : console.groupCollapsed.bind(console)
+export const logLog: Console['group'] = (...args) => {
+  if (disableLog) return
+  console.log(...args)
+}
 
-export const logGroupEnd: Console['groupEnd'] = disableLog
-  ? () => {}
-  : console.groupEnd.bind(console)
+export const logGroup: Console['group'] = (...args) => {
+  if (disableLog) return
+  console.group(...args)
+}
 
-export const logTime: Console['time'] = disableLog
-  ? () => {}
-  : console.time.bind(console)
-export const logTimeEnd: Console['timeEnd'] = disableLog
-  ? () => {}
-  : console.timeEnd.bind(console)
+export const logGroupCollapsed: Console['group'] = (...args) => {
+  if (disableLog) return
+  console.groupCollapsed(...args)
+}
 
-export const timeSumming = (label: string) => {
+export const logGroupEnd: Console['groupEnd'] = (...args) => {
+  if (disableLog) return
+  console.groupEnd(...args)
+}
+
+export const logTime: Console['time'] = (...args) => {
+  if (disableLog) return
+  console.time(...args)
+}
+
+export const logTimeEnd: Console['timeEnd'] = (...args) => {
+  if (disableLog) return
+  console.timeEnd(...args)
+}
+
+export const timeSumming = (label: string, mark: string = '') => {
   let sumTime = 0
   let calls = 0
-  let max = -Infinity
-  let min = Infinity
+  let max = { callOf: null as number | null, time: -Infinity }
+  let min = { callOf: null as number | null, time: Infinity }
   let maxDetail: any = [undefined]
   let minDetail: any = [undefined]
   let lastStartTime: number | null = null
@@ -119,13 +134,14 @@ export const timeSumming = (label: string) => {
 
         times.push(time)
         calls++
-        max = Math.max(max, time)
-        min = Math.min(min, time)
 
-        if (time === max) {
+        if (time >= max.time) {
+          max = { callOf: calls, time }
           maxDetail = details
         }
-        if (time === min) {
+
+        if (time <= min.time) {
+          min = { callOf: calls, time }
           minDetail = details
         }
 
@@ -133,29 +149,33 @@ export const timeSumming = (label: string) => {
       }
     },
     log: () => {
-      if (!timeSumming.enabled) return
+      if (disableLog) return
 
-      console.groupCollapsed(
-        `%c🕛 Time to estimate ${label}:%c ${roundString(
+      logGroupCollapsed(
+        `%c🕛${mark} Time to estimate ${label}:%c ${roundString(
           sumTime
         )}ms by ${calls} calls\n[avg] ${roundString(
           sumTime / calls
-        )}ms / [max] ${roundString(max)}ms / [min] ${roundString(min)}ms)`,
+        )}ms / [max] ${roundString(max.time)}ms (call of ${
+          max.callOf
+        }) / [min] ${roundString(min.time)}ms (call of ${max.callOf})%c`,
+        'font-weight:normal;',
         'font-weight:bold;',
         ''
       )
-      console.log(
+      logLog(
         'Times',
         times.sort((a, b) => b - a)
       )
-      console.log('Max detail', ...maxDetail)
-      console.log('Min detail', ...minDetail)
-      console.groupEnd()
+      logLog('Max detail', ...maxDetail)
+      logLog('Min detail', ...minDetail)
+      logGroupEnd()
     },
   }
 }
 
-timeSumming.enabled = !disableLog
-
-const roundString = (num: number, digits = 3) =>
-  (Math.round(num * 10 ** digits) / 10 ** digits).toString()
+const roundString = (num: number | null, digits = 3) =>
+  // prettier-ignore
+  num == null ? '-'
+  : num === Infinity || num === -Infinity ? '-'
+  : (Math.round(num * 10 ** digits) / 10 ** digits).toString()

@@ -73,9 +73,11 @@ filters:
   '@paplico/filters/binarization': 二値化
   '@paplico/filters/glitch-jpeg': JPEGアンティーク
   '@paplico/filters/low-reso': モザイク
+  '@paplico/filters/noise': ノイズ
   '@paplico/filters/outline': 縁取り
   '@paplico/filters/zoom-blur': ズームブラー
   '@paplico/filters/kawase-blur': カワセブラー
+  '@paplico/filters/uvreplace': ピクセル移動
 
 filterOptions:
   '@paplico/filters/bloom':
@@ -105,6 +107,9 @@ filterOptions:
     sameBlocks: 縦と横で同じサイズにする
     levelX: 横の解像度
     levelY: 縦の解像度
+  '@paplico/filters/noise':
+    color: カラーノイズ
+    scale: 大きさ
   '@paplico/filters/outline':
     thickness: 太さ
     color: 色
@@ -115,6 +120,20 @@ filterOptions:
   '@paplico/filters/kawase-blur':
     blurSize: ぼかしサイズ
     quality: クオリティ
+  '@paplico/filters/uvreplace':
+    replacement: '置き換え規則'
+    replacements:
+      delta: 相対
+      absolute: 絶対位置
+    displacementMapLayer: マップレイヤー
+    movement: 移動量
+    movementX: 横のずらし幅
+    movementY: 縦のずらし幅
+    clamping: はみ出し処理
+    clampings:
+      repeat: 反対側から繰り返す
+      mirroredRepeat: 逆向きに繰り返す
+      toEdge: 端で止める
 
 layerView:
   context:

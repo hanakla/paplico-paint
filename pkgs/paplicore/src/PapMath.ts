@@ -1,10 +1,21 @@
-export const lerp = (a: number, b: number, t: number) => a + (b - a) * t
+import { Color } from './Value'
 
-const normalizeDegree = (angle: number) => {
-  const norm = angle % 360
-  return norm < 0 ? norm + 360 : norm
+export const normalRgbToRawRgb = (rgb: Color.RGBColor) => {
+  return {
+    r: Math.round(rgb.r * 255),
+    g: Math.round(rgb.g * 255),
+    b: Math.round(rgb.b * 255),
+  }
 }
 
-export const radToDeg = (rad: number) => normalizeDegree((rad * 180) / Math.PI)
-
-export const degToRad = (deg: number) => normalizeDegree(deg) * (Math.PI / 180)
+export const rawRGBtoNormalRgb = (rgb: {
+  r: number
+  g: number
+  b: number
+}): Color.RGBColor => {
+  return {
+    r: rgb.r / 255,
+    g: rgb.g / 255,
+    b: rgb.b / 255,
+  }
+}

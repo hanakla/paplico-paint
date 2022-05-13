@@ -1,7 +1,7 @@
 import { v4 } from 'uuid'
 
 import { LayerTypes } from './index'
-import { assign } from '../utils'
+import { assign } from '../utils/object'
 import { Emitter } from '../Engine3_Emitter'
 import { ISilkDOMElement } from './ISilkDOMElement'
 import { RGBColor } from '../Value/Colors/RGBColor'

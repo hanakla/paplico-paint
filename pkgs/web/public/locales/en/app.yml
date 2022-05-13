@@ -110,8 +110,17 @@ filterOptions:
     centerX: Center X
     centerY: Center Y
   '@paplico/filters/kawase-blur':
-    blurSize: ぼかしサイズ
-    quality: クオリティ
+    blurSize: Blur size
+    quality: Quality
+  '@paplico/filters/uvreplace':
+    replacement: Replace rule
+    replacements:
+      delta: Relative
+      absolute: Absolute
+    displacementMapLayer: Map layer
+    movement: Movement
+    movementX: X
+    movementY: Y
 
 layerView:
   context:

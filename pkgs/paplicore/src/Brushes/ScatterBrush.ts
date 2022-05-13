@@ -15,10 +15,14 @@ import {
   InstancedBufferAttribute,
   Vector3,
   Curve,
+  Matrix3,
+  Matrix4,
+  Quaternion,
 } from 'three'
-import { degToRad, lerp, radToDeg } from '../PapMath'
+
+import { degToRad, lerp, radToDeg } from '../utils/math'
 import * as Textures from './ScatterTexture/assets'
-import { mergeToNew } from '../utils'
+import { mergeToNew } from '../utils/object'
 import {
   logGroup,
   logGroupEnd,
@@ -29,7 +33,10 @@ import {
 } from '../DebugHelper'
 
 const _object = new Object3D()
+_object.matrixAutoUpdate = false
+
 const _translate2d = new Vector2()
+const _mat4 = new Matrix4()
 
 export declare namespace ScatterBrush {
   export type SpecificSetting = {
@@ -93,6 +100,7 @@ export class ScatterBrush implements IBrush {
           // map: texture,
           // color: 0xffffff,
 
+          premultipliedAlpha: false,
           transparent: true,
           alphaMap: texture,
         })
@@ -163,8 +171,6 @@ export class ScatterBrush implements IBrush {
     )
 
     logGroup('ScatterBrush')
-    inputPath = inputPath.clone()
-    inputPath.freeze()
 
     const { color } = brushSetting
 
@@ -198,7 +204,7 @@ export class ScatterBrush implements IBrush {
       threePath.closePath()
     }
 
-    const freezedInputPath = freezeThreePath(threePath)
+    const freezedThreePath = freezeThreePath(threePath)
 
     // #endregion
 
@@ -221,7 +227,8 @@ export class ScatterBrush implements IBrush {
     const mesh = new InstancedMesh(this.geometry, material, counts)
 
     const seed = fastRandom(inputPath.randomSeed)
-    const pressureReader = inputPath.getSequencialPressureAtLengthReader()
+    const pressureReader = inputPath.getSequencialPressuresReader()
+    const tangentReader = inputPath.getSequencialTangentsReader()
     // const totalLength = inputPath.getTotalLength()
     logTime('Scatter: set atributes')
 
@@ -230,8 +237,11 @@ export class ScatterBrush implements IBrush {
     const perf_pressureAtTime = timeSumming(
       `Pressure at will calls ${counts} times`
     )
-    const perf_getTangent = timeSumming(
-      `getTangentAt at will calls ${counts} times`
+    const perf_getTangentByPath = timeSumming(
+      `getTangentAtByPath at will calls ${counts} times`
+    )
+    const perf_setMatrixAt = timeSumming(
+      `setMatrixAt at will calls ${counts} times`
     )
     const perf_rand = timeSumming(`devRand at will calls ${counts} times`)
     const perf_render = timeSumming(`Render with ${counts} instances`)
@@ -239,12 +249,16 @@ export class ScatterBrush implements IBrush {
     for (let idx = 0; idx < counts; idx++) {
       const frac = idx / counts
 
+      // const pos = new Vector3()
+      // const quat = new Quaternion()
+      // const scale = new Vector3()
+
       perf_rand.time()
       const randomFloat = seed.nextFloat()
       perf_rand.timeEnd()
 
       perf_getPoint.time()
-      freezedInputPath.sequencialGetPoint(frac, _translate2d)
+      freezedThreePath.sequencialGetPoint(frac, _translate2d)
       perf_getPoint.timeEnd({ frac, index: idx })
 
       _object.position.set(
@@ -256,6 +270,16 @@ export class ScatterBrush implements IBrush {
         ),
         0
       )
+
+      // pos.set(
+      //   MathUtils.lerp(-destSize.width / 2, destSize.width / 2, _translate2d.x),
+      //   MathUtils.lerp(
+      //     destSize.height / 2,
+      //     -destSize.height / 2,
+      //     _translate2d.y
+      //   ),
+      //   0
+      // )
 
       // prettier-ignore
       const fadeWeight =
@@ -276,22 +300,29 @@ export class ScatterBrush implements IBrush {
       // (fade * influence) = 0 のときにsize * pressureになってほしいな(こなみ)
       // (fade * influence) = 0
       // 打ち消し式: (fade * influence) + 1 = 1
-
+      // scale.set(
+      //   brushSetting.size * pressureWeight * fadeWeight,
+      //   brushSetting.size * pressureWeight * fadeWeight,
+      //   1
+      // )
       _object.scale.set(
         brushSetting.size * pressureWeight * fadeWeight,
         brushSetting.size * pressureWeight * fadeWeight,
         1
       )
 
-      perf_getTangent.time()
-      const tangent = freezedInputPath.sequencialGetTangent(frac).normalize()
-      const angle = Math.atan2(tangent.x, tangent.y)
-      perf_getTangent.timeEnd({ frac, index: idx })
+      perf_getTangentByPath.time()
+      const tangent = tangentReader.getTangentAt(frac)
+      perf_getTangentByPath.timeEnd({ frac, idx, counts })
 
-      perf_misc.time()
+      const angle = Math.atan2(tangent.x, tangent.y)
+
       _object.rotation.z = degToRad(
         radToDeg(angle) + -1 + randomFloat * 360 * specific.randomRotation
       )
+      // quat.z = degToRad(
+      //   radToDeg(angle) + -1 + randomFloat * 360 * specific.randomRotation
+      // )
 
       _object.translateX(
         lerp(-specific.scatterRange, specific.scatterRange, Math.cos(angle))
@@ -300,19 +331,25 @@ export class ScatterBrush implements IBrush {
         lerp(-specific.scatterRange, specific.scatterRange, Math.sin(angle))
       )
 
+      perf_misc.time()
+
+      perf_setMatrixAt.time()
       _object.updateMatrix()
 
       mesh.setMatrixAt(idx, _object.matrix)
+      perf_setMatrixAt.timeEnd()
+
       // opacities[idx] = fadeWeight
       perf_misc.timeEnd()
     }
     logTimeEnd('Scatter: set atributes')
 
     perf_getPoint.log()
-    perf_getTangent.log()
+    perf_getTangentByPath.log()
     perf_pressureAtTime.log()
     perf_rand.log()
     perf_misc.log()
+    perf_setMatrixAt.log()
 
     // this.geometry.setAttribute(
     //   'opacities',

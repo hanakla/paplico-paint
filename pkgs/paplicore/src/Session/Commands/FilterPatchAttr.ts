@@ -4,7 +4,7 @@ import { PapDOMDigger } from '../../PapDOMDigger'
 import { ICommand } from '../ICommand'
 import { Filter } from '../../DOM/Filter'
 import { Document } from '../../DOM'
-import { deepClone, pick } from '../../utils'
+import { deepClone, pick } from '../../utils/object'
 
 export class FilterPatchAttr implements ICommand {
   public readonly name = 'FilterPatchAttr'
@@ -12,7 +12,7 @@ export class FilterPatchAttr implements ICommand {
   private pathToTargetLayer: string[]
   private targetFilterUid: string
 
-  private patcher: (filter: Filter.Attributes) => void
+  private patcher: (filter: Filter.PatchableAttributes) => void
   private jsonDelta!: jsondiff.Delta
 
   constructor({
@@ -22,7 +22,7 @@ export class FilterPatchAttr implements ICommand {
   }: {
     pathToTargetLayer: string[]
     filterUid: string
-    patcher: (filter: Filter.Attributes) => void
+    patcher: (filter: Filter.PatchableAttributes) => void
   }) {
     this.pathToTargetLayer = pathToTargetLayer
     this.targetFilterUid = filterUid
@@ -39,14 +39,14 @@ export class FilterPatchAttr implements ICommand {
       }
     )
 
-    const original = deepClone(
-      pick(filter, ['filterId', 'visible', 'settings'])
-    )
+    const original = deepClone(pick(filter, ['visible', 'settings']))
     const next = deepClone(original)
     this.patcher(next)
 
     this.jsonDelta = jsondiff.diff(original, next)!
+    console.log(this.jsonDelta, original, next)
     filter.update((f) => jsondiff.patch(f, this.jsonDelta))
+    console.log(filter)
   }
 
   async undo(document: Document): Promise<void> {

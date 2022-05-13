@@ -1,23 +1,24 @@
 import { useFleurContext, useStore } from '@fleur/react'
-import { autoUpdate, offset, shift, useFloating } from '@floating-ui/react-dom'
 import { useFunk } from '@hanakla/arma'
 import { useTranslation } from 'next-i18next'
 import { ChangeEvent, memo, MouseEvent, ReactNode, useEffect } from 'react'
-import { ChromePicker, ColorChangeHandler } from 'react-color'
-import { useClickAway, useToggle } from 'react-use'
-import { PapCommands, PapDOM, PapFilters } from '@paplico/core'
+
+import { useClickAway, useToggle, useUpdate } from 'react-use'
+import { PapCommands, PapDOM, PapDOMDigger, PapFilters } from '@paplico/core'
 
 import { DeltaRange } from '🙌/components/DeltaRange'
 import { RangeInput } from '🙌/components/RangeInput'
 import { SelectBox } from '🙌/components/SelectBox'
 import { EditorOps } from '🙌/domains/EditorStable'
 import { useFleur } from '🙌/utils/hooks'
-import { centering } from '🙌/utils/mixins'
 import { roundString } from '🙌/utils/StringUtils'
-import { Portal } from '🙌/components/Portal'
-import { DOMUtils } from '🙌/utils/dom'
+
 import { EditorSelector } from '🙌/domains/EditorStable'
 import { usePapFilterWatch, useTransactionCommand } from '../hooks'
+
+import { Stack } from '🙌/components/Stack'
+import { Column, LayerSelector, ColorInput } from './FilterSettings/_components'
+import { Noise } from './FilterSettings/Noise'
 
 type Props = { layer: PapDOM.LayerTypes; filter: PapDOM.Filter }
 
@@ -48,6 +49,9 @@ export const FilterSettings = ({ layer, filter }: Props) => {
     case '@paplico/filters/low-reso': {
       return <LowReso layer={layer} filter={filter} />
     }
+    case '@paplico/filters/noise': {
+      return <Noise layer={layer} filter={filter} />
+    }
     case '@paplico/filters/outline': {
       return <Outline layer={layer} filter={filter} />
     }
@@ -56,6 +60,9 @@ export const FilterSettings = ({ layer, filter }: Props) => {
     }
     case '@paplico/filters/kawase-blur': {
       return <KawaseBlur layer={layer} filter={filter} />
+    }
+    case '@paplico/filters/uvreplace': {
+      return <UVReplace layer={layer} filter={filter} />
     }
     default: {
       return <>🤔</>
@@ -95,7 +102,7 @@ const GaussBlur = ({ layer, filter }: Props) => {
         filter.settings.radius = value
       }
     )
-  }, [])
+  })
 
   const handleChangePower = useFunk((value: number) => {
     executeOperation(
@@ -106,11 +113,11 @@ const GaussBlur = ({ layer, filter }: Props) => {
         filter.settings.power = value
       }
     )
-  }, [])
+  })
 
   const handleChangeComplete = useFunk(() => {
     executeOperation(EditorOps.rerenderCanvas)
-  }, [])
+  })
 
   return (
     <div>
@@ -714,168 +721,182 @@ const KawaseBlur = memo(function KawaseBlur({ layer, filter }: Props) {
   )
 })
 
-const Column = memo(
-  ({
-    nameKey,
-    value,
-    filter: { filterId },
-    children,
-  }: {
-    nameKey: string
-    value?: string
-    filter: PapDOM.Filter
-    children: ReactNode
-  }) => {
-    const { t } = useTranslation('app')
+const UVReplace = memo(function UVReplace({ layer, filter }: Props) {
+  const { t } = useTranslation('app')
+  const rerender = useUpdate()
+  const { execute } = useFleur()
 
-    return (
-      <div
-        css={`
-          & + & {
-            margin-top: 4px;
-          }
-        `}
-      >
-        <div>{t(`filterOptions.${filterId}.${nameKey}`)}</div>
+  const { activeLayerPath, currentDocument } = useStore((get) => ({
+    activeLayerPath: EditorSelector.activeLayerPath(get),
+    currentDocument: EditorSelector.currentDocument(get),
+  }))
 
-        <div
-          css={`
-            display: flex;
-            margin-top: 4px;
-            flex: 1;
-            flex-basis: 100%;
-            gap: 4px;
-          `}
-        >
-          <div
-            css={`
-              flex: 1;
-            `}
-          >
-            {children}
-          </div>
+  const commandTransaction = useTransactionCommand({ threshold: 2000 })
 
-          {value !== undefined && (
-            <div
-              css={`
-                ${centering({ x: false, y: true })}
-                justify-content: flex-end;
-                width: 40px;
-                margin-left: auto;
-                text-align: right;
-              `}
-            >
-              {value}
-            </div>
-          )}
-        </div>
-      </div>
-    )
-  }
-)
+  const handleChangeReplacement: SelectBox.OnChangeHandler = useFunk(
+    (value) => {
+      if (!activeLayerPath) return
 
-const ColorInput = memo(
-  ({
-    alpha,
-    value,
-    onChange,
-  }:
-    | {
-        alpha: true
-        value: { r: number; g: number; b: number; a: number }
-        onChange: (value: {
-          r: number
-          g: number
-          b: number
-          a: number
-        }) => void
-      }
-    | {
-        alpha?: false
-        value: { r: number; g: number; b: number }
-        onChange: (value: { r: number; g: number; b: number }) => void
-      }) => {
-    const [open, toggleOpen] = useToggle(false)
-    const fl = useFloating({
-      strategy: 'fixed',
-      placement: 'right',
-      middleware: [shift(), offset(4)],
-    })
-
-    const handleClick = useFunk((e: MouseEvent<HTMLDivElement>) => {
-      if (!DOMUtils.isSameElement(e.target, e.currentTarget)) return
-      toggleOpen()
-    })
-
-    const handleChange = useFunk<ColorChangeHandler>(({ rgb }) => {
-      onChange(
-        (alpha
-          ? {
-              r: rgb.r / 255,
-              g: rgb.g / 255,
-              b: rgb.b / 255,
-              a: rgb.a!,
-            }
-          : {
-              r: rgb.r / 255,
-              g: rgb.g / 255,
-              b: rgb.b / 255,
-            }) as any
+      execute(
+        EditorOps.runCommand,
+        new PapCommands.Filter.PatchAttr({
+          pathToTargetLayer: activeLayerPath,
+          filterUid: filter.uid,
+          patcher: (filter) => {
+            filter.settings.replacement = value
+          },
+        })
       )
-    })
 
-    useEffect(() => {
-      if (!fl.refs.reference.current || !fl.refs.floating.current) return
+      rerender()
+    }
+  )
 
-      return autoUpdate(
-        fl.refs.reference.current,
-        fl.refs.floating.current,
-        fl.update
-      )
-    }, [fl.refs.reference, fl.refs.floating, fl.update])
+  const handleChangeReplaceMapLayerUid = useFunk((layerUid: string) => {
+    if (!activeLayerPath) return
 
-    useClickAway(fl.refs.floating, () => {
-      toggleOpen(false)
-    })
-
-    return (
-      <div
-        ref={fl.reference}
-        css={`
-          width: 16px;
-          height: 16px;
-        `}
-        style={{
-          backgroundColor: `rgb(${value.r * 255}, ${value.g * 255}, ${
-            value.b * 255
-          })`,
-        }}
-        onClick={handleClick}
-      >
-        <Portal>
-          <div
-            ref={fl.floating}
-            style={{
-              position: fl.strategy,
-              left: fl.x ?? 0,
-              top: fl.y ?? 0,
-              ...(open
-                ? { opacity: 1, pointerEvents: 'all' }
-                : { opacity: 0, pointerEvents: 'none' }),
-            }}
-          >
-            <ChromePicker
-              color={{
-                r: value.r * 255,
-                g: value.g * 255,
-                b: value.b * 255,
-              }}
-              disableAlpha={!alpha}
-              onChange={handleChange}
-            />
-          </div>
-        </Portal>
-      </div>
+    execute(
+      EditorOps.runCommand,
+      new PapCommands.Filter.PatchAttr({
+        pathToTargetLayer: activeLayerPath,
+        filterUid: filter.uid,
+        patcher: (filter) => {
+          filter.settings.replaceMapLayerUid = layerUid
+        },
+      })
     )
-  }
-)
+
+    rerender()
+  })
+
+  const handleChangeMovement = useFunk(
+    ({ currentTarget }: ChangeEvent<HTMLInputElement>) => {
+      if (!activeLayerPath) return
+
+      commandTransaction.autoStartAndDoAdd(
+        new PapCommands.Filter.PatchAttr({
+          pathToTargetLayer: activeLayerPath,
+          filterUid: filter.uid,
+          patcher: (filter) => {
+            const index = currentTarget.dataset.dimention === 'x' ? 0 : 1
+            filter.settings.movementPx[index] = currentTarget.valueAsNumber
+          },
+        })
+      )
+
+      commandTransaction.debouncedCommit()
+
+      rerender()
+    }
+  )
+
+  const handleChangeClamping: SelectBox.OnChangeHandler = useFunk(
+    (value: string) => {
+      if (!activeLayerPath) return
+
+      execute(
+        EditorOps.runCommand,
+        new PapCommands.Filter.PatchAttr({
+          pathToTargetLayer: activeLayerPath,
+          filterUid: filter.uid,
+          patcher: (filter) => {
+            filter.settings.clamping = value
+          },
+        })
+      )
+
+      rerender()
+    }
+  )
+
+  return (
+    <Stack dir="vertical" gap={8}>
+      <Column nameKey="replacement" filter={filter}>
+        <SelectBox
+          items={[
+            {
+              label: t(
+                'filterOptions.@paplico/filters/uvreplace.replacements.delta'
+              ),
+              value: 'delta',
+            },
+            {
+              label: t(
+                'filterOptions.@paplico/filters/uvreplace.replacements.absolute'
+              ),
+              value: 'absolute',
+            },
+          ]}
+          value={filter.settings.replacement}
+          onChange={handleChangeReplacement}
+        />
+      </Column>
+      <Column nameKey="displacementMapLayer" filter={filter}>
+        <LayerSelector
+          valueLayerUid={filter.settings.replaceMapLayerUid}
+          onChange={handleChangeReplaceMapLayerUid}
+        />
+      </Column>
+
+      <Column
+        nameKey="movementX"
+        filter={filter}
+        value={filter.settings.movementPx[0]}
+      >
+        <RangeInput
+          min={-currentDocument!.width}
+          max={currentDocument!.width}
+          step={1}
+          value={filter.settings.movementPx[0]}
+          onChange={handleChangeMovement}
+          data-dimention="x"
+          disabled={filter.settings.replacement === 'absolute'}
+        />
+      </Column>
+
+      <Column
+        nameKey="movementY"
+        filter={filter}
+        value={filter.settings.movementPx[1]}
+      >
+        <RangeInput
+          min={-currentDocument!.height}
+          max={currentDocument!.height}
+          step={1}
+          value={filter.settings.movementPx[1]}
+          onChange={handleChangeMovement}
+          data-dimention="y"
+          disabled={filter.settings.replacement === 'absolute'}
+        />
+      </Column>
+
+      {/* <Column nameKey="clamping" filter={filter}>
+        <SelectBox
+          value={filter.settings.clamping}
+          items={[
+            {
+              label: t(
+                'filterOptions.@paplico/filters/uvreplace.clampings.repeat'
+              ),
+              value: 'repeat',
+            },
+
+            {
+              label: t(
+                'filterOptions.@paplico/filters/uvreplace.clampings.mirroredRepeat'
+              ),
+              value: 'mirrored-repeat',
+            },
+            {
+              label: t(
+                'filterOptions.@paplico/filters/uvreplace.clampings.toEdge'
+              ),
+              value: 'to-edge',
+            },
+          ]}
+          onChange={handleChangeClamping}
+        />
+      </Column> */}
+    </Stack>
+  )
+})

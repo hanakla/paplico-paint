@@ -1,17 +1,46 @@
 import { v4 } from 'uuid'
 import { Emitter } from '../Engine3_Emitter'
-import { assign } from '../utils'
+import { assign, pick } from '../utils/object'
 import { Filter } from './Filter'
 import { CompositeMode, ILayer, LayerEvents } from './ILayer'
+import * as featureTag from './internal/featureTag'
+
+export declare namespace ReferenceLayer {
+  export type Attributes = ILayer.Attributes & {
+    referencedLayerId: string
+  }
+
+  export type PatchableAttributes = Omit<
+    Attributes,
+    'uid' | 'layerType' | 'width' | 'height'
+  >
+}
 
 export class ReferenceLayer
   extends Emitter<LayerEvents<ReferenceLayer>>
   implements ILayer
 {
-  public static create({ referencedLayerId }: { referencedLayerId: string }) {
-    return assign(new ReferenceLayer(), {
-      referencedLayerId,
-    })
+  public static readonly patchableAttributes: readonly (keyof ReferenceLayer.PatchableAttributes)[] =
+    Object.freeze([
+      'name',
+      'visible',
+      'lock',
+      'compositeMode',
+      'opacity',
+
+      'x',
+      'y',
+
+      'features',
+
+      'referencedLayerId',
+    ])
+
+  public static create(attrs: Partial<ReferenceLayer.PatchableAttributes>) {
+    return assign(
+      new ReferenceLayer(),
+      pick(attrs, ReferenceLayer.patchableAttributes)
+    )
   }
 
   public static deserialize(obj: any) {
@@ -27,6 +56,7 @@ export class ReferenceLayer
       y: obj.y,
       referencedLayerId: obj.referencedLayerId,
       filters: obj.filters.map((filter: any) => Filter.deserialize(filter)),
+      features: obj.features,
     })
   }
 
@@ -45,11 +75,17 @@ export class ReferenceLayer
   public y: number = 0
 
   public referencedLayerId!: string
-  public filters: Filter[] = []
+  public readonly filters: Filter[] = []
+  public readonly features = Object.create(null)
 
   protected constructor() {
     super()
   }
+
+  public hasFeature = featureTag.hasFeature
+  public enableFeature = featureTag.enableFeature
+  public getFeatureSetting = featureTag.getFeatureSetting
+  public patchFeatureSetting = featureTag.patchFeatureSetting
 
   public update(proc: (layer: this) => void) {
     proc(this)
@@ -69,6 +105,7 @@ export class ReferenceLayer
       y: this.y,
       referencedLayerId: this.referencedLayerId,
       filters: this.filters.map((f) => f.serialize()),
+      features: this.features,
     }
   }
 

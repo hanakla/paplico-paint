@@ -5,11 +5,10 @@
 // SEE: https://github.com/pixijs/filters/blob/main/filters/kawase-blur
 
 import { logImage } from '../DebugHelper'
-import { FilterContext, FilterInitContext, IFilter } from '../engine/IFilter'
+import { FilterContext, FilterInitContext } from '../engine/IFilter'
 import { WebGLContext } from '../engine/WebGLContext'
 import { createContext2D } from '../Engine3_CanvasFactory'
-import { pick, setCanvasSize } from '../utils'
-import { arrayChunk } from '../utils/array'
+import { setCanvasSize } from '../utils'
 import { saveAndRestoreCanvas } from '../utils/canvas'
 import { AbstractPixiFilterInterop } from './AbstractPixiFilterInterop'
 

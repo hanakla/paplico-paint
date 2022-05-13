@@ -3,7 +3,7 @@ import type * as SilkDOM from './DOM/index'
 import { RasterLayer } from './DOM/RasterLayer'
 import { createContext2D } from './Engine3_CanvasFactory'
 import { ColorStop } from './Value'
-import { assign, setCanvasSize } from './utils'
+import { setCanvasSize } from './utils'
 
 export async function imageToLayer(img: HTMLImageElement) {
   const layer = RasterLayer.create({

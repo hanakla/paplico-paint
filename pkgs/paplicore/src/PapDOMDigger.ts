@@ -75,7 +75,7 @@ interface Digger {
   traverseLayers<K extends LayerTypes['layerType']>(
     document: { layers: readonly LayerTypes[] },
     query: { kind?: K | Array<K> },
-    proc: (l: FilterLayerType<K>) => void | { stop: true }
+    proc: (l: FilterLayerType<K>, path: string[]) => void | { stop: true }
   ): void
 
   findFilter<S extends boolean | undefined>(
@@ -147,11 +147,8 @@ export const PapDOMDigger: Digger = {
   findLayerRecursive(document, uid, { kind, strict } = {}) {
     let target: LayerTypes | Nullish = null
 
-    PapDOMDigger.traverseLayers(document, {}, (layer) => {
-      if (
-        layer.uid === uid &&
-        (kind == null || matchLayerType(layer.layerType, kind))
-      ) {
+    PapDOMDigger.traverseLayers(document, { kind }, (layer) => {
+      if (layer.uid === uid) {
         target = layer
         return { stop: true }
       }
@@ -163,14 +160,18 @@ export const PapDOMDigger: Digger = {
     return target as any
   },
   traverseLayers(document, { kind } = {}, proc) {
-    const traverse = (layers: readonly LayerTypes[]) => {
+    const traverse = (
+      layers: readonly LayerTypes[],
+      currentPath: string[] = []
+    ) => {
       for (const layer of layers) {
-        if (kind != null && matchLayerType(layer.layerType, kind)) continue
+        if (kind != null && !matchLayerType(layer.layerType, kind)) continue
 
-        const result = proc(layer as any)
+        const result = proc(layer as any, [...currentPath, layer.uid])
         if (result?.stop) return
 
-        if ('layers' in layer) traverse(layer.layers)
+        if ('layers' in layer)
+          traverse(layer.layers, [...currentPath, layer.uid])
       }
     }
 

@@ -1,6 +1,6 @@
 import { rgba } from 'polished'
 import { BrushContext, IBrush } from '../engine/IBrush'
-import { mergeToNew } from '../utils'
+import { mergeToNew } from '../utils/object'
 
 export declare namespace Brush {
   type SpecificSetting = {

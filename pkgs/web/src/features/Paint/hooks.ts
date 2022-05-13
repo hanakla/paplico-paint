@@ -184,6 +184,14 @@ export const useTransactionCommand = ({
         ref.current?.doAndAddCommand(command)
         rerender()
       },
+      cancel: () => {
+        if (!ref.current) return
+        execute(EditorOps.revertCommand, { whenCommandIs: ref.current })
+        ref.current = null
+      },
+      rerenderCanvas: () => {
+        execute(EditorOps.rerenderCanvas)
+      },
       commit: () => {
         ref.current = null
         execute(EditorOps.rerenderCanvas)

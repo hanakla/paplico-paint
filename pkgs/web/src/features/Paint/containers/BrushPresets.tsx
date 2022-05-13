@@ -3,7 +3,7 @@ import { useFunk } from '@hanakla/arma'
 import { useTranslation } from 'next-i18next'
 import { rgba } from 'polished'
 import { useAsync } from 'react-use'
-import { PapValue } from '@paplico/core'
+import { PapValueTypes } from '@paplico/core'
 import { css, useTheme } from 'styled-components'
 
 import { SidebarPane } from '🙌/components/SidebarPane'
@@ -98,8 +98,8 @@ const BrushItem = memo(function BrushItem({
 }: {
   brushId: string
   name: string
-  preset: Partial<PapValue.BrushSetting>
-  onSelected: (setting: Partial<PapValue.BrushSetting>) => void
+  preset: Partial<PapValueTypes.BrushSetting>
+  onSelected: (setting: Partial<PapValueTypes.BrushSetting>) => void
 }) {
   const theme = useTheme()
   const { engine, currentBrushSetting } = useStore((get) => ({

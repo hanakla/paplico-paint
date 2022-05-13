@@ -1,7 +1,7 @@
 import simplify from '@luncheon/simplify-svg-path'
 
 import { pathBounds } from '../fastsvg/pathBounds'
-import { assign, deepClone } from '../utils'
+import { assign, deepClone } from '../utils/object'
 import { mapPoints } from '../PapHelpers'
 import {
   cachedPointAtLength,
@@ -9,9 +9,11 @@ import {
 } from '../fastsvg/CachedPointAtLength'
 import prand from 'pure-rand'
 import { ISilkDOMElement } from './ISilkDOMElement'
-import { lerp } from '../PapMath'
+import { lerp } from '../utils/math'
 import { parseSVGPath } from '../fastsvg/parse'
 import abs from 'abs-svg-path'
+import { svgPathProperties } from 'svg-path-properties'
+import { createSequencialTangentsReader } from './internal/Path.sequencials.tangents'
 
 export declare namespace Path {
   export type Attributes = {
@@ -103,6 +105,7 @@ export class Path implements ISilkDOMElement {
   public readonly randomSeed: number = prand.mersenne(Math.random()).next()[0]
 
   private _pal!: CachedPointAtLength
+  private _pathProps!: InstanceType<typeof svgPathProperties>
   private _cachedSvgPath: string | null = null
   private _cachedBounds: Path.PathBBox | null = null
   private _isFreezed: boolean = false
@@ -116,6 +119,11 @@ export class Path implements ISilkDOMElement {
   public get svgPath() {
     if (this._cachedSvgPath) return this._cachedSvgPath
     return this.getFreshSVGPath()
+  }
+
+  public get pathProps(): any {
+    if (this._pathProps) return this._pathProps
+    return (this._pathProps = new svgPathProperties(this.svgPath))
   }
 
   public getBoundingBox(): Path.PathBBox {
@@ -151,7 +159,52 @@ export class Path implements ISilkDOMElement {
   }
 
   public getNearPointIdxAtLength(len: number) {
-    return this.pal.lengthNearAtNearPoint(len)
+    return this.pal.nearPointAtLength(len)
+  }
+
+  public getSequencialPointsReader() {
+    let prevLen = -Infinity
+    let lastIndex = 0
+    const pal = this.pal
+    const total = this.getTotalLength()
+
+    const fallbackLast = this.closed
+      ? { index: 0, element: this.points[0] }
+      : {
+          index: this.points.length - 1,
+          element: this.points[this.points.length - 1],
+        }
+
+    const reader = {
+      getPointAtIndex: (idx: number) => {
+        return pal.lengthOfPoint(idx)
+      },
+      getPointAt: (t: number, { seek = true }: { seek?: boolean } = {}) => {
+        const len = total * t
+        return reader.getPointAtLength(len, { seek })
+      },
+      getPointAtLength: (
+        len: number,
+        { seek = true }: { seek?: boolean } = {}
+      ) => {
+        if (len < prevLen) {
+          throw new Error(
+            `sequencialPointAtLength : Querying length too small than previous length (previous: ${prevLen}, query: ${len})`
+          )
+        }
+
+        const result = pal.atWithDetail(len, { hintIndexGTEq: lastIndex })
+
+        if (seek) {
+          lastIndex = result.lastIndex
+          prevLen = len
+        }
+
+        return { x: result.pos[0], y: result.pos[1] }
+      },
+    }
+
+    return reader
   }
 
   /**
@@ -203,10 +256,11 @@ export class Path implements ISilkDOMElement {
     )
   }
 
-  public getSequencialPressureAtLengthReader() {
-    let prevLen = 0
-    let lastPoint = this.getNearPointIdxAtLength(0)
+  public getSequencialPressuresReader() {
+    let prevLen = -Infinity
+    let lastIndex = 0
     const total = this.getTotalLength()
+    const pal = this.pal
 
     const fallbackLast = this.closed
       ? { index: 0, element: this.points[0] }
@@ -220,38 +274,88 @@ export class Path implements ISilkDOMElement {
         const len = total * t
         return reader.getPressureAtLength(len)
       },
-      getPressureAtLength: (len: number) => {
+      getPressureAtLength: (
+        len: number,
+        { seek = true }: { seek?: boolean } = {}
+      ) => {
         if (len < prevLen) {
           throw new Error(
-            `sequencialPressureAtLengthGetter: Querying length too small than previous length`
+            `sequencialPressureAtLength: Querying length too small than previous length (previous: ${prevLen}, query: ${len})`
           )
         }
 
         const prev = findIndex(this.points, (p) => p.pressure != null, {
-          from: lastPoint.index,
+          from: lastIndex,
           increments: -1,
         }) ?? { index: 0, element: this.points[0] }
 
         const next =
           findIndex(this.points, (p) => p.pressure != null, {
-            from: lastPoint.index + 1,
+            from: lastIndex + 1,
             increments: 1,
           }) ?? fallbackLast
 
-        const prevLength = this.pal.lengthOfPoint(prev.index).length
-        const nextLength = this.pal.lengthOfPoint(next.index).length
+        const prevLength = pal.lengthOfPoint(prev.index).length
+        const nextLength = pal.lengthOfPoint(next.index).length
+
         const segmentLength = nextLength - prevLength
 
         // SEE: https://developer.mozilla.org/ja/docs/Web/API/PointerEvent/pressure#return_value
         const defaultPressure = 0.5
-        const tAtFragment =
+        const tOnFragment =
           segmentLength === 0 ? 1 : (len - prevLength) / segmentLength
+
+        if (seek) {
+          prevLen = len
+          lastIndex = prev.index
+        }
 
         return lerp(
           prev.element.pressure ?? defaultPressure,
           next.element.pressure ?? defaultPressure,
-          tAtFragment
+          tOnFragment
         )
+      },
+    }
+
+    return reader
+  }
+
+  public getTangentAt(t: number) {
+    const len: number = this.getTotalLength() * t
+    return this.getTangentAtLength(len)
+  }
+
+  public getTangentAtLength(len: number) {
+    return this.pathProps.getTangentAtLength(len)
+  }
+
+  public getSequencialTangentsReader() {
+    const totalLength = this.getTotalLength()
+    const pointsReader = this.getSequencialPointsReader()
+
+    const reader = {
+      getTangentAt: (t: number) => {
+        return reader.getTangentAtLength(t * totalLength)
+      },
+      getTangentAtLength: (len: number) => {
+        // Original: https://gist.github.com/enjalot/ce4c4409fb80559de2bd
+
+        // returns a normalized vector that describes the tangent
+        // at the point that is found at *percent* of the path's length
+
+        const p1 = pointsReader.getPointAtLength(len - 0.1, { seek: true })
+        const p2 = pointsReader.getPointAtLength(len + 0.1, { seek: false })
+        // console.log('p', p2.x, p2.y)
+
+        const vector = { x: p2.x - p1.x, y: p2.y - p1.y }
+        // const tan = Math.atan2(p2.y - p1.y, p2.x - p1.x)
+
+        const magnitude = Math.sqrt(vector.x * vector.x + vector.y * vector.y)
+        vector.x /= magnitude
+        vector.y /= magnitude
+
+        return vector
       },
     }
 
@@ -293,6 +397,9 @@ export class Path implements ISilkDOMElement {
             out: next ? { x: next[1], y: next[2] } : null,
             pressure: this.getPressureAtLength(pal.lengthOfPoint(idx).length),
           }
+        default: {
+          throw new Error(`Unexpected command type ${cmd}`)
+        }
       }
     })
 
@@ -326,6 +433,7 @@ export class Path implements ISilkDOMElement {
     this._pal = cachedPointAtLength(this.svgPath)
     this._cachedBounds = null
     this._cachedBounds = this.getBoundingBox()
+    this._pathProps = new svgPathProperties(this._cachedSvgPath)
   }
 
   /** Freeze changes and cache heavily process results */
@@ -335,6 +443,7 @@ export class Path implements ISilkDOMElement {
     this._cachedSvgPath = this.getFreshSVGPath()
     this._pal = cachedPointAtLength(this._cachedSvgPath)
     this._cachedBounds = this.getBoundingBox()
+    this._pathProps = new svgPathProperties(this._cachedSvgPath)
 
     this._isFreezed = true
     Object.freeze(this)

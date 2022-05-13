@@ -65,7 +65,11 @@ import { rgba } from 'polished'
 import { darkTheme, ThemeProp } from '🙌/utils/theme'
 import { Button } from '🙌/components/Button'
 import { media, narrow } from '🙌/utils/responsive'
-import { isEventIgnoringTarget, swapObjectBrushAndFill } from './helpers'
+import {
+  isEventIgnoringTarget,
+  normalRgbToRgbArray,
+  swapObjectBrushAndFill,
+} from './helpers'
 import { Tooltip } from '🙌/components/Tooltip'
 import { NotifyOps, useNotifyConsumer } from '🙌/domains/Notify'
 import { SidebarPane } from '🙌/components/SidebarPane'
@@ -367,7 +371,10 @@ export const PaintPage = memo(function PaintPage({}) {
       new PapCommands.VectorLayer.PatchObjectAttr({
         objectUid: o.uid,
         pathToTargetLayer: path,
-        patch: target === 'fill' ? { fill: null } : { brush: null },
+        patcher: (attr) => {
+          if (target === 'fill') attr.fill = null
+          else attr.brush = null
+        },
       })
     )
   })
@@ -720,7 +727,7 @@ export const PaintPage = memo(function PaintPage({}) {
               closed={!sidebarOpened}
               side="right"
             >
-              <SidebarPane heading={t('colorHistory')}>まだないよ</SidebarPane>
+              <ColorHistoryPane />
 
               <BrushPresets />
 
@@ -1137,6 +1144,7 @@ const PaintCanvas = memo(function PaintCanvas({
 }) {
   const canvasHandler = useRef<CanvasHandler | null>(null)
 
+  const { execute, getStore } = useFleur()
   const { currentDocument, session, engine, renderStrategy, scale, pos } =
     useStore((get) => ({
       currentDocument: EditorSelector.currentDocument(get),
@@ -1159,6 +1167,13 @@ const PaintCanvas = memo(function PaintCanvas({
     const handler = (canvasHandler.current = new CanvasHandler(
       canvasRef.current!
     ))
+
+    handler.on('strokeComplete', (stroke) => {
+      const color = EditorSelector.displayingBrushSetting(getStore)
+      if (!color) return
+
+      execute(EditorOps.addColorHistory, color.color)
+    })
 
     handler.on(
       'strokeChange',
@@ -1328,6 +1343,61 @@ const HistoryFlash = memo(function HistoryFlash() {
         </div>
       ))}
     </div>
+  )
+})
+
+const ColorHistoryPane = memo(function ColorHistoryPane() {
+  const { t } = useTranslation('app')
+  const { execute, getStore } = useFleur()
+
+  const colorHistory = useStore(EditorSelector.colorHistory)
+
+  const handleClickColor = useFunk(({ currentTarget }) => {
+    const id = currentTarget.dataset.id!
+    const entry = colorHistory.find((entry) => entry.id === id)
+    if (!entry) return
+
+    if (EditorSelector.activeLayer(getStore)?.layerType === 'vector') {
+      const target = EditorSelector.vectorColorTarget(getStore)
+      if (target === 'stroke')
+        execute(EditorOps.setBrushSetting, { color: entry.color })
+      // else execute(EditorOps.setFill, {})
+    } else {
+      console.log(entry.color)
+      execute(EditorOps.setBrushSetting, { color: entry.color })
+    }
+  })
+
+  return (
+    <SidebarPane heading={t('colorHistory')}>
+      <div
+        css={`
+          display: grid;
+          gap: 4px;
+          grid-template-columns: repeat(auto-fill, minmax(24px, 1fr));
+        `}
+      >
+        {colorHistory.map((entry) => (
+          <>
+            <div
+              css={`
+                width: 100%;
+                &::before {
+                  content: '';
+                  display: block;
+                  padding-top: 100%;
+                }
+              `}
+              style={{
+                backgroundColor: rgba(...normalRgbToRgbArray(entry.color), 1),
+              }}
+              data-id={entry.id}
+              onClick={handleClickColor}
+            />
+          </>
+        ))}
+      </div>
+    </SidebarPane>
   )
 })
 

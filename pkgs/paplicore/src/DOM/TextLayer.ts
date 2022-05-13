@@ -1,12 +1,41 @@
 import { ILayer, LayerEvents } from './ILayer'
 import { v4 } from 'uuid'
 import { Filter } from './Filter'
-import { assign, deepClone } from '../utils'
+import { assign, deepClone, pick } from '../utils/object'
 import { Emitter } from '../Engine3_Emitter'
+import * as featureTag from './internal/featureTag'
 
 type Events = LayerEvents<TextLayer>
 
+export declare namespace TextLayer {
+  export type Attributes = ILayer.Attributes & {
+    content: Content[]
+    letterSpacing: number
+  }
+
+  export type Content = { content: string }
+
+  export type PatchableAttributes = Omit<
+    Attributes,
+    'uid' | 'layerType' | 'width' | 'height'
+  >
+}
+
 export class TextLayer extends Emitter<Events> implements ILayer {
+  public static readonly patchableAttributes: readonly (keyof TextLayer.PatchableAttributes)[] =
+    Object.freeze([
+      'name',
+      'visible',
+      'lock',
+      'compositeMode',
+      'opacity',
+      'x',
+      'y',
+      'features',
+      'content',
+      'letterSpacing',
+    ])
+
   public static deserialize(obj: any) {
     return assign(new TextLayer(), {
       layerType: obj.layerType,
@@ -21,6 +50,7 @@ export class TextLayer extends Emitter<Events> implements ILayer {
       x: obj.x,
       y: obj.y,
       filters: obj.filters.map((f: any) => Filter.deserialize(f)),
+      features: obj.features,
       content: obj.content,
       letterSpacing: obj.letterSpacing,
     })
@@ -39,23 +69,20 @@ export class TextLayer extends Emitter<Events> implements ILayer {
   public height: number = 0
   public x: number = 0
   public y: number = 0
-  public filters: Filter[] = []
+  public readonly filters: Filter[] = []
+  public readonly features = Object.create(null)
 
-  public content: TextLayer.Content[] = []
-  public letterSpacing: number = 1
+  public readonly content: TextLayer.Content[] = []
+  public readonly letterSpacing: number = 1
 
-  public static create({
-    content,
-    letterSpacing,
-  }: {
-    content: TextLayer.Content[]
-    letterSpacing: number
-  }) {
-    return assign(new TextLayer(), {
-      content: content,
-      letterSpacing: letterSpacing,
-    })
+  public static create(attrs: TextLayer.PatchableAttributes) {
+    return assign(new TextLayer(), pick(attrs, TextLayer.patchableAttributes))
   }
+
+  public hasFeature = featureTag.hasFeature
+  public enableFeature = featureTag.enableFeature
+  public getFeatureSetting = featureTag.getFeatureSetting
+  public patchFeatureSetting = featureTag.patchFeatureSetting
 
   public update(proc: (layer: this) => void) {
     proc(this)
@@ -76,6 +103,7 @@ export class TextLayer extends Emitter<Events> implements ILayer {
       x: this.x,
       y: this.y,
       filters: this.filters.map((f) => f.serialize()),
+      features: this.features,
       content: deepClone(this.content),
       letterSpacing: this.letterSpacing,
     }
@@ -86,8 +114,4 @@ export class TextLayer extends Emitter<Events> implements ILayer {
       assign(this.serialize(), { uid: `textlayer-${v4()}` })
     ) as this
   }
-}
-
-export namespace TextLayer {
-  export type Content = { content: string }
 }

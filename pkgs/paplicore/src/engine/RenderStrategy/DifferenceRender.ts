@@ -1,26 +1,25 @@
 import { fit, position } from 'object-fit-math'
+
+import { mapSeries } from '../../utils/array'
 import { PaplicoEngine } from '../Engine3'
-import { createCanvas, createContext2D } from '../../Engine3_CanvasFactory'
+import { createContext2D } from '../../Engine3_CanvasFactory'
 import { Document, LayerTypes } from '../../DOM'
-import {
-  createKeyedRequestIdeCallback,
-  deepClone,
-  pick,
-  setCanvasSize,
-} from '../../utils'
+import { createKeyedRequestIdeCallback, setCanvasSize } from '../../utils'
+import { deepClone, pick } from '../../utils/object'
 import { IRenderStrategy } from './IRenderStrategy'
 import { AtomicResource } from '../../AtomicResource'
-import { CompositeMode, ILayer } from '../../DOM/ILayer'
+import { CompositeMode } from '../../DOM/ILayer'
 import { PapDOMDigger } from '../../PapDOMDigger'
 import { workerSafeCanvasToBlob } from '../../PapHelpers'
 import {
   logGroup,
   logGroupEnd,
-  logImage,
+  logLog,
   logTime,
   logTimeEnd,
   timeSumming,
 } from '../../DebugHelper'
+import { saveAndRestoreCanvas } from '../../utils/canvas'
 
 type Override = {
   layerId: string
@@ -117,10 +116,17 @@ export class DifferenceRender implements IRenderStrategy {
 
     const getLayerBitmap = async (
       layer: LayerTypes,
+      requestStack: string[],
       ignoreVisibility: boolean = false
     ): Promise<LayerBitmapResult> => {
       if (!layer.visible && !ignoreVisibility)
         return { layer, needsUpdate: false, image: null }
+
+      if (requestStack.includes(layer.uid)) {
+        throw new Error(
+          `Circular reference detected: ${requestStack.join(' -> ')}`
+        )
+      }
 
       // Needs rerender
       switch (layer.layerType) {
@@ -128,7 +134,10 @@ export class DifferenceRender implements IRenderStrategy {
           const results: Omit<LayerBitmapResult, 'subResults'>[] = []
 
           for (const subLayer of layer.layers) {
-            const result = await getLayerBitmap(subLayer)
+            const result = await getLayerBitmap(subLayer, [
+              ...requestStack,
+              layer.uid,
+            ])
             results.push(result)
           }
 
@@ -140,8 +149,7 @@ export class DifferenceRender implements IRenderStrategy {
           }
         }
         case 'vector': {
-          logGroup('Render vector layer')
-          logTime(`Render vector layer ${layer.uid}`)
+          logGroup(`Render vector layer: ${layer.uid}`)
 
           const hasCache = !!this.bitmapCache.get(layer)
           const cachedCtx = this.bitmapCache.get(layer) ?? createContext2D()
@@ -155,6 +163,14 @@ export class DifferenceRender implements IRenderStrategy {
             setCanvasSize(cachedCtx.canvas, layerSize)
           }
 
+          logLog(layer, {
+            rerender: !!(
+              !hasCache ||
+              hasSizeChange ||
+              this.needsUpdateLayerIds[layer.uid]
+            ),
+          })
+
           if (
             !hasCache ||
             hasSizeChange ||
@@ -162,13 +178,14 @@ export class DifferenceRender implements IRenderStrategy {
           ) {
             cachedCtx.clearRect(0, 0, layerSize.width, layerSize.height)
             await engine.renderVectorLayer(document, layer, cachedCtx)
+            console.log('render', layer, cachedCtx.canvas)
           }
 
           this.keyedRequestIdleCallback(layer.uid, () => {
             this.setPreviewForLayer(layer, document, cachedCtx.canvas)
           })
 
-          logTimeEnd(`Render vector layer ${layer.uid}`)
+          logTimeEnd(`Render vector layer: ${layer.uid}`)
           logGroupEnd()
 
           return {
@@ -228,7 +245,11 @@ export class DifferenceRender implements IRenderStrategy {
 
           const referenced = referencedLayers.get(layer.uid)
           const result = referenced
-            ? await getLayerBitmap(referenced, true)
+            ? await getLayerBitmap(
+                referenced,
+                [...requestStack, layer.uid],
+                true
+              )
             : null
           return result
             ? { layer, needsUpdate: result.needsUpdate, image: result.image }
@@ -237,26 +258,40 @@ export class DifferenceRender implements IRenderStrategy {
       }
     }
 
-    const handleLayerBitmapRequest = async (layerUid: string) => {
-      const layer = PapDOMDigger.findLayerRecursive(document, layerUid)
-      if (!layer) return { missing: true } as const
+    const createLayerBitmapRequestHandler = (requestLayerUid: string) => {
+      return async (layerUid: string) => {
+        const perf_requesLayerBitmap = timeSumming('requestLayerBitmap', '🫂')
+        perf_requesLayerBitmap.time()
 
-      return {
-        missing: false,
-        image: (await getLayerBitmap(layer, true)).image!,
-      } as const
+        try {
+          const layer = PapDOMDigger.findLayerRecursive(document, layerUid)
+
+          if (!layer) return { missing: true } as const
+
+          return {
+            missing: false,
+            image: (await getLayerBitmap(layer, [requestLayerUid], true))
+              .image!,
+          } as const
+        } finally {
+          perf_requesLayerBitmap.timeEnd()
+          perf_requesLayerBitmap.log()
+        }
+      }
     }
 
-    logTime('Render or fetch layer bitmaps')
-    const layerBitmaps = await Promise.all(
-      [...document.layers].reverse().map(async (layer) => {
+    logTime('Render or fetch all layer bitmaps')
+    const layerBitmaps = await mapSeries(
+      [...document.layers].reverse(),
+      async (layer) => {
         perf_fetch.time()
-        const result = await getLayerBitmap(layer)
+        const result = await getLayerBitmap(layer, [])
         perf_fetch.timeEnd()
+
         return result
-      })
+      }
     )
-    logTimeEnd('Render or fetch layer bitmaps')
+    logTimeEnd('Render or fetch all layer bitmaps')
 
     const compositeTo = async (
       { layer, image, subResults }: LayerBitmapResult,
@@ -277,7 +312,7 @@ export class DifferenceRender implements IRenderStrategy {
         // TODO
         // if (disableAllFilters) continue
 
-        for (const filter of layer.filters) {
+        for (const filter of [...layer.filters].reverse()) {
           if (!filter.visible) continue
 
           const instance = engine.toolRegistry.getFilterInstance(
@@ -291,7 +326,9 @@ export class DifferenceRender implements IRenderStrategy {
             layer: layer,
             size: { width: document.width, height: document.height },
             filterSettings: deepClone(filter.settings),
-            handleLayerBitmapRequest,
+            handleLayerBitmapRequest: createLayerBitmapRequestHandler(
+              layer.uid
+            ),
           })
 
           await engine.compositeLayers(bufferCtx, destCtx, {
@@ -305,14 +342,9 @@ export class DifferenceRender implements IRenderStrategy {
       perf_filterLayer.timeEnd(layer.filters.length, layer.filters)
 
       if (image == null && layer.layerType === 'group' && subResults) {
-        // Isolated group
-        if (layer.compositeIsolation) {
-          for (const r of subResults) {
-            await compositeTo(r, dest)
-          }
-
-          return
-        } else {
+        // When isolated group, contained layers are render to new buffer and
+        // composite new buffer to destination
+        if (!layer.compositeIsolation) {
           const groupCtx = createContext2D()
           setCanvasSize(groupCtx.canvas, document.getLayerSize(layer))
 
@@ -326,6 +358,14 @@ export class DifferenceRender implements IRenderStrategy {
           })
 
           setCanvasSize(groupCtx.canvas, 0, 0)
+        } else {
+          // When non-isolated group, contained layers are composited each to destination directly
+
+          for (const r of subResults) {
+            await compositeTo(r, dest)
+          }
+
+          return
         }
       }
 
@@ -348,7 +388,7 @@ export class DifferenceRender implements IRenderStrategy {
 
       perf_composite.time()
 
-      for (const filter of layer.filters) {
+      for (const filter of [...layer.filters].reverse()) {
         if (!filter.visible) continue
         // if (disableAllFilters) continue
 
@@ -356,11 +396,24 @@ export class DifferenceRender implements IRenderStrategy {
         if (!instance)
           throw new Error(`Filter not found (id:${filter.filterId})`)
 
-        await engine.applyFilter(bufferCtx, filterCtx, instance, {
-          layer,
-          size: { width: document.width, height: document.height },
-          filterSettings: deepClone(filter.settings),
-          handleLayerBitmapRequest,
+        if (
+          filterCtx.canvas.width !== document.width ||
+          filterCtx.canvas.height !== document.height
+        ) {
+          setCanvasSize(filterCtx.canvas, document)
+        }
+
+        filterCtx.clearRect(0, 0, document.width, document.height)
+
+        await saveAndRestoreCanvas(filterCtx, async () => {
+          await engine.applyFilter(bufferCtx, filterCtx, instance, {
+            layer,
+            size: { width: document.width, height: document.height },
+            filterSettings: deepClone(filter.settings),
+            handleLayerBitmapRequest: createLayerBitmapRequestHandler(
+              layer.uid
+            ),
+          })
         })
 
         bufferCtx.clearRect(0, 0, document.width, document.height)
@@ -370,6 +423,7 @@ export class DifferenceRender implements IRenderStrategy {
       perf_filter.timeEnd()
 
       perf_composite.time()
+
       await engine.compositeLayers(bufferCtx, dest, {
         mode: layer.compositeMode,
         opacity: layer.opacity,
@@ -379,6 +433,7 @@ export class DifferenceRender implements IRenderStrategy {
 
     // Composite layers
     try {
+      console.log('Fetch bitmap results:', layerBitmaps)
       for (const result of layerBitmaps) {
         await compositeTo(result, destCtx)
       }

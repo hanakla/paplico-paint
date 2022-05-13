@@ -1,14 +1,20 @@
 import { v4 } from 'uuid'
 import { Emitter } from '../Engine3_Emitter'
-import { assign, deepClone } from '../utils'
+import { assign, deepClone } from '../utils/object'
 import { ISilkDOMElement } from './ISilkDOMElement'
 
 export declare namespace Filter {
-  type Attributes = {
+  export type Attributes = {
     filterId: string
     visible: boolean
     settings: Record<string, any>
   }
+
+  export type PatchableAttributes = Omit<Attributes, 'filterId'>
+
+  // export class ContentInHereMark {
+  //   public static id: '@paplico/internal-filters/content-in-here-mark'
+  // }
 }
 
 type Events = {
@@ -19,19 +25,22 @@ export class Filter
   extends Emitter<Events>
   implements ISilkDOMElement, Filter.Attributes
 {
+  public static readonly patchableAttributes: readonly (keyof Filter.Attributes)[] =
+    Object.freeze(['visible', 'settings'])
+
   public uid: string = `filter-${v4()}`
   public filterId: string = ''
 
   public visible: boolean = true
   public settings: Record<string, any> = {}
 
-  public static create({
+  public static create<FiterSettingType = Record<string, any>>({
     filterId,
     settings,
     visible = true,
   }: {
     filterId: string
-    settings: Record<string, any>
+    settings: FiterSettingType
     visible?: boolean
   }) {
     return assign(new Filter(), { filterId, settings, visible })
@@ -56,11 +65,5 @@ export class Filter
       filterId: this.filterId,
       setttings: deepClone(this.settings),
     }
-  }
-}
-
-export namespace Filter {
-  export class ContentInHereMark {
-    public static id: '@paplico/internal-filters/content-in-here-mark'
   }
 }

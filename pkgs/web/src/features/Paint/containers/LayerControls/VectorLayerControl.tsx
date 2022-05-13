@@ -339,6 +339,11 @@ export const VectorLayerControl = () => {
       if (!activeLayerPath || !the(currentTool).in('cursor', 'point-cursor'))
         return
 
+      if (e.touches > 2) {
+        trsnCommand.cancel()
+        return
+      }
+
       const objectUid = (event.target as SVGPathElement).dataset.objectUid!
 
       trsnCommand.autoStartAndDoAdd(
@@ -480,6 +485,8 @@ export const VectorLayerControl = () => {
   if (!currentDocument) return null
   if (!activeLayer.visible || activeLayer.lock) return null
 
+  const zoom = 1 / canvasScale
+
   const skipHoverEffect =
     vectorStroking || the(currentTool).in('draw', 'erase', 'shape-pen')
 
@@ -523,7 +530,7 @@ export const VectorLayerControl = () => {
           <path
             css={`
               stroke: transparent;
-              stroke-width: 4;
+              stroke-width: ${4 * zoom};
               fill: none;
               pointer-events: none;
               shape-rendering: optimizeSpeed;
@@ -544,7 +551,7 @@ export const VectorLayerControl = () => {
           <path
             css={`
               stroke: transparent;
-              stroke-width: 8;
+              stroke-width: ${8 * zoom};
               fill: none;
               pointer-events: visiblePainted;
               shape-rendering: optimizeSpeed;
@@ -1074,7 +1081,7 @@ const PathSegments = ({
   //   onHoverStateChange({ hovering: e.hovering, objectId: object.uid })
   // })
 
-  const zoom = Math.max(1 / scale, 1)
+  const zoom = 1 / scale
 
   const pathSegments = useDeepCompareMemo(() => {
     return object.path

@@ -1,7 +1,8 @@
 import { Document, LayerTypes } from '../../DOM'
 import { IRenderStrategy } from './IRenderStrategy'
 import { PaplicoEngine } from '../Engine3'
-import { assign, deepClone, setCanvasSize } from '../../utils'
+import { setCanvasSize } from '../../utils'
+import { deepClone } from '../../utils/object'
 import { createContext2D } from '../../Engine3_CanvasFactory'
 import { PapDOMDigger } from '../../PapDOMDigger'
 

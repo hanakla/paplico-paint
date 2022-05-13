@@ -45,9 +45,9 @@ export class AtomicResource<T> {
   }): Promise<T | null> {
     return Promise.race([
       this.enjure({ owner }),
-      new Promise<null>((r) => {
-        setTimeout(() => r(null), timeout)
-      }),
+      // new Promise<null>((r) => {
+      //   setTimeout(() => r(null), timeout)
+      // }),
     ])
   }
 

@@ -1,6 +1,7 @@
 import { ReactNode } from 'react'
 import { css } from 'styled-components'
 import { centering } from '🙌/utils/mixins'
+import { tm } from '../utils/theme'
 
 type Props = {
   className?: string
@@ -33,7 +34,7 @@ export const SidebarPane = ({
         flex: 1;
 
         & + & {
-          border-top: 1px solid ${({ theme }) => theme.exactColors.blackFade30};
+          ${tm((o) => [o.border.default.top])}
         }
       `}
     >
@@ -42,9 +43,7 @@ export const SidebarPane = ({
           position: relative;
           display: flex;
           padding: 6px;
-
-          border-bottom: 1px solid
-            ${({ theme }) => theme.exactColors.blackFade30};
+          ${tm((o) => [o.border.default.bottom])}
         `}
       >
         {heading}

@@ -1,29 +1,32 @@
+import * as jsondiff from 'jsondiffpatch'
 import { PapDOMDigger } from '../../PapDOMDigger'
 import { ICommand } from '../ICommand'
 import { Document, VectorObject } from '../../DOM'
-import { assign, pick } from '../../utils'
+import { assign, deepClone, pick } from '../../utils/object'
+
+type Patcher = (attr: VectorObject.Attributes) => void
 
 export class VectorObjectPatchAttr implements ICommand {
   public readonly name = 'VectorObjectPatchAttr'
 
-  private patch: Partial<VectorObject.Attributes> = {}
+  private patcher: (attrs: VectorObject.PatchableAttributes) => void
   private pathToTargetLayer: string[]
   private targetObjectUid: string
 
-  private revertPatch: Partial<VectorObject.Attributes> = {}
+  private jsonDelta!: jsondiff.Delta
 
   constructor({
-    patch,
     pathToTargetLayer,
     objectUid,
+    patcher,
   }: {
-    patch: Partial<VectorObject.Attributes>
     pathToTargetLayer: string[]
     objectUid: string
+    patcher: (attrs: VectorObject.PatchableAttributes) => void
   }) {
-    this.patch = patch
     this.pathToTargetLayer = pathToTargetLayer
     this.targetObjectUid = objectUid
+    this.patcher = patcher
   }
 
   async do(document: Document) {
@@ -36,34 +39,38 @@ export class VectorObjectPatchAttr implements ICommand {
       }
     )
 
-    this.revertPatch = pick(
-      object as VectorObject.Attributes,
-      Object.keys(this.patch) as any
-    )
+    const original = deepClone(pick(object, VectorObject.patchableAttributes))
+    const next = deepClone(original)
+    this.patcher(next)
 
-    object.update((l) => assign(l, this.patch))
+    this.jsonDelta = jsondiff.diff(original, next)!
+    object.update((obj) => jsondiff.patch(obj, this.jsonDelta))
   }
 
   async undo(document: Document): Promise<void> {
-    PapDOMDigger.findObjectInLayer(
+    const obj = PapDOMDigger.findObjectInLayer(
       document,
       this.pathToTargetLayer,
       this.targetObjectUid,
       {
         strict: true,
       }
-    )!.update((l) => assign(l, this.revertPatch))
+    )
+
+    obj.update((obj) => assign(obj, jsondiff.unpatch(obj, this.jsonDelta)))
   }
 
   async redo(document: Document): Promise<void> {
-    PapDOMDigger.findObjectInLayer(
+    const obj = PapDOMDigger.findObjectInLayer(
       document,
       this.pathToTargetLayer,
       this.targetObjectUid,
       {
         strict: true,
       }
-    )!.update((l) => assign(l, this.patch))
+    )
+
+    obj.update((obj) => jsondiff.patch(obj, this.jsonDelta))
   }
 
   get effectedLayers(): string[][] {

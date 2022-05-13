@@ -162,20 +162,27 @@ export class WebGLContext {
     input: TexImageSource,
     output: HTMLCanvasElement | OffscreenCanvas,
     {
-      sourceTextureClamp = 'clampToEdge',
-      sourceTexFilter = 'linear',
+      // sourceTextureClamp = 'clampToEdge',
+      // sourceTexFilter = 'linear',
+      outputSize,
       clear = false,
     }: {
-      sourceTextureClamp?: WebGLContext.TextureClamp
-      sourceTexFilter?: WebGLContext.TextureFilter
+      // sourceTextureClamp?: WebGLContext.TextureClamp
+      // sourceTexFilter?: WebGLContext.TextureFilter
+      outputSize?: { width: number; height: number }
       clear?: boolean
     } = {}
   ) {
     const { gl } = this
 
     // Initialize
-    setCanvasSize(this.gl.canvas, output)
-    gl.viewport(0, 0, output.width, output.height)
+    setCanvasSize(this.gl.canvas, outputSize ?? output)
+    gl.viewport(
+      0,
+      0,
+      outputSize?.width ?? output.width,
+      outputSize?.height ?? output.height
+    )
 
     gl.enable(gl.BLEND)
     gl.blendFuncSeparate(
@@ -218,22 +225,27 @@ export class WebGLContext {
       gl.texParameteri(
         gl.TEXTURE_2D,
         gl.TEXTURE_MIN_FILTER,
-        getTextureFilterValue(gl, sourceTexFilter, 'min')!
+        // getTextureFilterValue(gl, sourceTexFilter, 'min')!,
+        gl.LINEAR
       )
       gl.texParameteri(
         gl.TEXTURE_2D,
         gl.TEXTURE_MAG_FILTER,
-        getTextureFilterValue(gl, sourceTexFilter, 'mag')!
+        // getTextureFilterValue(gl, sourceTexFilter, 'mag')!,
+        gl.LINEAR
       )
+
       gl.texParameteri(
         gl.TEXTURE_2D,
         gl.TEXTURE_WRAP_S,
-        getTextureClampValue(gl, sourceTextureClamp, 'x')
+        // getTextureClampValue(gl, sourceTextureClamp, 'x'),
+        gl.CLAMP_TO_EDGE
       )
       gl.texParameteri(
         gl.TEXTURE_2D,
         gl.TEXTURE_WRAP_T,
-        getTextureClampValue(gl, sourceTextureClamp, 'y')
+        // getTextureClampValue(gl, sourceTextureClamp, 'y'),
+        gl.CLAMP_TO_EDGE
       )
 
       const sourceLoc = gl.getUniformLocation(prog, 'source')
@@ -307,17 +319,13 @@ export class WebGLContext {
 
     textures.forEach((tex) => tex && gl.deleteTexture(tex))
 
-    const tmp = createContext2D()
-    setCanvasSize(tmp.canvas, output)
-    tmp.drawImage(this.gl.canvas, 0, 0)
-
     saveAndRestoreCanvas(output.getContext('2d')!, (outCtx) => {
       // console.log('hi')
       outCtx.globalCompositeOperation = 'source-over'
       clear && outCtx.clearRect(0, 0, output.width, output.height)
       clear && (outCtx.fillStyle = 'rgba(255,255,255,0)')
       clear && outCtx.fillRect(0, 0, output.width, output.height)
-      outCtx.drawImage(tmp.canvas, 0, 0)
+      outCtx.drawImage(this.gl.canvas, 0, 0, output.width, output.height)
     })
   }
 

@@ -2,28 +2,50 @@ import { v4 } from 'uuid'
 
 import { LayerTypes } from './index'
 import { Emitter } from '../Engine3_Emitter'
-import { assign } from '../utils'
+import { assign, pick } from '../utils/object'
 import { deserializeLayer } from './desrializeLayer'
 import { Filter } from './Filter'
 import { CompositeMode, ILayer, LayerEvents } from './ILayer'
+import * as featureTag from './internal/featureTag'
 
 type Events = LayerEvents<GroupLayer> & {
   layersChanged: void
 }
 
-type SubLayerTypes = Exclude<LayerTypes, GroupLayer>
+export declare namespace GroupLayer {
+  export type Attributes = ILayer.Attributes & {
+    compositeIsolation: boolean
+    layers: LayerTypes[]
+  }
+
+  export type PatchableAttributes = Omit<
+    GroupLayer.Attributes,
+    'uid' | 'layerType' | 'layers'
+  >
+}
 
 export class GroupLayer extends Emitter<Events> implements ILayer {
+  public static readonly patchableAttributes: readonly (keyof GroupLayer.PatchableAttributes)[] =
+    Object.freeze([
+      'name',
+      'visible',
+      'lock',
+      'compositeMode',
+      'opacity',
+      'x',
+      'y',
+      'features',
+
+      'compositeIsolation',
+    ])
+
   public static create({
-    name = '',
     layers = [],
-  }: {
-    name?: string
-    layers?: SubLayerTypes[]
-  }) {
+    ...attrs
+  }: Partial<GroupLayer.PatchableAttributes> & { layers?: LayerTypes[] }) {
     return assign(new GroupLayer(), {
-      name,
       layers,
+      ...pick(attrs, GroupLayer.patchableAttributes),
     })
   }
 
@@ -33,15 +55,23 @@ export class GroupLayer extends Emitter<Events> implements ILayer {
   public name: string = ''
   public visible: boolean = true
   public lock: boolean = false
-  public compositeIsolation: boolean = false
+
   public compositeMode: CompositeMode = 'normal'
   public opacity: number = 100
   public x: number = 0
   public y: number = 0
 
+  /**
+   * When compositeIsolation is true, Renderresult will aggregate to isolated new buffer and composite it to destination
+   * Otherwise, Each layer render result will be composited to destination directory
+   */
+  public compositeIsolation: boolean = true
+
+  public readonly features = Object.create(null)
+
   /** Compositing "next on current" */
-  public layers: SubLayerTypes[] = []
-  public filters: Filter[] = []
+  public readonly layers: LayerTypes[] = []
+  public readonly filters: Filter[] = []
 
   public static deserialize(obj: any) {
     return assign(new GroupLayer(), {
@@ -60,6 +90,11 @@ export class GroupLayer extends Emitter<Events> implements ILayer {
   protected constructor() {
     super()
   }
+
+  public hasFeature = featureTag.hasFeature
+  public enableFeature = featureTag.enableFeature
+  public getFeatureSetting = featureTag.getFeatureSetting
+  public patchFeatureSetting = featureTag.patchFeatureSetting
 
   public get width() {
     return 0
@@ -91,6 +126,7 @@ export class GroupLayer extends Emitter<Events> implements ILayer {
       y: this.y,
       layers: this.layers.map((l) => l.serialize()),
       filters: this.filters.map((f) => f.serialize()),
+      features: this.features,
     }
   }
 

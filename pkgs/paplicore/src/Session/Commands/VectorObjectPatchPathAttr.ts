@@ -1,7 +1,7 @@
 import { PapDOMDigger } from '../../PapDOMDigger'
 import { ICommand } from '../ICommand'
 import { Document, Path } from '../../DOM'
-import { assign, pick } from '../../utils'
+import { assign, pick } from '../../utils/object'
 
 export class VectorObjectPatchPathAttr implements ICommand {
   public readonly name = 'VectorObjectPatchPathAttr'

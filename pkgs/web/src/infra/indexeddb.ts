@@ -8,7 +8,7 @@ interface PaplicoWebDBSchama extends DBSchema {
       title: string
       bin: Blob
       hasSavedOnce: boolean
-      thumbnail: Blob
+      thumbnail: Blob | null
       updatedAt: Date
     }
     indexes?: {

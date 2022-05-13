@@ -7,6 +7,7 @@ export class DisableOnInputPointerSensor extends PointerSensor {
     {
       eventName: 'onPointerDown' as const,
       handler: ({ nativeEvent: event }: PointerEvent<Element>) => {
+        console.log('pointerDown', event, event.target)
         return !DOMUtils.closestOrSelf(
           event.target,
           'input, textarea, selectbox'

@@ -1,9 +1,11 @@
 import * as THREE from 'three'
 import mitt, { Emitter } from 'mitt'
+import AggregateError from 'es-aggregate-error'
 
 import { Brush, ScatterBrush } from '../Brushes'
 import { Document, LayerTypes, Path, VectorLayer } from '../DOM'
-import { deepClone, mergeToNew, setCanvasSize, debounce } from '../utils'
+import { setCanvasSize, debounce } from '../utils'
+import { deepClone } from '../utils/object'
 import { CurrentBrushSetting as _CurrentBrushSetting } from './CurrentBrushSetting'
 import { IRenderStrategy } from './RenderStrategy/IRenderStrategy'
 import { ToolRegistry } from './Engine3_ToolRegistry'
@@ -28,18 +30,22 @@ import { LowResoFilter } from '../Filters/LowReso'
 import { OutlineFilter } from '../Filters/Outline'
 import { ZoomBlurFilter } from '../Filters/ZoomBlur'
 import { KawaseBlurFilter } from '../Filters/KawaseBlur'
+import { UVReplaceFilter } from '../Filters/UVReplace'
 import { nanoid } from 'nanoid'
 import {
   logGroup,
   logGroupCollapsed,
   logGroupEnd,
+  logImage,
   logTime,
   logTimeEnd,
+  timeSumming,
 } from '../DebugHelper'
-import { saveAndRestoreCanvas } from '../utils/canvas'
+import { makeReadOnlyCanvas, saveAndRestoreCanvas } from '../utils/canvas'
 
 type EngineEvents = {
   rerender: void
+  renderError: AggregateError
   activeLayerChanged: void
 }
 
@@ -57,17 +63,19 @@ export class PaplicoEngine {
     await Promise.all([
       engine.toolRegistry.registerBrush(Brush),
       engine.toolRegistry.registerBrush(ScatterBrush),
+
       engine.toolRegistry.registerFilter(BloomFilter),
       engine.toolRegistry.registerFilter(GlitchJpegFilter),
       engine.toolRegistry.registerFilter(GaussBlurFilter),
       engine.toolRegistry.registerFilter(ChromaticAberrationFilter),
       engine.toolRegistry.registerFilter(HalftoneFilter),
-      // engine.toolRegistry.registerFilter(NoiseFilter),
+      engine.toolRegistry.registerFilter(NoiseFilter),
       engine.toolRegistry.registerFilter(BinarizationFilter),
       engine.toolRegistry.registerFilter(LowResoFilter),
       engine.toolRegistry.registerFilter(OutlineFilter),
       engine.toolRegistry.registerFilter(ZoomBlurFilter),
       engine.toolRegistry.registerFilter(KawaseBlurFilter),
+      engine.toolRegistry.registerFilter(UVReplaceFilter),
     ])
 
     return engine
@@ -131,10 +139,10 @@ export class PaplicoEngine {
 
   public toolRegistry: ToolRegistry
 
-  public static layerBitmapCache: WeakMap<
-    Document,
-    { [layerId: string]: any }
-  > = new WeakMap()
+  // public static layerBitmapCache: WeakMap<
+  //   Document,
+  //   { [layerId: string]: any }
+  // > = new WeakMap()
 
   protected constructor({ canvas }: { canvas: HTMLCanvasElement }) {
     this.canvas = canvas
@@ -155,7 +163,7 @@ export class PaplicoEngine {
 
     const renderer = new THREE.WebGLRenderer({
       alpha: true,
-      premultipliedAlpha: true,
+      premultipliedAlpha: false,
       antialias: true,
       preserveDrawingBuffer: true,
       canvas: createCanvas() as HTMLCanvasElement,
@@ -191,15 +199,15 @@ export class PaplicoEngine {
     })
   }
 
-  public setCachedBitmap(document: Document, layerId: string) {
-    const caches = PaplicoEngine.layerBitmapCache.get(document) ?? {}
-    caches[layerId] = {}
-    return PaplicoEngine.layerBitmapCache.set(document, caches)
-  }
+  // public setCachedBitmap(document: Document, layerId: string) {
+  //   const caches = PaplicoEngine.layerBitmapCache.get(document) ?? {}
+  //   caches[layerId] = {}
+  //   return PaplicoEngine.layerBitmapCache.set(document, caches)
+  // }
 
-  public getCachedBitmap(document: Document, layerId: string) {
-    return PaplicoEngine.layerBitmapCache.get(document)?.[layerId]
-  }
+  // public getCachedBitmap(document: Document, layerId: string) {
+  //   return PaplicoEngine.layerBitmapCache.get(document)?.[layerId]
+  // }
 
   public lazyRender = debounce(
     (document: Document, strategy: IRenderStrategy) => {
@@ -216,6 +224,7 @@ export class PaplicoEngine {
       lazy = false,
     }: { target?: CanvasRenderingContext2D | null; lazy?: boolean } = {}
   ) {
+    const errors: Error[] = []
     const rid = nanoid()
     const lock = await (lazy
       ? this.atomicRender.enjure({ owner: this })
@@ -266,6 +275,13 @@ export class PaplicoEngine {
       )
       logGroupEnd()
       logTimeEnd('Essential render')
+
+      if (errors.length > 0) {
+        this.mitt.emit(
+          'renderError',
+          new AggregateError(errors, 'Caught errors in rendering process')
+        )
+      }
 
       if (target === this.canvasCtx) {
         this.mitt.emit('rerender')
@@ -347,9 +363,17 @@ export class PaplicoEngine {
     brushSetting: BrushSetting,
     ink: IInk,
     path: Path,
-    destCtx: CanvasRenderingContext2D
+    destCtx: CanvasRenderingContext2D,
+    {
+      hintInput,
+    }: {
+      hintInput?: CanvasImageSource | null
+    }
   ) {
     if (path.points.length < 1) return
+
+    const perf_clonePath = timeSumming('clonePath', '👥')
+    const perf_freezePath = timeSumming('freezePath', '🧊')
 
     const lock = await this.atomicStrokeRender.enjure({ owner: this })
     const brush = this.toolRegistry.getBrushInstance(brushSetting.brushId)
@@ -372,6 +396,14 @@ export class PaplicoEngine {
     this.camera.bottom = -destCtx.canvas.height / 2.0
     this.camera.updateProjectionMatrix()
 
+    perf_clonePath.time()
+    path = path.clone()
+    perf_clonePath.timeEnd({ points: path.points.length })
+
+    perf_freezePath.time()
+    path.freeze()
+    perf_freezePath.timeEnd({ points: path.points.length })
+
     destCtx.save()
     try {
       logTime(`essential stroke render`)
@@ -381,7 +413,8 @@ export class PaplicoEngine {
         threeRenderer: renderer,
         threeCamera: this.camera,
         ink: ink,
-        path: path,
+        path,
+        hintInput: hintInput ?? null,
         destSize: {
           width: destCtx.canvas.width,
           height: destCtx.canvas.height,
@@ -389,6 +422,9 @@ export class PaplicoEngine {
       })
       logTimeEnd('essential stroke render')
     } finally {
+      perf_clonePath.log()
+      perf_freezePath.log()
+
       destCtx.restore()
 
       this.atomicThreeRenderer.release(renderer)
@@ -411,7 +447,7 @@ export class PaplicoEngine {
     layer: VectorLayer,
     dest?: CanvasRenderingContext2D
   ): Promise<Uint8ClampedArray | void> {
-    logGroup('renderVectorLayer()')
+    logGroup(`renderVectorLayer(): ${layer.uid}`)
 
     const { width, height } = document
     logTime('ensureBuffer for vector')
@@ -423,14 +459,17 @@ export class PaplicoEngine {
       bufferCtx.clearRect(0, 0, width, height)
 
       for (const object of [...layer.objects].reverse()) {
+        // console.log({ visible: object.visible })
         if (!object.visible) continue
 
         bufferCtx.save()
+
         bufferCtx.globalCompositeOperation = 'source-over'
         bufferCtx.transform(...object.matrix)
 
         if (object.fill) {
           bufferCtx.beginPath()
+
           const start = object.path.points[0]
           bufferCtx.moveTo(start.x, start.y)
 
@@ -517,7 +556,8 @@ export class PaplicoEngine {
             object.brush,
             new PlainInk(),
             object.path,
-            bufferCtx
+            bufferCtx,
+            { hintInput: bufferCtx.canvas }
           )
 
           logTimeEnd('renderPath')

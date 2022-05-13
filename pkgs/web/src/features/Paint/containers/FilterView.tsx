@@ -2,7 +2,7 @@ import { Add, ArrowDownS } from '@styled-icons/remix-line'
 import { Eye, EyeClose } from '@styled-icons/remix-fill'
 import { useTranslation } from 'next-i18next'
 import { rgba } from 'polished'
-import { memo, MouseEvent } from 'react'
+import { memo, MouseEvent, useState } from 'react'
 import { useClickAway, useToggle } from 'react-use'
 import { useTheme } from 'styled-components'
 import { css } from 'styled-components'
@@ -47,7 +47,7 @@ import { useLayerWatch } from '../hooks'
 import { DisableOnInputPointerSensor } from '../dndkit-helper'
 import { pick } from '../../../utils/object'
 import { DragDots } from '../../../components/icons/DragDots'
-import { ThemeProp } from '../../../utils/theme'
+import { ThemeProp, tm } from '../../../utils/theme'
 
 export const FilterView = memo(() => {
   const { t } = useTranslation('app')
@@ -64,6 +64,8 @@ export const FilterView = memo(() => {
   useLayerWatch(activeLayer)
 
   const [listOpened, toggleListOpened] = useToggle(false)
+  const [sortingFilterUid, setSortingFilterUid] = useState<string | null>(null)
+
   const listfl = useFloating({
     placement: 'bottom-end',
     strategy: 'fixed',
@@ -86,8 +88,6 @@ export const FilterView = memo(() => {
 
       if (!activeLayerPath) return
 
-      console.log({ activeLayerPath })
-
       const filterId = currentTarget.dataset.filterId!
       const filter = EditorSelector.getFilterInstance(getStore, filterId)
       if (!filter) return
@@ -104,6 +104,10 @@ export const FilterView = memo(() => {
       )
     }
   )
+
+  const handleFilterSortStart = useFunk(({ active }: DragEndEvent) => {
+    setSortingFilterUid(active.id)
+  })
 
   const handleFilterSortEnd = useFunk(({ active, over }: DragEndEvent) => {
     if (!activeLayer || !activeLayerPath || !over) return
@@ -185,18 +189,29 @@ export const FilterView = memo(() => {
           </div>
         </>
       }
-      container={(children) => children}
+      container={(children) => (
+        <div
+          css={`
+            display: flex;
+            flex-flow: column;
+            flex: 1;
+          `}
+        >
+          {children}
+        </div>
+      )}
     >
       <div
         css={`
-          overflow: hidden;
+          display: flex;
+          flex: 1;
+          flex-flow: column;
+          overflow: auto;
+          /* background-color: ${({ theme }: ThemeProp) =>
+            theme.exactColors.blackFade20}; */
         `}
       >
-        <div
-          css={`
-            overflow: auto;
-          `}
-        >
+        <div>
           {activeLayer && (
             <DndContext
               collisionDetection={closestCenter}
@@ -204,6 +219,7 @@ export const FilterView = memo(() => {
                 restrictToVerticalAxis,
                 restrictToFirstScrollableAncestor,
               ]}
+              onDragStart={handleFilterSortStart}
               onDragEnd={handleFilterSortEnd}
               sensors={sensors}
             >
@@ -214,6 +230,19 @@ export const FilterView = memo(() => {
                 {activeLayer.filters.map((filter) => (
                   <FilterItem layer={activeLayer} filter={filter} />
                 ))}
+
+                {/* <DragOverlay>
+                  {sortingFilterUid && (
+                    <FilterItem
+                      layer={activeLayer}
+                      filter={
+                        activeLayer.filters.find(
+                          (f) => f.uid === sortingFilterUid
+                        )!
+                      }
+                    />
+                  )}
+                </DragOverlay> */}
               </SortableContext>
             </DndContext>
           )}
@@ -302,6 +331,10 @@ const FilterItem = memo(function FilterItem({
         display: flex;
         flex-wrap: wrap;
         color: ${({ theme }) => theme.text.white};
+
+        & + & {
+          ${tm((o) => [o.border.default.top])}
+        }
       `}
       onClick={handleClick}
       onDoubleClick={handleDoubleClick}
@@ -387,9 +420,10 @@ const FilterItem = memo(function FilterItem({
         `}
       />
 
-      {propsOpened && !isDragging && (
+      {propsOpened && (
         <div
           css={`
+            width: 100%;
             padding: 8px;
             padding-left: 24px;
           `}

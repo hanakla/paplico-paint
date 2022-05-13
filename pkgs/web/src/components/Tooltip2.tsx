@@ -7,28 +7,34 @@ import {
   Strategy,
 } from '@floating-ui/react-dom'
 import { nanoid } from 'nanoid'
-import { ReactNode, useEffect, useMemo, useRef } from 'react'
+import { ReactNode, useEffect, useMemo, useRef, useState } from 'react'
+import { useMount, useMountedState } from 'react-use'
 import { createGlobalStyle, css } from 'styled-components'
+import { useAutoUpdateFloating } from '../utils/hooks'
+import { Portal } from './Portal'
 
 type Props = {
-  content: ReactNode
-  children?: ReactNode
+  children: ReactNode
   show?: boolean
   hoverToShow?: boolean
   placement?: Placement
   strategy?: Strategy
+  usePortal?: boolean
 }
 
 export const Tooltip2 = ({
-  content,
   children,
   show,
   hoverToShow = true,
   placement = 'top',
   strategy = 'fixed',
+  usePortal,
 }: Props) => {
   const id = useMemo(() => nanoid().replace(/-/gm, ''), [])
+  const inspectRef = useRef<HTMLElement | null>(null)
   const arrowRef = useRef<HTMLDivElement | null>(null)
+  const isMounted = useMountedState()
+  const [parentHover, setParentHover] = useState(false)
 
   const fl = useFloating({
     placement,
@@ -44,17 +50,28 @@ export const Tooltip2 = ({
   })
 
   useEffect(() => {
-    fl.reference(fl.refs.floating.current!.parentElement)
-    if (!fl.refs.reference.current! || !fl.refs.floating.current!) return
+    if (!inspectRef.current?.parentElement) return
 
-    autoUpdate(
-      fl.refs.reference.current!,
-      fl.refs.floating.current!,
-      fl.update!
-    )
-  }, [fl.refs.reference.current, fl.refs.floating.current])
+    const parent = inspectRef.current.parentElement
 
-  return (
+    const onHover = () => setParentHover(true)
+    const onLeaver = () => setParentHover(false)
+
+    parent.addEventListener('mouseover', onHover, { passive: true })
+    parent.addEventListener('mouseleave', onLeaver, { passive: true })
+
+    fl.reference(parent)
+    fl.update()
+
+    return () => {
+      parent.removeEventListener('mouseover', onHover)
+      parent.removeEventListener('mouseleave', onLeaver)
+    }
+  }, [fl.refs.floating, isMounted])
+
+  useAutoUpdateFloating(fl)
+
+  const tooltip = (
     <>
       <div
         css={`
@@ -105,19 +122,29 @@ export const Tooltip2 = ({
             position: relative;
           `}
         >
-          {content}
+          {children}
         </span>
       </div>
-      <Global id={id} show={show} hoverToShow={hoverToShow} />
+      <Global id={id} show={show || parentHover} hoverToShow={hoverToShow} />
+    </>
+  )
 
-      {children}
+  return (
+    <>
+      <span
+        ref={inspectRef}
+        css={`
+          display: none;
+        `}
+      />
+      {usePortal ? <Portal displayName="Tooltip2">{tooltip}</Portal> : tooltip}
     </>
   )
 }
 
 const Global = createGlobalStyle<{
   id: string
-  show: boolean
+  show?: boolean
   hoverToShow: boolean
 }>`
 * > [data-tipid="${({ id }) => id}"] {

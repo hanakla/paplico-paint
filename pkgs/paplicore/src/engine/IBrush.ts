@@ -8,10 +8,17 @@ export type BrushContext<T = unknown> = {
   context: CanvasRenderingContext2D
   threeRenderer: WebGLRenderer
   threeCamera: Camera
+  /** Input path. this is cloned and freezed */
   path: Path
   ink: IInk
   brushSetting: CurrentBrushSetting & { specific: Partial<T> | null }
+  /** Expected destination canvas size */
   destSize: { width: number; height: number }
+  /**
+   * Hint for mixing color, it's contains back layers buffer of rendering stroke.
+   * This canvas is readonly.
+   */
+  hintInput: CanvasImageSource | null
 }
 
 export interface BrushClass {

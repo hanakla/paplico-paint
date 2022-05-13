@@ -29,7 +29,7 @@ export class LayerDuplicate implements ICommand {
       const [layerUid] = this.pathToSourceLayer.slice(-1)
       const index = l.layers.findIndex((l) => l.uid === layerUid)
 
-      l.layers.splice(index + 1, 0, this.cloned)
+      l.layers.splice(index + 1, 0, this.cloned!)
     })
   }
 
@@ -43,7 +43,7 @@ export class LayerDuplicate implements ICommand {
     )!
 
     parent.update((l) => {
-      const idx = l.layers.findIndex((l) => l.uid === this.cloned.uid)!
+      const idx = l.layers.findIndex((l) => l.uid === this.cloned!.uid)!
       l.layers.splice(idx, 1)
       this.cloned = null
     })

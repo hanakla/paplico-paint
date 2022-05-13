@@ -1,29 +1,37 @@
-import {
-  ILayer,
-  LayerEvents,
-  LayerProperties as LayerAttributes,
-} from './ILayer'
+import { ILayer, LayerEvents } from './ILayer'
 import { v4 } from 'uuid'
 import { VectorObject } from './VectorObject'
 import { Filter } from './Filter'
-import { assign } from '../utils'
+import { assign, pick } from '../utils/object'
 import { Emitter } from '../Engine3_Emitter'
-import { AtomicResource } from '../AtomicResource'
-import {
-  produceWithPatches,
-  createDraft,
-  current,
-  enablePatches,
-  finishDraft,
-  immerable,
-  applyPatches,
-  Patch,
-} from 'immer'
+import * as featureTag from './internal/featureTag'
 
 type Events = LayerEvents<VectorLayer>
 
+export declare namespace VectorLayer {
+  export type Attributes = ILayer.Attributes
+
+  export type PatchableAttributes = Omit<
+    Attributes,
+    'uid' | 'layerType' | 'width' | 'height'
+  >
+}
+
 export class VectorLayer extends Emitter<Events> implements ILayer {
-  private [immerable] = false
+  public static readonly patchableAttributes: readonly (keyof VectorLayer.PatchableAttributes)[] =
+    Object.freeze([
+      'name',
+      'visible',
+      'lock',
+      'compositeMode',
+      'opacity',
+
+      'x',
+      'y',
+
+      'features',
+    ])
+
   public readonly layerType = 'vector'
 
   public readonly uid: string = `vectorlayer-${v4()}`
@@ -41,6 +49,7 @@ export class VectorLayer extends Emitter<Events> implements ILayer {
   /** Compositing first to last (last is foreground) */
   public readonly objects: VectorObject[] = []
   public readonly filters: Filter[] = []
+  public readonly features = Object.create(null)
 
   /** Mark for re-rendering decision */
   protected _lastUpdatedAt = Date.now()
@@ -48,19 +57,15 @@ export class VectorLayer extends Emitter<Events> implements ILayer {
 
   public static create(
     attrs: Partial<
-      Omit<LayerAttributes, 'uid' | 'layerType' | 'width' | 'height'>
+      VectorLayer.PatchableAttributes & {
+        objects: VectorObject[]
+      }
     >
   ) {
-    const layer = new VectorLayer()
-    layer.compositeMode = attrs.compositeMode ?? layer.compositeMode
-    layer.lock = attrs.lock ?? layer.lock
-    layer.name = attrs.name ?? layer.name
-    layer.opacity = attrs.opacity ?? layer.opacity
-    layer.visible = attrs.visible ?? layer.visible
-    layer.x = attrs.x ?? layer.x
-    layer.y = attrs.y ?? layer.y
-
-    return layer
+    return assign(
+      new VectorLayer(),
+      pick(attrs, VectorLayer.patchableAttributes)
+    )
   }
 
   public static deserialize(obj: any) {
@@ -75,12 +80,18 @@ export class VectorLayer extends Emitter<Events> implements ILayer {
       y: obj.y,
       objects: obj.objects.map((obj: any) => VectorObject.deserialize(obj)),
       filters: obj.filters.map((filter: any) => Filter.deserialize(filter)),
+      features: obj.features,
     })
   }
 
   protected constructor() {
     super()
   }
+
+  public hasFeature = featureTag.hasFeature
+  public enableFeature = featureTag.enableFeature
+  public getFeatureSetting = featureTag.getFeatureSetting
+  public patchFeatureSetting = featureTag.patchFeatureSetting
 
   public get lastUpdatedAt() {
     return this._lastUpdatedAt
@@ -138,6 +149,7 @@ export class VectorLayer extends Emitter<Events> implements ILayer {
       y: this.y,
       objects: this.objects.map((o) => o.serialize()),
       filters: this.filters.map((f) => f.serialize()),
+      features: this.features,
     }
   }
 

@@ -1,13 +1,35 @@
 import { v4 } from 'uuid'
 
 import { ILayer, LayerEvents } from './ILayer'
-import { assign } from '../utils'
+import { assign, pick } from '../utils/object'
 import { Filter } from './Filter'
 import { Emitter } from '../Engine3_Emitter'
+import * as featureTag from './internal/featureTag'
 
 type Events = LayerEvents<FilterLayer>
 
+export declare namespace FilterLayer {
+  export type Attributes = ILayer.Attributes
+
+  export type PatchableAttributes = Omit<
+    Attributes,
+    'uid' | 'layerType' | 'width' | 'height'
+  >
+}
+
 export class FilterLayer extends Emitter<Events> implements ILayer {
+  public static readonly patchableAttributes: readonly (keyof FilterLayer.PatchableAttributes)[] =
+    Object.freeze([
+      'name',
+      'visible',
+      'lock',
+      'compositeMode',
+      'opacity',
+      'x',
+      'y',
+      'features',
+    ])
+
   public readonly layerType = 'filter'
 
   public readonly uid: string = `filterlayer-${v4()}`
@@ -21,20 +43,22 @@ export class FilterLayer extends Emitter<Events> implements ILayer {
   public height: number = 0
   public x: number = 0
   public y: number = 0
-  public filters: Filter[] = []
+  public readonly filters: Filter[] = []
+  public readonly features = Object.create(null)
 
   /** Mark for re-rendering decision */
   protected _lastUpdatedAt = Date.now()
 
-  public static create(properties: {}) {
-    const layer = new FilterLayer()
-
-    assign(layer, {
+  public static create(
+    attrs: Partial<
+      Omit<ILayer.Attributes, 'uid' | 'layerType' | 'width' | 'height'>
+    >
+  ) {
+    return assign(new FilterLayer(), {
       width: 0,
       height: 0,
+      ...pick(attrs, FilterLayer.patchableAttributes),
     })
-
-    return layer
   }
 
   public static deserialize(obj: any) {
@@ -50,12 +74,18 @@ export class FilterLayer extends Emitter<Events> implements ILayer {
       x: obj.x,
       y: obj.y,
       filters: obj.filters.map((f: any) => Filter.deserialize(f)),
+      features: obj.features,
     })
   }
 
   protected constructor() {
     super()
   }
+
+  public hasFeature = featureTag.hasFeature
+  public enableFeature = featureTag.enableFeature
+  public getFeatureSetting = featureTag.getFeatureSetting
+  public patchFeatureSetting = featureTag.patchFeatureSetting
 
   public get lastUpdatedAt() {
     return this._lastUpdatedAt
@@ -81,6 +111,7 @@ export class FilterLayer extends Emitter<Events> implements ILayer {
       x: this.x,
       y: this.y,
       filters: this.filters.map((f) => f.serialize()),
+      features: this.features,
     }
   }
 

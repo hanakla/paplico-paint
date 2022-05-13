@@ -1,6 +1,6 @@
 import { useDrag, useGesture } from 'react-use-gesture'
 import useMeasure from 'use-measure'
-import { PapHelper, PapValue } from '@paplico/core'
+import { PapHelper, PapValueTypes } from '@paplico/core'
 import { deepClone } from '🙌/utils/clone'
 import {
   KeyboardEvent,
@@ -23,8 +23,8 @@ import { the } from '🙌/utils/anyOf'
 import { checkerBoard } from '🙌/utils/mixins'
 
 type Props = {
-  colorStops: PapValue.ColorStop[]
-  onChange: (colorStops: PapValue.ColorStop[]) => void
+  colorStops: PapValueTypes.ColorStop[]
+  onChange: (colorStops: PapValueTypes.ColorStop[]) => void
   onChangeSelectIndices: (indices: number[]) => void
 }
 
@@ -37,8 +37,8 @@ export const GradientSlider = ({
   const rect = useMeasure(rootRef)
 
   const [stops, setStops] = useBufferedState<
-    PapValue.ColorStop[],
-    (PapValue.ColorStop & { id: string })[]
+    PapValueTypes.ColorStop[],
+    (PapValueTypes.ColorStop & { id: string })[]
   >(colorStops, (stops) => {
     return stops.map((s) => Object.assign({}, s, { id: nanoid() }))
   })
@@ -214,7 +214,7 @@ export const GradientSlider = ({
 
 export const addColorStopAt = (
   pos: number,
-  colorStops: (PapValue.ColorStop & { id: string })[]
+  colorStops: (PapValueTypes.ColorStop & { id: string })[]
 ) => {
   const id = nanoid()
 

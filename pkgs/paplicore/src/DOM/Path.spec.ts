@@ -18,6 +18,32 @@ describe('Path', () => {
     })
   })
 
+  describe('getSequencialPointsReader', () => {
+    it('Returns to same value of uncached getPoint', () => {
+      const p = Path.create({
+        closed: false,
+        points: testComplexPoints(),
+      })
+
+      const reader = p.getSequencialPointsReader()
+
+      const pt = reader.getPointAt(0)
+      expect(pt.x).toBeCloseTo(p.getPointAt(0).x, 5)
+      expect(pt.y).toBeCloseTo(p.getPointAt(0).y, 5)
+      // console.log({ pt, original: p.getPointAt(0) })
+
+      const pt2 = reader.getPointAt(0.5)
+      expect(pt2.x).toBeCloseTo(p.getPointAt(0.5).x, 5)
+      expect(pt2.y).toBeCloseTo(p.getPointAt(0.5).y, 5)
+      // console.log({ pt2, original: p.getPointAt(0.5) })
+
+      const pt3 = reader.getPointAt(1)
+      expect(pt3.x).toBeCloseTo(p.getPointAt(1).x, 5)
+      expect(pt3.y).toBeCloseTo(p.getPointAt(1).y, 5)
+      // console.log({ pt2, original: p.getPointAt(0.5) })
+    })
+  })
+
   describe('simplify', () => {
     it('works', () => {
       const p = Path.create({

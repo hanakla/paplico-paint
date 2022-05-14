@@ -6,15 +6,17 @@ export const cachedPointAtLength = (path: string) => {
   const pal = point(path)
 
   const points = (pal as any)._path as [number, number][]
-  const lengthIndex: number[] =
+  const lengthCache: number[] =
     [] /** array of length, array index points to points */
-  const indexOfPoint: number[] = []
+  const pointsCache: { [indexOfLengthIndex: number]: [number, number] } =
+    Object.create(null) /** array of point */
+  const pointIndexOfLengthIndex: number[] = []
 
   const warmResult = walk(null, 0, true)
   const length = warmResult.length
 
   const atGetter = {
-    _index: lengthIndex,
+    _index: lengthCache,
     _points: points,
     at: (len: number, { hintIndexGTEq }: { hintIndexGTEq?: number } = {}) => {
       return atGetter.atWithDetail(len, { hintIndexGTEq }).pos as [
@@ -26,26 +28,27 @@ export const cachedPointAtLength = (path: string) => {
       len: number,
       { hintIndexGTEq }: { hintIndexGTEq?: number } = {}
     ) => {
-      if (hintIndexGTEq === undefined) {
-        return walk(len, hintIndexGTEq)
+      if (hintIndexGTEq != null) {
+        let a = walk(len, hintIndexGTEq)
+        return a
       }
 
-      const nearIdx = indexOfPoint[binarySearch(lengthIndex, len)]
+      const nearIdx = pointIndexOfLengthIndex[binarySearch(lengthCache, len)]
       return walk(len, nearIdx)
     },
     nearPointAtLength: (len: number) => {
-      const nearIndex = indexOfPoint[binarySearch(lengthIndex, len)]
+      const nearIndex = pointIndexOfLengthIndex[binarySearch(lengthCache, len)]
 
       return {
         index: nearIndex,
-        length: lengthIndex[nearIndex],
+        length: lengthCache[nearIndex],
         pos: points[nearIndex] as [x: number, y: number],
       }
     },
     lengthOfPoint: (idx: number) => {
       return {
         point: points[idx] as [x: number, y: number],
-        length: lengthIndex[idx],
+        length: lengthCache[idx],
       }
     },
     length: () => length,
@@ -56,20 +59,25 @@ export const cachedPointAtLength = (path: string) => {
   // SEE: https://github.com/substack/point-at-length/blob/master/index.js#L23
   // with indexing
   function walk(pos: number | undefined | null, fromIndex = 0, warm = false) {
-    var cur = [0, 0]
+    var cur = [
+      pointsCache[fromIndex]?.[0] ?? 0,
+      pointsCache[fromIndex]?.[1] ?? 0,
+    ]
+    var len = lengthCache[fromIndex] ?? 0
+
     var prev = [0, 0, 0]
     var p0 = [0, 0]
-    var len = 0
 
-    for (var i = fromIndex; i < (pal as any)._path.length; i++) {
+    for (var i = fromIndex, l = (pal as any)._path.length; i < l; i++) {
       var p = (pal as any)._path[i]
 
       if (p[0] === 'M') {
         cur[0] = p[1]
         cur[1] = p[2]
 
-        warm && indexOfPoint.push(i)
-        warm && lengthIndex.push(len)
+        warm && pointIndexOfLengthIndex.push(i)
+        warm && lengthCache.push(len)
+        warm && (pointsCache[i] = [cur[0], cur[1]])
 
         if (pos === 0) {
           return { length: len, pos: cur, lastIndex: i }
@@ -78,6 +86,10 @@ export const cachedPointAtLength = (path: string) => {
         prev[0] = p0[0] = cur[0]
         prev[1] = p0[1] = cur[1]
         prev[2] = len
+
+        warm && pointIndexOfLengthIndex.push(i)
+        warm && lengthCache.push(len)
+        warm && (pointsCache[i] = [cur[0], cur[1]])
 
         var n = 100
         for (var j = 0; j <= n; j++) {
@@ -91,6 +103,7 @@ export const cachedPointAtLength = (path: string) => {
 
           if (typeof pos === 'number' && len >= pos) {
             var dv = (len - pos) / (len - prev[2])
+            dv = Number.isNaN(dv) ? 0 : dv
 
             var npos = [
               cur[0] * (1 - dv) + prev[0] * dv,
@@ -99,17 +112,19 @@ export const cachedPointAtLength = (path: string) => {
 
             return { length: len, pos: npos, lastIndex: i }
           }
+
           prev[0] = cur[0]
           prev[1] = cur[1]
           prev[2] = len
         }
-
-        warm && indexOfPoint.push(i)
-        warm && lengthIndex.push(len)
       } else if (p[0] === 'Q') {
         prev[0] = p0[0] = cur[0]
         prev[1] = p0[1] = cur[1]
         prev[2] = len
+
+        warm && (pointsCache[i] = [cur[0], cur[1]])
+        warm && pointIndexOfLengthIndex.push(i)
+        warm && lengthCache.push(len)
 
         var n = 100
         for (var j = 0; j <= n; j++) {
@@ -135,9 +150,6 @@ export const cachedPointAtLength = (path: string) => {
           prev[1] = cur[1]
           prev[2] = len
         }
-
-        warm && indexOfPoint.push(i)
-        warm && lengthIndex.push(len)
       } else if (p[0] === 'L') {
         prev[0] = cur[0]
         prev[1] = cur[1]
@@ -146,6 +158,10 @@ export const cachedPointAtLength = (path: string) => {
         len += dist(cur[0], cur[1], p[1], p[2])
         cur[0] = p[1]
         cur[1] = p[2]
+
+        warm && (pointsCache[i] = [cur[0], cur[1]])
+        warm && pointIndexOfLengthIndex.push(i)
+        warm && lengthCache.push(len)
 
         if (typeof pos === 'number' && len >= pos) {
           var dv = (len - pos) / (len - prev[2])
@@ -159,13 +175,11 @@ export const cachedPointAtLength = (path: string) => {
         prev[0] = cur[0]
         prev[1] = cur[1]
         prev[2] = len
-
-        warm && indexOfPoint.push(i)
-        warm && lengthIndex.push(len)
       }
     }
 
-    warm && lengthIndex.push(len)
+    warm && lengthCache.push(len)
+
     return { length: len, pos: cur, lastIndex: i }
 
     function xof_C(p: number[], t: number) {
@@ -192,7 +206,7 @@ export const cachedPointAtLength = (path: string) => {
     }
 
     function xof_Q(p: number[], t: number) {
-      const _ = 1 - 5
+      const _ = 1 - t
       return (
         // prettier-ignore
         (_ * _) * p0[0] +

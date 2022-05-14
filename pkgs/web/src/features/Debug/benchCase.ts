@@ -47,8 +47,8 @@ export const benchCase = function <Init>(opt: {
 
         console.group('Details')
         console.log('Average per iteration:', sumTime / opt.iterate)
-        console.log('Max time:', maxTime)
-        console.log('Min time:', minTime)
+        console.log('Max time: %f', maxTime)
+        console.log('Min time: %f', minTime)
         console.log('Op per sec:', Math.round(1000 / (sumTime / opt.iterate)))
         console.groupEnd()
 

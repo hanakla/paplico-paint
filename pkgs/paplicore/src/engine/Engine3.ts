@@ -163,8 +163,8 @@ export class PaplicoEngine {
 
     const renderer = new THREE.WebGLRenderer({
       alpha: true,
-      premultipliedAlpha: false,
-      antialias: true,
+      premultipliedAlpha: true,
+      antialias: false,
       preserveDrawingBuffer: true,
       canvas: createCanvas() as HTMLCanvasElement,
     })
@@ -372,6 +372,8 @@ export class PaplicoEngine {
   ) {
     if (path.points.length < 1) return
 
+    console.trace()
+
     const perf_clonePath = timeSumming('clonePath', '👥')
     const perf_freezePath = timeSumming('freezePath', '🧊')
 
@@ -407,6 +409,7 @@ export class PaplicoEngine {
     destCtx.save()
     try {
       logTime(`essential stroke render`)
+
       brush.render({
         brushSetting: brushSetting,
         context: destCtx,
@@ -420,7 +423,10 @@ export class PaplicoEngine {
           height: destCtx.canvas.height,
         },
       })
+
       logTimeEnd('essential stroke render')
+    } catch (e) {
+      throw e
     } finally {
       perf_clonePath.log()
       perf_freezePath.log()

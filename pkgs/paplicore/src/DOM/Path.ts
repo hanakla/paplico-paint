@@ -351,9 +351,21 @@ export class Path implements ISilkDOMElement {
         const vector = { x: p2.x - p1.x, y: p2.y - p1.y }
         // const tan = Math.atan2(p2.y - p1.y, p2.x - p1.x)
 
-        const magnitude = Math.sqrt(vector.x * vector.x + vector.y * vector.y)
+        const magnitude = Math.sqrt(
+          Math.abs(vector.x * vector.x + vector.y * vector.y)
+        )
         vector.x /= magnitude
         vector.y /= magnitude
+
+        console.log(len, {
+          p1,
+          p2,
+          vector,
+          mag: magnitude,
+          absmag: Math.sqrt(
+            Math.abs(vector.x * vector.x + vector.y * vector.y)
+          ),
+        })
 
         return vector
       },

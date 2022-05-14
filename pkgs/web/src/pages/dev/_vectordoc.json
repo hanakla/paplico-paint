@@ -1,0 +1,531 @@
+{
+  "uid": "af88f9e7-8eca-4ed9-8fa1-3d312aa9a108",
+  "title": "",
+  "width": 1000,
+  "height": 1000,
+  "activeLayerPath": null,
+  "layers": [
+    {
+      "layerType": "vector",
+      "uid": "vectorlayer-1ffff47f-6230-413c-950e-e0aa65ab034c",
+      "name": "strokes",
+      "visible": true,
+      "lock": false,
+      "compositeMode": "normal",
+      "opacity": 100,
+      "x": 0,
+      "y": 0,
+      "objects": [
+        {
+          "uid": "vectorobj-5c12e3f5-ff54-40e3-8756-b38ce0ad4590",
+          "x": 0,
+          "y": 0,
+          "rotate": 0,
+          "scale": [1, 1],
+          "visible": true,
+          "lock": false,
+          "path": {
+            "points": [
+              { "x": 0, "y": 0, "in": null, "out": null },
+              { "x": 1000, "y": 1000, "in": null, "out": null }
+            ],
+            "closed": false,
+            "randomSeed": 2357136044
+          },
+          "brush": {
+            "brushId": "@paplico/brushes/scatter-brush",
+            "size": 50,
+            "color": { "r": 0, "g": 0, "b": 0 },
+            "opacity": 1,
+            "specific": { "texture": "fadeBrush" }
+          },
+          "fill": null
+        },
+        {
+          "uid": "vectorobj-b9b7017e-e12c-4885-8041-aed962bf0c0a",
+          "x": 0,
+          "y": 0,
+          "rotate": 0,
+          "scale": [1, 1],
+          "visible": true,
+          "lock": false,
+          "path": {
+            "points": [
+              { "x": 1000, "y": 0, "in": null, "out": null },
+              { "x": 0, "y": 1000, "in": null, "out": null }
+            ],
+            "closed": false,
+            "randomSeed": 2357136044
+          },
+          "brush": {
+            "brushId": "@paplico/brushes/scatter-brush",
+            "size": 100,
+            "color": { "r": 0, "g": 1, "b": 0 },
+            "opacity": 0.4,
+            "specific": {
+              "texture": "fadeBrush",
+              "fadeWeight": 0.7,
+              "inOutInfluence": 0.2
+            }
+          },
+          "fill": null
+        },
+        {
+          "uid": "vectorobj-8aa1fee3-ac6c-4d9c-ae43-f8ec8eb3442c",
+          "x": 0,
+          "y": 0,
+          "rotate": 0,
+          "scale": [1, 1],
+          "visible": true,
+          "lock": false,
+          "path": {
+            "points": [
+              { "x": 900, "y": 10, "in": null, "out": null },
+              { "x": 70, "y": 1020, "in": null, "out": null }
+            ],
+            "closed": false,
+            "randomSeed": 2357136044
+          },
+          "brush": {
+            "brushId": "@paplico/brushes/scatter-brush",
+            "size": 100,
+            "color": { "r": 0.1, "g": 0.9, "b": 0.1 },
+            "opacity": 0.4,
+            "specific": {
+              "texture": "fadeBrush",
+              "fadeWeight": 0.7,
+              "inOutInfluence": 0.2
+            }
+          },
+          "fill": null
+        },
+        {
+          "uid": "vectorobj-2416d3fe-302f-4b1b-80a8-a071c458c8a3",
+          "x": 0,
+          "y": 0,
+          "rotate": 0,
+          "scale": [1, 1],
+          "visible": true,
+          "lock": false,
+          "path": {
+            "points": [
+              { "x": 800, "y": 20, "in": null, "out": null },
+              { "x": 140, "y": 1040, "in": null, "out": null }
+            ],
+            "closed": false,
+            "randomSeed": 2357136044
+          },
+          "brush": {
+            "brushId": "@paplico/brushes/scatter-brush",
+            "size": 100,
+            "color": { "r": 0.2, "g": 0.8, "b": 0.2 },
+            "opacity": 0.4,
+            "specific": {
+              "texture": "fadeBrush",
+              "fadeWeight": 0.7,
+              "inOutInfluence": 0.2
+            }
+          },
+          "fill": null
+        },
+        {
+          "uid": "vectorobj-bb142cf7-0a64-4979-928c-a77917656f5e",
+          "x": 0,
+          "y": 0,
+          "rotate": 0,
+          "scale": [1, 1],
+          "visible": true,
+          "lock": false,
+          "path": {
+            "points": [
+              { "x": 700, "y": 30, "in": null, "out": null },
+              { "x": 210, "y": 1060, "in": null, "out": null }
+            ],
+            "closed": false,
+            "randomSeed": 2357136044
+          },
+          "brush": {
+            "brushId": "@paplico/brushes/scatter-brush",
+            "size": 100,
+            "color": { "r": 0.3, "g": 0.7, "b": 0.3 },
+            "opacity": 0.4,
+            "specific": {
+              "texture": "fadeBrush",
+              "fadeWeight": 0.7,
+              "inOutInfluence": 0.2
+            }
+          },
+          "fill": null
+        },
+        {
+          "uid": "vectorobj-1a9f20a5-b1e2-4dc4-b16c-677299762939",
+          "x": 0,
+          "y": 0,
+          "rotate": 0,
+          "scale": [1, 1],
+          "visible": true,
+          "lock": false,
+          "path": {
+            "points": [
+              { "x": 600, "y": 40, "in": null, "out": null },
+              { "x": 280, "y": 1080, "in": null, "out": null }
+            ],
+            "closed": false,
+            "randomSeed": 2357136044
+          },
+          "brush": {
+            "brushId": "@paplico/brushes/scatter-brush",
+            "size": 100,
+            "color": { "r": 0.4, "g": 0.6, "b": 0.4 },
+            "opacity": 0.4,
+            "specific": {
+              "texture": "fadeBrush",
+              "fadeWeight": 0.7,
+              "inOutInfluence": 0.2
+            }
+          },
+          "fill": null
+        },
+        {
+          "uid": "vectorobj-fd0874eb-8357-4a92-88f4-91a03658e268",
+          "x": 0,
+          "y": 0,
+          "rotate": 0,
+          "scale": [1, 1],
+          "visible": true,
+          "lock": false,
+          "path": {
+            "points": [
+              { "x": 500, "y": 50, "in": null, "out": null },
+              { "x": 350, "y": 1100, "in": null, "out": null }
+            ],
+            "closed": false,
+            "randomSeed": 2357136044
+          },
+          "brush": {
+            "brushId": "@paplico/brushes/scatter-brush",
+            "size": 100,
+            "color": { "r": 0.5, "g": 0.5, "b": 0.5 },
+            "opacity": 0.4,
+            "specific": {
+              "texture": "fadeBrush",
+              "fadeWeight": 0.7,
+              "inOutInfluence": 0.2
+            }
+          },
+          "fill": null
+        },
+        {
+          "uid": "vectorobj-99cf3611-bc9b-42b4-9787-ac3085436fb2",
+          "x": 0,
+          "y": 0,
+          "rotate": 0,
+          "scale": [1, 1],
+          "visible": true,
+          "lock": false,
+          "path": {
+            "points": [
+              { "x": 400, "y": 60, "in": null, "out": null },
+              { "x": 420, "y": 1120, "in": null, "out": null }
+            ],
+            "closed": false,
+            "randomSeed": 2357136044
+          },
+          "brush": {
+            "brushId": "@paplico/brushes/scatter-brush",
+            "size": 100,
+            "color": { "r": 0.6, "g": 0.4, "b": 0.6 },
+            "opacity": 0.4,
+            "specific": {
+              "texture": "fadeBrush",
+              "fadeWeight": 0.7,
+              "inOutInfluence": 0.2
+            }
+          },
+          "fill": null
+        },
+        {
+          "uid": "vectorobj-05f05c78-2699-4845-b73a-adc680bff419",
+          "x": 0,
+          "y": 0,
+          "rotate": 0,
+          "scale": [1, 1],
+          "visible": true,
+          "lock": false,
+          "path": {
+            "points": [
+              { "x": 300, "y": 70, "in": null, "out": null },
+              { "x": 490, "y": 1140, "in": null, "out": null }
+            ],
+            "closed": false,
+            "randomSeed": 2357136044
+          },
+          "brush": {
+            "brushId": "@paplico/brushes/scatter-brush",
+            "size": 100,
+            "color": { "r": 0.7, "g": 0.30000000000000004, "b": 0.7 },
+            "opacity": 0.4,
+            "specific": {
+              "texture": "fadeBrush",
+              "fadeWeight": 0.7,
+              "inOutInfluence": 0.2
+            }
+          },
+          "fill": null
+        },
+        {
+          "uid": "vectorobj-68a1555b-8377-4215-ac8f-5c7072238066",
+          "x": 0,
+          "y": 0,
+          "rotate": 0,
+          "scale": [1, 1],
+          "visible": true,
+          "lock": false,
+          "path": {
+            "points": [
+              { "x": 200, "y": 80, "in": null, "out": null },
+              { "x": 560, "y": 1160, "in": null, "out": null }
+            ],
+            "closed": false,
+            "randomSeed": 2357136044
+          },
+          "brush": {
+            "brushId": "@paplico/brushes/scatter-brush",
+            "size": 100,
+            "color": { "r": 0.8, "g": 0.19999999999999996, "b": 0.8 },
+            "opacity": 0.4,
+            "specific": {
+              "texture": "fadeBrush",
+              "fadeWeight": 0.7,
+              "inOutInfluence": 0.2
+            }
+          },
+          "fill": null
+        },
+        {
+          "uid": "vectorobj-61a91c11-d50c-40f4-8c71-187c849dc3fd",
+          "x": 0,
+          "y": 0,
+          "rotate": 0,
+          "scale": [1, 1],
+          "visible": true,
+          "lock": false,
+          "path": {
+            "points": [
+              { "x": 100, "y": 90, "in": null, "out": null },
+              { "x": 630, "y": 1180, "in": null, "out": null }
+            ],
+            "closed": false,
+            "randomSeed": 2357136044
+          },
+          "brush": {
+            "brushId": "@paplico/brushes/scatter-brush",
+            "size": 100,
+            "color": { "r": 0.9, "g": 0.09999999999999998, "b": 0.9 },
+            "opacity": 0.4,
+            "specific": {
+              "texture": "fadeBrush",
+              "fadeWeight": 0.7,
+              "inOutInfluence": 0.2
+            }
+          },
+          "fill": null
+        }
+      ],
+      "filters": [],
+      "features": {}
+    },
+    {
+      "layerType": "vector",
+      "uid": "vectorlayer-c76db688-dc5f-468d-91b3-7e32e30bb3d5",
+      "name": "square",
+      "visible": true,
+      "lock": false,
+      "compositeMode": "normal",
+      "opacity": 100,
+      "x": 0,
+      "y": 0,
+      "objects": [
+        {
+          "uid": "vectorobj-a2a91690-ebee-499e-a5a6-22e7cf614057",
+          "x": 0,
+          "y": 0,
+          "rotate": 0,
+          "scale": [1, 1],
+          "visible": true,
+          "lock": false,
+          "path": {
+            "points": [
+              { "x": 300, "y": 300, "in": null, "out": null },
+              { "x": 700, "y": 300, "in": null, "out": null },
+              { "x": 700, "y": 700, "in": null, "out": null },
+              { "x": 300, "y": 700, "in": null, "out": null }
+            ],
+            "closed": true,
+            "randomSeed": 2357136044
+          },
+          "brush": null,
+          "fill": {
+            "type": "fill",
+            "color": { "r": 1, "g": 1, "b": 1 },
+            "opacity": 1
+          }
+        }
+      ],
+      "filters": [],
+      "features": {}
+    },
+    {
+      "layerType": "vector",
+      "uid": "vectorlayer-cd5c321e-0ac9-4856-af10-3da09cdf15a0",
+      "name": "",
+      "visible": true,
+      "lock": false,
+      "compositeMode": "normal",
+      "opacity": 100,
+      "x": 0,
+      "y": 0,
+      "objects": [
+        {
+          "uid": "vectorobj-c9955acb-e986-47c9-94c2-c9379fb2a7fa",
+          "x": 0,
+          "y": 0,
+          "rotate": 0,
+          "scale": [1, 1],
+          "visible": true,
+          "lock": false,
+          "path": {
+            "points": [
+              { "x": 0, "y": 0, "in": null, "out": null },
+              { "x": 200, "y": 500, "in": null, "out": null },
+              { "x": 600, "y": 500, "in": null, "out": null },
+              { "x": 1000, "y": 1000, "in": null, "out": null }
+            ],
+            "closed": true,
+            "randomSeed": 2357136044
+          },
+          "brush": null,
+          "fill": {
+            "type": "linear-gradient",
+            "opacity": 1,
+            "start": { "x": -100, "y": -100 },
+            "end": { "x": 100, "y": 100 },
+            "colorStops": [
+              {
+                "color": { "r": 255, "g": 255, "b": 0, "a": 1 },
+                "position": 0
+              },
+              { "color": { "r": 0, "g": 255, "b": 255, "a": 1 }, "position": 1 }
+            ]
+          }
+        }
+      ],
+      "filters": [
+        {
+          "uid": "filter-8cca52d7-215f-45d2-a15f-ed511fb6227b",
+          "filterId": "@paplico/filters/noise",
+          "setttings": { "scale": 1, "color": true, "seed": 67366 }
+        },
+        {
+          "uid": "filter-804f8c85-a11a-4b71-8efc-06aaddfbd234",
+          "filterId": "@paplico/filters/uvreplace",
+          "setttings": {
+            "replacement": "delta",
+            "movementPx": [10, 0],
+            "replaceMapLayerUid": "vectorlayer-9c8ed6e2-c6ec-432f-9323-c695bed8ca31"
+          }
+        }
+      ],
+      "features": {}
+    },
+    {
+      "layerType": "vector",
+      "uid": "vectorlayer-4618affb-91c9-4558-ad4e-489bf884086c",
+      "name": "",
+      "visible": true,
+      "lock": false,
+      "compositeMode": "normal",
+      "opacity": 100,
+      "x": 0,
+      "y": 0,
+      "objects": [
+        {
+          "uid": "vectorobj-f1779f81-5855-404d-973d-216bcab08051",
+          "x": 0,
+          "y": 0,
+          "rotate": 0,
+          "scale": [1, 1],
+          "visible": true,
+          "lock": false,
+          "path": {
+            "points": [
+              { "x": 0, "y": 0, "in": null, "out": null },
+              { "x": 1000, "y": 0, "in": null, "out": null },
+              { "x": 1000, "y": 1000, "in": null, "out": null },
+              { "x": 0, "y": 1000, "in": null, "out": null }
+            ],
+            "closed": true,
+            "randomSeed": 2357136044
+          },
+          "brush": null,
+          "fill": {
+            "type": "fill",
+            "color": {
+              "r": 0.7647058823529411,
+              "g": 0.8666666666666667,
+              "b": 0.09803921568627451
+            },
+            "opacity": 1
+          }
+        }
+      ],
+      "filters": [],
+      "features": {}
+    },
+    {
+      "layerType": "vector",
+      "uid": "vectorlayer-9c8ed6e2-c6ec-432f-9323-c695bed8ca31",
+      "name": "",
+      "visible": false,
+      "lock": false,
+      "compositeMode": "normal",
+      "opacity": 100,
+      "x": 0,
+      "y": 0,
+      "objects": [
+        {
+          "uid": "vectorobj-771bc160-82a4-4010-ac58-2902c9e9f55e",
+          "x": 0,
+          "y": 0,
+          "rotate": 0,
+          "scale": [1, 1],
+          "visible": true,
+          "lock": false,
+          "path": {
+            "points": [
+              { "x": 1000, "y": 0, "in": null, "out": null },
+              { "x": 1000, "y": 1000, "in": null, "out": null },
+              { "x": 0, "y": 1000, "in": null, "out": null }
+            ],
+            "closed": true,
+            "randomSeed": 2357136044
+          },
+          "brush": null,
+          "fill": {
+            "type": "linear-gradient",
+            "colorStops": [
+              { "color": { "r": 0, "g": 0, "b": 0, "a": 1 }, "position": 0 },
+              { "color": { "r": 0, "g": 1, "b": 0, "a": 1 }, "position": 1 }
+            ],
+            "start": { "x": 500, "y": -500 },
+            "end": { "x": 500, "y": 500 },
+            "opacity": 1
+          }
+        }
+      ],
+      "filters": [],
+      "features": {}
+    }
+  ],
+  "globalColors": {}
+}

@@ -25,7 +25,10 @@ export default function Debug() {
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
   const sessionRef = useRef<PapSession | null>(null)
   const benchRef = useRef<{ start: () => void; stop: () => void } | null>(null)
-  const controlRef = useRef<{ toggleFilters: () => void } | null>(null)
+  const controlRef = useRef<{
+    rerender: () => void
+    toggleFilters: () => void
+  } | null>(null)
 
   const [imageUrl, setImageUrl] = useState('')
   const [strategy, setStrategy] = useState<'difference' | 'full'>('difference')
@@ -92,6 +95,109 @@ export default function Debug() {
         const vector = PapDOM.VectorLayer.create({
           // compositeMode: 'overlay',
         })
+
+        const square = PapDOM.VectorLayer.create({
+          name: 'square',
+          objects: [
+            PapDOM.VectorObject.create({
+              fill: {
+                type: 'fill',
+                color: { r: 1, g: 1, b: 1 },
+                opacity: 1,
+              },
+              path: PapDOM.Path.create({
+                closed: true,
+                points: [
+                  {
+                    x: document.width / 2 - 200,
+                    y: document.height / 2 - 200,
+                    in: null,
+                    out: null,
+                  },
+                  {
+                    x: document.width / 2 + 200,
+                    y: document.height / 2 - 200,
+                    in: null,
+                    out: null,
+                  },
+                  {
+                    x: document.width / 2 + 200,
+                    y: document.height / 2 + 200,
+                    in: null,
+                    out: null,
+                  },
+                  {
+                    x: document.width / 2 - 200,
+                    y: document.height / 2 + 200,
+                    in: null,
+                    out: null,
+                  },
+                ],
+              }),
+            }),
+          ],
+        })
+        const stroke = PapDOM.VectorLayer.create({
+          name: 'strokes',
+          opacity: 100,
+          objects: [
+            PapDOM.VectorObject.create({
+              brush: {
+                brushId: PapBrushes.ScatterBrush.id,
+                size: 50,
+                color: { r: 0, g: 0, b: 0 },
+                opacity: 1,
+                specific: {
+                  texture: 'fadeBrush',
+                } as Partial<PapBrushes.ScatterBrush.SpecificSetting>,
+              },
+              path: PapDOM.Path.create({
+                points: [
+                  { x: 0, y: 0, in: null, out: null },
+                  {
+                    x: document.width,
+                    y: document.height,
+                    in: null,
+                    out: null,
+                  },
+                ],
+                closed: false,
+              }),
+            }),
+            ...Array.from({ length: 10 }).map((_, i, { length }) =>
+              PapDOM.VectorObject.create({
+                brush: {
+                  brushId: PapBrushes.ScatterBrush.id,
+                  size: 100,
+                  color: { r: i / length, g: 1 - i / length, b: i / length },
+                  opacity: 0.8,
+                  specific: {
+                    texture: 'fadeBrush',
+                    fadeWeight: 0.7,
+                    inOutInfluence: 0.2,
+                  } as Partial<PapBrushes.ScatterBrush.SpecificSetting>,
+                },
+                path: PapDOM.Path.create({
+                  points: [
+                    {
+                      x: document.width - i * 100,
+                      y: 0 + i * 10,
+                      in: null,
+                      out: null,
+                    },
+                    {
+                      x: 0 + i * 70,
+                      y: document.height + i * 20,
+                      in: null,
+                      out: null,
+                    },
+                  ],
+                  closed: false,
+                }),
+              })
+            ),
+          ],
+        })
         const bgLayer = PapDOM.VectorLayer.create({ visible: true })
         const displacement = PapDOM.VectorLayer.create({ visible: false })
         const filter = PapDOM.FilterLayer.create({})
@@ -107,7 +213,6 @@ export default function Debug() {
                 { x: document.width, y: document.height, in: null, out: null },
                 { x: 0, y: document.height, in: null, out: null },
               ],
-
               closed: true,
             }),
             brush: null,
@@ -217,7 +322,7 @@ export default function Debug() {
           // }),
           PapDOM.Filter.create({
             filterId: '@paplico/filters/noise',
-            visible: true,
+            visible: false,
             settings: {
               ...engine.toolRegistry.getFilterInstance(
                 '@paplico/filters/noise'
@@ -280,8 +385,10 @@ export default function Debug() {
         document.addLayer(displacement)
         document.addLayer(bgLayer)
         document.addLayer(vector, { aboveLayerId: bgLayer.uid })
-        // document.addLayer(raster)
-        // document.addLayer(filter, { aboveLayerId: vector.uid })
+        document.addLayer(raster)
+        document.addLayer(filter, { aboveLayerId: vector.uid })
+        document.addLayer(square)
+        document.addLayer(stroke)
         session.setDocument(document)
         session.setActiveLayer([vector.uid])
 
@@ -310,6 +417,7 @@ export default function Debug() {
         })
 
         controlRef.current = {
+          rerender: () => engine.render(document, strategy),
           toggleFilters: () => {
             vector.filters.forEach((filter) => {
               filter.visible = !filter.visible
@@ -439,6 +547,12 @@ export default function Debug() {
             >
               フィルター切り替え
             </Button>
+            <Button
+              kind="normal"
+              onClick={() => controlRef.current!.rerender()}
+            >
+              再レンダリング
+            </Button>
           </Stack>
         </Stack>
 
@@ -487,8 +601,8 @@ export default function Debug() {
           <canvas
             ref={canvasRef}
             css={`
-              width: 400px;
-              height: 400px;
+              /* width: 400px;
+              height: 400px; */
               margin: 16px;
               box-shadow: 0 0 4px ${rgba('#000', 0.4)};
               /* background-color: red; */

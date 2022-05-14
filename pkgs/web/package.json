@@ -5,7 +5,7 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "test": "NODE_OPTIONS=--experimental-vm-modules yarn jest"
+    "test": "yarn vitest"
   },
   "dependencies": {
     "@charcoal-ui/styled": "^1.0.0",

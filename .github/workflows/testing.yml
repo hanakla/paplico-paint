@@ -31,7 +31,7 @@ jobs:
           cd pkgs/paplicore
           yarn prepublishOnly
           yarn test
-      # - name: Testing @paplico/web
-      #   run: |
-      #     cd pkgs/web
-      #     yarn test --coverage --verbose
+      - name: Testing @paplico/web
+        run: |
+          cd pkgs/web
+          yarn test

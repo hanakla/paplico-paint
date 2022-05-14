@@ -433,7 +433,6 @@ export class DifferenceRender implements IRenderStrategy {
 
     // Composite layers
     try {
-      console.log('Fetch bitmap results:', layerBitmaps)
       for (const result of layerBitmaps) {
         await compositeTo(result, destCtx)
       }

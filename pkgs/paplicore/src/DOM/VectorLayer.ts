@@ -64,7 +64,7 @@ export class VectorLayer extends Emitter<Events> implements ILayer {
   ) {
     return assign(
       new VectorLayer(),
-      pick(attrs, VectorLayer.patchableAttributes)
+      pick(attrs, [...VectorLayer.patchableAttributes, 'objects'])
     )
   }
 

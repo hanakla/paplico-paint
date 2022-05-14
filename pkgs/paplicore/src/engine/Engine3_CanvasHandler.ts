@@ -36,7 +36,6 @@ export class CanvasHandler extends Emitter<Events> {
 
   protected _scale: number = 1
   protected _stroking: boolean = false
-  #strokingState: { touches: number } = { touches: 0 }
 
   constructor(canvas: HTMLCanvasElement) {
     super()
@@ -164,6 +163,7 @@ export class CanvasHandler extends Emitter<Events> {
       setCanvasSize(this.compositeSourceCtx.canvas, size)
       this.strokeCtx.clearRect(0, 0, size.width, size.height)
 
+      console.log('strokeComplete')
       if (activeLayer.layerType === 'raster') {
         this.compositeSourceCtx.drawImage(await activeLayer.imageBitmap, 0, 0)
 
@@ -252,7 +252,14 @@ export class CanvasHandler extends Emitter<Events> {
 
   #handleMouseMove = (e: PointerEvent) => {
     const { currentStroke } = this
+
     if (!currentStroke) return
+    if (e.buttons === 0) {
+      // canceled move with unexpected ignored strokeCancel
+      this._stroking = false
+      this.currentStroke = null
+      return
+    }
 
     currentStroke.updatePoints((points) => {
       if (e.getCoalescedEvents) {
@@ -283,13 +290,12 @@ export class CanvasHandler extends Emitter<Events> {
     const { currentStroke } = this
     if (!currentStroke) return
 
-    if (currentStroke.points.length < 2) {
-      this.currentStroke = null
-      this._stroking = false
-      return
-    }
+    this.currentStroke = null
+    this._stroking = false
 
-    this.mitt.emit('strokeComplete', currentStroke)
+    if (currentStroke.points.length >= 2) {
+      this.mitt.emit('strokeComplete', currentStroke)
+    }
   }
 
   #handleTouchStart = (e: TouchEvent) => {
@@ -343,14 +349,12 @@ export class CanvasHandler extends Emitter<Events> {
 
   #handleTouchEnd = (e: TouchEvent) => {
     const { currentStroke } = this
-    if (!currentStroke || !this.#strokingState) return
+    if (!currentStroke) return
 
-    if (currentStroke.points.length < 2) {
-      this.currentStroke = null
-      this._stroking = false
-      return
+    this.currentStroke = null
+    this._stroking = false
+    if (currentStroke.points.length >= 2) {
+      this.mitt.emit('strokeComplete', currentStroke)
     }
-
-    this.mitt.emit('strokeComplete', currentStroke)
   }
 }

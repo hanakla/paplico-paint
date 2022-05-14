@@ -8,15 +8,19 @@ export class AtomicResource<T> {
   constructor(private resource: T, private name?: string) {}
 
   public enjure({ owner }: { owner?: any; timeout?: number } = {}): Promise<T> {
+    const requestStack = new Error()
+
     if (this.locked) {
       const defer = deferred<T>()
-      defer.promise.then(() => (this.currentOwner = owner))
+      defer.promise.then(
+        () => (this.currentOwner = { owner, stack: requestStack })
+      )
 
       this.que.push(defer)
 
       console.warn(
         `AtomicResource(${this.name}): Enjure enqueued in locked resource, it may cause deadlock.`,
-        { resource: this.resource },
+        { resource: this.resource, queue: this.que },
         { request: { owner, stack: new Error() }, current: this.currentOwner }
       )
 
@@ -24,10 +28,7 @@ export class AtomicResource<T> {
     }
 
     this.locked = true
-    // console.groupCollapsed('enjure', this.resource)
-    // console.trace()
-    // console.groupEnd()
-    this.currentOwner = { owner, stack: new Error() }
+    this.currentOwner = { owner, stack: requestStack }
 
     // setTimeout(() => {
     //   this.isLocked && this.release(this.resource)
@@ -45,9 +46,9 @@ export class AtomicResource<T> {
   }): Promise<T | null> {
     return Promise.race([
       this.enjure({ owner }),
-      // new Promise<null>((r) => {
-      //   setTimeout(() => r(null), timeout)
-      // }),
+      new Promise<null>((r) => {
+        setTimeout(() => r(null), timeout)
+      }),
     ])
   }
 
@@ -60,10 +61,7 @@ export class AtomicResource<T> {
       throw new Error('Incorrect resource released')
     if (!this.locked) throw new Error('Unused resource released')
 
-    // console.groupCollapsed('release', this.resource)
-    // console.trace()
-    // console.groupEnd()
-    const next = this.que.splice(0, 1)[0]
+    const [next] = this.que.splice(0, 1)
     if (next) {
       next.resolve(this.resource)
     } else {

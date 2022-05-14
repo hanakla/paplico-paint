@@ -18,6 +18,16 @@ import {
   Matrix3,
   Matrix4,
   Quaternion,
+  Blending,
+  NormalBlending,
+  OneFactor,
+  OneMinusSrcAlphaFactor,
+  AddEquation,
+  AdditiveBlending,
+  CustomBlending,
+  SrcAlphaFactor,
+  SrcColorFactor,
+  NoBlending,
 } from 'three'
 
 import { degToRad, lerp, radToDeg } from '../utils/math'
@@ -95,14 +105,33 @@ export class ScatterBrush implements IBrush {
         await logImage(bitmap, `ScatterBrush-${key}`)
 
         const texture = new CanvasTexture(bitmap)
+        texture.premultiplyAlpha = true
 
         this.materials[key] = new MeshBasicMaterial({
           // map: texture,
-          // color: 0xffffff,
+          color: 0xffffff,
 
-          premultipliedAlpha: false,
+          premultipliedAlpha: true,
           transparent: true,
           alphaMap: texture,
+
+          // depthTest: false,
+          // depthWrite: false,
+
+          blending: CustomBlending,
+          blendSrc: OneFactor,
+          blendDst: OneMinusSrcAlphaFactor,
+          blendSrcAlpha: OneFactor,
+          blendDstAlpha: OneMinusSrcAlphaFactor,
+          blendEquation: AddEquation,
+
+          // blending: NormalBlending,
+          // blendSrc: OneFactor,
+          // blendSrcAlpha: OneMinusSrcAlphaFactor,
+          // blendDst: OneFactor,
+          // blendDstAlpha: OneMinusSrcAlphaFactor,
+          // blendEquation: AddEquation,
+          // blendEquationAlpha: AddEquation,
         })
 
         //     this.materials[key] = new RawShaderMaterial({
@@ -218,19 +247,14 @@ export class ScatterBrush implements IBrush {
 
     let counts = Math.ceil(threePath.getLength() * specific.divisions)
 
-    // if (counts > 1_000_000) {
-    //   console.log(inputPath)
-    //   counts = 500000
-    // }
-
     const opacities = new Float32Array(counts)
     const mesh = new InstancedMesh(this.geometry, material, counts)
 
     const seed = fastRandom(inputPath.randomSeed)
+    const pointsReader = inputPath.getSequencialPointsReader()
     const pressureReader = inputPath.getSequencialPressuresReader()
     const tangentReader = inputPath.getSequencialTangentsReader()
     // const totalLength = inputPath.getTotalLength()
-    logTime('Scatter: set atributes')
 
     const perf_misc = timeSumming(`misc at will calls ${counts} times`)
     const perf_getPoint = timeSumming(`getPoint at will calls ${counts} times`)
@@ -246,6 +270,9 @@ export class ScatterBrush implements IBrush {
     const perf_rand = timeSumming(`devRand at will calls ${counts} times`)
     const perf_render = timeSumming(`Render with ${counts} instances`)
 
+    logTime('Scatter: set atributes')
+
+    const points = []
     for (let idx = 0; idx < counts; idx++) {
       const frac = idx / counts
 
@@ -313,6 +340,11 @@ export class ScatterBrush implements IBrush {
 
       perf_getTangentByPath.time()
       const tangent = tangentReader.getTangentAt(frac)
+      if (Number.isNaN(tangent.x) || Number.isNaN(tangent.y)) {
+        console.log('NaN detected', { frac, idx, inputPath })
+        // debugger
+      }
+
       perf_getTangentByPath.timeEnd({ frac, idx, counts })
 
       const angle = Math.atan2(tangent.x, tangent.y)
@@ -336,6 +368,8 @@ export class ScatterBrush implements IBrush {
       perf_setMatrixAt.time()
       _object.updateMatrix()
 
+      points.push(_object.position.toArray())
+
       mesh.setMatrixAt(idx, _object.matrix)
       perf_setMatrixAt.timeEnd()
 
@@ -351,6 +385,8 @@ export class ScatterBrush implements IBrush {
     perf_misc.log()
     perf_setMatrixAt.log()
 
+    console.log(points)
+
     // this.geometry.setAttribute(
     //   'opacities',
     //   new InstancedBufferAttribute(opacities, 1)
@@ -359,9 +395,11 @@ export class ScatterBrush implements IBrush {
     perf_render.time()
     this.scene.add(mesh)
     renderer.render(this.scene, camera)
+
     perf_render.timeEnd()
     perf_render.log()
 
+    console.log(brushSetting.opacity)
     ctx.globalAlpha = brushSetting.opacity
     ctx.drawImage(renderer.domElement, 0, 0)
 

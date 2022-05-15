@@ -350,14 +350,6 @@ export class Path implements ISilkDOMElement {
 
         const vector = { x: p2.x - p1.x, y: p2.y - p1.y }
 
-        console.log({
-          len,
-          p1,
-          p2,
-          vector,
-          mg: Math.abs(vector.x * vector.x + vector.y * vector.y),
-        })
-
         const magnitude = Math.sqrt(
           Math.abs(vector.x * vector.x + vector.y * vector.y)
         )

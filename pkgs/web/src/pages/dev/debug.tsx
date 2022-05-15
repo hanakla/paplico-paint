@@ -137,7 +137,7 @@ export default function Debug() {
             }),
           ],
         })
-        const stroke = PapDOM.VectorLayer.create({
+        const strokes = PapDOM.VectorLayer.create({
           name: 'strokes',
           opacity: 100,
           objects: [
@@ -166,6 +166,8 @@ export default function Debug() {
             }),
             ...Array.from({ length: 10 }).map((_, i, { length }) =>
               PapDOM.VectorObject.create({
+                x: -20,
+                y: 100,
                 brush: {
                   brushId: PapBrushes.ScatterBrush.id,
                   size: 100,
@@ -382,13 +384,13 @@ export default function Debug() {
         //   // }),
         // ]
 
-        // document.addLayer(displacement)
-        // document.addLayer(bgLayer)
-        // document.addLayer(vector, { aboveLayerId: bgLayer.uid })
+        document.addLayer(displacement)
+        document.addLayer(bgLayer)
+        document.addLayer(vector, { aboveLayerId: bgLayer.uid })
         // document.addLayer(raster)
-        // document.addLayer(filter, { aboveLayerId: vector.uid })
-        // document.addLayer(square)
-        document.addLayer(stroke)
+        document.addLayer(filter, { aboveLayerId: vector.uid })
+        document.addLayer(square)
+        document.addLayer(strokes)
         session.setDocument(document)
         session.setActiveLayer([vector.uid])
 

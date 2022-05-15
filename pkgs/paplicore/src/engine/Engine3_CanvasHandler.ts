@@ -140,6 +140,11 @@ export class CanvasHandler extends Emitter<Events> {
         session.brushSetting,
         session.currentInk,
         stroke.splinedPath.getSimplifiedPath(),
+        {
+          rotate: 0,
+          translate: { x: 0, y: 0 },
+          scale: { x: 1, y: 1 },
+        },
         this.strokeCtx,
         { hintInput: null }
       )
@@ -171,6 +176,11 @@ export class CanvasHandler extends Emitter<Events> {
           session.brushSetting,
           session.currentInk,
           stroke.splinedPath.getSimplifiedPath(),
+          {
+            rotate: 0,
+            translate: { x: 0, y: 0 },
+            scale: { x: 1, y: 1 },
+          },
           this.strokeCtx,
           { hintInput: await activeLayer.imageBitmap }
         )

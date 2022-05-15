@@ -337,8 +337,6 @@ export class ScatterBrush implements IBrush {
       perf_getTangentByPath.time()
       const tangent = tangentReader.getTangentAt(frac)
 
-      console.log({ tangent })
-
       perf_getTangentByPath.timeEnd({ frac, idx, counts })
 
       const angle = Math.atan2(tangent.x, tangent.y)
@@ -364,8 +362,6 @@ export class ScatterBrush implements IBrush {
 
       // points.push(_object.position.toArray())
 
-      console.log(_object.matrix.toArray())
-
       mesh.setMatrixAt(idx, _object.matrix)
       perf_setMatrixAt.timeEnd()
 
@@ -388,17 +384,13 @@ export class ScatterBrush implements IBrush {
     // this.geometry.attributes.opacities.needsUpdate = true
     perf_render.time()
 
-    // group.scale.set(transform.scale.x, transform.scale.y, 1)
-    // group.position.set(
-    //   transform.translate.x / destSize.width,
-    //   transform.translate.y / destSize.height,
-    //   0
-    // )
-    // group.rotateZ(transform.rotate)
-    // group.add(mesh)
+    group.scale.set(transform.scale.x, transform.scale.y, 1)
+    group.position.set(transform.translate.x, -transform.translate.y, 0)
+    group.rotateZ(transform.rotate)
+    group.add(mesh)
 
-    this.scene.add(mesh)
-    // this.scene.add(group)
+    // this.scene.add(mesh)
+    this.scene.add(group)
     renderer.render(this.scene, camera)
 
     perf_render.timeEnd()
@@ -410,8 +402,8 @@ export class ScatterBrush implements IBrush {
     ctx.strokeRect(0, 0, ctx.canvas.width, ctx.canvas.height)
     ctx.drawImage(renderer.domElement, 0, 0)
 
-    this.scene.remove(mesh)
-    // this.scene.remove(group)
+    // this.scene.remove(mesh)
+    this.scene.remove(group)
     logGroupEnd()
   }
 }

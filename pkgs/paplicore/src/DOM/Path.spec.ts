@@ -18,7 +18,7 @@ describe('Path', () => {
     })
   })
 
-  describe('getSequencialPointsReader', () => {
+  describe.only('getSequencialPointsReader', () => {
     it('Returns to same value of uncached getPoint', () => {
       const p = Path.create({
         closed: false,
@@ -41,6 +41,35 @@ describe('Path', () => {
       expect(pt3.x).toBeCloseTo(p.getPointAt(1).x, 5)
       expect(pt3.y).toBeCloseTo(p.getPointAt(1).y, 5)
       // console.log({ pt2, original: p.getPointAt(0.5) })
+    })
+  })
+
+  describe('getSequencialTangentsReader', () => {
+    it('Returns to same value of uncached getTangent', () => {
+      const p = Path.create({
+        closed: false,
+        points: testComplexPoints(),
+      })
+
+      const reader = p.getSequencialTangentsReader()
+
+      const pt = reader.getTangentAt(0)
+      expect(pt.x).toBeCloseTo(p.getTangentAt(0).x, 5)
+      expect(pt.y).toBeCloseTo(p.getTangentAt(0).y, 5)
+      expect(Number.isNaN(pt.x) && Number.isNaN(pt.y)).toBe(false)
+      console.log({ pt })
+
+      const pt2 = reader.getTangentAt(0.5)
+      expect(pt2.x).toBeCloseTo(p.getTangentAt(0.5).x, 5)
+      expect(pt2.y).toBeCloseTo(p.getTangentAt(0.5).y, 5)
+      expect(Number.isNaN(pt2.x) && Number.isNaN(pt2.y)).toBe(false)
+      console.log({ pt2 })
+
+      const pt3 = reader.getTangentAt(1)
+      expect(pt3.x).toBeCloseTo(p.getTangentAt(1).x, 5)
+      expect(pt3.y).toBeCloseTo(p.getTangentAt(1).y, 5)
+      expect(Number.isNaN(pt3.x) && Number.isNaN(pt3.y)).toBe(false)
+      console.log({ pt2 })
     })
   })
 

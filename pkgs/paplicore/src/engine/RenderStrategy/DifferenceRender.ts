@@ -176,7 +176,7 @@ export class DifferenceRender implements IRenderStrategy {
             hasSizeChange ||
             this.needsUpdateLayerIds[layer.uid]
           ) {
-            cachedCtx.clearRect(0, 0, layerSize.width, layerSize.height)
+            cachedCtx.clearRect(0, 0, document.width, document.height)
             await engine.renderVectorLayer(document, layer, cachedCtx)
             console.log('render', layer, cachedCtx.canvas)
           }

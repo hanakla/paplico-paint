@@ -50,6 +50,7 @@ export const benchCase = function <Init>(opt: {
         console.log('Max time: %f', maxTime)
         console.log('Min time: %f', minTime)
         console.log('Op per sec:', Math.round(1000 / (sumTime / opt.iterate)))
+        console.log('Bench body', bench.run)
         console.groupEnd()
 
         console.groupEnd()

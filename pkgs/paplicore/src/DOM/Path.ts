@@ -12,8 +12,6 @@ import { ISilkDOMElement } from './ISilkDOMElement'
 import { lerp } from '../utils/math'
 import { parseSVGPath } from '../fastsvg/parse'
 import abs from 'abs-svg-path'
-import { svgPathProperties } from 'svg-path-properties'
-import { createSequencialTangentsReader } from './internal/Path.sequencials.tangents'
 
 export declare namespace Path {
   export type Attributes = {
@@ -105,7 +103,6 @@ export class Path implements ISilkDOMElement {
   public readonly randomSeed: number = prand.mersenne(Math.random()).next()[0]
 
   private _pal!: CachedPointAtLength
-  private _pathProps!: InstanceType<typeof svgPathProperties>
   private _cachedSvgPath: string | null = null
   private _cachedBounds: Path.PathBBox | null = null
   private _isFreezed: boolean = false
@@ -119,11 +116,6 @@ export class Path implements ISilkDOMElement {
   public get svgPath() {
     if (this._cachedSvgPath) return this._cachedSvgPath
     return this.getFreshSVGPath()
-  }
-
-  public get pathProps(): any {
-    if (this._pathProps) return this._pathProps
-    return (this._pathProps = new svgPathProperties(this.svgPath))
   }
 
   public getBoundingBox(): Path.PathBBox {
@@ -327,7 +319,17 @@ export class Path implements ISilkDOMElement {
   }
 
   public getTangentAtLength(len: number) {
-    return this.pathProps.getTangentAtLength(len)
+    const p1 = this.getPointAtLength(len - 0.1)
+    const p2 = this.getPointAtLength(len + 0.1)
+
+    const vector = { x: p2.x - p1.x, y: p2.y - p1.y }
+    const magnitude = Math.sqrt(
+      Math.abs(vector.x * vector.x + vector.y * vector.y)
+    )
+    vector.x /= magnitude
+    vector.y /= magnitude
+
+    return vector
   }
 
   public getSequencialTangentsReader() {
@@ -343,29 +345,24 @@ export class Path implements ISilkDOMElement {
 
         // returns a normalized vector that describes the tangent
         // at the point that is found at *percent* of the path's length
-
         const p1 = pointsReader.getPointAtLength(len - 0.1, { seek: true })
         const p2 = pointsReader.getPointAtLength(len + 0.1, { seek: false })
-        // console.log('p', p2.x, p2.y)
 
         const vector = { x: p2.x - p1.x, y: p2.y - p1.y }
-        // const tan = Math.atan2(p2.y - p1.y, p2.x - p1.x)
+
+        console.log({
+          len,
+          p1,
+          p2,
+          vector,
+          mg: Math.abs(vector.x * vector.x + vector.y * vector.y),
+        })
 
         const magnitude = Math.sqrt(
           Math.abs(vector.x * vector.x + vector.y * vector.y)
         )
         vector.x /= magnitude
         vector.y /= magnitude
-
-        console.log(len, {
-          p1,
-          p2,
-          vector,
-          mag: magnitude,
-          absmag: Math.sqrt(
-            Math.abs(vector.x * vector.x + vector.y * vector.y)
-          ),
-        })
 
         return vector
       },
@@ -445,7 +442,6 @@ export class Path implements ISilkDOMElement {
     this._pal = cachedPointAtLength(this.svgPath)
     this._cachedBounds = null
     this._cachedBounds = this.getBoundingBox()
-    this._pathProps = new svgPathProperties(this._cachedSvgPath)
   }
 
   /** Freeze changes and cache heavily process results */
@@ -455,7 +451,6 @@ export class Path implements ISilkDOMElement {
     this._cachedSvgPath = this.getFreshSVGPath()
     this._pal = cachedPointAtLength(this._cachedSvgPath)
     this._cachedBounds = this.getBoundingBox()
-    this._pathProps = new svgPathProperties(this._cachedSvgPath)
 
     this._isFreezed = true
     Object.freeze(this)

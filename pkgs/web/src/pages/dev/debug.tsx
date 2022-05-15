@@ -382,12 +382,12 @@ export default function Debug() {
         //   // }),
         // ]
 
-        document.addLayer(displacement)
-        document.addLayer(bgLayer)
-        document.addLayer(vector, { aboveLayerId: bgLayer.uid })
-        document.addLayer(raster)
-        document.addLayer(filter, { aboveLayerId: vector.uid })
-        document.addLayer(square)
+        // document.addLayer(displacement)
+        // document.addLayer(bgLayer)
+        // document.addLayer(vector, { aboveLayerId: bgLayer.uid })
+        // document.addLayer(raster)
+        // document.addLayer(filter, { aboveLayerId: vector.uid })
+        // document.addLayer(square)
         document.addLayer(stroke)
         session.setDocument(document)
         session.setActiveLayer([vector.uid])

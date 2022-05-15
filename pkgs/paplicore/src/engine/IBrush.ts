@@ -3,6 +3,7 @@ import { CurrentBrushSetting } from './CurrentBrushSetting'
 import { IInk } from '../Inks/IInk'
 import { Path } from '../DOM/Path'
 import { WebGLContext } from './WebGLContext'
+import { VectorObject } from '../DOM/VectorObject'
 
 export type BrushContext<T = unknown> = {
   context: CanvasRenderingContext2D

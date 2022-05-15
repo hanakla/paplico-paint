@@ -12,22 +12,13 @@ import {
   Object3D,
   Color,
   CanvasTexture,
-  InstancedBufferAttribute,
   Vector3,
-  Curve,
-  Matrix3,
   Matrix4,
-  Quaternion,
-  Blending,
-  NormalBlending,
   OneFactor,
   OneMinusSrcAlphaFactor,
   AddEquation,
-  AdditiveBlending,
   CustomBlending,
-  SrcAlphaFactor,
-  SrcColorFactor,
-  NoBlending,
+  Group,
 } from 'three'
 
 import { degToRad, lerp, radToDeg } from '../utils/math'
@@ -190,6 +181,7 @@ export class ScatterBrush implements IBrush {
     threeRenderer: renderer,
     threeCamera: camera,
     path: inputPath,
+    transform,
     ink,
     brushSetting,
     destSize,
@@ -249,6 +241,9 @@ export class ScatterBrush implements IBrush {
 
     const opacities = new Float32Array(counts)
     const mesh = new InstancedMesh(this.geometry, material, counts)
+    const group = new Group()
+    // mesh.matrix = new Matrix4().fromArray(matrix)
+    // mesh.matrix.makeScale(2, 2, 1)
 
     const seed = fastRandom(inputPath.randomSeed)
     const pointsReader = inputPath.getSequencialPointsReader()
@@ -332,6 +327,7 @@ export class ScatterBrush implements IBrush {
       //   brushSetting.size * pressureWeight * fadeWeight,
       //   1
       // )
+
       _object.scale.set(
         brushSetting.size * pressureWeight * fadeWeight,
         brushSetting.size * pressureWeight * fadeWeight,
@@ -340,10 +336,8 @@ export class ScatterBrush implements IBrush {
 
       perf_getTangentByPath.time()
       const tangent = tangentReader.getTangentAt(frac)
-      if (Number.isNaN(tangent.x) || Number.isNaN(tangent.y)) {
-        console.log('NaN detected', { frac, idx, inputPath })
-        // debugger
-      }
+
+      console.log({ tangent })
 
       perf_getTangentByPath.timeEnd({ frac, idx, counts })
 
@@ -368,7 +362,9 @@ export class ScatterBrush implements IBrush {
       perf_setMatrixAt.time()
       _object.updateMatrix()
 
-      points.push(_object.position.toArray())
+      // points.push(_object.position.toArray())
+
+      console.log(_object.matrix.toArray())
 
       mesh.setMatrixAt(idx, _object.matrix)
       perf_setMatrixAt.timeEnd()
@@ -385,25 +381,37 @@ export class ScatterBrush implements IBrush {
     perf_misc.log()
     perf_setMatrixAt.log()
 
-    console.log(points)
-
     // this.geometry.setAttribute(
     //   'opacities',
     //   new InstancedBufferAttribute(opacities, 1)
     // )
     // this.geometry.attributes.opacities.needsUpdate = true
     perf_render.time()
+
+    // group.scale.set(transform.scale.x, transform.scale.y, 1)
+    // group.position.set(
+    //   transform.translate.x / destSize.width,
+    //   transform.translate.y / destSize.height,
+    //   0
+    // )
+    // group.rotateZ(transform.rotate)
+    // group.add(mesh)
+
     this.scene.add(mesh)
+    // this.scene.add(group)
     renderer.render(this.scene, camera)
 
     perf_render.timeEnd()
     perf_render.log()
 
-    console.log(brushSetting.opacity)
     ctx.globalAlpha = brushSetting.opacity
+    ctx.strokeStyle = 'rgb(255,0,0)'
+    ctx.lineWidth = 3
+    ctx.strokeRect(0, 0, ctx.canvas.width, ctx.canvas.height)
     ctx.drawImage(renderer.domElement, 0, 0)
 
     this.scene.remove(mesh)
+    // this.scene.remove(group)
     logGroupEnd()
   }
 }

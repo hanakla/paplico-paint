@@ -2,7 +2,7 @@ import point from 'point-at-length'
 
 // This is fork of https://github.com/substack/point-at-length
 // For faster point-at-length searching
-export const cachedPointAtLength = (path: string) => {
+export const cachedPointAtLength = (path: string, divisions = 100) => {
   const pal = point(path)
 
   const points = (pal as any)._path as [number, number][]
@@ -12,29 +12,34 @@ export const cachedPointAtLength = (path: string) => {
     Object.create(null) /** array of point */
   const pointIndexOfLengthIndex: number[] = []
 
-  const warmResult = walk(null, 0, true)
-  const length = warmResult.length
+  // Make index with 10 divisions (keep faster for binary search)
+  const warmResult = walk(null, 100, 0, true)
+  const length = warmResult!.length
 
   const atGetter = {
     _index: lengthCache,
     _points: points,
     at: (len: number, { hintIndexGTEq }: { hintIndexGTEq?: number } = {}) => {
-      return atGetter.atWithDetail(len, { hintIndexGTEq }).pos as [
-        number,
-        number
-      ]
+      return (
+        (atGetter.atWithDetail(len, { hintIndexGTEq })?.pos as [
+          number,
+          number
+        ]) ?? null
+      )
     },
     atWithDetail: (
       len: number,
       { hintIndexGTEq }: { hintIndexGTEq?: number } = {}
     ) => {
       if (hintIndexGTEq != null) {
-        let a = walk(len, hintIndexGTEq)
-        return a
+        const result = walk(len, divisions, hintIndexGTEq)
+        return result
       }
 
       const nearIdx = pointIndexOfLengthIndex[binarySearch(lengthCache, len)]
-      return walk(len, nearIdx)
+      const result = walk(len, divisions, nearIdx)
+
+      return result
     },
     nearPointAtLength: (len: number) => {
       const nearIndex = pointIndexOfLengthIndex[binarySearch(lengthCache, len)]
@@ -58,15 +63,27 @@ export const cachedPointAtLength = (path: string) => {
 
   // SEE: https://github.com/substack/point-at-length/blob/master/index.js#L23
   // with indexing
-  function walk(pos: number | undefined | null, fromIndex = 0, warm = false) {
+  function walk(
+    pos: number | undefined | null,
+    divs: number = divisions,
+    fromIndex = 0,
+    warm = false
+  ) {
+    fromIndex = 0
     var cur = [
+      0,
       pointsCache[fromIndex]?.[0] ?? 0,
+      0,
       pointsCache[fromIndex]?.[1] ?? 0,
     ]
-    var len = lengthCache[fromIndex] ?? 0
+    var len = lengthCache[fromIndex - 1] ?? 0
 
+    var p0 = [0, 0, 0]
     var prev = [0, 0, 0]
-    var p0 = [0, 0]
+
+    // if (typeof pos === 'number' && len > pos) {
+    //   return null
+    // }
 
     for (var i = fromIndex, l = (pal as any)._path.length; i < l; i++) {
       var p = (pal as any)._path[i]
@@ -79,7 +96,7 @@ export const cachedPointAtLength = (path: string) => {
         warm && lengthCache.push(len)
         warm && (pointsCache[i] = [cur[0], cur[1]])
 
-        if (pos === 0) {
+        if (pos != null && (pos === 0 || pos < 0)) {
           return { length: len, pos: cur, lastIndex: i }
         }
       } else if (p[0] === 'C') {
@@ -87,13 +104,10 @@ export const cachedPointAtLength = (path: string) => {
         prev[1] = p0[1] = cur[1]
         prev[2] = len
 
-        warm && pointIndexOfLengthIndex.push(i)
-        warm && lengthCache.push(len)
         warm && (pointsCache[i] = [cur[0], cur[1]])
 
-        var n = 100
-        for (var j = 0; j <= n; j++) {
-          var t = j / n
+        for (var j = 0; j <= divs; j++) {
+          var t = j / divs
           var x = xof_C(p, t)
           var y = yof_C(p, t)
           len += dist(cur[0], cur[1], x, y)
@@ -104,18 +118,24 @@ export const cachedPointAtLength = (path: string) => {
           if (typeof pos === 'number' && len >= pos) {
             var dv = (len - pos) / (len - prev[2])
             dv = Number.isNaN(dv) ? 0 : dv
+            // dv = Number.isFinite(dv) ? dv : 0
+            if (Number.isNaN(dv)) debugger
 
             var npos = [
               cur[0] * (1 - dv) + prev[0] * dv,
               cur[1] * (1 - dv) + prev[1] * dv,
             ]
 
+            if (Number.isNaN(npos[0]) || Number.isNaN(npos[1])) debugger
             return { length: len, pos: npos, lastIndex: i }
           }
 
           prev[0] = cur[0]
           prev[1] = cur[1]
           prev[2] = len
+
+          warm && pointIndexOfLengthIndex.push(i)
+          warm && lengthCache.push(len)
         }
       } else if (p[0] === 'Q') {
         prev[0] = p0[0] = cur[0]
@@ -124,11 +144,9 @@ export const cachedPointAtLength = (path: string) => {
 
         warm && (pointsCache[i] = [cur[0], cur[1]])
         warm && pointIndexOfLengthIndex.push(i)
-        warm && lengthCache.push(len)
 
-        var n = 100
-        for (var j = 0; j <= n; j++) {
-          var t = j / n
+        for (var j = 0; j <= divs; j++) {
+          var t = j / divs
           var x = xof_Q(p, t)
           var y = yof_Q(p, t)
           len += dist(cur[0], cur[1], x, y)
@@ -138,6 +156,8 @@ export const cachedPointAtLength = (path: string) => {
 
           if (typeof pos === 'number' && len >= pos) {
             var dv = (len - pos) / (len - prev[2])
+            dv = Number.isNaN(dv) ? 0 : dv
+            // dv = Number.isFinite(dv) ? dv : 0
 
             var npos = [
               cur[0] * (1 - dv) + prev[0] * dv,
@@ -146,9 +166,12 @@ export const cachedPointAtLength = (path: string) => {
 
             return { length: len, pos: npos, lastIndex: i }
           }
+
           prev[0] = cur[0]
           prev[1] = cur[1]
           prev[2] = len
+
+          warm && lengthCache.push(len)
         }
       } else if (p[0] === 'L') {
         prev[0] = cur[0]
@@ -160,24 +183,30 @@ export const cachedPointAtLength = (path: string) => {
         cur[1] = p[2]
 
         warm && (pointsCache[i] = [cur[0], cur[1]])
-        warm && pointIndexOfLengthIndex.push(i)
-        warm && lengthCache.push(len)
 
         if (typeof pos === 'number' && len >= pos) {
           var dv = (len - pos) / (len - prev[2])
+          dv = Number.isNaN(dv) ? 0 : dv
+          // dv = Number.isFinite(dv) ? dv : 0
+
           var npos = [
             cur[0] * (1 - dv) + prev[0] * dv,
             cur[1] * (1 - dv) + prev[1] * dv,
           ]
 
+          if (Number.isNaN(npos[0]) || Number.isNaN(npos[1])) debugger
           return { length: len, pos: npos, lastIndex: i }
         }
+
         prev[0] = cur[0]
         prev[1] = cur[1]
         prev[2] = len
+        warm && pointIndexOfLengthIndex.push(i)
+        warm && lengthCache.push(len)
       }
     }
 
+    warm && pointIndexOfLengthIndex.push(i)
     warm && lengthCache.push(len)
 
     return { length: len, pos: cur, lastIndex: i }

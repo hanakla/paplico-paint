@@ -30,6 +30,15 @@ export declare namespace VectorObject {
 
   export type PatchableAttributes = Omit<Attributes, 'uid'>
 
+  export type MatrixArray = readonly [
+    number,
+    number,
+    number,
+    number,
+    number,
+    number
+  ]
+
   export interface SerializedAttibutes extends Attributes {
     uid: string
     path: Path.SerializedAttibutes

@@ -3,7 +3,7 @@ import mitt, { Emitter } from 'mitt'
 import AggregateError from 'es-aggregate-error'
 
 import { Brush, ScatterBrush } from '../Brushes'
-import { Document, LayerTypes, Path, VectorLayer } from '../DOM'
+import { Document, LayerTypes, Path, VectorLayer, VectorObject } from '../DOM'
 import { setCanvasSize, debounce } from '../utils'
 import { deepClone } from '../utils/object'
 import { CurrentBrushSetting as _CurrentBrushSetting } from './CurrentBrushSetting'
@@ -42,6 +42,7 @@ import {
   timeSumming,
 } from '../DebugHelper'
 import { makeReadOnlyCanvas, saveAndRestoreCanvas } from '../utils/canvas'
+import { BrushContext } from './IBrush'
 
 type EngineEvents = {
   rerender: void
@@ -363,6 +364,7 @@ export class PaplicoEngine {
     brushSetting: BrushSetting,
     ink: IInk,
     path: Path,
+    transform: BrushContext['transform'],
     destCtx: CanvasRenderingContext2D,
     {
       hintInput,
@@ -371,8 +373,6 @@ export class PaplicoEngine {
     }
   ) {
     if (path.points.length < 1) return
-
-    console.trace()
 
     const perf_clonePath = timeSumming('clonePath', '👥')
     const perf_freezePath = timeSumming('freezePath', '🧊')
@@ -417,6 +417,7 @@ export class PaplicoEngine {
         threeCamera: this.camera,
         ink: ink,
         path,
+        transform,
         hintInput: hintInput ?? null,
         destSize: {
           width: destCtx.canvas.width,
@@ -465,15 +466,14 @@ export class PaplicoEngine {
       bufferCtx.clearRect(0, 0, width, height)
 
       for (const object of [...layer.objects].reverse()) {
-        // console.log({ visible: object.visible })
         if (!object.visible) continue
 
         bufferCtx.save()
 
         bufferCtx.globalCompositeOperation = 'source-over'
-        bufferCtx.transform(...object.matrix)
 
         if (object.fill) {
+          bufferCtx.transform(...object.matrix)
           bufferCtx.beginPath()
 
           const start = object.path.points[0]
@@ -546,6 +546,8 @@ export class PaplicoEngine {
               break
             }
           }
+
+          bufferCtx.resetTransform()
         }
 
         if (object.brush) {
@@ -556,17 +558,22 @@ export class PaplicoEngine {
           if (brush == null)
             throw new Error(`Unregistered brush ${object.brush.brushId}`)
 
-          logTime('renderPath')
+          logTime('Engine.renderPath')
 
           await this.renderPath(
             object.brush,
             new PlainInk(),
             object.path,
+            {
+              rotate: object.rotate,
+              scale: { x: object.scale[0], y: object.scale[1] },
+              translate: { x: object.x, y: object.y },
+            },
             bufferCtx,
             { hintInput: bufferCtx.canvas }
           )
 
-          logTimeEnd('renderPath')
+          logTimeEnd('Engine.renderPath')
         }
 
         bufferCtx.restore()

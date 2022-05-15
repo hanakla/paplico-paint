@@ -10,6 +10,11 @@ export type BrushContext<T = unknown> = {
   threeCamera: Camera
   /** Input path. this is cloned and freezed */
   path: Path
+  transform: {
+    rotate: number
+    scale: { x: number; y: number }
+    translate: { x: number; y: number }
+  }
   ink: IInk
   brushSetting: CurrentBrushSetting & { specific: Partial<T> | null }
   /** Expected destination canvas size */

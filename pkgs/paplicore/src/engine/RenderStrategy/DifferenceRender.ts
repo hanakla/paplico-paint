@@ -371,6 +371,7 @@ export class DifferenceRender implements IRenderStrategy {
 
       if (image == null) return
 
+      console.log(layer.layerType, layer.x, layer.y)
       bufferCtx.drawImage(image, layer.x, layer.y)
 
       if (this.overrides?.layerId === layer.uid) {

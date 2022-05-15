@@ -4,32 +4,38 @@ import { cachedPointAtLength } from './CachedPointAtLength'
 describe('CachedPointAtLength', () => {
   const path = complexPath()
 
-  it('should returns same result tp point-at-length', () => {
+  it('should returns same result to point-at-length', () => {
     const original = pal(path)
     const cached = cachedPointAtLength(path)
+    const length = cached.length()
 
-    expect(Math.floor(cached.length())).toBeCloseTo(
-      Math.floor(original.length()),
-      0
-    )
+    expect(Math.floor(length)).toBeCloseTo(Math.floor(original.length()), 1)
 
-    expect(cached.at(0)[0]).toBeCloseTo(original.at(0)[0], 5)
-    expect(cached.at(0)[1]).toBeCloseTo(original.at(0)[1], 5)
+    expect(cached.at(0)[0]).toBeCloseTo(original.at(0)[0], 2)
+    expect(cached.at(0)[1]).toBeCloseTo(original.at(0)[1], 2)
 
-    expect(cached.at(1)[0]).toBeCloseTo(original.at(1)[0], 5)
-    expect(cached.at(1)[1]).toBeCloseTo(original.at(1)[1], 5)
+    expect(cached.at(1)[0]).toBeCloseTo(original.at(1)[0], 2)
+    expect(cached.at(1)[1]).toBeCloseTo(original.at(1)[1], 2)
 
-    expect(cached.at(100)[0]).toBeCloseTo(original.at(100)[0], 5)
-    expect(cached.at(100)[1]).toBeCloseTo(original.at(100)[1], 5)
+    expect(cached.at(100)[0]).toBeCloseTo(original.at(100)[0], 2)
+    expect(cached.at(100)[1]).toBeCloseTo(original.at(100)[1], 2)
+  })
 
-    expect(cached.at(cached.length())[0]).toBeCloseTo(
-      original.at(original.length())[0],
-      5
-    )
-    expect(cached.at(cached.length())[1]).toBeCloseTo(
-      original.at(original.length())[1],
-      5
-    )
+  describe('getSequencialReader', () => {
+    it('should returns same result to .at()', () => {
+      const original = pal(path)
+      const cached = cachedPointAtLength(path)
+      const reader = cached.getSequencialReader()
+
+      expect(reader.at(0)[0]).toBeCloseTo(cached.at(0)[0], 2)
+      expect(reader.at(0)[1]).toBeCloseTo(cached.at(0)[1], 2)
+
+      expect(reader.at(1)[0]).toBeCloseTo(cached.at(1)[0], 2)
+      expect(reader.at(1)[1]).toBeCloseTo(cached.at(1)[1], 2)
+
+      expect(reader.at(100)[0]).toBeCloseTo(cached.at(100)[0], 2)
+      expect(reader.at(100)[1]).toBeCloseTo(cached.at(100)[1], 2)
+    })
   })
 
   describe('line', () => {

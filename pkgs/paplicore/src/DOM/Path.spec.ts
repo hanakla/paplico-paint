@@ -19,7 +19,7 @@ describe('Path', () => {
   })
 
   describe.only('getSequencialPointsReader', () => {
-    it('Returns to same value of uncached getPoint', () => {
+    it('Returns to same value to uncached getPoint', () => {
       const p = Path.create({
         closed: false,
         points: testComplexPoints(),

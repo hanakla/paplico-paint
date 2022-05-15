@@ -355,12 +355,12 @@ export class ScatterBrush implements IBrush {
         lerp(-specific.scatterRange, specific.scatterRange, Math.sin(angle))
       )
 
+      // console.log(_translate2d.toArray(), tangent, _object.matrix.toArray())
+
       perf_misc.time()
 
       perf_setMatrixAt.time()
       _object.updateMatrix()
-
-      // points.push(_object.position.toArray())
 
       mesh.setMatrixAt(idx, _object.matrix)
       perf_setMatrixAt.timeEnd()

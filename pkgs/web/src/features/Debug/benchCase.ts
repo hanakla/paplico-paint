@@ -1,7 +1,13 @@
 export const benchCase = function <Init>(opt: {
   name: string
   init: () => Init | Promise<Init>
-  cases: { name: string; run: (init: Init) => void | Promise<void> }[]
+  cases: {
+    name: string
+    run: (
+      init: Init,
+      ctx: { iteration: number; allIterations: number }
+    ) => void | Promise<void>
+  }[]
   // case1: (init: Init) => void | Promise<void>
   // case2?: (init: Init) => void | Promise<void>
   iterate: number
@@ -27,7 +33,7 @@ export const benchCase = function <Init>(opt: {
         for (let i = 0; i < opt.iterate; i++) {
           const iterationStart = performance.now()
           if (i % logThreshold === 0) console.log(`Complete ${i} iterations`)
-          await bench.run(init)
+          await bench.run(init, { iteration: i, allIterations: opt.iterate })
 
           const iterationEnd = performance.now()
 

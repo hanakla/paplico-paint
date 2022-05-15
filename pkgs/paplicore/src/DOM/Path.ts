@@ -12,6 +12,7 @@ import { ISilkDOMElement } from './ISilkDOMElement'
 import { lerp } from '../utils/math'
 import { parseSVGPath } from '../fastsvg/parse'
 import abs from 'abs-svg-path'
+import normalize from 'normalize-svg-path'
 
 export declare namespace Path {
   export type Attributes = {
@@ -85,6 +86,27 @@ export class Path implements ISilkDOMElement {
     return path
   }
 
+  public static fromSVGPath(
+    path: string,
+    { randomSeed }: { randomSeed?: number } = {}
+  ) {
+    const points = normalize(abs(parseSVGPath(path)))
+    const closed = /z[\n\s]*$/i.test(path)
+
+    return assign(new Path(), {
+      points: points
+        .map(([cmd, ...args]: [string, ...number[]]): Path.PathPoint | null =>
+          // prettier-ignore
+          cmd === 'M' ? { x: args[0], y: args[1], in: null, out: null } :
+          cmd === 'C' ? { x: args[4], y: args[5], in: { x: args[0], y: args[1] }, out: { x: args[2], y:args[3] } } :
+          null
+        )
+        .filter((p: any): p is Path.PathPoint => p != null),
+      closed,
+      ...(randomSeed != null ? { randomSeed } : {}),
+    })
+  }
+
   public static deserialize(obj: Path.Attributes) {
     return assign(new Path(), {
       points: obj.points,
@@ -150,26 +172,20 @@ export class Path implements ISilkDOMElement {
     return { x, y }
   }
 
-  public getNearPointIdxAtLength(len: number) {
-    return this.pal.nearPointAtLength(len)
+  public getNearVertexIdxAtLength(len: number) {
+    return this.pal.nearVertexAtLength(len)
   }
 
   public getSequencialPointsReader() {
     let prevLen = -Infinity
-    let lastIndex = 0
-    const pal = this.pal
-    const total = this.getTotalLength()
 
-    const fallbackLast = this.closed
-      ? { index: 0, element: this.points[0] }
-      : {
-          index: this.points.length - 1,
-          element: this.points[this.points.length - 1],
-        }
+    const pal = this.pal
+    const seqReader = pal.getSequencialReader()
+    const total = pal.length()
 
     const reader = {
       getPointAtIndex: (idx: number) => {
-        return pal.lengthOfPoint(idx)
+        return pal.lengthOfVertex(idx)
       },
       getPointAt: (t: number, { seek = true }: { seek?: boolean } = {}) => {
         const len = total * t
@@ -185,14 +201,8 @@ export class Path implements ISilkDOMElement {
           )
         }
 
-        const result = pal.atWithDetail(len, { hintIndexGTEq: lastIndex })
-
-        if (seek) {
-          lastIndex = result.lastIndex
-          prevLen = len
-        }
-
-        return { x: result.pos[0], y: result.pos[1] }
+        const result = seqReader.at(len, { seek })
+        return { x: result[0], y: result[1] }
       },
     }
 
@@ -213,7 +223,7 @@ export class Path implements ISilkDOMElement {
    * @returns Pressure 0..1, fallback to .5
    */
   public getPressureAtLength(len: number) {
-    const nearPoint = this.getNearPointIdxAtLength(len)
+    const nearPoint = this.getNearVertexIdxAtLength(len)
 
     const fallbackLast = this.closed
       ? { index: 0, element: this.points[0] }
@@ -232,8 +242,8 @@ export class Path implements ISilkDOMElement {
         increments: 1,
       }) ?? fallbackLast
 
-    const prevLength = this.pal.lengthOfPoint(prev.index).length
-    const nextLength = this.pal.lengthOfPoint(next.index).length
+    const prevLength = this.pal.lengthOfVertex(prev.index).length
+    const nextLength = this.pal.lengthOfVertex(next.index).length
     const segmentLength = nextLength - prevLength
 
     // SEE: https://developer.mozilla.org/ja/docs/Web/API/PointerEvent/pressure#return_value
@@ -287,8 +297,8 @@ export class Path implements ISilkDOMElement {
             increments: 1,
           }) ?? fallbackLast
 
-        const prevLength = pal.lengthOfPoint(prev.index).length
-        const nextLength = pal.lengthOfPoint(next.index).length
+        const prevLength = pal.lengthOfVertex(prev.index).length
+        const nextLength = pal.lengthOfVertex(next.index).length
 
         const segmentLength = nextLength - prevLength
 
@@ -333,8 +343,11 @@ export class Path implements ISilkDOMElement {
   }
 
   public getSequencialTangentsReader() {
-    const totalLength = this.getTotalLength()
-    const pointsReader = this.getSequencialPointsReader()
+    const pal = this.pal
+
+    const totalLength = pal.length()
+    const pointsReader = pal.getSequencialReader()
+    let prevPoint: [number, number] | null = null
 
     const reader = {
       getTangentAt: (t: number) => {
@@ -345,16 +358,28 @@ export class Path implements ISilkDOMElement {
 
         // returns a normalized vector that describes the tangent
         // at the point that is found at *percent* of the path's length
-        const p1 = pointsReader.getPointAtLength(len - 0.1, { seek: true })
-        const p2 = pointsReader.getPointAtLength(len + 0.1, { seek: false })
+        // console.time('at')
 
-        const vector = { x: p2.x - p1.x, y: p2.y - p1.y }
+        const p1 = prevPoint ?? pointsReader.at(len - 0.1, { seek: true })
+        const p2 = pointsReader.at(len + 0.1, { seek: true })
+        // const p1 = [0, 0]
+        // const p2 = [0, 0]
+        // console.timeEnd('at')
 
-        const magnitude = Math.sqrt(
+        const vector = { x: p2[0] - p1[0], y: p2[1] - p1[1] }
+
+        // console.time('sqrt')
+
+        let magnitude = Math.sqrt(
           Math.abs(vector.x * vector.x + vector.y * vector.y)
         )
+        magnitude = Number.isNaN(magnitude) ? 0 : magnitude
+
         vector.x /= magnitude
         vector.y /= magnitude
+        // console.timeEnd('sqrt')
+
+        prevPoint = p2
 
         return vector
       },
@@ -388,7 +413,7 @@ export class Path implements ISilkDOMElement {
             y: args[1],
             in: null,
             out: next ? { x: next[1], y: next[2] } : null,
-            pressure: this.getPressureAtLength(pal.lengthOfPoint(idx).length),
+            pressure: this.getPressureAtLength(pal.lengthOfVertex(idx).length),
           }
         case 'C':
           return {
@@ -396,7 +421,7 @@ export class Path implements ISilkDOMElement {
             y: args[5],
             in: { x: args[2], y: args[3] },
             out: next ? { x: next[1], y: next[2] } : null,
-            pressure: this.getPressureAtLength(pal.lengthOfPoint(idx).length),
+            pressure: this.getPressureAtLength(pal.lengthOfVertex(idx).length),
           }
         default: {
           throw new Error(`Unexpected command type ${cmd}`)

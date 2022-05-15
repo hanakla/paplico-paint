@@ -26,13 +26,21 @@ export class Brush implements IBrush {
   public render({
     context: ctx,
     path: inputPath,
+    transform,
     ink,
     brushSetting: { size, color, opacity, specific },
+    destSize,
   }: BrushContext) {
     const sp = mergeToNew(this.getInitialSpecificConfig(), specific)
 
     const { points, closed } = inputPath
     const [start] = points
+
+    ctx.translate(destSize.width / 2, destSize.height / 2)
+    ctx.translate(transform.translate.x, transform.translate.y)
+    ctx.scale(transform.scale.x, transform.scale.y)
+    ctx.rotate(transform.rotate)
+    ctx.translate(-destSize.width / 2, -destSize.height / 2)
 
     ctx.lineWidth = size
     ctx.strokeStyle = `${rgba(

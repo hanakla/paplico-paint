@@ -92,20 +92,60 @@ const cases = {
 
       return {
         original: pal,
+        originalLength: pal.length(),
         mod,
+        modSeq: mod.getSequencialReader(),
+        modLength: mod.length(),
       }
     },
     cases: [
       {
         name: 'original',
-        run: async ({ original }) => {
-          original.at(Math.random())
+        run: async (
+          { original, originalLength },
+          { iteration, allIterations }
+        ) => {
+          original.at(originalLength * (iteration / allIterations))
         },
       },
       {
         name: 'mod',
-        run: async ({ mod }) => {
-          mod.at(Math.random())
+        run: async ({ mod, modLength }, { iteration, allIterations }) => {
+          mod.at(modLength * (iteration / allIterations))
+        },
+      },
+      {
+        name: 'mod(sequential)',
+        run: async ({ modSeq, modLength }, { iteration, allIterations }) => {
+          modSeq.at(modLength * (iteration / allIterations))
+        },
+      },
+    ],
+    iterate: 1000,
+  }),
+  getTangentAt: benchCase({
+    name: 'getTangentAt',
+    init: async () => {
+      const svgPath = complexPath()
+      const path = PapDOM.Path.fromSVGPath(svgPath)
+
+      console.log(path)
+      return {
+        path,
+        reader: path.getSequencialTangentsReader(),
+      }
+    },
+    cases: [
+      {
+        name: 'no cached',
+        run: async ({ path }, { iteration, allIterations }) => {
+          path.getTangentAt(iteration / allIterations)
+        },
+      },
+      {
+        name: 'sequencial cached',
+        run: async ({ reader }, { iteration, allIterations }) => {
+          reader.getTangentAt(iteration / allIterations)
         },
       },
     ],
@@ -292,5 +332,6 @@ function complexPath() {
   C 505.2039,426.0600000000001 507.1633,437.0252000000001 511.5897 448.8202000000001
   C 514.0822,455.4620000000001 517.3675,462.10070000000013 520.2172 468.5960000000001
   C 524.1564000000001,477.5749000000001 528.6160191406251,496.4284073242189 534.323419140625 504.4608073242189
+  Z
 `
 }

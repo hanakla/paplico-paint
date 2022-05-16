@@ -13,6 +13,7 @@ import { lerp } from '../utils/math'
 import { parseSVGPath } from '../fastsvg/parse'
 import abs from 'abs-svg-path'
 import normalize from 'normalize-svg-path'
+import { nanoid } from 'nanoid'
 
 export declare namespace Path {
   export type Attributes = {
@@ -129,7 +130,15 @@ export class Path implements ISilkDOMElement {
   private _cachedBounds: Path.PathBBox | null = null
   private _isFreezed: boolean = false
 
+  /** Mark for re-rendering decision */
+  protected _contentUpdatedAt = { key: nanoid(), time: Date.now() }
+
   protected constructor() {}
+
+  /** Content identifier for weakmap and update detection, it's immutable changes each path updated */
+  public get cacheKeyObject() {
+    return this._contentUpdatedAt
+  }
 
   public get isFreezed() {
     return this._isFreezed
@@ -353,6 +362,7 @@ export class Path implements ISilkDOMElement {
       getTangentAt: (t: number) => {
         return reader.getTangentAtLength(t * totalLength)
       },
+
       getTangentAtLength: (len: number) => {
         // Original: https://gist.github.com/enjalot/ce4c4409fb80559de2bd
 
@@ -459,6 +469,7 @@ export class Path implements ISilkDOMElement {
     this._pal = cachedPointAtLength(this.svgPath)
     this._cachedBounds = null
     this._cachedBounds = this.getBoundingBox()
+    this._contentUpdatedAt = { key: nanoid(), time: Date.now() }
   }
 
   /** Freeze changes and cache heavily process results */

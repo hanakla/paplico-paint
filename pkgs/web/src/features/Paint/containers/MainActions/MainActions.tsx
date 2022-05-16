@@ -372,6 +372,10 @@ export const MainActions = memo(function MainActions() {
       <DragDots
         css={`
           margin-right: -8px;
+
+          ${media.narrow`
+            display: none;
+          `}
         `}
         width={24}
         fillOpacity={0.5}

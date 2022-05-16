@@ -13,13 +13,21 @@ import {
   Color,
   CanvasTexture,
   Vector3,
-  Matrix4,
   OneFactor,
   OneMinusSrcAlphaFactor,
   AddEquation,
   CustomBlending,
   Group,
+  Matrix4 as ThreeMatrix4,
+  RawShaderMaterial,
+  Float32BufferAttribute,
+  InstancedBufferAttribute,
+  MaxEquation,
+  ShaderMaterial,
+  DoubleSide,
+  AdditiveBlending,
 } from 'three'
+import { Matrix4 } from 'math.gl'
 
 import { degToRad, lerp, radToDeg } from '../utils/math'
 import * as Textures from './ScatterTexture/assets'
@@ -37,7 +45,7 @@ const _object = new Object3D()
 _object.matrixAutoUpdate = false
 
 const _translate2d = new Vector2()
-const _mat4 = new Matrix4()
+const _mat4 = new ThreeMatrix4()
 
 export declare namespace ScatterBrush {
   export type SpecificSetting = {
@@ -65,7 +73,7 @@ export class ScatterBrush implements IBrush {
   private scene!: Scene
   // private material!: MeshBasicMaterial
   private geometry!: PlaneBufferGeometry
-  private materials: Record<string, MeshBasicMaterial> = {}
+  private materials: Record<string, ShaderMaterial> = {}
 
   public getInitialSpecificConfig(): ScatterBrush.SpecificSetting {
     return {
@@ -98,7 +106,7 @@ export class ScatterBrush implements IBrush {
         const texture = new CanvasTexture(bitmap)
         texture.premultiplyAlpha = true
 
-        this.materials[key] = new MeshBasicMaterial({
+        const material = (this.materials[key] = new MeshBasicMaterial({
           // map: texture,
           color: 0xffffff,
 
@@ -123,53 +131,103 @@ export class ScatterBrush implements IBrush {
           // blendDstAlpha: OneMinusSrcAlphaFactor,
           // blendEquation: AddEquation,
           // blendEquationAlpha: AddEquation,
-        })
+        }))
 
-        //     this.materials[key] = new RawShaderMaterial({
-        //       // map: texture,
-        //       // color: 0xffffff,
-        //       uniforms: {
-        //         texture: { value: texture },
-        //       },
-        //       depthTest: true,
-        //       depthWrite: true,
-        //       vertexShader: `
-        //         precision mediump float;
+        // material.onBeforeCompile = (shader) => {
+        //   shader.vertexShader = shader.vertexShader.replace(
+        //     'void main() {',
+        //     `
+        //     attribute float opacity;
+        //     varying float vOpacity;
 
-        //         uniform mat4 modelViewMatrix;
-        //         uniform mat4 projectionMatrix;
+        //     void main() {
+        //       vOpacity = opacity;
+        //   `
+        //   )
 
-        //         attribute vec3 position;
-        //         attribute vec2 uv;
+        //   shader.fragmentShader = shader.fragmentShader.replace(
+        //     'void main() {',
+        //     `
+        //     varying float vOpacity;
 
-        //         varying vec2 vUv;
+        //     void main() {
+        //   `
+        //   )
 
-        //         void main() {
-        //           vUv = uv;
-        //           gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-        //         }
-        //       `,
-        //       fragmentShader: `
-        //         precision mediump float;
+        //   shader.fragmentShader = shader.fragmentShader.replace(
+        //     '#include <dithering_fragment>',
+        //     `
+        //     #include <dithering_fragment>
 
-        //         // uniform sampler2D texture;
-        //         // uniform mat4 viewMatrix;
+        //     gl_FragColor = vec4(
+        //       gl_FragColor.r,
+        //       gl_FragColor.g,
+        //       gl_FragColor.b,
+        //       gl_FragColor.a * .1
+        //      );
+        //   `
+        //   )
 
-        //         // varying vec4 vColor;
-        //         // varying vec2 vUv;
+        //   console.log(shader)
+        // }
 
-        //         void main(void) {
-        //           // vec3 color = texture2D(texture, vUv).rgb;
-        //           // gl_FragColor = vec4(color, color.r);
+        // this.materials[key] = new ShaderMaterial({
+        //   // map: texture,
+        //   // color: 0xffffff,
+        //   uniforms: {
+        //     color: { value: new Color(0xffffff) },
+        //     uMask: { value: texture },
+        //   },
 
-        //           gl_FragColor = vec4(.0, .0, .0, 1);
-        //         }
-        //       `,
+        //   depthWrite: false,
+        //   premultipliedAlpha: true,
+        //   transparent: true,
+        //   side: DoubleSide,
 
-        //       // transparent: true,
-        //       // alphaMap: texture,
-        //     })
-        //   })
+        //   blending: CustomBlending,
+        //   blendSrc: OneFactor,
+        //   blendDst: OneMinusSrcAlphaFactor,
+        //   blendSrcAlpha: OneFactor,
+        //   blendDstAlpha: OneMinusSrcAlphaFactor,
+        //   blendEquation: AddEquation,
+        //   blendEquationAlpha: AddEquation,
+        //   opacity: 0.5,
+        //   // fog: true,
+
+        //   // SEE: https://github.com/mrdoob/three.js/blob/master/examples/webgl_buffergeometry_rawshader.html
+        //   vertexShader: `
+        //     varying vec2 vUv;
+
+        //     void main()	{
+        //       vUv = uv;
+        //       gl_Position = projectionMatrix * modelViewMatrix * instanceMatrix * vec4( position, 1.0 );
+        //     }
+        //   `,
+        //   fragmentShader: `
+        //     precision mediump float;
+
+        //     varying vec2 vUv;
+
+        //     uniform vec4 color;
+        //     uniform sampler2D uMask;
+
+        //     void main()	{
+        //       vec4 maskColor = texture2D( uMask, vUv );
+        //       float alpha = (maskColor.r + maskColor.g + maskColor.b) / 3.0;
+
+        //       // gl_FragColor = vec4(vUv.x, vUv.y, 0, 1.);
+        //       gl_FragColor = vec4(color.r, color.g, color.b, .4);
+        //       // gl_FragColor = maskColor;
+        //       // gl_FragColor = vec4(color.a);
+        //     }
+        //     `,
+        // })
+
+        console.log({ material, mat: this.materials[key] })
+
+        this.materials[key].needsUpdate = true
+
+        // this.materials[key].uniforms.mask.value =
       })
     )
 
@@ -193,7 +251,7 @@ export class ScatterBrush implements IBrush {
 
     logGroup('ScatterBrush')
 
-    const { color } = brushSetting
+    const { color, opacity } = brushSetting
 
     // #region Building path for instancing
     const threePath = new ThreePath()
@@ -230,26 +288,28 @@ export class ScatterBrush implements IBrush {
     // #endregion
 
     const material = this.materials[specific.texture]
-    material.needsUpdate = true
+    // material.uniforms.color.value = new Float32Array([
+    //   color.r,
+    //   color.g,
+    //   color.b,
+    //   opacity,
+    // ])
     material.color.set(new Color(color.r, color.g, color.b))
 
-    // material.onBeforeCompile = (shader) => {
-    //   console.log({ shader })
-    // }
+    material.needsUpdate = true
 
     let counts = Math.ceil(threePath.getLength() * specific.divisions)
 
     const opacities = new Float32Array(counts)
-    const mesh = new InstancedMesh(this.geometry, material, counts)
+    const geometry = new PlaneBufferGeometry(1, 1)
+
+    const mesh = new InstancedMesh(geometry, material, counts)
     const group = new Group()
-    // mesh.matrix = new Matrix4().fromArray(matrix)
-    // mesh.matrix.makeScale(2, 2, 1)
 
     const seed = fastRandom(inputPath.randomSeed)
-    const pointsReader = inputPath.getSequencialPointsReader()
+    // const pointsReader = inputPath.getSequencialPointsReader()
     const pressureReader = inputPath.getSequencialPressuresReader()
     const tangentReader = inputPath.getSequencialTangentsReader()
-    // const totalLength = inputPath.getTotalLength()
 
     const perf_misc = timeSumming(`misc at will calls ${counts} times`)
     const perf_getPoint = timeSumming(`getPoint at will calls ${counts} times`)
@@ -271,9 +331,7 @@ export class ScatterBrush implements IBrush {
     for (let idx = 0; idx < counts; idx++) {
       const frac = idx / counts
 
-      // const pos = new Vector3()
-      // const quat = new Quaternion()
-      // const scale = new Vector3()
+      const mat4 = new Matrix4()
 
       perf_rand.time()
       const randomFloat = seed.nextFloat()
@@ -283,25 +341,26 @@ export class ScatterBrush implements IBrush {
       freezedThreePath.sequencialGetPoint(frac, _translate2d)
       perf_getPoint.timeEnd({ frac, index: idx })
 
-      _object.position.set(
+      mat4.translate([
         MathUtils.lerp(-destSize.width / 2, destSize.width / 2, _translate2d.x),
         MathUtils.lerp(
           destSize.height / 2,
           -destSize.height / 2,
           _translate2d.y
         ),
-        0
-      )
+        0,
+      ])
 
-      // pos.set(
-      //   MathUtils.lerp(-destSize.width / 2, destSize.width / 2, _translate2d.x),
-      //   MathUtils.lerp(
-      //     destSize.height / 2,
-      //     -destSize.height / 2,
-      //     _translate2d.y
-      //   ),
-      //   0
-      // )
+      perf_getTangentByPath.time()
+      const tangent = tangentReader.getTangentAt(frac)
+      perf_getTangentByPath.timeEnd({ frac, idx, counts })
+
+      const angle = Math.atan2(tangent.x, tangent.y)
+      mat4.translate([
+        lerp(-specific.scatterRange, specific.scatterRange, Math.cos(angle)),
+        lerp(-specific.scatterRange, specific.scatterRange, Math.sin(angle)),
+        0,
+      ])
 
       // prettier-ignore
       const fadeWeight =
@@ -316,58 +375,41 @@ export class ScatterBrush implements IBrush {
         pressureReader.getPressureAt(frac) * 0.8 * specific.pressureInfluence
       perf_pressureAtTime.timeEnd({ frac, index: idx })
 
+      mat4.rotateZ(
+        degToRad(
+          radToDeg(angle) + -1 + randomFloat * 360 * specific.randomRotation
+        )
+      )
+
       // fade(1) * influence(1) = 1 入り抜き影響済みの太さ
       // fade(1) * influence(0) = 0 入り抜き影響済みの太さ
       // (size * pressure) * (fade * influence)
       // (fade * influence) = 0 のときにsize * pressureになってほしいな(こなみ)
       // (fade * influence) = 0
       // 打ち消し式: (fade * influence) + 1 = 1
-      // scale.set(
-      //   brushSetting.size * pressureWeight * fadeWeight,
-      //   brushSetting.size * pressureWeight * fadeWeight,
-      //   1
-      // )
 
-      _object.scale.set(
+      mat4.scale([
         brushSetting.size * pressureWeight * fadeWeight,
         brushSetting.size * pressureWeight * fadeWeight,
-        1
-      )
-
-      perf_getTangentByPath.time()
-      const tangent = tangentReader.getTangentAt(frac)
-
-      perf_getTangentByPath.timeEnd({ frac, idx, counts })
-
-      const angle = Math.atan2(tangent.x, tangent.y)
-
-      _object.rotation.z = degToRad(
-        radToDeg(angle) + -1 + randomFloat * 360 * specific.randomRotation
-      )
-      // quat.z = degToRad(
-      //   radToDeg(angle) + -1 + randomFloat * 360 * specific.randomRotation
-      // )
-
-      _object.translateX(
-        lerp(-specific.scatterRange, specific.scatterRange, Math.cos(angle))
-      )
-      _object.translateY(
-        lerp(-specific.scatterRange, specific.scatterRange, Math.sin(angle))
-      )
+        1,
+      ])
 
       // console.log(_translate2d.toArray(), tangent, _object.matrix.toArray())
 
       perf_misc.time()
-
       perf_setMatrixAt.time()
-      _object.updateMatrix()
 
-      mesh.setMatrixAt(idx, _object.matrix)
+      _mat4.fromArray(mat4.toArray())
+      mesh.setMatrixAt(idx, _mat4)
+
       perf_setMatrixAt.timeEnd()
 
-      // opacities[idx] = fadeWeight
+      opacities[idx] = 0.1
       perf_misc.timeEnd()
     }
+
+    geometry.setAttribute('opacity', new InstancedBufferAttribute(opacities, 1))
+
     logTimeEnd('Scatter: set atributes')
 
     perf_getPoint.log()
@@ -377,10 +419,6 @@ export class ScatterBrush implements IBrush {
     perf_misc.log()
     perf_setMatrixAt.log()
 
-    // this.geometry.setAttribute(
-    //   'opacities',
-    //   new InstancedBufferAttribute(opacities, 1)
-    // )
     // this.geometry.attributes.opacities.needsUpdate = true
     perf_render.time()
 
@@ -396,10 +434,10 @@ export class ScatterBrush implements IBrush {
     perf_render.timeEnd()
     perf_render.log()
 
-    ctx.globalAlpha = brushSetting.opacity
-    ctx.strokeStyle = 'rgb(255,0,0)'
-    ctx.lineWidth = 3
-    ctx.strokeRect(0, 0, ctx.canvas.width, ctx.canvas.height)
+    // ctx.globalAlpha = brushSetting.opacity
+    // ctx.strokeStyle = 'rgb(255,0,0)'
+    // ctx.lineWidth = 3
+    // ctx.strokeRect(0, 0, ctx.canvas.width, ctx.canvas.height)
     ctx.drawImage(renderer.domElement, 0, 0)
 
     // this.scene.remove(mesh)

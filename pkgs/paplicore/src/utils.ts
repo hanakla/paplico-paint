@@ -41,7 +41,7 @@ export const debounce = <T extends (...args: any[]) => void>(
   fn: T,
   waiting: number
 ) => {
-  let last = -1
+  let last = 0
   let timerId: number = -1
 
   const run = (...args: any[]) => {

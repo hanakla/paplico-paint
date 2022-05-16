@@ -172,7 +172,7 @@ export default function Debug() {
                   brushId: PapBrushes.ScatterBrush.id,
                   size: 100,
                   color: { r: i / length, g: 1 - i / length, b: i / length },
-                  opacity: 0.8,
+                  opacity: 0.6,
                   specific: {
                     texture: 'fadeBrush',
                     fadeWeight: 0.7,

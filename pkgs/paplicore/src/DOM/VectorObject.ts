@@ -8,6 +8,7 @@ import { BrushSetting } from '../Value/BrushSetting'
 import { FillSetting } from '../Value/FillSetting'
 import { assign, deepClone } from '../utils/object'
 import { Requiring } from '../utils/types'
+import { nanoid } from 'nanoid'
 
 type Events = {
   updated: VectorObject
@@ -78,7 +79,7 @@ export class VectorObject
   // public appearances: ObjectAppearance[]
 
   /** Mark for re-rendering decision */
-  protected _contentUpdatedAt = Date.now()
+  protected _contentUpdatedAt = { key: nanoid(), time: Date.now() }
 
   public static create({
     path = Path.create({ points: [], closed: false }),
@@ -109,8 +110,13 @@ export class VectorObject
     super()
   }
 
-  public get lastUpdatedAt() {
+  /** Content identifier for weakmap and update detection */
+  public get cacheKeyObject() {
     return this._contentUpdatedAt
+  }
+
+  public get lastUpdatedAt() {
+    return this._contentUpdatedAt.time
   }
 
   public get matrix() {
@@ -137,8 +143,9 @@ export class VectorObject
 
   public update(proc: (object: this) => void) {
     proc(this)
+
+    this._contentUpdatedAt = { key: nanoid(), time: Date.now() }
     this.emit('updated', this)
-    this._contentUpdatedAt = Date.now()
   }
 
   public getBoundingBox() {

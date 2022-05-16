@@ -85,6 +85,7 @@ import { Testing } from './testing'
 import useSound from 'use-sound'
 import { Howl } from 'howler'
 import { debounce } from '../../utils/func'
+import { bindDevToolAPI } from './devToolsAPI'
 
 export const PaintPage = memo(function PaintPage({}) {
   const { t } = useTranslation('app')
@@ -404,6 +405,8 @@ export const PaintPage = memo(function PaintPage({}) {
         return getStore(EditorStore).state.session
       },
     })
+
+    bindDevToolAPI(getStore)
 
     // const session = ((window as any)._session = await SilkSession.create())
     // session.setBrushSetting({ color: { r: 0.3, g: 0.3, b: 0.3 } })

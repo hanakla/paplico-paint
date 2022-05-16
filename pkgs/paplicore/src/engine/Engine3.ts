@@ -214,7 +214,7 @@ export class PaplicoEngine {
     (document: Document, strategy: IRenderStrategy) => {
       return this.render(document, strategy, { lazy: true })
     },
-    300
+    100
   )
 
   public async render(

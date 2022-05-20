@@ -110,7 +110,7 @@ export class VectorObject
     super()
   }
 
-  /** Content identifier for weakmap and update detection */
+  /** Content identifier for weakmap and update detection, it's immutable */
   public get cacheKeyObject() {
     return this._contentUpdatedAt
   }

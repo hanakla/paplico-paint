@@ -22,6 +22,7 @@ import { NotifyOps } from './Notify'
 import { nanoid } from 'nanoid'
 import { rescue } from '@hanakla/arma'
 import { uniqBy } from '../utils/array'
+import { State } from 'howler'
 
 type EditorMode = 'pc' | 'sp' | 'tablet'
 type EditorPage = 'home' | 'app'
@@ -537,8 +538,18 @@ export const [EditorStore, EditorOps] = minOps('Editor', {
     // #endregion
 
     // #region Paint tools and Tool session
-    setFill: (x, fill: PapValueTypes.FillSetting | null) => {
-      x.commit({ currentFill: fill })
+    setVectorFill: (x, fill: Partial<PapValueTypes.FillSetting> | null) => {
+      x.commit((state) => {
+        if (!fill) {
+          state.currentFill = null
+          return
+        }
+
+        if (state.currentFill?.type === 'fill') {
+          assign(state.currentFill, fill)
+        } else if (state.currentFill?.type === 'linear-gradient') {
+        }
+      })
     },
     setBrushSetting(x, setting: Partial<BrushSetting>) {
       x.commit((d) => {

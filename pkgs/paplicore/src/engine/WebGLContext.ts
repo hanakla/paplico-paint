@@ -319,11 +319,8 @@ export class WebGLContext {
     textures.forEach((tex) => tex && gl.deleteTexture(tex))
 
     saveAndRestoreCanvas(output.getContext('2d')!, (outCtx) => {
-      // console.log('hi')
       outCtx.globalCompositeOperation = 'source-over'
       clear && outCtx.clearRect(0, 0, output.width, output.height)
-      clear && (outCtx.fillStyle = 'rgba(255,255,255,0)')
-      clear && outCtx.fillRect(0, 0, output.width, output.height)
       outCtx.drawImage(this.gl.canvas, 0, 0, output.width, output.height)
     })
   }

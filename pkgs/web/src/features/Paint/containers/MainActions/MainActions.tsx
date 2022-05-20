@@ -103,7 +103,7 @@ export const MainActions = memo(function MainActions() {
     vectorColorTarget: EditorSelector.vectorColorTarget(get),
   }))
 
-  const [color, setColor] = useState(
+  const [color, setColor] = useBufferedState(
     displayingBrushSetting?.color
       ? {
           r: Math.round(displayingBrushSetting.color.r * 255),

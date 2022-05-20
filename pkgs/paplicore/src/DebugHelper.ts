@@ -81,7 +81,7 @@ if (typeof window !== 'undefined' && window !== null) {
   ;(window as any).logImage = logImage
 }
 
-export let disableLog = true
+export let disableLog = false
 
 export const logLog: Console['group'] = (...args) => {
   if (disableLog) return

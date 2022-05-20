@@ -16,7 +16,7 @@ import { useFleur } from '🙌/utils/hooks'
 import { BRUSH_PRESETS } from '../constants'
 import { memo } from 'react'
 
-export function BrushPresets() {
+export const BrushPresets = memo(function BrushPresets() {
   const { t } = useTranslation('app')
   const { execute } = useFleur()
 
@@ -88,7 +88,7 @@ export function BrushPresets() {
       </div>
     </SidebarPane>
   )
-}
+})
 
 const BrushItem = memo(function BrushItem({
   brushId,

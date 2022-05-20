@@ -9,7 +9,7 @@ import {
 import { useFunk } from '@hanakla/arma'
 import { ArrowDownS, Check } from '@styled-icons/remix-line'
 import { rgba } from 'polished'
-import { useMemo, MouseEvent, useEffect } from 'react'
+import { useMemo, MouseEvent, useEffect, ReactNode } from 'react'
 import { useClickAway, useToggle } from 'react-use'
 import { css } from 'styled-components'
 import { Portal } from './Portal'
@@ -28,7 +28,7 @@ export const SelectBox = ({
   onChange,
 }: {
   value?: string | null | undefined
-  items: { label: string; value: string }[]
+  items: { label: ReactNode; value: string }[]
   className?: string
   placement?: Placement
   placeholder?: string
@@ -138,6 +138,7 @@ export const SelectBox = ({
             <div
               key={idx}
               css={css`
+                display: flex;
                 padding: 8px 4px;
                 padding-right: 8px;
                 color: ${({ theme }) => theme.color.text2};
@@ -161,6 +162,7 @@ export const SelectBox = ({
               >
                 {item.value === value && <Check css="width: 12px;" />}
               </span>
+
               {item.label}
             </div>
           ))}

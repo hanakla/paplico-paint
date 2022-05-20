@@ -541,7 +541,7 @@ export const PaintPage = memo(function PaintPage({}) {
       executeOperation(EditorOps.createSession, document)
       executeOperation(EditorOps.setActiveLayer, [vector.uid])
 
-      executeOperation(EditorOps.setFill, {
+      executeOperation(EditorOps.setVectorFill, {
         type: 'linear-gradient',
         colorStops: [
           { color: { r: 0, g: 1, b: 1, a: 1 }, position: 0 },
@@ -1232,6 +1232,7 @@ const PaintCanvas = memo(function PaintCanvas({
           background-color: white;
           ${checkerBoard({ size: 24, opacity: 0.1 })}
           box-shadow: 0 0 16px rgba(0, 0, 0, 0.1);
+          user-select: none;
         `}
         data-is-paint-canvas="yup"
         ref={canvasRef}
@@ -1360,13 +1361,45 @@ const ColorHistoryPane = memo(function ColorHistoryPane() {
     const entry = colorHistory.find((entry) => entry.id === id)
     if (!entry) return
 
-    if (EditorSelector.activeLayer(getStore)?.layerType === 'vector') {
-      const target = EditorSelector.vectorColorTarget(getStore)
-      if (target === 'stroke')
+    const activeLayer = EditorSelector.activeLayer(getStore)
+
+    if (activeLayer?.layerType === 'vector') {
+      const vectorColorTarget = EditorSelector.vectorColorTarget(getStore)
+      const pathToActiveLayer = EditorSelector.activeLayerPath(getStore)
+      const defaultVectorBrush = EditorSelector.defaultVectorBrush(getStore)
+      const activeObject = EditorSelector.activeObject(getStore)
+
+      if (!activeObject) return
+
+      if (vectorColorTarget === 'fill') {
+        execute(EditorOps.setVectorFill, { color: entry.color })
+      } else if (vectorColorTarget === 'stroke') {
         execute(EditorOps.setBrushSetting, { color: entry.color })
-      // else execute(EditorOps.setFill, {})
+      }
+
+      execute(
+        EditorOps.runCommand,
+        new PapCommands.VectorLayer.PatchObjectAttr({
+          pathToTargetLayer: pathToActiveLayer!,
+          objectUid: activeObject.uid,
+          patcher: (attrs) => {
+            if (vectorColorTarget === 'stroke') {
+              attrs.brush = attrs.brush
+                ? { ...attrs.brush, color: entry.color }
+                : {
+                    ...defaultVectorBrush,
+                    color: entry.color,
+                  }
+            } else if (
+              vectorColorTarget === 'fill' &&
+              attrs.fill?.type === 'fill'
+            ) {
+              attrs.fill.color = entry.color
+            }
+          },
+        })
+      )
     } else {
-      console.log(entry.color)
       execute(EditorOps.setBrushSetting, { color: entry.color })
     }
   })

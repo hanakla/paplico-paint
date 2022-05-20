@@ -5,6 +5,7 @@ import { VectorLayerControl } from './LayerControls/VectorLayerControl'
 import { RasterLayerControl } from './LayerControls/RasterLayerControl'
 import { TextLayerControl } from './LayerControls/TextLayerControl'
 import { GroupLayerControl } from './LayerControls/GroupLayerControl'
+import { useMeasure } from 'react-use'
 
 export const ControlsOverlay = ({
   editorBound,
@@ -25,10 +26,13 @@ export const ControlsOverlay = ({
 
   // const bbox = currentLayerBBox ?? { width: 0, height: 0 }
 
+  const [ref, rect] = useMeasure()
+
   if (!currentDocument) return null
 
   return (
     <svg
+      ref={ref}
       // Match to Canvas bounding in Editor bounding
       data-devmemo="Canvas bounding svg"
       width={currentDocument.width * canvasScale}

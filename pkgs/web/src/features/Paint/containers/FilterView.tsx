@@ -347,8 +347,6 @@ const FilterItem = memo(function FilterItem({
         }),
         transition: transition,
       }}
-      {...attributes}
-      {...listeners}
     >
       <div
         css={`
@@ -409,7 +407,7 @@ const FilterItem = memo(function FilterItem({
           {t(`filters.${filter.filterId}`)}
         </div>
 
-        <div>
+        <div {...attributes} {...listeners}>
           <DragDots width={16} fillOpacity={0.5} />
         </div>
       </div>

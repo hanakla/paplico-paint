@@ -23,13 +23,21 @@ import { the } from '🙌/utils/anyOf'
 import { checkerBoard } from '🙌/utils/mixins'
 
 type Props = {
-  colorStops: PapValueTypes.ColorStop[]
-  onChange: (colorStops: PapValueTypes.ColorStop[]) => void
+  colorStops: PapValueTypes.ColorStop1D[]
+  displayOnly?: boolean
+  className?: string
+  onChange: GradientSlider.OnChangeCallback
   onChangeSelectIndices: (indices: number[]) => void
+}
+
+export declare namespace GradientSlider {
+  type OnChangeCallback = (colorStops: PapValueTypes.ColorStop1D[]) => void
 }
 
 export const GradientSlider = ({
   colorStops,
+  displayOnly,
+  className,
   onChange,
   onChangeSelectIndices,
 }: Props) => {
@@ -37,8 +45,8 @@ export const GradientSlider = ({
   const rect = useMeasure(rootRef)
 
   const [stops, setStops] = useBufferedState<
-    PapValueTypes.ColorStop[],
-    (PapValueTypes.ColorStop & { id: string })[]
+    PapValueTypes.ColorStop1D[],
+    (PapValueTypes.ColorStop1D & { id: string })[]
   >(colorStops, (stops) => {
     return stops.map((s) => Object.assign({}, s, { id: nanoid() }))
   })
@@ -132,8 +140,9 @@ export const GradientSlider = ({
   return (
     <div
       css={`
-        padding: 24px 8px 4px;
+        padding: ${displayOnly ? '4px' : '24px 8px 4px'};
       `}
+      className={className}
     >
       <div
         ref={rootRef}
@@ -146,7 +155,7 @@ export const GradientSlider = ({
         `}
         role="slider"
         style={{
-          transform: 'translateY(-6px)',
+          transform: displayOnly ? undefined : 'translateY(-6px)',
         }}
         onDoubleClick={handleClickTrack}
       >
@@ -161,52 +170,55 @@ export const GradientSlider = ({
           `}
           style={{ backgroundImage: colorStopsToCssGradient(90, stops) }}
         />
-        <div
-          css={`
-            position: relative;
-            height: 14px;
-            /* transform- */
-          `}
-        >
-          {stops.map((colorStop, index) => (
-            <div
-              key={colorStop.id}
-              css={`
-                position: absolute;
-                bottom: 100%;
-                width: 14px;
-                height: 14px;
-                border-radius: 2px;
-                transform: translate(-8px, -2px);
-                border: 1px solid #eee;
-                box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.2);
-                outline: none;
-              `}
-              style={{
-                backgroundColor: rgba(
-                  ...normalRgbToRgbArray(colorStop.color),
-                  1
-                ),
-                left: `${colorStop.position * 100}%`,
-                pointerEvents:
-                  // prettier-ignore
-                  draggingId == null ? 'auto'
+
+        {!displayOnly && (
+          <div
+            css={`
+              position: relative;
+              height: 14px;
+              /* transform- */
+            `}
+          >
+            {stops.map((colorStop, index) => (
+              <div
+                key={colorStop.id}
+                css={`
+                  position: absolute;
+                  bottom: 100%;
+                  width: 14px;
+                  height: 14px;
+                  border-radius: 2px;
+                  transform: translate(-8px, -2px);
+                  border: 1px solid #eee;
+                  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.2);
+                  outline: none;
+                `}
+                style={{
+                  backgroundColor: rgba(
+                    ...normalRgbToRgbArray(colorStop.color),
+                    1
+                  ),
+                  left: `${colorStop.position * 100}%`,
+                  pointerEvents:
+                    // prettier-ignore
+                    draggingId == null ? 'auto'
                 : draggingId !== colorStop.id ? 'none'
                 : 'auto',
-                zIndex: draggingId === colorStop.id ? 1 : 0,
-                boxShadow:
-                  activeId === colorStop.id
-                    ? ` 0 0 0 2px ${rgba('#3694f6', 0.8)}`
-                    : undefined,
-              }}
-              data-index={index}
-              data-id={colorStop.id}
-              onKeyDown={handleKeyDown}
-              tabIndex={-1}
-              {...bindDrag()}
-            />
-          ))}
-        </div>
+                  zIndex: draggingId === colorStop.id ? 1 : 0,
+                  boxShadow:
+                    activeId === colorStop.id
+                      ? ` 0 0 0 2px ${rgba('#3694f6', 0.8)}`
+                      : undefined,
+                }}
+                data-index={index}
+                data-id={colorStop.id}
+                onKeyDown={handleKeyDown}
+                tabIndex={-1}
+                {...bindDrag()}
+              />
+            ))}
+          </div>
+        )}
       </div>
     </div>
   )
@@ -214,7 +226,7 @@ export const GradientSlider = ({
 
 export const addColorStopAt = (
   pos: number,
-  colorStops: (PapValueTypes.ColorStop & { id: string })[]
+  colorStops: (PapValueTypes.ColorStop1D & { id: string })[]
 ) => {
   const id = nanoid()
 

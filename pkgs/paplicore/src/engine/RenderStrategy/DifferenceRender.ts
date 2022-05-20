@@ -4,7 +4,11 @@ import { mapSeries } from '../../utils/array'
 import { PaplicoEngine } from '../Engine3'
 import { createContext2D } from '../../Engine3_CanvasFactory'
 import { Document, LayerTypes } from '../../DOM'
-import { createKeyedRequestIdeCallback, setCanvasSize } from '../../utils'
+import {
+  createKeyedRequestIdeCallback,
+  setCanvasSize,
+  setCanvasSizeIfDifferent,
+} from '../../utils'
 import { deepClone, pick } from '../../utils/object'
 import { IRenderStrategy } from './IRenderStrategy'
 import { AtomicResource } from '../../AtomicResource'
@@ -14,6 +18,7 @@ import { workerSafeCanvasToBlob } from '../../PapHelpers'
 import {
   logGroup,
   logGroupEnd,
+  logImage,
   logLog,
   logTime,
   logTimeEnd,
@@ -70,6 +75,10 @@ export class DifferenceRender implements IRenderStrategy {
     this.overrides = override
   }
 
+  public clearCache() {
+    this.bitmapCache = new WeakMap()
+  }
+
   public async dispose() {
     const ctx = await this.bufferCtx.enjure()
 
@@ -92,15 +101,15 @@ export class DifferenceRender implements IRenderStrategy {
     const perf_filter = timeSumming('Composite filter')
     const perf_filterLayer = timeSumming('Composite layer filter')
 
-    const bufferCtx = await this.bufferCtx.enjure({ owner: this })
+    const layerBufferCtx = await this.bufferCtx.enjure({ owner: this })
     const filterCtx = createContext2D()
-    setCanvasSize(bufferCtx.canvas, document.width, document.height)
+    setCanvasSize(layerBufferCtx.canvas, document.width, document.height)
     setCanvasSize(filterCtx.canvas, destCtx.canvas.width, destCtx.canvas.height)
 
     type LayerBitmapResult = {
       layer: LayerTypes
       needsUpdate: boolean
-      image: CanvasImageSource | null
+      image: HTMLCanvasElement | null
       subResults?: Omit<LayerBitmapResult, 'subResults'>[]
     }
 
@@ -178,7 +187,6 @@ export class DifferenceRender implements IRenderStrategy {
           ) {
             cachedCtx.clearRect(0, 0, document.width, document.height)
             await engine.renderVectorLayer(document, layer, cachedCtx)
-            console.log('render', layer, cachedCtx.canvas)
           }
 
           this.keyedRequestIdleCallback(layer.uid, () => {
@@ -258,7 +266,7 @@ export class DifferenceRender implements IRenderStrategy {
       }
     }
 
-    const createLayerBitmapRequestHandler = (requestLayerUid: string) => {
+    const createLayerBitmapRequestHandler = (requesterLayerUid: string) => {
       return async (layerUid: string) => {
         const perf_requesLayerBitmap = timeSumming('requestLayerBitmap', '🫂')
         perf_requesLayerBitmap.time()
@@ -270,7 +278,7 @@ export class DifferenceRender implements IRenderStrategy {
 
           return {
             missing: false,
-            image: (await getLayerBitmap(layer, [requestLayerUid], true))
+            image: (await getLayerBitmap(layer, [requesterLayerUid], true))
               .image!,
           } as const
         } finally {
@@ -300,10 +308,19 @@ export class DifferenceRender implements IRenderStrategy {
       if (!layer.visible) return
 
       perf_initCanvas.time()
-      const prev = pick(bufferCtx.canvas, ['width', 'height'])
-      setCanvasSize(bufferCtx.canvas, document)
-      bufferCtx.clearRect(0, 0, document.width, document.height)
-      perf_initCanvas.timeEnd(prev, pick(bufferCtx.canvas, ['width', 'height']))
+
+      const prev = pick(layerBufferCtx.canvas, ['width', 'height'])
+
+      setCanvasSizeIfDifferent(layerBufferCtx.canvas, document)
+      layerBufferCtx.clearRect(0, 0, document.width, document.height)
+
+      const mixBufferCtx = createContext2D()
+      setCanvasSizeIfDifferent(mixBufferCtx.canvas, document)
+
+      perf_initCanvas.timeEnd(
+        prev,
+        pick(layerBufferCtx.canvas, ['width', 'height'])
+      )
 
       // Apply FilterLayer
       perf_filterLayer.time()
@@ -311,6 +328,9 @@ export class DifferenceRender implements IRenderStrategy {
       if (image == null && layer.layerType === 'filter') {
         // TODO
         // if (disableAllFilters) continue
+
+        setCanvasSizeIfDifferent(filterCtx.canvas, document)
+        layerBufferCtx.drawImage(destCtx.canvas, 0, 0)
 
         for (const filter of [...layer.filters].reverse()) {
           if (!filter.visible) continue
@@ -322,20 +342,39 @@ export class DifferenceRender implements IRenderStrategy {
           if (!instance)
             throw new Error(`Filter not found (id:${filter.filterId})`)
 
-          await engine.applyFilter(destCtx, bufferCtx, instance, {
-            layer: layer,
-            size: { width: document.width, height: document.height },
-            filterSettings: deepClone(filter.settings),
-            handleLayerBitmapRequest: createLayerBitmapRequestHandler(
-              layer.uid
-            ),
+          await saveAndRestoreCanvas(filterCtx, async () => {
+            filterCtx.clearRect(0, 0, document.width, document.height)
+
+            await engine.applyFilter(layerBufferCtx, filterCtx, instance, {
+              layer: layer,
+              size: { width: document.width, height: document.height },
+              filterSettings: deepClone(filter.settings),
+              opacity: filter.opacity,
+              handleLayerBitmapRequest: createLayerBitmapRequestHandler(
+                layer.uid
+              ),
+            })
+
+            console.log('done')
           })
 
-          await engine.compositeLayers(bufferCtx, destCtx, {
-            mode: layer.compositeMode,
-            opacity: layer.opacity,
+          console.log('ok')
+          await logImage(filterCtx)
+          await logImage(layerBufferCtx)
+
+          saveAndRestoreCanvas(layerBufferCtx, () => {
+            layerBufferCtx.globalAlpha = filter.opacity
+            layerBufferCtx.drawImage(filterCtx.canvas, 0, 0)
           })
         }
+
+        destCtx.clearRect(0, 0, document.width, document.height)
+        destCtx.drawImage(layerBufferCtx.canvas, 0, 0)
+
+        await engine.compositeLayers(layerBufferCtx, destCtx, {
+          mode: layer.compositeMode,
+          opacity: layer.opacity,
+        })
 
         return
       }
@@ -371,11 +410,10 @@ export class DifferenceRender implements IRenderStrategy {
 
       if (image == null) return
 
-      console.log(layer.layerType, layer.x, layer.y)
-      bufferCtx.drawImage(image, layer.x, layer.y)
+      layerBufferCtx.drawImage(image, layer.x, layer.y)
 
       if (this.overrides?.layerId === layer.uid) {
-        await engine.compositeLayers(this.overrides.context2d, bufferCtx, {
+        await engine.compositeLayers(this.overrides.context2d, layerBufferCtx, {
           mode: this.overrides.compositeMode,
           opacity: layer.opacity,
           position: { x: layer.x, y: layer.y },
@@ -384,7 +422,7 @@ export class DifferenceRender implements IRenderStrategy {
 
       if (hasVisibleFilter(layer)) {
         filterCtx.clearRect(0, 0, document.width, document.height)
-        filterCtx.drawImage(bufferCtx.canvas, 0, 0)
+        filterCtx.drawImage(layerBufferCtx.canvas, 0, 0)
       }
 
       perf_composite.time()
@@ -404,12 +442,13 @@ export class DifferenceRender implements IRenderStrategy {
           setCanvasSize(filterCtx.canvas, document)
         }
 
-        filterCtx.clearRect(0, 0, document.width, document.height)
-
         await saveAndRestoreCanvas(filterCtx, async () => {
-          await engine.applyFilter(bufferCtx, filterCtx, instance, {
+          filterCtx.clearRect(0, 0, document.width, document.height)
+
+          await engine.applyFilter(layerBufferCtx, filterCtx, instance, {
             layer,
             size: { width: document.width, height: document.height },
+            opacity: filter.opacity,
             filterSettings: deepClone(filter.settings),
             handleLayerBitmapRequest: createLayerBitmapRequestHandler(
               layer.uid
@@ -417,15 +456,27 @@ export class DifferenceRender implements IRenderStrategy {
           })
         })
 
-        bufferCtx.clearRect(0, 0, document.width, document.height)
-        bufferCtx.drawImage(filterCtx.canvas, 0, 0)
+        saveAndRestoreCanvas(mixBufferCtx, () => {
+          mixBufferCtx.clearRect(0, 0, document.width, document.height)
+
+          mixBufferCtx.globalAlpha = 1 - filter.opacity
+          console.log(mixBufferCtx.globalAlpha)
+          mixBufferCtx.drawImage(layerBufferCtx.canvas, 0, 0)
+
+          mixBufferCtx.globalAlpha = filter.opacity
+          console.log(mixBufferCtx.globalAlpha)
+          mixBufferCtx.drawImage(filterCtx.canvas, 0, 0)
+        })
+
+        layerBufferCtx.clearRect(0, 0, document.width, document.height)
+        layerBufferCtx.drawImage(mixBufferCtx.canvas, 0, 0)
       }
 
       perf_filter.timeEnd()
 
       perf_composite.time()
 
-      await engine.compositeLayers(bufferCtx, dest, {
+      await engine.compositeLayers(layerBufferCtx, dest, {
         mode: layer.compositeMode,
         opacity: layer.opacity,
       })
@@ -448,7 +499,7 @@ export class DifferenceRender implements IRenderStrategy {
       perf_filterLayer.log()
       perf_composite.log()
 
-      this.bufferCtx.release(bufferCtx)
+      this.bufferCtx.release(layerBufferCtx)
     }
   }
 

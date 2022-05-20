@@ -2,7 +2,7 @@ import type { CompositeMode as PapHelper } from './DOM/ILayer'
 import type * as SilkDOM from './DOM/index'
 import { RasterLayer } from './DOM/RasterLayer'
 import { createContext2D } from './Engine3_CanvasFactory'
-import { ColorStop } from './Value'
+import { ColorStop1D } from './Value'
 import { setCanvasSize } from './utils'
 
 export async function imageToLayer(img: HTMLImageElement) {
@@ -41,7 +41,7 @@ export function mapPoints<T>(
     )
 }
 
-export function sortColorStopsByPositionAsc(colorStops: ColorStop[]) {
+export function sortColorStopsByPositionAsc(colorStops: ColorStop1D[]) {
   return colorStops.sort((a, b) => a.position - b.position)
 }
 

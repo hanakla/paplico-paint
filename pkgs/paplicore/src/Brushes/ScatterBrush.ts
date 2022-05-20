@@ -307,7 +307,7 @@ export class ScatterBrush implements IBrush {
     const group = new Group()
 
     const seed = fastRandom(inputPath.randomSeed)
-    // const pointsReader = inputPath.getSequencialPointsReader()
+    const pointsReader = inputPath.getSequencialPointsReader()
     const pressureReader = inputPath.getSequencialPressuresReader()
     const tangentReader = inputPath.getSequencialTangentsReader()
 
@@ -339,6 +339,9 @@ export class ScatterBrush implements IBrush {
 
       perf_getPoint.time()
       freezedThreePath.sequencialGetPoint(frac, _translate2d)
+      // const pt = pointsReader.getPointAt(frac)
+      // _translate2d.set(pt.x / destSize.width, pt.y / destSize.height)
+
       perf_getPoint.timeEnd({ frac, index: idx })
 
       mat4.translate([
@@ -352,7 +355,9 @@ export class ScatterBrush implements IBrush {
       ])
 
       perf_getTangentByPath.time()
-      const tangent = tangentReader.getTangentAt(frac)
+      // const tangent = tangentReader.getTangentAt(frac)
+      const tangent = threePath.getTangent(frac)
+      // const tangent = freezedThreePath.sequencialGetTangent(frac)
       perf_getTangentByPath.timeEnd({ frac, idx, counts })
 
       const angle = Math.atan2(tangent.x, tangent.y)

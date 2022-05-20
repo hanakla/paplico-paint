@@ -1,7 +1,9 @@
 import { useFleurContext, useStore } from '@fleur/react'
-import { useFunk } from '@hanakla/arma'
+import { useFunk, useObjectState } from '@hanakla/arma'
 import {
+  forwardRef,
   Fragment,
+  memo,
   MouseEvent,
   useEffect,
   useMemo,
@@ -15,6 +17,10 @@ import { rgba } from 'polished'
 import { useTranslation } from 'next-i18next'
 import { DragMove2 } from '@styled-icons/remix-fill'
 import { css } from 'styled-components'
+import { useLongPress } from 'use-long-press'
+import useMeasure from 'use-measure'
+import { offset, shift, flip, useFloating } from '@floating-ui/react-dom'
+import { ArrowDown, ArrowUp } from '@styled-icons/remix-line'
 
 import { the } from '🙌/utils/anyOf'
 import { PapWebMath } from '🙌/utils/PapWebMath'
@@ -23,7 +29,11 @@ import { useFunkyMouseTrap } from '🙌/hooks/useMouseTrap'
 import { assign } from '🙌/utils/object'
 import { deepClone } from '🙌/utils/clone'
 import { normalRgbToRgbArray } from '../../helpers'
-import { useDeepCompareMemo, useFleur } from '🙌/utils/hooks'
+import {
+  useAutoUpdateFloating,
+  useDeepCompareMemo,
+  useFleur,
+} from '🙌/utils/hooks'
 import { DOMUtils } from '🙌/utils/dom'
 import {
   useLayerWatch,
@@ -40,7 +50,6 @@ import {
 } from '🙌/components/ContextMenu'
 import { tm } from '🙌/utils/theme'
 import { floatingDropShadow } from '🙌/utils/mixins'
-import { useLongPress } from 'use-long-press'
 
 const POINT_SIZE = 8
 
@@ -55,6 +64,7 @@ export const VectorLayerControl = () => {
 
   const {
     canvasScale,
+    canvasPosition,
     activeLayer,
     activeLayerPath,
     brushSizeChanging,
@@ -69,6 +79,7 @@ export const VectorLayerControl = () => {
     activeObject,
   } = useStore((get) => ({
     canvasScale: EditorSelector.canvasScale(get),
+    canvasPosition: EditorSelector.canvasPosition(get),
     brushSizeChanging: EditorSelector.brushSizeChanging(get),
     activeLayer: EditorSelector.activeLayer(get),
     activeLayerPath: EditorSelector.activeLayerPath(get),
@@ -83,12 +94,15 @@ export const VectorLayerControl = () => {
     activeObject: EditorSelector.activeObject(get),
   }))
 
+  useLayerWatch(activeLayer)
+
   const contextMenu = useContextMenu()
   const trsnCommand = useTransactionCommand()
 
   const canvasRef = usePaintCanvasRef()
   const rootRef = useRef<SVGSVGElement | null>(null)
   const makePathTransactionRef = useRef<PapCommands.Transaction | null>(null)
+  const canvasOverlayRef = useRef<HTMLDivElement>('canvas-overlays')
 
   if (!activeLayer || activeLayer.layerType !== 'vector') throw new Error('')
 
@@ -99,9 +113,25 @@ export const VectorLayerControl = () => {
     y: 0,
   })
 
+  const objActionFl = useFloating({
+    strategy: 'absolute',
+    placement: 'bottom',
+    middleware: [
+      offset(8),
+      shift({
+        padding: { top: 8, right: 8, bottom: 64, left: 8 },
+        crossAxis: true,
+      }),
+      flip({ boundary: canvasOverlayRef.current }),
+    ],
+  })
+
   const handleClickRoot = useFunk((e: MouseEvent<SVGRectElement>) => {
     if (currentTool === 'shape-pen') return
     if (!DOMUtils.isSameElement(e.target, e.currentTarget)) return
+    if (DOMUtils.closestOrSelf(e.target, '[data-disable-object-unfocus]'))
+      return
+
     execute(EditorOps.setActiveObject, null)
   })
 
@@ -375,38 +405,53 @@ export const VectorLayerControl = () => {
     })
   })
 
-  const handleClickMoveUp = useFunk(
-    (e: ContextMenuParam<{ objectUid: string }>) => {
-      if (!activeLayerPath) return
+  const moveDownObjectOrder = useFunk((objectUid: string) => {
+    if (!activeLayerPath) return
 
-      execute(
-        EditorOps.runCommand,
-        new PapCommands.VectorLayer.ReorderObjects({
-          pathToTargetLayer: activeLayerPath,
-          objectUid: e.props!.objectUid,
-          newIndex: { delta: -1 },
-        })
-      )
+    execute(
+      EditorOps.runCommand,
+      new PapCommands.VectorLayer.ReorderObjects({
+        pathToTargetLayer: activeLayerPath,
+        objectUid: objectUid,
+        newIndex: { delta: 1 },
+      })
+    )
+  })
+
+  const moveUpObjectOrder = useFunk((objectUid: string) => {
+    if (!activeLayerPath) return
+
+    execute(
+      EditorOps.runCommand,
+      new PapCommands.VectorLayer.ReorderObjects({
+        pathToTargetLayer: activeLayerPath,
+        objectUid: objectUid,
+        newIndex: { delta: -1 },
+      })
+    )
+  })
+
+  const handleClickMoveUp = useFunk((e: MouseEvent<HTMLSpanElement>) => {
+    moveUpObjectOrder(e.currentTarget.dataset.objectUid!)
+  })
+
+  const handleClickMoveDown = useFunk((e: MouseEvent<HTMLSpanElement>) => {
+    moveDownObjectOrder(e.currentTarget.dataset.objectUid!)
+  })
+
+  const handleContextClickMoveUp = useFunk(
+    (e: ContextMenuParam<{ objectUid: string }>) => {
+      moveUpObjectOrder(e.props!.objectUid)
     }
   )
 
-  const handleClickMoveDown = useFunk(
+  const handleContextClickMoveDown = useFunk(
     (e: ContextMenuParam<{ objectUid: string }>) => {
-      if (!activeLayerPath) return
-
-      execute(
-        EditorOps.runCommand,
-        new PapCommands.VectorLayer.ReorderObjects({
-          pathToTargetLayer: activeLayerPath,
-          objectUid: e.props!.objectUid,
-          newIndex: { delta: 1 },
-        })
-      )
+      moveDownObjectOrder(e.props!.objectUid)
     }
   )
 
-  useClickAway(rootRef as any, (e) => {
-    // if (isEventIgnoringTarget(e.target)) return
+  useClickAway(rootRef as any, ({ target }) => {
     execute(EditorOps.setVectorStroking, null)
     execute(EditorOps.setSelectedObjectPoints, [])
   })
@@ -480,7 +525,18 @@ export const VectorLayerControl = () => {
     return () => window.clearInterval(id)
   }, [activeLayerPath, activeObject, activeObjectId])
 
-  useLayerWatch(activeLayer)
+  useAutoUpdateFloating(objActionFl)
+
+  useEffect(() => {
+    setInterval(() => {
+      objActionFl?.update()
+    }, 10)
+  }, [])
+
+  const activeBBox = useMemo(
+    () => activeObject?.getBoundingBox(),
+    [activeObject?.cacheKeyObject.key]
+  )
 
   if (!currentDocument) return null
   if (!activeLayer.visible || activeLayer.lock) return null
@@ -614,6 +670,7 @@ export const VectorLayerControl = () => {
 
           {currentTool === 'cursor' && (
             <ObjectBoundingBox
+              ref={objActionFl.reference}
               object={activeObject}
               active={true}
               scale={canvasScale}
@@ -628,45 +685,86 @@ export const VectorLayerControl = () => {
 
       <Portal>
         <ContextMenu id={contextMenu.id}>
-          <ContextMenuItem onClick={handleClickMoveUp}>
+          <ContextMenuItem onClick={handleContextClickMoveUp}>
             {t('vectorControl.context.moveup')}
           </ContextMenuItem>
-          <ContextMenuItem onClick={handleClickMoveDown}>
+          <ContextMenuItem onClick={handleContextClickMoveDown}>
             {t('vectorControl.context.movedown')}
           </ContextMenuItem>
         </ContextMenu>
       </Portal>
 
       <Portal mountPointId="canvas-overlays">
-        <div
-          css={`
-            position: fixed;
-            bottom: 96px;
-            left: 50%;
-            z-index: 0;
-            padding: 4px;
-            transform: translateX(-50%);
-            border-radius: 100px;
-            transition: 0.2 ease-in-out;
-            transition-property: transform, opacity;
-            ${floatingDropShadow}
-            ${tm((o) => [o.bg.surface1])}
-          `}
-          style={{
-            transform: `translate(calc(-50% + ${currentControllDirection.current.x}px), ${currentControllDirection.current.y}px)`,
-            ...(activeObject
-              ? { opacity: 1, pointerEvents: 'all' }
-              : { opacity: 0.0, pointerEvents: 'none' }),
-          }}
-          {...bindControllerDrag()}
-        >
-          <DragMove2
+        {activeObject && (
+          <div
+            ref={objActionFl.floating}
             css={`
-              ${tm((o) => [o.font.text2])}
+              position: absolute;
+              pointer-events: all;
+              ${tm((o) => [
+                o.bg.surface1,
+                o.border.default,
+                o.borderRadius('oval'),
+              ])}
             `}
-            width={32}
-          />
-        </div>
+            style={{
+              // top: activeBBox!.bottom * canvasScale + canvasPosition.y,
+              // left: activeBBox!.left * canvasScale + canvasPosition.x,
+              position: objActionFl.strategy,
+              left: objActionFl.x ?? 0,
+              top: objActionFl.y ?? 0,
+            }}
+            data-disable-object-unfocus
+          >
+            <span
+              css={`
+                display: inline-block;
+                /* position: fixed; */
+                /* bottom: 96px; */
+                padding: 4px;
+                /* transform: translateX(-50%); */
+                border-radius: 100px;
+                transition: 0.2 ease-in-out;
+                transition-property: transform, opacity;
+                ${floatingDropShadow}
+                ${tm((o) => [o.bg.surface1])}
+              `}
+              style={{
+                transform: `translate(${currentControllDirection.current.x}px, ${currentControllDirection.current.y}px)`,
+              }}
+              {...bindControllerDrag()}
+            >
+              <DragMove2
+                css={`
+                  ${tm((o) => [o.font.text2])}
+                `}
+                width={24}
+              />
+            </span>
+
+            <span
+              css={`
+                display: inline-block;
+                padding: 4px;
+              `}
+              onClick={handleClickMoveDown}
+              data-object-uid={activeObject.uid}
+            >
+              <ArrowDown width={24} />
+            </span>
+
+            <span
+              css={`
+                display: inline-block;
+                padding: 4px;
+              `}
+              onClick={handleClickMoveUp}
+              data-object-uid={activeObject.uid}
+            >
+              <ArrowUp width={24} />
+            </span>
+          </div>
+        )}
       </Portal>
     </svg>
   )
@@ -1274,170 +1372,204 @@ const PathSegments = ({
   return elements
 }
 
-const ObjectBoundingBox = ({
-  object,
-  scale,
-  active,
-  ...etc
-}: {
-  object: PapDOM.VectorObject
-  scale: number
-  active: boolean
-}) => {
-  const { execute } = useFleur()
-  const bbox = useMemo(() => object.getBoundingBox(), [object.lastUpdatedAt])
-  const rotateRef = useRef(object.rotate)
+const ObjectBoundingBox = memo(
+  forwardRef<
+    SVGGElement,
+    {
+      object: PapDOM.VectorObject
+      scale: number
+      active: boolean
+    }
+  >(
+    function ObjectBoundingBox({ object, scale, active }, ref) {
+      const { execute } = useFleur()
+      const transCommand = useTransactionCommand()
 
-  const [dragPoint, setDragPoint] = useState<[number, number] | null>(null)
-
-  const zoom = 1 / scale
-  const controlSize = POINT_SIZE * zoom
-
-  const bindLeftTopDrag = useDrag((e) => {
-    const { initial, xy, last } = e
-
-    e.memo ??= { rotate: object.rotate }
-
-    const svg = (e.event.target as SVGElement).closest('svg')!
-
-    const xyIni = assign(svg.createSVGPoint(), {
-      x: initial[0],
-      y: initial[1],
-    }).matrixTransform(svg.getScreenCTM()!.inverse())
-
-    const xyPt = assign(svg.createSVGPoint(), {
-      x: xy[0],
-      y: xy[1],
-    }).matrixTransform(svg.getScreenCTM()!.inverse())
-
-    const { x, y } = xyPt
-
-    setDragPoint([x, y])
-
-    execute(EditorOps.updateActiveObject, (o) => {
-      const bbox = o.getBoundingBox()
-
-      const angle = PapWebMath.angleOfPoints(
-        { x: bbox.centerX, y: bbox.centerY },
-        { x: x - xyIni.x, y: y - xyIni.y }
+      const bbox = useMemo(
+        () => object.getBoundingBox(),
+        [object.cacheKeyObject.key]
       )
 
-      o.rotate = e.memo!.rotate - PapWebMath.radToDeg(angle)
-      // o.x += delta[0] * zoom
-      // o.y += delta[1] * zoom
-    })
+      const [{ left, top, right, bottom, width, height }, setBBox] =
+        useObjectState(bbox)
 
-    if (last) {
-      setDragPoint(null)
-    }
+      const rotateRef = useRef(object.rotate)
 
-    return e.memo
-  })
+      const { canvasScale, canvasPosition } = useStore((get) => ({
+        canvasScale: EditorSelector.canvasScale(get),
+        canvasPosition: EditorSelector.canvasPosition(get),
+      }))
 
-  return (
-    <g data-devmemo="Bounding box" style={{}}>
-      <rect
-        css={`
-          fill: none;
-          pointer-events: stroke;
-          shape-rendering: optimizeSpeed;
+      const [dragPoint, setDragPoint] = useState<[number, number] | null>(null)
 
-          &:hover {
-            cursor: move;
-          }
-        `}
-        // x={bbox.left}
-        // y={bbox.top}
-        width={bbox.width}
-        height={bbox.height}
-        style={{
-          strokeWidth: 1 * zoom,
-          // transform: `translate(${object.x}, ${object.y})`,
-          transform: `matrix(${object.matrix.join(',')})`,
-          ...(active ? { stroke: '#4e7fff' } : {}),
-        }}
-        {...etc}
-      />
+      const zoom = 1 / scale
+      const controlSize = POINT_SIZE * zoom
 
-      {dragPoint && (
-        <line
-          x1={bbox.centerX}
-          y1={bbox.centerY}
-          x2={dragPoint[0]}
-          y2={dragPoint[1]}
-        />
-      )}
+      const bindLeftTopDrag = useDrag((e) => {
+        const { initial, xy, last, delta } = e
 
-      <circle
-        cx={bbox.centerX}
-        cy={bbox.centerY - bbox.height / 2 - 24}
-        stroke="#4e7fff"
-        strokeWidth={2 * zoom}
-        r={8 * zoom}
-        {...bindLeftTopDrag()}
-      />
+        // e.memo ??= { rotate: object.rotate }
 
-      <rect
-        css={`
-          ${anchorRect}
-          shape-rendering: optimizeSpeed;
-        `}
-        x={bbox.left}
-        y={bbox.top}
-        width={controlSize}
-        height={controlSize}
-        style={{
-          stroke: '#4e7fff',
-          fill: '#fff',
-          strokeWidth: 1 * zoom,
-          transform: `translate(${-controlSize / 2}px, ${-controlSize / 2}px)`,
-        }}
-      />
-      <rect
-        css={`
-          ${anchorRect}
-          shape-rendering: optimizeSpeed;
-        `}
-        x={bbox.right}
-        y={bbox.top}
-        width={controlSize}
-        height={controlSize}
-        style={{
-          strokeWidth: 1 * zoom,
-          transform: `translate(${-controlSize / 2}px, ${-controlSize / 2}px)`,
-        }}
-      />
-      <rect
-        css={`
-          ${anchorRect}
-          shape-rendering: optimizeSpeed;
-        `}
-        x={bbox.left}
-        y={bbox.bottom}
-        width={controlSize}
-        height={controlSize}
-        style={{
-          strokeWidth: 1 * zoom,
-          transform: `translate(${-controlSize / 2}px, ${-controlSize / 2}px)`,
-        }}
-      />
-      <rect
-        css={`
-          ${anchorRect}
-          shape-rendering: optimizeSpeed;
-        `}
-        x={bbox.right}
-        y={bbox.bottom}
-        width={controlSize}
-        height={controlSize}
-        style={{
-          strokeWidth: 1 * zoom,
-          transform: `translate(${-controlSize / 2}px, ${-controlSize / 2}px)`,
-        }}
-      />
-    </g>
+        // const svg = (e.event.target as SVGElement).closest('svg')!
+
+        setBBox((state) => {
+          state.left += delta[0]
+          state.top += delta[1]
+        })
+
+        // const xyIni = assign(svg.createSVGPoint(), {
+        //   x: initial[0],
+        //   y: initial[1],
+        // }).matrixTransform(svg.getScreenCTM()!.inverse())
+
+        // const xyPt = assign(svg.createSVGPoint(), {
+        //   x: xy[0],
+        //   y: xy[1],
+        // }).matrixTransform(svg.getScreenCTM()!.inverse())
+
+        // const { x, y } = xyPt
+
+        // setDragPoint([x, y])
+
+        // execute(EditorOps.updateActiveObject, (o) => {
+        //   const bbox = o.getBoundingBox()
+
+        //   const angle = PapWebMath.angleOfPoints(
+        //     { x: bbox.centerX, y: bbox.centerY },
+        //     { x: x - xyIni.x, y: y - xyIni.y }
+        //   )
+
+        //   o.rotate = e.memo!.rotate - PapWebMath.radToDeg(angle)
+        //   // o.x += delta[0] * zoom
+        //   // o.y += delta[1] * zoom
+        // })
+
+        // if (last) {
+        //   setDragPoint(null)
+        // }
+
+        return e.memo
+      })
+
+      useVectorObjectWatch(object)
+
+      return (
+        <g ref={ref} data-devmemo="Bounding box" style={{}}>
+          <rect
+            css={`
+              fill: none;
+              pointer-events: stroke;
+              shape-rendering: optimizeSpeed;
+
+              &:hover {
+                cursor: move;
+              }
+            `}
+            x={left}
+            y={top}
+            width={width}
+            height={height}
+            style={{
+              strokeWidth: 1 * zoom,
+              // transform: `translate(${object.x}px, ${object.y}px)`,
+              // transform: `matrix(${object.matrix.join(',')})`,
+              ...(active ? { stroke: '#4e7fff' } : {}),
+            }}
+          />
+
+          {dragPoint && (
+            <line
+              x1={left + width / 2}
+              y1={top + height / 2}
+              x2={dragPoint[0]}
+              y2={dragPoint[1]}
+            />
+          )}
+
+          <circle
+            cx={left + width / 2}
+            cy={top + height / 2 - bbox.height / 2 - 24}
+            stroke="#4e7fff"
+            strokeWidth={2 * zoom}
+            r={8 * zoom}
+            {...bindLeftTopDrag()}
+          />
+
+          <rect
+            css={`
+              ${anchorRect}
+              shape-rendering: optimizeSpeed;
+            `}
+            x={left}
+            y={top}
+            width={controlSize}
+            height={controlSize}
+            style={{
+              stroke: '#4e7fff',
+              fill: '#fff',
+              strokeWidth: 1 * zoom,
+              transform: `translate(${-controlSize / 2}px, ${
+                -controlSize / 2
+              }px)`,
+            }}
+          />
+          <rect
+            css={`
+              ${anchorRect}
+              shape-rendering: optimizeSpeed;
+            `}
+            x={right}
+            y={top}
+            width={controlSize}
+            height={controlSize}
+            style={{
+              strokeWidth: 1 * zoom,
+              transform: `translate(${-controlSize / 2}px, ${
+                -controlSize / 2
+              }px)`,
+            }}
+          />
+          <rect
+            css={`
+              ${anchorRect}
+              shape-rendering: optimizeSpeed;
+            `}
+            x={left}
+            y={bottom}
+            width={controlSize}
+            height={controlSize}
+            style={{
+              strokeWidth: 1 * zoom,
+              transform: `translate(${-controlSize / 2}px, ${
+                -controlSize / 2
+              }px)`,
+            }}
+          />
+          <rect
+            css={`
+              ${anchorRect}
+              shape-rendering: optimizeSpeed;
+            `}
+            x={right}
+            y={bottom}
+            width={controlSize}
+            height={controlSize}
+            style={{
+              strokeWidth: 1 * zoom,
+              transform: `translate(${-controlSize / 2}px, ${
+                -controlSize / 2
+              }px)`,
+            }}
+          />
+        </g>
+      )
+    },
+    (prev, next) =>
+      prev.object.cacheKeyObject.key === next.object.cacheKeyObject.key &&
+      prev.scale === next.scale &&
+      prev.active === next.active
   )
-}
+)
 
 const anchorRect = css`
   stroke: #4e7fff;

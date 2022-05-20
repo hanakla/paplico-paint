@@ -19,6 +19,7 @@ import { usePapFilterWatch, useTransactionCommand } from '../hooks'
 import { Stack } from '🙌/components/Stack'
 import { Column, LayerSelector, ColorInput } from './FilterSettings/_components'
 import { Noise } from './FilterSettings/Noise'
+import { GradientMap } from './FilterSettings/GradientMap'
 
 type Props = { layer: PapDOM.LayerTypes; filter: PapDOM.Filter }
 
@@ -63,6 +64,9 @@ export const FilterSettings = ({ layer, filter }: Props) => {
     }
     case '@paplico/filters/uvreplace': {
       return <UVReplace layer={layer} filter={filter} />
+    }
+    case '@paplico/filters/gradient-map': {
+      return <GradientMap layer={layer} filter={filter} />
     }
     default: {
       return <>🤔</>

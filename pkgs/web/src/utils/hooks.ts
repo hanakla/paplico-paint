@@ -290,3 +290,15 @@ export const useDeepCompareMemo = <T, D>(factory: () => T, value: D) => {
 
   return prevValue.current
 }
+
+export const useRefById = <E>(id: string) => {
+  const rerender = useUpdate()
+  const ref = useRef<E | null>(null)
+
+  useEffect(() => {
+    ref.current = document.getElementById(id) as any
+    rerender()
+  }, [id])
+
+  return ref
+}

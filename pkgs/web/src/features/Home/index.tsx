@@ -568,7 +568,7 @@ export const HomeContent = () => {
 
 const Heading = styled.h1`
   margin-bottom: 0.8em;
-  ${tm((o) => [o.typography(32).bold])}
+  ${tm((o) => [o.typography(20).bold])}
 
   ${media.narrow`
     margin-top: 32px;

@@ -322,15 +322,15 @@ export default function Debug() {
           //     size: 100,
           //   },
           // }),
-          PapDOM.Filter.create({
-            filterId: '@paplico/filters/noise',
-            visible: false,
-            settings: {
-              ...engine.toolRegistry.getFilterInstance(
-                '@paplico/filters/noise'
-              )!.initialConfig,
-            },
-          }),
+          // PapDOM.Filter.create({
+          //   filterId: '@paplico/filters/noise',
+          //   visible: false,
+          //   settings: {
+          //     ...engine.toolRegistry.getFilterInstance(
+          //       '@paplico/filters/noise'
+          //     )!.initialConfig,
+          //   },
+          // }),
           // PapDOM.Filter.create({
           //   filterId: '@paplico/gauss-blur',
           //   visible: true,
@@ -359,38 +359,48 @@ export default function Debug() {
           //     '@paplico/filters/kawase-blur'
           //   )!.initialConfig,
           // }),
-          PapDOM.Filter.create<PapFilters.UVReplaceFilter>({
-            filterId: '@paplico/filters/uvreplace',
-            visible: false,
-            settings: {
-              ...(engine.toolRegistry.getFilterInstance(
-                '@paplico/filters/uvreplace'
-              )!.initialConfig as any),
-              replacement: 'delta',
-              replaceMapLayerUid: displacement.uid,
-              movementPx: [10, 0],
-            },
-          }),
+          // PapDOM.Filter.create<PapFilters.UVReplaceFilter>({
+          //   filterId: '@paplico/filters/uvreplace',
+          //   visible: false,
+          //   settings: {
+          //     ...(engine.toolRegistry.getFilterInstance(
+          //       '@paplico/filters/uvreplace'
+          //     )!.initialConfig as any),
+          //     replacement: 'delta',
+          //     replaceMapLayerUid: displacement.uid,
+          //     movementPx: [10, 0],
+          //   },
+          // }),
           ...[]
         )
 
-        // filter.filters = [
-        //   // PapDOM.Filter.create({
-        //   //   filterId: '@paplico/filters/kawase-blur',
-        //   //   visible: true,
-        //   //   settings: engine.toolRegistry.getFilterInstance(
-        //   //     '@paplico/filters/kawase-blur'
-        //   //   )!.initialConfig,
-        //   // }),
-        // ]
+        filter.filters.push(
+          // PapDOM.Filter.create({
+          //   filterId: '@paplico/filters/kawase-blur',
+          //   visible: true,
+          //   settings: engine.toolRegistry.getFilterInstance(
+          //     '@paplico/filters/kawase-blur'
+          //   )!.initialConfig,
+          // })
+          PapDOM.Filter.create({
+            filterId: '@paplico/filters/gradient-map',
+            visible: true,
+            settings: engine.toolRegistry.getFilterInstance(
+              '@paplico/filters/gradient-map'
+            )!.initialConfig,
+          })
+        )
 
         document.addLayer(displacement)
         document.addLayer(bgLayer)
         document.addLayer(vector, { aboveLayerId: bgLayer.uid })
         // document.addLayer(raster)
-        document.addLayer(filter, { aboveLayerId: vector.uid })
+
         document.addLayer(square)
         document.addLayer(strokes)
+
+        document.addLayer(filter)
+
         session.setDocument(document)
         session.setActiveLayer([vector.uid])
 

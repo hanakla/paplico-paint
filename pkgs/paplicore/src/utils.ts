@@ -35,6 +35,21 @@ export const setCanvasSize: {
   }
 }
 
+export const setCanvasSizeIfDifferent = (
+  canvas: HTMLCanvasElement | OffscreenCanvas,
+  widthOrSize: number | { width: number; height: number },
+  height?: number
+) => {
+  if (typeof widthOrSize === 'object') {
+    const { width, height } = widthOrSize
+    if (canvas.width === width && canvas.height === height) return
+    assign(canvas, { width, height })
+  } else {
+    if (canvas.width === widthOrSize && canvas.height === height) return
+    assign(canvas, { width: widthOrSize, height })
+  }
+}
+
 export type Nullish = null | undefined
 
 export const debounce = <T extends (...args: any[]) => void>(

@@ -7,6 +7,8 @@ export declare namespace Filter {
   export type Attributes = {
     filterId: string
     visible: boolean
+    /** 0..1 */
+    opacity: number
     settings: Record<string, any>
   }
 
@@ -32,6 +34,7 @@ export class Filter
   public filterId: string = ''
 
   public visible: boolean = true
+  public opacity: number = 1
   public settings: Record<string, any> = {}
 
   public static create<FiterSettingType = Record<string, any>>({

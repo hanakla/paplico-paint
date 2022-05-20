@@ -6,6 +6,7 @@ import { Stack } from '🙌/components/Stack'
 import { DevLayout } from '🙌/layouts/DevLayout'
 import { benchCase } from '🙌/features/Debug/benchCase'
 import { PapDOM } from '@paplico/core'
+import { Path } from 'three'
 
 const cases = {
   imageDrawing: benchCase({
@@ -176,6 +177,62 @@ const cases = {
       },
     ],
     iterate: 10000,
+  }),
+  getPointAndTangent: benchCase({
+    name: 'getPointAndTangent',
+    init: () => {
+      const papPath = PapDOM.Path.fromSVGPath(complexPath())
+      const threePath = new Path()
+
+      threePath.arcLengthDivisions = 10
+
+      const [start] = papPath.points
+      threePath.moveTo(start.x, start.y)
+      papPath.mapPoints(
+        (point, prev) => {
+          threePath.bezierCurveTo(
+            prev?.out?.x ?? prev!.x,
+            prev?.out?.y ?? prev!.y,
+            point.in?.x ?? point.x,
+            point.in?.y ?? point.y,
+            point.x,
+            point.y
+          )
+        },
+        { startOffset: 1 }
+      )
+
+      if (papPath.closed) threePath.closePath()
+
+      return { papPath, threePath }
+    },
+    cases: [
+      {
+        name: 'getPoint: three.js Path',
+        run: ({ threePath }, { iteration, allIterations }) => {
+          threePath.getPointAt(iteration / allIterations)
+        },
+      },
+      {
+        name: 'getTangent: three.js Path',
+        run: ({ threePath }, { iteration, allIterations }) => {
+          threePath.getTangentAt(iteration / allIterations)
+        },
+      },
+      {
+        name: 'getPoint: Paplico Path',
+        run: ({ papPath }, { iteration, allIterations }) => {
+          papPath.getPointAt(iteration / allIterations)
+        },
+      },
+      {
+        name: 'getTangentAt: Paplico Path',
+        run: ({ papPath }, { iteration, allIterations }) => {
+          papPath.getTangentAt(iteration / allIterations)
+        },
+      },
+    ],
+    iterate: 100000,
   }),
 }
 

@@ -194,7 +194,9 @@ export const useTransactionCommand = ({
       },
       commit: () => {
         ref.current = null
-        execute(EditorOps.rerenderCanvas)
+        setTimeout(() => {
+          execute(EditorOps.rerenderCanvas)
+        }, 1000)
       },
       debouncedCommit,
     }),

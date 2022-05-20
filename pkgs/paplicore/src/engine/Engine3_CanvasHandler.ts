@@ -37,6 +37,13 @@ export class CanvasHandler extends Emitter<Events> {
   protected _scale: number = 1
   protected _stroking: boolean = false
 
+  protected strokeDrawEnable = true
+
+  /** Set enable to auto drawing to active layer */
+  protected setStrokeDrawEnable(enable: boolean) {
+    this.strokeDrawEnable = enable
+  }
+
   constructor(canvas: HTMLCanvasElement) {
     super()
 
@@ -84,6 +91,7 @@ export class CanvasHandler extends Emitter<Events> {
     this._scale = scale
   }
 
+  /** Connect canvas inputs to session and renderer */
   public connect(
     session: PapSession,
     strategy: DifferenceRender = new DifferenceRender(),
@@ -103,6 +111,8 @@ export class CanvasHandler extends Emitter<Events> {
     })
 
     this.on('strokeStart', async () => {
+      if (!this.strokeDrawEnable) return
+
       const { activeLayer } = session
       if (
         session.pencilMode === 'none' ||
@@ -125,6 +135,8 @@ export class CanvasHandler extends Emitter<Events> {
     })
 
     this.on('strokeChange', async (stroke) => {
+      if (!this.strokeDrawEnable) return
+
       const { activeLayer } = session
       if (
         session.pencilMode === 'none' ||
@@ -153,6 +165,8 @@ export class CanvasHandler extends Emitter<Events> {
     })
 
     this.on('strokeComplete', async (stroke) => {
+      if (!this.strokeDrawEnable) return
+
       const { activeLayer, activeLayerPath } = session
 
       if (!activeLayerPath) return
@@ -309,6 +323,8 @@ export class CanvasHandler extends Emitter<Events> {
   }
 
   #handleTouchStart = (e: TouchEvent) => {
+    e.preventDefault()
+
     this._stroking = true
 
     if (e.touches.length > 1) {

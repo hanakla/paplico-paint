@@ -22,6 +22,7 @@ import { AtomicResource } from '../AtomicResource'
 import { BloomFilter } from '../Filters/Bloom'
 import { ChromaticAberrationFilter } from '../Filters/ChromaticAberration'
 import { GaussBlurFilter } from '../Filters/GaussBlur'
+import { GradientMapFilter } from '../Filters/GradientMap'
 import { HalftoneFilter } from '../Filters/HalfTone'
 import { GlitchJpegFilter } from '../Filters/GlitchJpeg'
 import { NoiseFilter } from '../Filters/Noise'
@@ -68,6 +69,7 @@ export class PaplicoEngine {
       engine.toolRegistry.registerFilter(BloomFilter),
       engine.toolRegistry.registerFilter(GlitchJpegFilter),
       engine.toolRegistry.registerFilter(GaussBlurFilter),
+      engine.toolRegistry.registerFilter(GradientMapFilter),
       engine.toolRegistry.registerFilter(ChromaticAberrationFilter),
       engine.toolRegistry.registerFilter(HalftoneFilter),
       engine.toolRegistry.registerFilter(NoiseFilter),
@@ -239,10 +241,7 @@ export class PaplicoEngine {
     logTime(`render-${rid}`)
 
     try {
-      target && setCanvasSize(target.canvas, document.width, document.height)
       setCanvasSize(preDestCtx.canvas, document.width, document.height)
-
-      target?.clearRect(0, 0, document.width, document.height)
 
       saveAndRestoreCanvas(preDestCtx, (ctx) => {
         ctx.fillStyle = 'rgba(255,255,255,0.01)'
@@ -267,6 +266,9 @@ export class PaplicoEngine {
       logGroupCollapsed('Start Strategy render')
 
       await strategy.render(this, document, preDestCtx)
+
+      target && setCanvasSize(target.canvas, document.width, document.height)
+      target?.clearRect(0, 0, document.width, document.height)
       target?.drawImage(
         preDestCtx.canvas,
         0,
@@ -274,6 +276,7 @@ export class PaplicoEngine {
         document.width,
         document.height
       )
+
       logGroupEnd()
       logTimeEnd('Essential render')
 
@@ -598,9 +601,11 @@ export class PaplicoEngine {
       handleLayerBitmapRequest: (
         layerUid: string
       ) => Promise<
-        { missing: false; image: CanvasImageSource } | { missing: true }
+        { missing: false; image: TexImageSource } | { missing: true }
       >
       layer: LayerTypes
+      /** 0..1 */
+      opacity: number
       size: {
         width: number
         height: number

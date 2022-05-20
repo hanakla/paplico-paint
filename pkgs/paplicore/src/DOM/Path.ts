@@ -156,7 +156,7 @@ export class Path implements ISilkDOMElement {
     const width = Math.abs(right - left)
     const height = Math.abs(bottom - top)
 
-    return {
+    return (this._cachedBounds = {
       left,
       top,
       right,
@@ -165,7 +165,7 @@ export class Path implements ISilkDOMElement {
       centerY: top + height / 2,
       width,
       height,
-    }
+    })
   }
 
   public getTotalLength(): number {

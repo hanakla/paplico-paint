@@ -62,14 +62,15 @@ export const debounce = <T extends (...args: any[]) => void>(
   const run = (...args: any[]) => {
     last = Date.now()
     clearTimeout(timerId)
+
     fn(...args)
   }
 
   return (...args: Parameters<T>) => {
-    const now = Date.now()
+    window.clearTimeout(timerId)
 
+    const now = Date.now()
     if (now - last < waiting) {
-      clearTimeout(timerId)
       timerId = window.setTimeout(run, now - last, ...args)
     } else {
       run(...args)

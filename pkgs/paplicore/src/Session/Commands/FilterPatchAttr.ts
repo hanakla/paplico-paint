@@ -44,9 +44,7 @@ export class FilterPatchAttr implements ICommand {
     this.patcher(next)
 
     this.jsonDelta = jsondiff.diff(original, next)!
-    console.log(this.jsonDelta, original, next)
     filter.update((f) => jsondiff.patch(f, this.jsonDelta))
-    console.log(filter)
   }
 
   async undo(document: Document): Promise<void> {

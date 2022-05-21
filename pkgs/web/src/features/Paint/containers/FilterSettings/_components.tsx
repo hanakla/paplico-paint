@@ -1,8 +1,8 @@
 import { flip, offset, shift, useFloating } from '@floating-ui/react-dom'
 import { useFunk } from '@hanakla/arma'
-import { PapDOM, PapDOMDigger } from '@paplico/core'
+import { PapCommands, PapDOM, PapDOMDigger } from '@paplico/core'
 import { useTranslation } from 'next-i18next'
-import { memo, MouseEvent, ReactNode, useEffect } from 'react'
+import { ChangeEvent, memo, MouseEvent, ReactNode, useEffect } from 'react'
 import { useClickAway, useToggle } from 'react-use'
 
 import { centering } from '🙌/utils/mixins'
@@ -11,7 +11,7 @@ import { ChromePicker, ColorChangeHandler } from 'react-color'
 import { useAutoUpdateFloating, useFleur } from '../../../../utils/hooks'
 import { Portal } from '../../../../components/Portal'
 import { EditorOps, EditorSelector } from '../../../../domains/EditorStable'
-import { useDocumentWatch } from '../../hooks'
+import { useDocumentWatch, useTransactionCommand } from '../../hooks'
 import { LayerTypes } from '@paplico/core/dist/DOM'
 import { ThemeProp, tm } from '../../../../utils/theme'
 import { rgba } from 'polished'
@@ -19,6 +19,8 @@ import { LayerNameText } from '../../../../components/LayerNameText'
 import { useHover } from 'react-use-gesture'
 import { ArrowDownS, ErrorWarning } from '@styled-icons/remix-line'
 import { useStore } from '@fleur/react'
+import { RangeInput } from '../../../../components/RangeInput'
+import { roundString } from '../../../../utils/StringUtils'
 
 export const Column = memo(
   ({
@@ -363,5 +365,54 @@ export const LayerSelector = memo(function LayerSelector({
         </div>
       )}
     </div>
+  )
+})
+
+export const OpacityColumn = memo(function OpacityColumn({
+  filter,
+}: {
+  filter: PapDOM.Filter
+}) {
+  const transCommand = useTransactionCommand()
+
+  const activeLayerPath = useStore(EditorSelector.activeLayerPath)
+
+  const handleChangeOpacity = useFunk(
+    ({ currentTarget }: ChangeEvent<HTMLInputElement>) => {
+      if (!activeLayerPath) return
+
+      transCommand.autoStartAndDoAdd(
+        new PapCommands.Filter.PatchAttr({
+          pathToTargetLayer: activeLayerPath,
+          filterUid: filter.uid,
+          patcher: (attrs) => {
+            attrs.opacity = currentTarget.valueAsNumber
+          },
+        })
+      )
+
+      transCommand.rerenderCanvas()
+    }
+  )
+
+  const handleChangeComplete = useFunk(() => {
+    transCommand.commit()
+  })
+
+  return (
+    <Column
+      filter={filter}
+      nameKey="opacity"
+      value={roundString(filter.opacity * 100, 0)}
+    >
+      <RangeInput
+        min={0}
+        max={1}
+        step={0.01}
+        value={filter.opacity}
+        onChange={handleChangeOpacity}
+        onChangeComplete={handleChangeComplete}
+      />
+    </Column>
   )
 })

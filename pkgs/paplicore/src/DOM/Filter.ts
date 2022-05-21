@@ -41,12 +41,14 @@ export class Filter
     filterId,
     settings,
     visible = true,
+    opacity = 1,
   }: {
     filterId: string
     settings: FiterSettingType
     visible?: boolean
+    opacity?: number
   }) {
-    return assign(new Filter(), { filterId, settings, visible })
+    return assign(new Filter(), { filterId, settings, visible, opacity })
   }
 
   public static deserialize(obj: any) {

@@ -76,15 +76,19 @@ filters:
 
 filterOptions:
   '@paplico/filters/bloom':
+    opacity: 'Opacity'
     threshold: Threshold
     power: Threshold
   '@paplico/filters/gauss-blur':
+    opacity: 'Opacity'
     radius: Radius
     powerDev: Power(dev)
   '@paplico/filters/chromatic-aberration':
+    opacity: 'Opacity'
     distance: Distance
     angleDeg: Angle
   '@paplico/filters/halftone':
+    opacity: 'Opacity'
     shape: Shape
     shapes:
       dot: Dot
@@ -94,25 +98,32 @@ filterOptions:
     radius: Radius
     scatter: Scatter
   '@paplico/filters/binarization':
+    opacity: 'Opacity'
     threshold: Threshold
   '@paplico/filters/glitch-jpeg':
+    opacity: 'Opacity'
     copies: Copies
     quality: Image quality
   '@paplico/filters/low-reso':
+    opacity: 'Opacity'
     sameBlocks: Both same size
     levelX: Holizontal blocks
     levelY: Vetical blocks
   '@paplico/filters/outline':
+    opacity: 'Opacity'
     thickness: Thickness
     color: Color
   '@paplico/filters/zoom-blur':
+    opacity: 'Opacity'
     strength: Strength
     centerX: Center X
     centerY: Center Y
   '@paplico/filters/kawase-blur':
+    opacity: 'Opacity'
     blurSize: Blur size
     quality: Quality
   '@paplico/filters/uvreplace':
+    opacity: 'Opacity'
     replacement: Replace rule
     replacements:
       delta: Relative

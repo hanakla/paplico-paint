@@ -99,7 +99,7 @@ export class DifferenceRender implements IRenderStrategy {
     const perf_initCanvas = timeSumming('Init layer buffer canvas')
     const perf_composite = timeSumming('Composite layer')
     const perf_filter = timeSumming('Composite filter')
-    const perf_filterLayer = timeSumming('Composite layer filter')
+    const perf_filterLayer = timeSumming('Composite filter layer')
 
     const layerBufferCtx = await this.bufferCtx.enjure({ owner: this })
     const filterCtx = createContext2D()
@@ -354,18 +354,10 @@ export class DifferenceRender implements IRenderStrategy {
                 layer.uid
               ),
             })
-
-            console.log('done')
           })
 
-          console.log('ok')
-          await logImage(filterCtx)
-          await logImage(layerBufferCtx)
-
-          saveAndRestoreCanvas(layerBufferCtx, () => {
-            layerBufferCtx.globalAlpha = filter.opacity
-            layerBufferCtx.drawImage(filterCtx.canvas, 0, 0)
-          })
+          layerBufferCtx.clearRect(0, 0, document.width, document.height)
+          layerBufferCtx.drawImage(filterCtx.canvas, 0, 0)
         }
 
         destCtx.clearRect(0, 0, document.width, document.height)
@@ -454,18 +446,6 @@ export class DifferenceRender implements IRenderStrategy {
               layer.uid
             ),
           })
-        })
-
-        saveAndRestoreCanvas(mixBufferCtx, () => {
-          mixBufferCtx.clearRect(0, 0, document.width, document.height)
-
-          mixBufferCtx.globalAlpha = 1 - filter.opacity
-          console.log(mixBufferCtx.globalAlpha)
-          mixBufferCtx.drawImage(layerBufferCtx.canvas, 0, 0)
-
-          mixBufferCtx.globalAlpha = filter.opacity
-          console.log(mixBufferCtx.globalAlpha)
-          mixBufferCtx.drawImage(filterCtx.canvas, 0, 0)
         })
 
         layerBufferCtx.clearRect(0, 0, document.width, document.height)

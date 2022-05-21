@@ -144,7 +144,7 @@ export const usePapFilterWatch = (filter: PapDOM.Filter | null | undefined) => {
 }
 
 export const useTransactionCommand = ({
-  threshold = 1000,
+  threshold = 500,
 }: {
   threshold?: number
 } = {}) => {

@@ -8,7 +8,6 @@ import { ColorStop1D } from '../Value/ColorStop1D'
 export declare namespace GradientMapFilter {
   export type Params = {
     map: ColorStop1D[]
-    mixRatio: number
   }
 }
 
@@ -26,7 +25,6 @@ export class GradientMapFilter implements IFilter {
         // { color: { r: 0.2, g: 0.9, b: 0.8, a: 1 }, position: 0.5 },
         { color: { r: 1, g: 1, b: 1, a: 1 }, position: 1 },
       ],
-      mixRatio: 1,
     }
   }
 
@@ -71,11 +69,10 @@ export class GradientMapFilter implements IFilter {
       this.program!,
       {
         uMap: gl.uniTexture2D(gradCtx.canvas),
-        uMix: gl.uni1f(settings.mixRatio),
       },
       source,
-      dest
-      // { clear: true }
+      dest,
+      { clear: true }
     )
 
     await logImage(source, 'source')
@@ -91,7 +88,6 @@ const FRAGMENT_SHADER = `
 
   uniform sampler2D source;
   uniform sampler2D uMap;
-  uniform float uMix;
 
   const float redScale   = 0.298912;
   const float greenScale = 0.586611;
@@ -103,10 +99,14 @@ const FRAGMENT_SHADER = `
     float grayColor = dot(sourceColor.rgb, monochromeScale);
 
     vec4 mappedColor = texture2D(uMap, vec2(grayColor, 0.0));
-    gl_FragColor = vec4(grayColor, grayColor, grayColor, 0.0);
-    // gl_FragColor = mappedColor;
-    // gl_FragColor = vec4(mappedColor.rgb, sourceColor.a);
-    // gl_FragColor = vec4(mix(sourceColor.rgb, mappedColor.rgb, uMix).rgb, sourceColor.a);
+
+    gl_FragColor = vec4(
+      mappedColor.r,
+      mappedColor.g,
+      mappedColor.b,
+      sourceColor.a
+    );
+    // gl_FragColor = vec4(sourceColor.a);
     // gl_FragColor = sourceColor;
   }
 `

@@ -43,11 +43,14 @@ export abstract class AbstractPixiFilterInterop implements IFilter {
       size.height * uInputSize[3] - 0.5 * uInputPixel[3],
     ])
 
+    const filterArea = new Float32Array([size.width, size.height, 0, 0])
+
     return {
       inputSize: gl.uni4fv(uInputSize),
       inputPixel: gl.uni4fv(uInputPixel),
       inputClamp: gl.uni4fv(uInputClamp),
       filterClamp: gl.uni4fv(uFilterClamp),
+      filterArea: gl.uni4fv(filterArea),
     }
   }
 }

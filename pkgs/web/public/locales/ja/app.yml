@@ -81,14 +81,18 @@ filters:
 
 filterOptions:
   '@paplico/filters/bloom':
+    opacity: '透明度'
     threshold: しきい値
   '@paplico/filters/gauss-blur':
+    opacity: '透明度'
     radius: 半径
     powerDev: 強さ(dev)
   '@paplico/filters/chromatic-aberration':
+    opacity: '透明度'
     distance: 距離
     angleDeg: 角度
   '@paplico/filters/halftone':
+    opacity: '透明度'
     shape: 形状
     shapes:
       dot: 円
@@ -98,29 +102,37 @@ filterOptions:
     radius: 半径
     scatter: 散らばり
   '@paplico/filters/binarization':
+    opacity: '透明度'
     level: レベル
     # threshold: しきい値
   '@paplico/filters/glitch-jpeg':
+    opacity: '透明度'
     copies: コピー回数
     quality: 画質
   '@paplico/filters/low-reso':
+    opacity: '透明度'
     sameBlocks: 縦と横で同じサイズにする
     levelX: 横の解像度
     levelY: 縦の解像度
   '@paplico/filters/noise':
+    opacity: '透明度'
     color: カラーノイズ
     scale: 大きさ
   '@paplico/filters/outline':
+    opacity: '透明度'
     thickness: 太さ
     color: 色
   '@paplico/filters/zoom-blur':
+    opacity: '透明度'
     strength: 強さ
     centerX: 中央(横)
     centerY: 中央(縦)
   '@paplico/filters/kawase-blur':
+    opacity: '透明度'
     blurSize: ぼかしサイズ
     quality: クオリティ
   '@paplico/filters/uvreplace':
+    opacity: '透明度'
     replacement: '置き換え規則'
     replacements:
       delta: 相対

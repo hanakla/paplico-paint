@@ -4,6 +4,7 @@
 //
 // SEE: https://github.com/pixijs/filters/tree/main/filters/zoom-blur
 
+import { logImage } from '../DebugHelper'
 import { FilterContext, FilterInitContext, IFilter } from '../engine/IFilter'
 import { WebGLContext } from '../engine/WebGLContext'
 import { AbstractPixiFilterInterop } from './AbstractPixiFilterInterop'
@@ -27,7 +28,7 @@ export class ZoomBlurFilter extends AbstractPixiFilterInterop {
 
   public get initialConfig(): ZoomBlurFilter.Params {
     return {
-      strength: 0.1,
+      strength: 0.5,
       center: [0.5, 0.5],
       innerRadius: 0,
       radius: -1,
@@ -35,27 +36,33 @@ export class ZoomBlurFilter extends AbstractPixiFilterInterop {
   }
 
   private program: WebGLContext.ProgramSet | null = null
-  // private composer: EffectComposer
 
   public async initialize({ gl }: FilterInitContext) {
     this.program = gl.createProgram(FRAGMENT_SHADER)
   }
 
   public async render(ctx: FilterContext<ZoomBlurFilter.Params>) {
-    const { gl, source, dest, settings } = ctx
+    const { gl, source, dest, settings, size } = ctx
 
     gl.applyProgram(
       this.program!,
       {
         ...this.getPixiUniforms(ctx),
-        uCenter: gl.uni2fv(settings.center),
+        uCenter: gl.uni2fv([
+          settings.center[0] * size.width,
+          settings.center[1] * size.height,
+        ]),
+        // uCenter: gl.uni2fv([settings.center[0], settings.center[1]]),
         uStrength: gl.uni1f(settings.strength),
         uInnerRadius: gl.uni1f(settings.innerRadius),
-        uRadius: gl.uni1f(settings.radius),
+        uRadius: gl.uni1f(-1),
       },
       source,
-      dest
+      dest,
+      { clear: true }
     )
+
+    await logImage(dest, 'dest')
   }
 }
 
@@ -72,7 +79,6 @@ precision mediump float;
 
 varying vec2 vUv;
 uniform sampler2D source;
-
 uniform vec4 filterArea;
 
 uniform vec2 uCenter;
@@ -90,70 +96,71 @@ highp float rand(vec2 co, float seed) {
 }
 
 void main() {
-  float minGradient = uInnerRadius * 0.3;
-  float innerRadius = (uInnerRadius + minGradient * 0.5) / filterArea.x;
 
-  float gradient = uRadius * 0.3;
-  float radius = (uRadius - gradient * 0.5) / filterArea.x;
+    float minGradient = uInnerRadius * 0.3;
+    float innerRadius = (uInnerRadius + minGradient * 0.5) / filterArea.x;
 
-  float countLimit = MAX_KERNEL_SIZE;
+    float gradient = uRadius * 0.3;
+    float radius = (uRadius - gradient * 0.5) / filterArea.x;
 
-  vec2 dir = vec2(uCenter.xy / filterArea.xy - vUv);
-  float dist = length(vec2(dir.x, dir.y * filterArea.y / filterArea.x));
+    float countLimit = MAX_KERNEL_SIZE;
 
-  float strength = uStrength;
+    vec2 dir = vec2(uCenter.xy / filterArea.xy - vUv);
+    float dist = length(vec2(dir.x, dir.y * filterArea.y / filterArea.x));
 
-  float delta = 0.0;
-  float gap;
-  if (dist < innerRadius) {
-      delta = innerRadius - dist;
-      gap = minGradient;
-  } else if (radius >= 0.0 && dist > radius) { // radius < 0 means it's infinity
-      delta = dist - radius;
-      gap = gradient;
-  }
+    float strength = uStrength;
 
-  if (delta > 0.0) {
-      float normalCount = gap / filterArea.x;
-      delta = (normalCount - delta) / normalCount;
-      countLimit *= delta;
-      strength *= delta;
-      if (countLimit < 1.0)
-      {
-          gl_FragColor = texture2D(source, vUv);
-          return;
-      }
-  }
+    float delta = 0.0;
+    float gap;
+    if (dist < innerRadius) {
+        delta = innerRadius - dist;
+        gap = minGradient;
+    } else if (radius >= 0.0 && dist > radius) { // radius < 0 means it's infinity
+        delta = dist - radius;
+        gap = gradient;
+    }
 
-  // randomize the lookup values to hide the fixed number of samples
-  float offset = rand(vUv, 0.0);
+    if (delta > 0.0) {
+        float normalCount = gap / filterArea.x;
+        delta = (normalCount - delta) / normalCount;
+        countLimit *= delta;
+        strength *= delta;
+        if (countLimit < 1.0)
+        {
+            gl_FragColor = texture2D(source, vUv);
+            return;
+        }
+    }
 
-  float total = 0.0;
-  vec4 color = vec4(0.0);
+    // randomize the lookup values to hide the fixed number of samples
+    float offset = rand(vUv, 0.0);
 
-  dir *= strength;
+    float total = 0.0;
+    vec4 color = vec4(0.0);
 
-  for (float t = 0.0; t < MAX_KERNEL_SIZE; t++) {
-      float percent = (t + offset) / MAX_KERNEL_SIZE;
-      float weight = 4.0 * (percent - percent * percent);
-      vec2 p = vUv + dir * percent;
-      vec4 sample = texture2D(source, p);
+    dir *= strength;
 
-      // switch to pre-multiplied alpha to correctly blur transparent images
-      // sample.rgb *= sample.a;
+    for (float t = 0.0; t < MAX_KERNEL_SIZE; t++) {
+        float percent = (t + offset) / MAX_KERNEL_SIZE;
+        float weight = 4.0 * (percent - percent * percent);
+        vec2 p = vUv + dir * percent;
+        vec4 sample = texture2D(source, p);
 
-      color += sample * weight;
-      total += weight;
+        // switch to pre-multiplied alpha to correctly blur transparent images
+        // sample.rgb *= sample.a;
 
-      if (t > countLimit){
-          break;
-      }
-  }
+        color += sample * weight;
+        total += weight;
 
-  color /= total;
-  // switch back from pre-multiplied alpha
-  // color.rgb /= color.a + 0.00001;
+        if (t > countLimit){
+            break;
+        }
+    }
 
-  gl_FragColor = color;
+    color /= total;
+    // switch back from pre-multiplied alpha
+    // color.rgb /= color.a + 0.00001;
+
+    gl_FragColor = color;
 }
 `

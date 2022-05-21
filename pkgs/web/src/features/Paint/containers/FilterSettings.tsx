@@ -17,7 +17,12 @@ import { EditorSelector } from '🙌/domains/EditorStable'
 import { usePapFilterWatch, useTransactionCommand } from '../hooks'
 
 import { Stack } from '🙌/components/Stack'
-import { Column, LayerSelector, ColorInput } from './FilterSettings/_components'
+import {
+  Column,
+  LayerSelector,
+  ColorInput,
+  OpacityColumn,
+} from './FilterSettings/_components'
 import { Noise } from './FilterSettings/Noise'
 import { GradientMap } from './FilterSettings/GradientMap'
 
@@ -566,10 +571,12 @@ const ZoomBlur = memo(function ZoomBlur({ layer, filter }: Props) {
           pathToTargetLayer: activeLayerPath,
           filterUid: filter.uid,
           patcher: (filter) => {
-            filter.settings.strength = currentTarget.valueAsNumber
+            filter.settings.strength = currentTarget.valueAsNumber / 100
           },
         })
       )
+
+      trnsCommand.debouncedCommit()
     }
   )
   const handleChangeCenterX = useFunk(
@@ -581,10 +588,12 @@ const ZoomBlur = memo(function ZoomBlur({ layer, filter }: Props) {
           pathToTargetLayer: activeLayerPath,
           filterUid: filter.uid,
           patcher: (filter) => {
-            filter.settings.center[0] = currentTarget.valueAsNumber
+            filter.settings.center[0] = currentTarget.valueAsNumber / 100
           },
         })
       )
+
+      trnsCommand.debouncedCommit()
     }
   )
   const handleChangeCenterY = useFunk(
@@ -596,10 +605,12 @@ const ZoomBlur = memo(function ZoomBlur({ layer, filter }: Props) {
           pathToTargetLayer: activeLayerPath,
           filterUid: filter.uid,
           patcher: (filter) => {
-            filter.settings.center[1] = currentTarget.valueAsNumber
+            filter.settings.center[1] = currentTarget.valueAsNumber / 100
           },
         })
       )
+
+      trnsCommand.debouncedCommit()
     }
   )
 
@@ -608,42 +619,43 @@ const ZoomBlur = memo(function ZoomBlur({ layer, filter }: Props) {
       <Column
         nameKey={'strength'}
         filter={filter}
-        value={filter.settings.strength}
+        value={roundString(filter.settings.strength * 100, 1)}
       >
         <RangeInput
           min={1}
           max={100}
           step={1}
-          value={filter.settings.strength}
+          value={filter.settings.strength * 100}
           onChange={handleChangeStrength}
         />
       </Column>
       <Column
         nameKey={'centerX'}
         filter={filter}
-        value={filter.settings.center[0]}
+        value={roundString(filter.settings.center[0] * 100, 1) + '%'}
       >
         <RangeInput
-          min={1}
-          max={2000}
+          min={0}
+          max={100}
           step={0.01}
-          value={filter.settings.center[0]}
+          value={filter.settings.center[0] * 100}
           onChange={handleChangeCenterX}
         />
       </Column>
       <Column
         nameKey={'centerY'}
         filter={filter}
-        value={filter.settings.center[1]}
+        value={roundString(filter.settings.center[1] * 100, 1) + '%'}
       >
         <RangeInput
-          min={1}
-          max={2000}
-          step={0.01}
-          value={filter.settings.center[1]}
+          min={0}
+          max={100}
+          step={0.001}
+          value={filter.settings.center[1] * 100}
           onChange={handleChangeCenterY}
         />
       </Column>
+      <OpacityColumn filter={filter} />
     </div>
   )
 })
@@ -688,8 +700,6 @@ const KawaseBlur = memo(function KawaseBlur({ layer, filter }: Props) {
   const handleChangeComplete = useFunk(() => {
     commandTransaction.commit()
   })
-
-  console.log(filter.settings)
 
   return (
     <div>

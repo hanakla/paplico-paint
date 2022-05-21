@@ -4,7 +4,7 @@ import AggregateError from 'es-aggregate-error'
 
 import { Brush, ScatterBrush } from '../Brushes'
 import { Document, LayerTypes, Path, VectorLayer, VectorObject } from '../DOM'
-import { setCanvasSize, debounce } from '../utils'
+import { setCanvasSize, debounce, setCanvasSizeIfDifferent } from '../utils'
 import { deepClone } from '../utils/object'
 import { CurrentBrushSetting as _CurrentBrushSetting } from './CurrentBrushSetting'
 import { IRenderStrategy } from './RenderStrategy/IRenderStrategy'
@@ -104,6 +104,7 @@ export class PaplicoEngine {
     'stroke'
   )
   protected atomicBufferCtx: AtomicResource<CanvasRenderingContext2D>
+  protected atomicFilterMixBufCtx: AtomicResource<CanvasRenderingContext2D>
   // protected atomicRerender: AtomicResource<any>
 
   // public readonly previews: Map<string, string> = new Map()
@@ -174,6 +175,10 @@ export class PaplicoEngine {
     renderer.setClearColor(0xffffff, 0)
 
     this.atomicThreeRenderer = new AtomicResource(renderer, 'threeRenderer')
+    this.atomicFilterMixBufCtx = new AtomicResource(
+      createContext2D(),
+      'filterMixBuffer'
+    )
     this.atomicPreDestCtx = new AtomicResource(createContext2D(), 'predest')
 
     this.camera = new THREE.OrthographicCamera(0, 0, 0, 0, 0, 1000)
@@ -216,7 +221,7 @@ export class PaplicoEngine {
     (document: Document, strategy: IRenderStrategy) => {
       return this.render(document, strategy, { lazy: true })
     },
-    100
+    300
   )
 
   public async render(
@@ -618,6 +623,14 @@ export class PaplicoEngine {
 
     const renderer = await this.atomicThreeRenderer.enjure({ owner: this })
 
+    const mixBuffer = await this.atomicFilterMixBufCtx.enjure({ owner: this })
+    setCanvasSizeIfDifferent(
+      mixBuffer.canvas,
+      options.size.width,
+      options.size.height
+    )
+    mixBuffer.clearRect(0, 0, options.size.width, options.size.height)
+
     renderer.setSize(dest.canvas.width, dest.canvas.height, false)
     renderer.setClearColor(0xffffff, 0)
     renderer.clear()
@@ -640,7 +653,21 @@ export class PaplicoEngine {
         settings: deepClone(options.filterSettings),
         requestLayerBitmap: options.handleLayerBitmapRequest,
       })
+
+      if (options.opacity !== 1) {
+        mixBuffer.globalAlpha = 1 - options.opacity
+        mixBuffer.drawImage(source.canvas, 0, 0)
+      }
+
+      if (options.opacity !== 0) {
+        mixBuffer.globalAlpha = options.opacity
+        mixBuffer.drawImage(dest.canvas, 0, 0)
+      }
+
+      dest.clearRect(0, 0, options.size.width, options.size.height)
+      dest.drawImage(mixBuffer.canvas, 0, 0)
     } finally {
+      this.atomicFilterMixBufCtx.release(mixBuffer)
       this.atomicThreeRenderer.release(renderer)
       dest.restore()
       source.restore()

@@ -12,7 +12,7 @@ import { SelectBox } from '../../../../components/SelectBox'
 import { TextInput } from '../../../../components/TextInput'
 import { roundString } from '../../../../utils/StringUtils'
 import { useTransactionCommand } from '../../hooks'
-import { Column } from './_components'
+import { Column, OpacityColumn } from './_components'
 import { FilterPaneProps } from './_shared'
 
 const PRESETS: Array<{
@@ -169,21 +169,7 @@ export const GradientMap = memo(function GradientMap({
           />
         </label>
       </Column>
-      <Column
-        filter={filter}
-        nameKey="mixRatio"
-        value={roundString(settings.mixRatio, 2)}
-      >
-        <RangeInput
-          type="number"
-          min={0}
-          max={1}
-          step={0.01}
-          value={settings.mixRatio}
-          onChange={handleChangeMixRatio}
-          onChangeComplete={handleChangeComplete}
-        />
-      </Column>
+      <OpacityColumn filter={filter} />
     </div>
   )
 })

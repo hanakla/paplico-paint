@@ -301,7 +301,9 @@ export default function Debug() {
           vector.objects.push(obj)
         }
 
-        vector.filters.push(
+        vector.filters.push(...[])
+
+        filter.filters.push(
           // PapDOM.Filter.create({
           //   filterId: '@paplico/filters/chromatic-aberration',
           //   visible: true,
@@ -347,14 +349,18 @@ export default function Debug() {
           // }),
           // PapDOM.Filter.create({
           //   filterId: '@paplico/filters/zoom-blur',
-          //   visible: false,
-          //   settings: engine.toolRegistry.getFilterInstance(
-          //     '@paplico/filters/zoom-blur'
-          //   )!.initialConfig,
+          //   visible: true,
+          //   opacity: 1,
+          //   settings: {
+          //     ...engine.toolRegistry.getFilterInstance(
+          //       '@paplico/filters/zoom-blur'
+          //     )!.initialConfig,
+          //   },
           // }),
           // PapDOM.Filter.create({
           //   filterId: '@paplico/filters/kawase-blur',
           //   visible: true,
+          //   opacity: 0.5,
           //   settings: engine.toolRegistry.getFilterInstance(
           //     '@paplico/filters/kawase-blur'
           //   )!.initialConfig,
@@ -371,10 +377,6 @@ export default function Debug() {
           //     movementPx: [10, 0],
           //   },
           // }),
-          ...[]
-        )
-
-        filter.filters.push(
           // PapDOM.Filter.create({
           //   filterId: '@paplico/filters/kawase-blur',
           //   visible: true,
@@ -388,13 +390,14 @@ export default function Debug() {
             settings: engine.toolRegistry.getFilterInstance(
               '@paplico/filters/gradient-map'
             )!.initialConfig,
-          })
+          }),
+          ...[]
         )
 
         document.addLayer(displacement)
-        document.addLayer(bgLayer)
+        // document.addLayer(bgLayer)
         document.addLayer(vector, { aboveLayerId: bgLayer.uid })
-        // document.addLayer(raster)
+        document.addLayer(raster)
 
         document.addLayer(square)
         document.addLayer(strokes)
@@ -431,8 +434,9 @@ export default function Debug() {
         controlRef.current = {
           rerender: () => engine.render(document, strategy),
           toggleFilters: () => {
-            vector.filters.forEach((filter) => {
+            filter.filters.forEach((filter) => {
               filter.visible = !filter.visible
+
               console.log(
                 `${filter.visible ? 'ENABLED' : 'DISABLED'}: ${filter.filterId}`
               )

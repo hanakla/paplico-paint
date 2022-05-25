@@ -78,6 +78,7 @@ filters:
   '@paplico/filters/zoom-blur': ズームブラー
   '@paplico/filters/kawase-blur': カワセブラー
   '@paplico/filters/uvreplace': ピクセル移動
+  '@paplico/filters/gradient-map': グラデーションマップ
 
 filterOptions:
   '@paplico/filters/bloom':
@@ -146,6 +147,9 @@ filterOptions:
       repeat: 反対側から繰り返す
       mirroredRepeat: 逆向きに繰り返す
       toEdge: 端で止める
+  '@paplico/filters/gradient-map':
+    opacity: '透明度'
+    map: マップ
 
 layerView:
   context:

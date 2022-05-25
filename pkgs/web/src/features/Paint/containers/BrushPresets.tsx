@@ -115,6 +115,7 @@ const BrushItem = memo(function BrushItem({
 
   const { value } = useAsync(async () => {
     if (!engine) return null
+
     return await generateBrushThumbnail(engine, brushId, {
       brushSize: 6,
       specific: preset.specific ?? null,

@@ -27,7 +27,14 @@ import {
 import { PapCommands, PapValueTypes } from '@paplico/core'
 import { useTranslation } from 'next-i18next'
 import { useClickAway, useToggle } from 'react-use'
-import { Brush, Close, Eraser, Pencil, Stack } from '@styled-icons/remix-line'
+import {
+  Brush,
+  Close,
+  Eraser,
+  Pencil,
+  Stack,
+  Sip,
+} from '@styled-icons/remix-line'
 import { Cursor, Menu } from '@styled-icons/remix-fill'
 import { Cursor as CursorLine } from '@styled-icons/remix-line'
 import styled, { css, useTheme } from 'styled-components'
@@ -165,6 +172,10 @@ export const MainActions = memo(function MainActions() {
     }
 
     execute(EditorOps.setTool, 'draw')
+  })
+
+  const handleChangeToDropperMode = useFunk(() => {
+    execute(EditorOps.setTool, 'dropper')
   })
 
   const handleChangeToEraceMode = useFunk(() => {
@@ -681,42 +692,64 @@ export const MainActions = memo(function MainActions() {
           </div>
         )}
 
-        <div
-          ref={brushesFl.reference}
-          css={`
-            position: relative;
-            ${centering()}
-            padding:4px;
-            border-radius: 0;
-            transition: background-color 0.2s ease-in-out;
-          `}
-          style={{
-            backgroundColor:
-              currentTool === 'draw' ? theme.color.surface4 : 'transparent',
-          }}
-          onClick={handleChangeToPencilMode}
-        >
-          <span
+        {(activeLayer?.layerType === 'raster' ||
+          activeLayer?.layerType === 'vector') && (
+          <div
+            ref={brushesFl.reference}
             css={`
-              position: absolute;
-              top: -2px;
-              left: 50%;
-              display: inline-block;
-              padding-left: none !important;
-              padding-right: none !important;
-              transform: translateX(-50%);
-              border: 4px solid;
-              border-color: transparent transparent #fff transparent;
-              mix-blend-mode: difference;
-              transition: opacity 0.2s ease-in-out;
-              opacity: 0;
+              position: relative;
+              ${centering()}
+              padding:4px;
+              border-radius: 0;
+              transition: background-color 0.2s ease-in-out;
             `}
             style={{
-              opacity: currentTool === 'draw' ? 1 : 0,
+              backgroundColor:
+                currentTool === 'draw' ? theme.color.surface4 : 'transparent',
             }}
-          />
-          <Brush width={24} />
-        </div>
+            onClick={handleChangeToPencilMode}
+          >
+            <span
+              css={`
+                position: absolute;
+                top: -2px;
+                left: 50%;
+                display: inline-block;
+                padding-left: none !important;
+                padding-right: none !important;
+                transform: translateX(-50%);
+                border: 4px solid;
+                border-color: transparent transparent #fff transparent;
+                mix-blend-mode: difference;
+                transition: opacity 0.2s ease-in-out;
+                opacity: 0;
+              `}
+              style={{
+                opacity: currentTool === 'draw' ? 1 : 0,
+              }}
+            />
+            <Brush width={24} />
+          </div>
+        )}
+
+        {(activeLayer?.layerType === 'raster' ||
+          activeLayer?.layerType === 'vector') && (
+          <div
+            css={`
+              ${centering()}
+              padding: 4px;
+            `}
+            style={{
+              backgroundColor:
+                currentTool === 'dropper'
+                  ? theme.color.surface4
+                  : 'transparent',
+            }}
+            onClick={handleChangeToDropperMode}
+          >
+            <Sip width={24} />
+          </div>
+        )}
 
         {activeLayer?.layerType === 'raster' && (
           <div
@@ -842,8 +875,10 @@ const AppMenu = memo(function AppMenu({
   })
 
   const handleClickBackToHome = useFunk(() => {
-    execute(EditorOps.setEditorPage, 'home')
-    execute(EditorOps.disposeEngineAndSession, { withSave: true })
+    execute(EditorOps.disposeEngineAndSession, {
+      withSave: true,
+      switchToHome: true,
+    })
   })
 
   const handleClickChangeTheme = useFunk(() => {

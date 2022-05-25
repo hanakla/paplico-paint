@@ -39,7 +39,13 @@ export const GlobalStyle = createGlobalStyle`
     `}
   }
 
-  *:not(input) {
+  *:not(input textarea) {
     user-select: none;
+  }
+
+  ${media.narrow} {
+    nextjs-portal {
+      display: none;
+    }
   }
 `

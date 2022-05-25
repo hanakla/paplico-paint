@@ -78,6 +78,7 @@ import {
   useActiveLayerPane,
   useDocumentWatch,
   useLayerListWatch,
+  useVectorObjectWatch,
 } from '../hooks'
 import { shift, useFloating } from '@floating-ui/react-dom'
 import { LayerNameText } from '../../../components/LayerNameText'
@@ -598,21 +599,7 @@ const SortableLayerItem = memo(
               onClick={handleToggleVisibility}
               data-ignore-click
             >
-              {layer.visible ? (
-                <Eye
-                  css={`
-                    width: 16px;
-                    vertical-align: bottom;
-                  `}
-                />
-              ) : (
-                <EyeClose
-                  css={`
-                    width: 16px;
-                    vertical-align: bottom;
-                  `}
-                />
-              )}
+              {layer.visible ? <Eye width={16} /> : <EyeClose width={16} />}
             </div>
 
             <img
@@ -768,6 +755,8 @@ const SortableObjectItem = memo(function SortableObjectItem({
 
   const objectMenu = useContextMenu()
 
+  useVectorObjectWatch(object)
+
   const {
     attributes,
     listeners,
@@ -803,6 +792,19 @@ const SortableObjectItem = memo(function SortableObjectItem({
     })
   })
 
+  const handleToggleVisibility = useFunk(() => {
+    execute(
+      EditorOps.runCommand,
+      new PapCommands.VectorLayer.PatchObjectAttr({
+        pathToTargetLayer: parentPath,
+        objectUid: object.uid,
+        patcher: (attrs) => {
+          attrs.visible = !attrs.visible
+        },
+      })
+    )
+  })
+
   const handleClickDeleteObject = useFunk(
     (e: ContextMenuParam<{ layerPath: string[]; objectId: string }>) => {
       execute(
@@ -836,6 +838,7 @@ const SortableObjectItem = memo(function SortableObjectItem({
         ref={setNodeRef}
         css={`
           display: flex;
+          gap: 4px;
           padding: 6px 8px;
           margin-left: 16px;
         `}
@@ -849,7 +852,22 @@ const SortableObjectItem = memo(function SortableObjectItem({
         }}
       >
         <div
+          css={css`
+            display: inline-block;
+            color: ${({ theme }) => theme.colors.white10};
+          `}
+          style={{
+            ...(object.visible ? {} : { opacity: 0.5 }),
+          }}
+          onClick={handleToggleVisibility}
+          data-ignore-click
+        >
+          {object.visible ? <Eye width={16} /> : <EyeClose width={16} />}
+        </div>
+
+        <div
           css={`
+            display: inline-block;
             flex: 1;
           `}
           data-object-id={object.uid}

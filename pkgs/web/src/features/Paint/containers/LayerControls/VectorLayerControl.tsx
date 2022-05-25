@@ -1380,195 +1380,241 @@ const ObjectBoundingBox = memo(
       scale: number
       active: boolean
     }
-  >(
-    function ObjectBoundingBox({ object, scale, active }, ref) {
-      const { execute } = useFleur()
-      const transCommand = useTransactionCommand()
+  >(function ObjectBoundingBox({ object, scale, active }, ref) {
+    const { execute } = useFleur()
+    const transCommand = useTransactionCommand()
 
-      const bbox = useMemo(
-        () => object.getBoundingBox(),
-        [object.cacheKeyObject.key]
-      )
+    const bbox = useMemo(
+      () => object.getBoundingBox(),
+      [object.cacheKeyObject.key]
+    )
 
-      const [{ left, top, right, bottom, width, height }, setBBox] =
-        useObjectState(bbox)
+    const [{ left, top, right, bottom, width, height }, setBBox] =
+      useObjectState(bbox)
 
-      const rotateRef = useRef(object.rotate)
+    const rotateRef = useRef(object.rotate)
 
-      const { canvasScale, canvasPosition } = useStore((get) => ({
-        canvasScale: EditorSelector.canvasScale(get),
-        canvasPosition: EditorSelector.canvasPosition(get),
-      }))
+    const { canvasScale, canvasPosition } = useStore((get) => ({
+      canvasScale: EditorSelector.canvasScale(get),
+      canvasPosition: EditorSelector.canvasPosition(get),
+    }))
 
-      const [dragPoint, setDragPoint] = useState<[number, number] | null>(null)
+    const [dragPoint, setDragPoint] = useState<[number, number] | null>(null)
 
-      const zoom = 1 / scale
-      const controlSize = POINT_SIZE * zoom
+    const zoom = 1 / scale
+    const controlSize = POINT_SIZE * zoom
 
-      const bindLeftTopDrag = useDrag((e) => {
-        const { initial, xy, last, delta } = e
+    const bindRotateDrag = useDrag((e) => {
+      const { initial, xy, last, delta } = e
 
-        // e.memo ??= { rotate: object.rotate }
+      e.memo ??= { rotate: object.rotate }
 
-        // const svg = (e.event.target as SVGElement).closest('svg')!
+      const svg = (e.event.target as SVGElement).closest('svg')!
 
-        setBBox((state) => {
-          state.left += delta[0]
-          state.top += delta[1]
-        })
-
-        // const xyIni = assign(svg.createSVGPoint(), {
-        //   x: initial[0],
-        //   y: initial[1],
-        // }).matrixTransform(svg.getScreenCTM()!.inverse())
-
-        // const xyPt = assign(svg.createSVGPoint(), {
-        //   x: xy[0],
-        //   y: xy[1],
-        // }).matrixTransform(svg.getScreenCTM()!.inverse())
-
-        // const { x, y } = xyPt
-
-        // setDragPoint([x, y])
-
-        // execute(EditorOps.updateActiveObject, (o) => {
-        //   const bbox = o.getBoundingBox()
-
-        //   const angle = PapWebMath.angleOfPoints(
-        //     { x: bbox.centerX, y: bbox.centerY },
-        //     { x: x - xyIni.x, y: y - xyIni.y }
-        //   )
-
-        //   o.rotate = e.memo!.rotate - PapWebMath.radToDeg(angle)
-        //   // o.x += delta[0] * zoom
-        //   // o.y += delta[1] * zoom
-        // })
-
-        // if (last) {
-        //   setDragPoint(null)
-        // }
-
-        return e.memo
+      setBBox((state) => {
+        state.left += delta[0]
+        state.top += delta[1]
       })
 
-      useVectorObjectWatch(object)
+      const xyIni = assign(svg.createSVGPoint(), {
+        x: initial[0],
+        y: initial[1],
+      }).matrixTransform(svg.getScreenCTM()!.inverse())
 
-      return (
-        <g ref={ref} data-devmemo="Bounding box" style={{}}>
-          <rect
-            css={`
-              fill: none;
-              pointer-events: stroke;
-              shape-rendering: optimizeSpeed;
+      const xyPt = assign(svg.createSVGPoint(), {
+        x: xy[0],
+        y: xy[1],
+      }).matrixTransform(svg.getScreenCTM()!.inverse())
 
-              &:hover {
-                cursor: move;
-              }
-            `}
-            x={left}
-            y={top}
-            width={width}
-            height={height}
-            style={{
-              strokeWidth: 1 * zoom,
-              // transform: `translate(${object.x}px, ${object.y}px)`,
-              // transform: `matrix(${object.matrix.join(',')})`,
-              ...(active ? { stroke: '#4e7fff' } : {}),
-            }}
-          />
+      const { x, y } = xyPt
 
-          {dragPoint && (
-            <line
-              x1={left + width / 2}
-              y1={top + height / 2}
-              x2={dragPoint[0]}
-              y2={dragPoint[1]}
-            />
-          )}
+      setDragPoint([x, y])
 
-          <circle
-            cx={left + width / 2}
-            cy={top + height / 2 - bbox.height / 2 - 24}
-            stroke="#4e7fff"
-            strokeWidth={2 * zoom}
-            r={8 * zoom}
-            {...bindLeftTopDrag()}
-          />
+      execute(EditorOps.updateActiveObject, (o) => {
+        const bbox = o.getBoundingBox()
 
-          <rect
-            css={`
-              ${anchorRect}
-              shape-rendering: optimizeSpeed;
-            `}
-            x={left}
-            y={top}
-            width={controlSize}
-            height={controlSize}
-            style={{
-              stroke: '#4e7fff',
-              fill: '#fff',
-              strokeWidth: 1 * zoom,
-              transform: `translate(${-controlSize / 2}px, ${
-                -controlSize / 2
-              }px)`,
-            }}
+        const angle = PapWebMath.angleOfPoints(
+          { x: bbox.centerX, y: bbox.centerY },
+          { x: x - xyIni.x, y: y - xyIni.y }
+        )
+
+        o.rotate = e.memo!.rotate - PapWebMath.radToDeg(angle)
+        o.x += delta[0] * zoom
+        o.y += delta[1] * zoom
+      })
+
+      if (last) {
+        setDragPoint(null)
+      }
+
+      return e.memo
+    })
+
+    const bindLeftTopDrag = useDrag((e) => {
+      const { initial, xy, last, delta } = e
+
+      // e.memo ??= { rotate: object.rotate }
+
+      // const svg = (e.event.target as SVGElement).closest('svg')!
+
+      setBBox((state) => {
+        state.left += delta[0]
+        state.top += delta[1]
+      })
+
+      // const xyIni = assign(svg.createSVGPoint(), {
+      //   x: initial[0],
+      //   y: initial[1],
+      // }).matrixTransform(svg.getScreenCTM()!.inverse())
+
+      // const xyPt = assign(svg.createSVGPoint(), {
+      //   x: xy[0],
+      //   y: xy[1],
+      // }).matrixTransform(svg.getScreenCTM()!.inverse())
+
+      // const { x, y } = xyPt
+
+      // setDragPoint([x, y])
+
+      // execute(EditorOps.updateActiveObject, (o) => {
+      //   const bbox = o.getBoundingBox()
+
+      //   const angle = PapWebMath.angleOfPoints(
+      //     { x: bbox.centerX, y: bbox.centerY },
+      //     { x: x - xyIni.x, y: y - xyIni.y }
+      //   )
+
+      //   o.rotate = e.memo!.rotate - PapWebMath.radToDeg(angle)
+      //   // o.x += delta[0] * zoom
+      //   // o.y += delta[1] * zoom
+      // })
+
+      // if (last) {
+      //   setDragPoint(null)
+      // }
+
+      return e.memo
+    })
+
+    useVectorObjectWatch(object)
+
+    return (
+      <g ref={ref} data-devmemo="Bounding box" style={{}}>
+        <rect
+          css={`
+            fill: none;
+            pointer-events: stroke;
+            shape-rendering: optimizeSpeed;
+
+            &:hover {
+              cursor: move;
+            }
+          `}
+          x={left}
+          y={top}
+          width={width}
+          height={height}
+          style={{
+            strokeWidth: 1 * zoom,
+            // transform: `translate(${object.x}px, ${object.y}px)`,
+            // transform: `matrix(${object.matrix.join(',')})`,
+            ...(active ? { stroke: '#4e7fff' } : {}),
+          }}
+        />
+
+        {dragPoint && (
+          <line
+            x1={left + width / 2}
+            y1={top + height / 2}
+            x2={dragPoint[0]}
+            y2={dragPoint[1]}
           />
-          <rect
-            css={`
-              ${anchorRect}
-              shape-rendering: optimizeSpeed;
-            `}
-            x={right}
-            y={top}
-            width={controlSize}
-            height={controlSize}
-            style={{
-              strokeWidth: 1 * zoom,
-              transform: `translate(${-controlSize / 2}px, ${
-                -controlSize / 2
-              }px)`,
-            }}
-          />
-          <rect
-            css={`
-              ${anchorRect}
-              shape-rendering: optimizeSpeed;
-            `}
-            x={left}
-            y={bottom}
-            width={controlSize}
-            height={controlSize}
-            style={{
-              strokeWidth: 1 * zoom,
-              transform: `translate(${-controlSize / 2}px, ${
-                -controlSize / 2
-              }px)`,
-            }}
-          />
-          <rect
-            css={`
-              ${anchorRect}
-              shape-rendering: optimizeSpeed;
-            `}
-            x={right}
-            y={bottom}
-            width={controlSize}
-            height={controlSize}
-            style={{
-              strokeWidth: 1 * zoom,
-              transform: `translate(${-controlSize / 2}px, ${
-                -controlSize / 2
-              }px)`,
-            }}
-          />
-        </g>
-      )
-    },
-    (prev, next) =>
-      prev.object.cacheKeyObject.key === next.object.cacheKeyObject.key &&
-      prev.scale === next.scale &&
-      prev.active === next.active
-  )
+        )}
+
+        <circle
+          cx={left + width / 2}
+          cy={top + height / 2 - bbox.height / 2 - 24}
+          stroke="#4e7fff"
+          strokeWidth={2 * zoom}
+          fill="#fff"
+          r={8 * zoom}
+          {...bindRotateDrag()}
+        />
+
+        <rect
+          css={`
+            ${anchorRect}
+            shape-rendering: optimizeSpeed;
+          `}
+          x={left}
+          y={top}
+          width={controlSize}
+          height={controlSize}
+          style={{
+            stroke: '#4e7fff',
+            fill: '#fff',
+            strokeWidth: 1 * zoom,
+            transform: `translate(${-controlSize / 2}px, ${
+              -controlSize / 2
+            }px)`,
+          }}
+          {...bindLeftTopDrag()}
+        />
+        <rect
+          css={`
+            ${anchorRect}
+            shape-rendering: optimizeSpeed;
+          `}
+          x={right}
+          y={top}
+          width={controlSize}
+          height={controlSize}
+          style={{
+            strokeWidth: 1 * zoom,
+            transform: `translate(${-controlSize / 2}px, ${
+              -controlSize / 2
+            }px)`,
+          }}
+        />
+        <rect
+          css={`
+            ${anchorRect}
+            shape-rendering: optimizeSpeed;
+          `}
+          x={left}
+          y={bottom}
+          width={controlSize}
+          height={controlSize}
+          style={{
+            strokeWidth: 1 * zoom,
+            transform: `translate(${-controlSize / 2}px, ${
+              -controlSize / 2
+            }px)`,
+          }}
+        />
+        <rect
+          css={`
+            ${anchorRect}
+            shape-rendering: optimizeSpeed;
+          `}
+          x={right}
+          y={bottom}
+          width={controlSize}
+          height={controlSize}
+          style={{
+            strokeWidth: 1 * zoom,
+            transform: `translate(${-controlSize / 2}px, ${
+              -controlSize / 2
+            }px)`,
+          }}
+        />
+      </g>
+    )
+  }),
+  (prev, next) =>
+    prev.object.cacheKeyObject.key === next.object.cacheKeyObject.key &&
+    prev.scale === next.scale &&
+    prev.active === next.active
 )
 
 const anchorRect = css`

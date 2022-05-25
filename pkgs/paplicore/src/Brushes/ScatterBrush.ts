@@ -36,10 +36,13 @@ import {
   logGroup,
   logGroupEnd,
   logImage,
+  logLog,
   logTime,
   logTimeEnd,
+  TimeSumming,
   timeSumming,
 } from '../DebugHelper'
+import { Path } from '../DOM'
 
 const _object = new Object3D()
 _object.matrixAutoUpdate = false
@@ -65,6 +68,21 @@ export declare namespace ScatterBrush {
 
 export class ScatterBrush implements IBrush {
   public static readonly id = '@paplico/brushes/scatter-brush'
+  private static enablePerMeshOpacity = false
+
+  private static calculatedCache = new WeakMap<
+    Path.CacheKeyObject,
+    {
+      // path: ThreePath
+      matrices: Matrix4[]
+      vertices: number
+      opacities: Float32Array
+    }
+  >()
+
+  public static clearCache() {
+    ScatterBrush.calculatedCache = new WeakMap()
+  }
 
   public get id() {
     return ScatterBrush.id
@@ -106,127 +124,126 @@ export class ScatterBrush implements IBrush {
         const texture = new CanvasTexture(bitmap)
         texture.premultiplyAlpha = true
 
-        const material = (this.materials[key] = new MeshBasicMaterial({
-          // map: texture,
-          color: 0xffffff,
+        if (!ScatterBrush.enablePerMeshOpacity) {
+          const material = (this.materials[key] = new MeshBasicMaterial({
+            // map: texture,
+            color: 0xffffff,
 
-          premultipliedAlpha: true,
-          transparent: true,
-          alphaMap: texture,
+            premultipliedAlpha: true,
+            transparent: true,
+            alphaMap: texture,
 
-          // depthTest: false,
-          // depthWrite: false,
+            // depthTest: false,
+            // depthWrite: false,
 
-          blending: CustomBlending,
-          blendSrc: OneFactor,
-          blendDst: OneMinusSrcAlphaFactor,
-          blendSrcAlpha: OneFactor,
-          blendDstAlpha: OneMinusSrcAlphaFactor,
-          blendEquation: AddEquation,
+            blending: CustomBlending,
+            blendSrc: OneFactor,
+            blendDst: OneMinusSrcAlphaFactor,
+            blendSrcAlpha: OneFactor,
+            blendDstAlpha: OneMinusSrcAlphaFactor,
+            blendEquation: AddEquation,
 
-          // blending: NormalBlending,
-          // blendSrc: OneFactor,
-          // blendSrcAlpha: OneMinusSrcAlphaFactor,
-          // blendDst: OneFactor,
-          // blendDstAlpha: OneMinusSrcAlphaFactor,
-          // blendEquation: AddEquation,
-          // blendEquationAlpha: AddEquation,
-        }))
+            // blending: NormalBlending,
+            // blendSrc: OneFactor,
+            // blendSrcAlpha: OneMinusSrcAlphaFactor,
+            // blendDst: OneFactor,
+            // blendDstAlpha: OneMinusSrcAlphaFactor,
+            // blendEquation: AddEquation,
+            // blendEquationAlpha: AddEquation,
+          }))
 
-        // material.onBeforeCompile = (shader) => {
-        //   shader.vertexShader = shader.vertexShader.replace(
-        //     'void main() {',
-        //     `
-        //     attribute float opacity;
-        //     varying float vOpacity;
+          // material.onBeforeCompile = (shader) => {
+          //   shader.vertexShader = shader.vertexShader.replace(
+          //     'void main() {',
+          //     `
+          //   attribute float opacity;
+          //   varying float vOpacity;
 
-        //     void main() {
-        //       vOpacity = opacity;
-        //   `
-        //   )
+          //   void main() {
+          //     vOpacity = opacity;
+          // `
+          //   )
 
-        //   shader.fragmentShader = shader.fragmentShader.replace(
-        //     'void main() {',
-        //     `
-        //     varying float vOpacity;
+          //   shader.fragmentShader = shader.fragmentShader.replace(
+          //     'void main() {',
+          //     `
+          //   varying float vOpacity;
 
-        //     void main() {
-        //   `
-        //   )
+          //   void main() {
+          // `
+          //   )
 
-        //   shader.fragmentShader = shader.fragmentShader.replace(
-        //     '#include <dithering_fragment>',
-        //     `
-        //     #include <dithering_fragment>
+          //   shader.fragmentShader = shader.fragmentShader.replace(
+          //     '#include <dithering_fragment>',
+          //     `
+          //   #include <dithering_fragment>
 
-        //     gl_FragColor = vec4(
-        //       gl_FragColor.r,
-        //       gl_FragColor.g,
-        //       gl_FragColor.b,
-        //       gl_FragColor.a * .1
-        //      );
-        //   `
-        //   )
+          //   gl_FragColor = vec4(
+          //     gl_FragColor.r,
+          //     gl_FragColor.g,
+          //     gl_FragColor.b,
+          //     gl_FragColor.a * .1
+          //    );
+          // `
+          //   )
 
-        //   console.log(shader)
-        // }
+          //   console.log(shader)
+          // }
+        } else {
+          this.materials[key] = new ShaderMaterial({
+            // map: texture,
+            // color: 0xffffff,
+            uniforms: {
+              color: { value: new Color(0xffffff) },
+              uMask: { value: texture },
+            },
 
-        // this.materials[key] = new ShaderMaterial({
-        //   // map: texture,
-        //   // color: 0xffffff,
-        //   uniforms: {
-        //     color: { value: new Color(0xffffff) },
-        //     uMask: { value: texture },
-        //   },
+            depthWrite: false,
+            premultipliedAlpha: true,
+            transparent: true,
+            side: DoubleSide,
 
-        //   depthWrite: false,
-        //   premultipliedAlpha: true,
-        //   transparent: true,
-        //   side: DoubleSide,
+            blending: CustomBlending,
+            blendSrc: OneFactor,
+            blendDst: OneMinusSrcAlphaFactor,
+            blendSrcAlpha: OneFactor,
+            blendDstAlpha: OneMinusSrcAlphaFactor,
+            blendEquation: AddEquation,
+            blendEquationAlpha: AddEquation,
+            opacity: 0.5,
+            // fog: true,
 
-        //   blending: CustomBlending,
-        //   blendSrc: OneFactor,
-        //   blendDst: OneMinusSrcAlphaFactor,
-        //   blendSrcAlpha: OneFactor,
-        //   blendDstAlpha: OneMinusSrcAlphaFactor,
-        //   blendEquation: AddEquation,
-        //   blendEquationAlpha: AddEquation,
-        //   opacity: 0.5,
-        //   // fog: true,
+            // SEE: https://github.com/mrdoob/three.js/blob/master/examples/webgl_buffergeometry_rawshader.html
+            vertexShader: `
+            varying vec2 vUv;
 
-        //   // SEE: https://github.com/mrdoob/three.js/blob/master/examples/webgl_buffergeometry_rawshader.html
-        //   vertexShader: `
-        //     varying vec2 vUv;
+            void main()	{
+              vUv = uv;
+              gl_Position = projectionMatrix * modelViewMatrix * instanceMatrix * vec4( position, 1.0 );
+            }
+          `,
+            fragmentShader: `
+            precision mediump float;
 
-        //     void main()	{
-        //       vUv = uv;
-        //       gl_Position = projectionMatrix * modelViewMatrix * instanceMatrix * vec4( position, 1.0 );
-        //     }
-        //   `,
-        //   fragmentShader: `
-        //     precision mediump float;
+            varying vec2 vUv;
 
-        //     varying vec2 vUv;
+            uniform vec4 color;
+            uniform sampler2D uMask;
 
-        //     uniform vec4 color;
-        //     uniform sampler2D uMask;
+            void main()	{
+              vec4 maskColor = texture2D( uMask, vUv );
+              float alpha = (maskColor.r + maskColor.g + maskColor.b) / 3.0;
 
-        //     void main()	{
-        //       vec4 maskColor = texture2D( uMask, vUv );
-        //       float alpha = (maskColor.r + maskColor.g + maskColor.b) / 3.0;
-
-        //       // gl_FragColor = vec4(vUv.x, vUv.y, 0, 1.);
-        //       gl_FragColor = vec4(color.r, color.g, color.b, .4);
-        //       // gl_FragColor = maskColor;
-        //       // gl_FragColor = vec4(color.a);
-        //     }
-        //     `,
-        // })
-
-        console.log({ material, mat: this.materials[key] })
+              // gl_FragColor = vec4(vUv.x, vUv.y, 0, 1.);
+              gl_FragColor = vec4(color.r, color.g, color.b, .4);
+              // gl_FragColor = maskColor;
+              // gl_FragColor = vec4(color.a);
+            }
+            `,
+          })
+        }
 
         this.materials[key].needsUpdate = true
-
         // this.materials[key].uniforms.mask.value =
       })
     )
@@ -244,193 +261,246 @@ export class ScatterBrush implements IBrush {
     brushSetting,
     destSize,
   }: BrushContext<ScatterBrush.SpecificSetting>) {
+    logGroup('ScatterBrush')
+    const perf_render: TimeSumming = timeSumming(`Render instances`)
+
     const specific = mergeToNew(
       this.getInitialSpecificConfig(),
       brushSetting.specific
     )
-
-    logGroup('ScatterBrush')
-
     const { color, opacity } = brushSetting
 
-    // #region Building path for instancing
-    const threePath = new ThreePath()
-    threePath.arcLengthDivisions = 10
+    const cache = ScatterBrush.calculatedCache.get(inputPath.cacheKeyObject)
 
-    const [start] = inputPath.points
-
-    threePath.moveTo(start.x / destSize.width, start.y / destSize.height)
-
-    logTime('Scatter: mapPoints')
-
-    inputPath.mapPoints(
-      (point, prev) => {
-        threePath.bezierCurveTo(
-          (prev?.out?.x ?? prev!.x) / destSize.width,
-          (prev?.out?.y ?? prev!.y) / destSize.height,
-          (point.in?.x ?? point.x) / destSize.width,
-          (point.in?.y ?? point.y) / destSize.height,
-          point.x / destSize.width,
-          point.y / destSize.height
-        )
-      },
-      { startOffset: 1 }
-    )
-
-    logTimeEnd('Scatter: mapPoints')
-
-    if (inputPath.closed) {
-      threePath.closePath()
-    }
-
-    const freezedThreePath = freezeThreePath(threePath)
-
-    // #endregion
-
+    const group = new Group()
     const material = this.materials[specific.texture]
-    // material.uniforms.color.value = new Float32Array([
-    //   color.r,
-    //   color.g,
-    //   color.b,
-    //   opacity,
-    // ])
     material.color.set(new Color(color.r, color.g, color.b))
-
     material.needsUpdate = true
 
-    let counts = Math.ceil(threePath.getLength() * specific.divisions)
+    if (cache) {
+      logLog('🤑 Using cached data')
 
-    const opacities = new Float32Array(counts)
-    const geometry = new PlaneBufferGeometry(1, 1)
+      const counts = cache.vertices
+      const geometry = new PlaneBufferGeometry(1, 1)
+      const mesh = new InstancedMesh(geometry, material, counts)
+      mesh.matrixAutoUpdate = false
+      mesh.instanceMatrix.needsUpdate = false
 
-    const mesh = new InstancedMesh(geometry, material, counts)
-    const group = new Group()
+      logTime('Scatter: set atributes (with cache)')
 
-    const seed = fastRandom(inputPath.randomSeed)
-    const pointsReader = inputPath.getSequencialPointsReader()
-    const pressureReader = inputPath.getSequencialPressuresReader()
-    const tangentReader = inputPath.getSequencialTangentsReader()
+      geometry.setAttribute(
+        'opacity',
+        new InstancedBufferAttribute(cache.opacities, 1)
+      )
 
-    const perf_misc = timeSumming(`misc at will calls ${counts} times`)
-    const perf_getPoint = timeSumming(`getPoint at will calls ${counts} times`)
-    const perf_pressureAtTime = timeSumming(
-      `Pressure at will calls ${counts} times`
-    )
-    const perf_getTangentByPath = timeSumming(
-      `getTangentAtByPath at will calls ${counts} times`
-    )
-    const perf_setMatrixAt = timeSumming(
-      `setMatrixAt at will calls ${counts} times`
-    )
-    const perf_rand = timeSumming(`devRand at will calls ${counts} times`)
-    const perf_render = timeSumming(`Render with ${counts} instances`)
+      for (let idx = 0; idx < counts; idx++) {
+        const mat4 = cache.matrices[idx]
 
-    logTime('Scatter: set atributes')
+        _mat4.fromArray(mat4.toArray())
+        mesh.setMatrixAt(idx, _mat4)
+      }
 
-    const points = []
-    for (let idx = 0; idx < counts; idx++) {
-      const frac = idx / counts
+      // mesh.matrixAutoUpdate = true
+      // mesh.instanceMatrix.needsUpdate = true
 
-      const mat4 = new Matrix4()
+      group.add(mesh)
 
-      perf_rand.time()
-      const randomFloat = seed.nextFloat()
-      perf_rand.timeEnd()
+      logTimeEnd('Scatter: set atributes (with cache)')
+    } else {
+      // #region Building path for instancing
+      const threePath = new ThreePath()
+      threePath.arcLengthDivisions = 10
 
-      perf_getPoint.time()
-      freezedThreePath.sequencialGetPoint(frac, _translate2d)
-      // const pt = pointsReader.getPointAt(frac)
-      // _translate2d.set(pt.x / destSize.width, pt.y / destSize.height)
+      const [start] = inputPath.points
 
-      perf_getPoint.timeEnd({ frac, index: idx })
+      threePath.moveTo(start.x / destSize.width, start.y / destSize.height)
 
-      mat4.translate([
-        MathUtils.lerp(-destSize.width / 2, destSize.width / 2, _translate2d.x),
-        MathUtils.lerp(
-          destSize.height / 2,
-          -destSize.height / 2,
-          _translate2d.y
-        ),
-        0,
-      ])
+      logTime('Scatter: mapPoints')
 
-      perf_getTangentByPath.time()
-      // const tangent = tangentReader.getTangentAt(frac)
-      const tangent = threePath.getTangent(frac)
-      // const tangent = freezedThreePath.sequencialGetTangent(frac)
-      perf_getTangentByPath.timeEnd({ frac, idx, counts })
+      inputPath.mapPoints(
+        (point, prev) => {
+          threePath.bezierCurveTo(
+            (prev?.out?.x ?? prev!.x) / destSize.width,
+            (prev?.out?.y ?? prev!.y) / destSize.height,
+            (point.in?.x ?? point.x) / destSize.width,
+            (point.in?.y ?? point.y) / destSize.height,
+            point.x / destSize.width,
+            point.y / destSize.height
+          )
+        },
+        { startOffset: 1 }
+      )
 
-      const angle = Math.atan2(tangent.x, tangent.y)
-      mat4.translate([
-        lerp(-specific.scatterRange, specific.scatterRange, Math.cos(angle)),
-        lerp(-specific.scatterRange, specific.scatterRange, Math.sin(angle)),
-        0,
-      ])
+      logTimeEnd('Scatter: mapPoints')
 
-      // prettier-ignore
-      const fadeWeight =
+      if (inputPath.closed) {
+        threePath.closePath()
+      }
+
+      const freezedThreePath = freezeThreePath(threePath)
+
+      // #endregion
+
+      // material.uniforms.color.value = new Float32Array([
+      //   color.r,
+      //   color.g,
+      //   color.b,
+      //   opacity,
+      // ])
+
+      let counts = Math.ceil(threePath.getLength() * specific.divisions)
+
+      const opacities = new Float32Array(counts)
+      const geometry = new PlaneBufferGeometry(1, 1)
+      const mesh = new InstancedMesh(geometry, material, counts)
+      mesh.matrixAutoUpdate = false
+      mesh.instanceMatrix.needsUpdate = false
+
+      const seed = fastRandom(inputPath.randomSeed)
+      // const pointsReader = inputPath.getSequencialPointsReader()
+      const pressureReader = inputPath.getSequencialPressuresReader()
+      // const tangentReader = inputPath.getSequencialTangentsReader()
+
+      const perf_setMatrix = timeSumming(`misc at will calls ${counts} times`)
+      const perf_getPoint = timeSumming(
+        `getPoint at will calls ${counts} times`
+      )
+      const perf_pressureAtTime = timeSumming(
+        `Pressure at will calls ${counts} times`
+      )
+      const perf_getTangentByPath = timeSumming(
+        `getTangentAtByPath at will calls ${counts} times`
+      )
+      const perf_updateMatrix = timeSumming(
+        `setMatrixAt at will calls ${counts} times`
+      )
+      const perf_rand = timeSumming(`devRand at will calls ${counts} times`)
+
+      logTime('Scatter: set atributes')
+
+      const matrices: Matrix4[] = []
+      for (let idx = 0; idx < counts; idx++) {
+        const frac = idx / counts
+
+        const mat4 = new Matrix4()
+        matrices.push(mat4)
+
+        perf_rand.time()
+        const randomFloat = seed.nextFloat()
+        perf_rand.timeEnd()
+
+        perf_getPoint.time()
+        freezedThreePath.sequencialGetPoint(frac, _translate2d)
+        // const pt = pointsReader.getPointAt(frac)
+        // _translate2d.set(pt.x / destSize.width, pt.y / destSize.height)
+
+        perf_getPoint.timeEnd({ frac, index: idx })
+
+        mat4.translate([
+          MathUtils.lerp(
+            -destSize.width / 2,
+            destSize.width / 2,
+            _translate2d.x
+          ),
+          MathUtils.lerp(
+            destSize.height / 2,
+            -destSize.height / 2,
+            _translate2d.y
+          ),
+          0,
+        ])
+
+        perf_getTangentByPath.time()
+        // const tangent = tangentReader.getTangentAt(frac)
+        const tangent = threePath.getTangent(frac)
+        // const tangent = freezedThreePath.sequencialGetTangent(frac)
+        perf_getTangentByPath.timeEnd({ frac, idx, counts })
+
+        const angle = Math.atan2(tangent.x, tangent.y)
+        mat4.translate([
+          lerp(-specific.scatterRange, specific.scatterRange, Math.cos(angle)),
+          lerp(-specific.scatterRange, specific.scatterRange, Math.sin(angle)),
+          0,
+        ])
+
+        // prettier-ignore
+        const fadeWeight =
         frac <= .15 ? MathUtils.lerp(1 - specific.inOutInfluence, 1, Math.min(frac, .15) / .15)
         : frac >= (1 - .15) ? MathUtils.lerp(1 - specific.inOutInfluence, 1, Math.min(1 - frac, 0.15) / 0.15)
         : 1
 
-      perf_pressureAtTime.time()
-      const pressureWeight =
-        0.2 +
-        0.8 * (1 - specific.pressureInfluence) +
-        pressureReader.getPressureAt(frac) * 0.8 * specific.pressureInfluence
-      perf_pressureAtTime.timeEnd({ frac, index: idx })
+        perf_pressureAtTime.time()
+        const pressureWeight =
+          0.2 +
+          0.8 * (1 - specific.pressureInfluence) +
+          pressureReader.getPressureAt(frac) * 0.8 * specific.pressureInfluence
+        perf_pressureAtTime.timeEnd({ frac, index: idx })
 
-      mat4.rotateZ(
-        degToRad(
-          radToDeg(angle) + -1 + randomFloat * 360 * specific.randomRotation
+        mat4.rotateZ(
+          degToRad(
+            radToDeg(angle) + -1 + randomFloat * 360 * specific.randomRotation
+          )
         )
+
+        // fade(1) * influence(1) = 1 入り抜き影響済みの太さ
+        // fade(1) * influence(0) = 0 入り抜き影響済みの太さ
+        // (size * pressure) * (fade * influence)
+        // (fade * influence) = 0 のときにsize * pressureになってほしいな(こなみ)
+        // (fade * influence) = 0
+        // 打ち消し式: (fade * influence) + 1 = 1
+
+        mat4.scale([
+          brushSetting.size * pressureWeight * fadeWeight,
+          brushSetting.size * pressureWeight * fadeWeight,
+          1,
+        ])
+
+        // console.log(_translate2d.toArray(), tangent, _object.matrix.toArray())
+
+        perf_setMatrix.time()
+
+        _mat4.fromArray(mat4.toArray())
+        mesh.setMatrixAt(idx, _mat4)
+
+        opacities[idx] = 0.1
+        perf_setMatrix.timeEnd()
+      }
+
+      geometry.setAttribute(
+        'opacity',
+        new InstancedBufferAttribute(opacities, 1)
       )
 
-      // fade(1) * influence(1) = 1 入り抜き影響済みの太さ
-      // fade(1) * influence(0) = 0 入り抜き影響済みの太さ
-      // (size * pressure) * (fade * influence)
-      // (fade * influence) = 0 のときにsize * pressureになってほしいな(こなみ)
-      // (fade * influence) = 0
-      // 打ち消し式: (fade * influence) + 1 = 1
+      perf_updateMatrix.time()
+      mesh.updateMatrix()
+      mesh.instanceMatrix.needsUpdate = true
+      perf_updateMatrix.timeEnd()
 
-      mat4.scale([
-        brushSetting.size * pressureWeight * fadeWeight,
-        brushSetting.size * pressureWeight * fadeWeight,
-        1,
-      ])
+      group.add(mesh)
 
-      // console.log(_translate2d.toArray(), tangent, _object.matrix.toArray())
+      ScatterBrush.calculatedCache.set(inputPath.cacheKeyObject, {
+        matrices,
+        opacities,
+        vertices: counts,
+      })
 
-      perf_misc.time()
-      perf_setMatrixAt.time()
+      logTimeEnd('Scatter: set atributes')
 
-      _mat4.fromArray(mat4.toArray())
-      mesh.setMatrixAt(idx, _mat4)
+      perf_getPoint.log()
+      perf_getTangentByPath.log()
+      perf_pressureAtTime.log()
+      perf_rand.log()
+      perf_setMatrix.log()
+      perf_updateMatrix.log()
 
-      perf_setMatrixAt.timeEnd()
-
-      opacities[idx] = 0.1
-      perf_misc.timeEnd()
+      // this.geometry.attributes.opacities.needsUpdate = true
     }
 
-    geometry.setAttribute('opacity', new InstancedBufferAttribute(opacities, 1))
-
-    logTimeEnd('Scatter: set atributes')
-
-    perf_getPoint.log()
-    perf_getTangentByPath.log()
-    perf_pressureAtTime.log()
-    perf_rand.log()
-    perf_misc.log()
-    perf_setMatrixAt.log()
-
-    // this.geometry.attributes.opacities.needsUpdate = true
     perf_render.time()
 
     group.scale.set(transform.scale.x, transform.scale.y, 1)
     group.position.set(transform.translate.x, -transform.translate.y, 0)
     group.rotateZ(transform.rotate)
-    group.add(mesh)
 
     // this.scene.add(mesh)
     this.scene.add(group)
@@ -439,13 +509,11 @@ export class ScatterBrush implements IBrush {
     perf_render.timeEnd()
     perf_render.log()
 
-    // ctx.globalAlpha = brushSetting.opacity
-    // ctx.strokeStyle = 'rgb(255,0,0)'
-    // ctx.lineWidth = 3
-    // ctx.strokeRect(0, 0, ctx.canvas.width, ctx.canvas.height)
+    if (!ScatterBrush.enablePerMeshOpacity) {
+      ctx.globalAlpha = opacity
+    }
     ctx.drawImage(renderer.domElement, 0, 0)
 
-    // this.scene.remove(mesh)
     this.scene.remove(group)
     logGroupEnd()
   }

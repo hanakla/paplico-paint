@@ -22,11 +22,16 @@ import { NotifyOps } from './Notify'
 import { nanoid } from 'nanoid'
 import { rescue } from '@hanakla/arma'
 import { uniqBy } from '../utils/array'
-import { State } from 'howler'
 
 type EditorMode = 'pc' | 'sp' | 'tablet'
 type EditorPage = 'home' | 'app'
-type Tool = 'cursor' | 'draw' | 'erase' | 'point-cursor' | 'shape-pen'
+type Tool =
+  | 'cursor'
+  | 'draw'
+  | 'erase'
+  | 'point-cursor'
+  | 'shape-pen'
+  | 'dropper'
 
 /** Indicate current editing path  */
 type VectorStroking = {
@@ -232,30 +237,25 @@ export const [EditorStore, EditorOps] = minOps('Editor', {
     },
     async disposeEngineAndSession(
       x,
-      opt: { withSave?: boolean; withNotify?: boolean } = {}
+      opt: { withSave?: boolean; switchToHome?: boolean } = {}
     ) {
       if (opt.withSave) {
-        await x.executeOperation(EditorOps.saveCurrentDocumentToIdb)
-      }
-
-      if (opt.withNotify) {
         await x.executeOperation(NotifyOps.create, {
           area: 'loadingLock',
           messageKey: 'exitSession.saving',
           lock: true,
           timeout: 0,
         })
-      }
 
-      x.finally(() => {
-        if (!opt.withNotify) return
-        x.executeOperation(NotifyOps.create, {
+        await x.executeOperation(EditorOps.saveCurrentDocumentToIdb)
+
+        await x.executeOperation(NotifyOps.create, {
           area: 'loadingLock',
           messageKey: '',
           lock: false,
           timeout: 0,
         })
-      })
+      }
 
       x.commit((d) => {
         d.engine?.dispose()
@@ -267,6 +267,8 @@ export const [EditorStore, EditorOps] = minOps('Editor', {
         d.renderStrategy = null
         d.canvasScale = 1
         d.canvasPosition = { x: 0, y: 0 }
+
+        if (opt.switchToHome) d.editorPage = 'home'
       })
     },
     restorePreferences(x) {
@@ -556,7 +558,6 @@ export const [EditorStore, EditorOps] = minOps('Editor', {
         d.session!.setBrushSetting(setting)
 
         if (d.session && d.currentTool !== 'draw' && d.activeObjectId != null) {
-          console.log('on')
           x.executeOperation(
             EditorOps.runCommand,
             new PapCommands.VectorLayer.PatchObjectAttr({
@@ -820,10 +821,14 @@ export const [EditorStore, EditorOps] = minOps('Editor', {
         return
 
       await x.state.session?.runCommand(
-        new PapCommands.VectorLayer.RemovePathPoint({
-          pathToTargetLayer: x.state.activeLayerPath,
-          pointIndices: x.state.activeObjectPointIndices,
+        new PapCommands.VectorLayer.PatchPathPoints({
+          pathToTargetLayer: x.state.activeLayerPath as unknown as string[],
           objectUid: x.state.activeObjectId,
+          patcher: (points) => {
+            x.state.activeObjectPointIndices.forEach((idx) =>
+              points.splice(idx, 1)
+            )
+          },
         })
       )
 

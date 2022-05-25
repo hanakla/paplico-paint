@@ -742,6 +742,7 @@ const FiltersSheet = memo(function FiltersSheet({
   const handleClickAddFilter = useFunk(
     ({ currentTarget }: MouseEvent<HTMLDivElement>) => {
       toggleAddFilterSheet(false)
+      console.log('hi')
 
       if (!activeLayerPath) return
 

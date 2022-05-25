@@ -15,7 +15,6 @@ import { RasterTrimToDocumentArea } from './RasterTrimToDocumentArea'
 import { VectorAddObject } from './VectorAddObject'
 import { VectorObjectPatchAttr } from './VectorObjectPatchAttr'
 import { VectorObjectTransform } from './VectorObjectTransform'
-import { VectorObjectRemovePoint } from './VectorObjectRemovePoint'
 import { Transaction } from './Transaction'
 import { VectorObjectPatchPathAttr } from './VectorObjectPatchPathAttr'
 import { VectorObjectPatchPathPoints } from './VectorObjectPatchPathPoints'
@@ -47,7 +46,6 @@ export const Commands = {
     PatchPathAttr: VectorObjectPatchPathAttr,
     PatchPathPoints: VectorObjectPatchPathPoints,
     TransformObject: VectorObjectTransform,
-    RemovePathPoint: VectorObjectRemovePoint,
     ReorderObjects: VectorObjectReorder,
   },
 }

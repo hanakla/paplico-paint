@@ -41,7 +41,7 @@ export const HomeContent = () => {
   const theme = useTheme()
 
   const contextMenu = useContextMenu()
-  const [displayItems, setDisplayItems] = useState(12)
+  const [displayItems, setDisplayItems] = useState(4)
 
   const { execute, getStore } = useFleur()
   const { savedItems, currentTheme } = useStore((get) => ({
@@ -221,6 +221,115 @@ export const HomeContent = () => {
         `}
       >
         <div>
+          {savedItems.length > 0 && (
+            <section
+              css={`
+                margin-top: 64px;
+              `}
+            >
+              <Heading>{t('savedItems')}</Heading>
+              <ul
+                css={`
+                  display: grid;
+                  flex-wrap: nowrap;
+                  gap: 8px;
+                  margin: 0 -8px;
+                  overflow: auto;
+                  grid-template-columns: repeat(6, 1fr);
+
+                  ${media.narrow`
+                  display: grid;
+                  gap: 24px 8px;
+                  grid-template-columns: repeat(2, 1fr);
+                  overflow: none;
+                `}
+                `}
+              >
+                {savedItems.slice(0, displayItems).map((item) => (
+                  <li
+                    key={item.uid}
+                    css={css`
+                      /* width: 128px; */
+                      padding: 8px;
+                      border-radius: 4px;
+                      cursor: pointer;
+
+                      &:hover {
+                        background-color: ${({ theme }) =>
+                          theme.colors.whiteFade10};
+                      }
+
+                      ${media.narrow`
+                      width: 100%;
+                    `}
+                    `}
+                    data-document-uid={item.uid}
+                    onClick={handleClickSavedItem}
+                    onContextMenu={handleItemContextMenu}
+                  >
+                    <div
+                      role="img"
+                      css={`
+                        width: 100%;
+                        background-position: 80% 0;
+                        background-size: cover;
+                        border-radius: 4px;
+                        background-color: ${({ theme }: ThemeProp) =>
+                          theme.color.surface9};
+
+                        &::before {
+                          content: '';
+                          display: block;
+                          padding-top: 100%;
+                        }
+                      `}
+                      style={{ backgroundImage: cssurl(item.thumbnailUrl) }}
+                    />
+
+                    <h2
+                      css={`
+                        margin: 8px 0 4px;
+                        ${tm((o) => [o.typography(14)])}
+                      `}
+                    >
+                      {!item.title ? <span>{t('untitled')}</span> : item.title}
+                    </h2>
+                    <time
+                      css={`
+                        display: block;
+                        ${tm((o) => [o.font.text2])}
+                      `}
+                    >
+                      {dayjs(item.updatedAt).locale(locale!).fromNow()}
+                    </time>
+                  </li>
+                ))}
+              </ul>
+
+              {savedItems.length > displayItems && (
+                <div
+                  css={`
+                    ${centering()}
+                    margin: 16px 0 32px;
+                    text-align: center;
+                  `}
+                >
+                  <Button
+                    css={`
+                      ${tm((o) => [o.typography(14)])}
+                      text-align: center;
+                      cursor: pointer;
+                    `}
+                    kind="normal"
+                    onClick={handleClickMoreSavedItems}
+                  >
+                    もっと見る
+                  </Button>
+                </div>
+              )}
+            </section>
+          )}
+
           <section>
             <Heading>{t('createNew')}</Heading>
 
@@ -378,113 +487,6 @@ export const HomeContent = () => {
             </div>
           </section>
 
-          <section
-            css={`
-              margin-top: 64px;
-            `}
-          >
-            <Heading>{t('savedItems')}</Heading>
-            <ul
-              css={`
-                display: grid;
-                flex-wrap: nowrap;
-                gap: 8px;
-                margin: 0 -8px;
-                overflow: auto;
-                grid-template-columns: repeat(6, 1fr);
-
-                ${media.narrow`
-                  display: grid;
-                  gap: 24px 8px;
-                  grid-template-columns: repeat(2, 1fr);
-                  overflow: none;
-                `}
-              `}
-            >
-              {savedItems.slice(0, displayItems).map((item) => (
-                <li
-                  key={item.uid}
-                  css={css`
-                    /* width: 128px; */
-                    padding: 8px;
-                    border-radius: 4px;
-                    cursor: pointer;
-
-                    &:hover {
-                      background-color: ${({ theme }) =>
-                        theme.colors.whiteFade10};
-                    }
-
-                    ${media.narrow`
-                      width: 100%;
-                    `}
-                  `}
-                  data-document-uid={item.uid}
-                  onClick={handleClickSavedItem}
-                  onContextMenu={handleItemContextMenu}
-                >
-                  <div
-                    role="img"
-                    css={`
-                      width: 100%;
-                      background-position: 80% 0;
-                      background-size: cover;
-                      border-radius: 4px;
-                      background-color: ${({ theme }: ThemeProp) =>
-                        theme.color.surface9};
-
-                      &::before {
-                        content: '';
-                        display: block;
-                        padding-top: 100%;
-                      }
-                    `}
-                    style={{ backgroundImage: cssurl(item.thumbnailUrl) }}
-                  />
-
-                  <h2
-                    css={`
-                      margin: 8px 0 4px;
-                      ${tm((o) => [o.typography(14)])}
-                    `}
-                  >
-                    {!item.title ? <span>{t('untitled')}</span> : item.title}
-                  </h2>
-                  <time
-                    css={`
-                      display: block;
-                      ${tm((o) => [o.font.text2])}
-                    `}
-                  >
-                    {dayjs(item.updatedAt).locale(locale!).fromNow()}
-                  </time>
-                </li>
-              ))}
-            </ul>
-
-            {savedItems.length > displayItems && (
-              <div
-                css={`
-                  ${centering()}
-                  margin: 16px 0 32px;
-                  text-align: center;
-                `}
-              >
-                <Button
-                  css={`
-                    ${tm((o) => [o.typography(14)])}
-                    text-align: center;
-                    cursor: pointer;
-                  `}
-                  kind="normal"
-                  onClick={handleClickMoreSavedItems}
-                >
-                  もっと見る
-                </Button>
-              </div>
-            )}
-          </section>
-
           <div
             css={css`
               display: flex;
@@ -546,6 +548,14 @@ export const HomeContent = () => {
                   `}
                 />
               </span>
+            </div>
+
+            <div
+              css={`
+                margin-left: auto;
+              `}
+            >
+              SHA: {(process.env.VERCEL_GIT_COMMIT_SHA ?? 'dev').slice(0, 8)}
             </div>
           </div>
         </div>

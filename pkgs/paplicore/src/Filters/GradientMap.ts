@@ -75,8 +75,8 @@ export class GradientMapFilter implements IFilter {
       { clear: true }
     )
 
-    await logImage(source, 'source')
-    await logImage(dest, 'dest')
+    // await logImage(source, 'source')
+    // await logImage(dest, 'dest')
   }
 }
 

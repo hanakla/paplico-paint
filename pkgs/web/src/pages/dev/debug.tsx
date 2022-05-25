@@ -27,6 +27,7 @@ export default function Debug() {
   const benchRef = useRef<{ start: () => void; stop: () => void } | null>(null)
   const controlRef = useRef<{
     rerender: () => void
+    rerenderWithoutCache: () => void
     toggleFilters: () => void
   } | null>(null)
 
@@ -424,15 +425,16 @@ export default function Debug() {
 
         window.document.getElementById('hihi')?.appendChild(engine.gl.gl.canvas)
 
-        console.log({
-          engine,
-          session,
-          document,
-          rerender: () => engine.render(document, strategy),
-        })
-
         controlRef.current = {
           rerender: () => engine.render(document, strategy),
+          rerenderWithoutCache: () => {
+            if (strategy instanceof RenderStrategies.DifferenceRender) {
+              strategy.clearCache()
+              // PapBrushes.ScatterBrush.clearCache()
+            }
+
+            engine.render(document, strategy)
+          },
           toggleFilters: () => {
             filter.filters.forEach((filter) => {
               filter.visible = !filter.visible
@@ -567,7 +569,13 @@ export default function Debug() {
               kind="normal"
               onClick={() => controlRef.current!.rerender()}
             >
-              再レンダリング
+              再描画
+            </Button>
+            <Button
+              kind="normal"
+              onClick={() => controlRef.current!.rerenderWithoutCache()}
+            >
+              再描画(キャッシュなし)
             </Button>
           </Stack>
         </Stack>

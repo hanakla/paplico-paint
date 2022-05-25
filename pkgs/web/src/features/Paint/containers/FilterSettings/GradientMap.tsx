@@ -139,9 +139,11 @@ export const GradientMap = memo(function GradientMap({
     }
   )
 
+  const noop = useFunk(() => {})
+
   return (
     <div>
-      <Column filter={filter} nameKey="color">
+      <Column filter={filter} nameKey="map">
         <label>
           <SelectBox
             placeholder={
@@ -151,6 +153,8 @@ export const GradientMap = memo(function GradientMap({
                 `}
                 colorStops={settings.map}
                 displayOnly
+                onChange={noop}
+                onChangeSelectIndices={noop}
               />
             }
             items={PRESETS.map((entry) => ({
@@ -161,6 +165,8 @@ export const GradientMap = memo(function GradientMap({
                   `}
                   colorStops={entry.value}
                   displayOnly
+                  onChange={noop}
+                  onChangeSelectIndices={noop}
                 />
               ),
               value: entry.id,

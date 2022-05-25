@@ -96,8 +96,6 @@ export class KawaseBlurFilter extends AbstractPixiFilterInterop {
           bSource,
           bTarget,
           {
-            sourceTexFilter: 'linear',
-            sourceTextureClamp: 'clampToEdge',
             clear: true,
           }
         )
@@ -107,18 +105,18 @@ export class KawaseBlurFilter extends AbstractPixiFilterInterop {
       }
 
       offset_ = kernels[last] + 0.5
-      // console.log({ offset_ })
 
-      // gl.applyProgram(
-      //   this.program!,
-      //   {
-      //     ...this.getPixiUniforms(ctx),
-      //     uOffset: gl.uni2fv(new Float32Array([offset_ * uvX, offset_ * uvY])),
-      //   },
-      //   bSource,
-      //   dest,
-      //   { sourceTexFilter: 'linear', clear: true }
-      // )
+      gl.applyProgram(
+        this.program!,
+        {
+          ...this.getPixiUniforms(ctx),
+          uOffset: gl.uni2fv(new Float32Array([offset_ * uvX, offset_ * uvY])),
+          uClipping: gl.uni1f(1),
+        },
+        bSource,
+        dest,
+        { clear: true }
+      )
 
       // await logImage(bSource)
 

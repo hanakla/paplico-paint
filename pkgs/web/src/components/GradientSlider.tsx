@@ -1,4 +1,4 @@
-import { useDrag, useGesture } from 'react-use-gesture'
+import { useGesture } from 'react-use-gesture'
 import useMeasure from 'use-measure'
 import { PapHelper, PapValueTypes } from '@paplico/core'
 import { deepClone } from '🙌/utils/clone'

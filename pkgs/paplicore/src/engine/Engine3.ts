@@ -68,7 +68,7 @@ export class PaplicoEngine {
 
       engine.toolRegistry.registerFilter(BloomFilter),
       engine.toolRegistry.registerFilter(GlitchJpegFilter),
-      engine.toolRegistry.registerFilter(GaussBlurFilter),
+      // engine.toolRegistry.registerFilter(GaussBlurFilter),
       engine.toolRegistry.registerFilter(GradientMapFilter),
       engine.toolRegistry.registerFilter(ChromaticAberrationFilter),
       engine.toolRegistry.registerFilter(HalftoneFilter),
@@ -219,7 +219,8 @@ export class PaplicoEngine {
 
   public lazyRender = debounce(
     (document: Document, strategy: IRenderStrategy) => {
-      return this.render(document, strategy, { lazy: true })
+      this.render(document, strategy, { lazy: true })
+      console.log('RENDER COMPLETE')
     },
     300
   )
@@ -681,14 +682,29 @@ export class PaplicoEngine {
       mode,
       opacity,
       position = { x: 0, y: 0 },
+      sourceOption,
     }: {
       mode: CompositeMode | 'destination-out'
       /** 0 to 100 */
       opacity: number
       position?: { x: number; y: number }
+      sourceOption?: {
+        opacity: number
+      }
     }
   ) {
     compositeTo.save()
+
+    if (sourceOption) {
+      compositeTo.globalCompositeOperation = 'destination-out'
+      compositeTo.fillStyle = `rgba(0,0,0, ${sourceOption.opacity})`
+      compositeTo.fillRect(
+        0,
+        0,
+        compositeTo.canvas.width,
+        compositeTo.canvas.height
+      )
+    }
 
     compositeTo.globalCompositeOperation =
       mode === 'destination-out'

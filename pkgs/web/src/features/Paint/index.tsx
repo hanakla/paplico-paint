@@ -281,6 +281,10 @@ export const PaintPage = memo(function PaintPage({}) {
     executeOperation(EditorOps.setTool, 'cursor')
   )
 
+  useFunkyGlobalMouseTrap(['i'], () =>
+    executeOperation(EditorOps.setTool, 'dropper')
+  )
+
   useFunkyGlobalMouseTrap(['a'], () =>
     executeOperation(EditorOps.setTool, 'point-cursor')
   )
@@ -1130,6 +1134,7 @@ const EditorArea = memo(
             top: 16px;
             left: 50%;
             z-index: 10;
+            padding-top: env(safe-area-inset-bottom, 16px);
             transform: translateX(-50%);
           `}
         >
@@ -1148,19 +1153,59 @@ const PaintCanvas = memo(function PaintCanvas({
   const canvasHandler = useRef<CanvasHandler | null>(null)
 
   const { execute, getStore } = useFleur()
-  const { currentDocument, session, engine, renderStrategy, scale, pos } =
-    useStore((get) => ({
-      currentDocument: EditorSelector.currentDocument(get),
-      session: get(EditorStore).state.session,
-      engine: get(EditorStore).state.engine,
-      renderStrategy: get(EditorStore).state.renderStrategy,
-      scale: get(EditorStore).state.canvasScale,
-      pos: get(EditorStore).state.canvasPosition,
-    }))
+  const {
+    currentDocument,
+    session,
+    engine,
+    currentTool,
+    renderStrategy,
+    scale,
+    pos,
+  } = useStore((get) => ({
+    currentDocument: EditorSelector.currentDocument(get),
+    currentTool: EditorSelector.currentTool(get),
+    session: get(EditorStore).state.session,
+    engine: get(EditorStore).state.engine,
+    renderStrategy: get(EditorStore).state.renderStrategy,
+    scale: get(EditorStore).state.canvasScale,
+    pos: get(EditorStore).state.canvasPosition,
+  }))
 
   const [play, { sound, stop }] = useSound(
     require('./sounds/assets/Mechanical_Pen01-05(Straight).mp3'),
     { volume: 0.2 }
+  )
+
+  const handleClickCanvas = useFunk(
+    ({
+      currentTarget,
+      clientX,
+      clientY,
+      buttons,
+    }: PointerEvent<HTMLCanvasElement>) => {
+      if (buttons !== 1 || currentTool !== 'dropper') return
+
+      const rect = currentTarget.getBoundingClientRect()
+      const [x, y] = [
+        (clientX - rect.left) / scale,
+        (clientY - rect.top) / scale,
+      ]
+
+      const ctx = canvasRef.current!.getContext('2d')!
+      const pixel = ctx.getImageData(x, y, 1, 1)
+
+      // const data = ctx.createImageData(1, 1)
+      // data.data.set([255, 0, 0, 255])
+      // canvasRef.current!.getContext('2d')!.putImageData(data, x, y)
+
+      execute(EditorOps.setBrushSetting, {
+        color: {
+          r: pixel.data[0] / 255,
+          g: pixel.data[1] / 255,
+          b: pixel.data[2] / 255,
+        },
+      })
+    }
   )
 
   const measure = useMeasure(canvasRef)
@@ -1236,6 +1281,7 @@ const PaintCanvas = memo(function PaintCanvas({
         `}
         data-is-paint-canvas="yup"
         ref={canvasRef}
+        onPointerMove={handleClickCanvas}
       />
     </div>
   )

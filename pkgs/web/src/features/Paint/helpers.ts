@@ -215,7 +215,9 @@ export const generateBrushThumbnail = async (
     },
     new PapInks.PlainInk(),
     path,
-    ctx
+    { rotate: 0, scale: { x: 1, y: 1 }, translate: { x: 0, y: 0 } },
+    ctx,
+    { hintInput: null }
   )
 
   return ctx.canvas.toDataURL('image/png')

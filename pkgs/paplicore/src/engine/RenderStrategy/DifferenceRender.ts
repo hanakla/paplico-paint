@@ -360,12 +360,13 @@ export class DifferenceRender implements IRenderStrategy {
           layerBufferCtx.drawImage(filterCtx.canvas, 0, 0)
         }
 
-        destCtx.clearRect(0, 0, document.width, document.height)
-        destCtx.drawImage(layerBufferCtx.canvas, 0, 0)
+        // destCtx.clearRect(0, 0, document.width, document.height)
+        // destCtx.drawImage(layerBufferCtx.canvas, 0, 0)
 
         await engine.compositeLayers(layerBufferCtx, destCtx, {
           mode: layer.compositeMode,
           opacity: layer.opacity,
+          sourceOption: { opacity: 1 - layer.opacity },
         })
 
         return
@@ -453,13 +454,13 @@ export class DifferenceRender implements IRenderStrategy {
       }
 
       perf_filter.timeEnd()
-
       perf_composite.time()
 
       await engine.compositeLayers(layerBufferCtx, dest, {
         mode: layer.compositeMode,
         opacity: layer.opacity,
       })
+
       perf_composite.timeEnd(layer, document.getLayerSize(layer))
     }
 

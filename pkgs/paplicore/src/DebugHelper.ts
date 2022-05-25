@@ -113,7 +113,13 @@ export const logTimeEnd: Console['timeEnd'] = (...args) => {
   console.timeEnd(...args)
 }
 
-export const timeSumming = (label: string, mark: string = '') => {
+export type TimeSumming = {
+  time: () => void
+  timeEnd: (...details: any[]) => void
+  log: () => void
+}
+
+export const timeSumming = (label: string, mark: string = ''): TimeSumming => {
   let sumTime = 0
   let calls = 0
   let max = { callOf: null as number | null, time: -Infinity }
@@ -152,7 +158,7 @@ export const timeSumming = (label: string, mark: string = '') => {
       if (disableLog) return
 
       logGroupCollapsed(
-        `%c🕛${mark} Time to estimate ${label}:%c ${roundString(
+        `%c🕛${mark} Time to estimate ${label}:%c\n ${roundString(
           sumTime
         )}ms by ${calls} calls\n[avg] ${roundString(
           sumTime / calls

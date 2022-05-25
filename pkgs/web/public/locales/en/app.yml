@@ -73,6 +73,7 @@ filters:
   '@paplico/filters/outline': Outline
   '@paplico/filters/zoom-blur': Zoom blur
   '@paplico/filters/kawase-blur': Kawase blur
+  '@paplico/filters/gradient-map': Gradient map
 
 filterOptions:
   '@paplico/filters/bloom':
@@ -132,6 +133,9 @@ filterOptions:
     movement: Movement
     movementX: X
     movementY: Y
+  '@paplico/filters/gradient-map':
+    opacity: 'Opacity'
+    map: Map
 
 layerView:
   context:

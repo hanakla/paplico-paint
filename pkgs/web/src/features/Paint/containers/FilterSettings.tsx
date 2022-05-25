@@ -95,6 +95,7 @@ const BloomSetting = ({ layer, filter }: Props) => {
       <Column filter={filter} nameKey="threshold">
         {/* <DeltaRange value={filter.settings.threshold} /> */}
       </Column>
+      <OpacityColumn filter={filter} />
     </div>
   )
 }
@@ -165,6 +166,7 @@ const GaussBlur = ({ layer, filter }: Props) => {
           />
         </Column>
       )}
+      <OpacityColumn filter={filter} />
     </div>
   )
 }
@@ -245,6 +247,7 @@ const ChromaticAberration = ({ layer, filter }: Props) => {
           onChangeComplete={handleChangeComplete}
         />
       </Column>
+      <OpacityColumn filter={filter} />
     </div>
   )
 }
@@ -356,6 +359,7 @@ const Halftone = ({ layer, filter }: Props) => {
           onChangeComplete={handleChangeScatter}
         />
       </Column>
+      <OpacityColumn filter={filter} />
     </div>
   )
 }
@@ -409,6 +413,7 @@ const GlitchJpeg = ({ layer, filter }: Props) => {
           onChange={handleChangeQuality}
         />
       </Column>
+      <OpacityColumn filter={filter} />
     </div>
   )
 }
@@ -440,6 +445,7 @@ const Binarization = ({ layer, filter }: Props) => {
           onChange={handleChangeThreshold}
         />
       </Column>
+      <OpacityColumn filter={filter} />
     </div>
   )
 }
@@ -507,6 +513,7 @@ const LowReso = ({ layer, filter }: Props) => {
           disabled={filter.settings.sameBlocks}
         />
       </Column>
+      <OpacityColumn filter={filter} />
     </div>
   )
 }
@@ -554,6 +561,7 @@ const Outline = ({ layer, filter }: Props) => {
           onChange={handleChangeColor}
         />
       </Column>
+      <OpacityColumn filter={filter} />
     </div>
   )
 }

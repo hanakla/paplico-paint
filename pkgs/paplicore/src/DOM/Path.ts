@@ -22,6 +22,11 @@ export declare namespace Path {
     randomSeed: number
   }
 
+  export type CacheKeyObject = {
+    key: string
+    time: number
+  }
+
   export type SerializedAttibutes = Attributes
 
   export type StartPoint = { x: number; y: number }
@@ -131,13 +136,16 @@ export class Path implements ISilkDOMElement {
   private _isFreezed: boolean = false
 
   /** Mark for re-rendering decision */
-  protected _contentUpdatedAt = { key: nanoid(), time: Date.now() }
+  protected _contentCacheKey: Path.CacheKeyObject = {
+    key: nanoid(),
+    time: Date.now(),
+  }
 
   protected constructor() {}
 
   /** Content identifier for weakmap and update detection, it's immutable changes each path updated */
   public get cacheKeyObject() {
-    return this._contentUpdatedAt
+    return this._contentCacheKey
   }
 
   public get isFreezed() {
@@ -462,14 +470,19 @@ export class Path implements ISilkDOMElement {
     return mapPoints(points, proc, option)
   }
 
+  /** Update attributes, do not update points with this */
   public update(proc: (entity: this) => void): void {
     proc(this)
+  }
+
+  public updatePoints(proc: (points: Path.PathPoint[]) => void): void {
+    proc(this.points)
 
     this._cachedSvgPath = this.getFreshSVGPath()
     this._pal = cachedPointAtLength(this.svgPath)
     this._cachedBounds = null
     this._cachedBounds = this.getBoundingBox()
-    this._contentUpdatedAt = { key: nanoid(), time: Date.now() }
+    this._contentCacheKey = { key: nanoid(), time: Date.now() }
   }
 
   /** Freeze changes and cache heavily process results */
@@ -486,11 +499,15 @@ export class Path implements ISilkDOMElement {
   }
 
   public clone() {
-    return Path.create({
+    const p = Path.create({
       points: deepClone(this.points),
       closed: this.closed,
       randomSeed: this.randomSeed,
     })
+
+    p._contentCacheKey = this.cacheKeyObject
+
+    return p
   }
 
   public serialize(): Path.Attributes {

@@ -12,7 +12,7 @@ export const AspectPreview = ({
   maxHeight,
   dotted = false,
   children,
-  onDrag,
+  onDrag = () => {},
 }: {
   width: number
   height: number

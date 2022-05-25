@@ -100,9 +100,8 @@ export const ActionSheet = forwardRef<HTMLDivElement, Props>(
               flex-flow: column;
               width: 100%;
               max-width: 400px;
-              max-height: 50vh;
               padding: 12px;
-              padding-bottom: max(env(safe-area-inset-bottom), 16px);
+              padding-bottom: env(safe-area-inset-bottom, 16px);
               overflow: auto;
 
               ${styleWhen(fill)`

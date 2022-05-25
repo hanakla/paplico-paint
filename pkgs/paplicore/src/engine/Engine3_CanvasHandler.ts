@@ -3,7 +3,7 @@ import { Emitter } from '../Engine3_Emitter'
 import { PapSession } from '../Session/Engine3_Sessions'
 import { DifferenceRender } from './RenderStrategy/DifferenceRender'
 import { Stroke } from './Stroke'
-import { setCanvasSize } from '../utils'
+import { debounce, setCanvasSize } from '../utils'
 import { deepClone } from '../utils/object'
 import { LayerTypes, RasterLayer, VectorLayer, VectorObject } from '../DOM'
 import { createContext2D } from '../Engine3_CanvasFactory'
@@ -134,35 +134,38 @@ export class CanvasHandler extends Emitter<Events> {
       strategy.markUpdatedLayerId(activeLayer.uid)
     })
 
-    this.on('strokeChange', async (stroke) => {
-      if (!this.strokeDrawEnable) return
+    this.on(
+      'strokeChange',
+      debounce(async (stroke: Stroke) => {
+        if (!this.strokeDrawEnable) return
 
-      const { activeLayer } = session
-      if (
-        session.pencilMode === 'none' ||
-        !session.document ||
-        !isDrawableLayer(activeLayer)
-      )
-        return
+        const { activeLayer } = session
+        if (
+          session.pencilMode === 'none' ||
+          !session.document ||
+          !isDrawableLayer(activeLayer)
+        )
+          return
 
-      const size = session.document.getLayerSize(activeLayer)
-      this.strokeCtx.clearRect(0, 0, size.width, size.height)
+        const size = session.document.getLayerSize(activeLayer)
+        this.strokeCtx.clearRect(0, 0, size.width, size.height)
 
-      await engine.renderPath(
-        session.brushSetting,
-        session.currentInk,
-        stroke.splinedPath.getSimplifiedPath(),
-        {
-          rotate: 0,
-          translate: { x: 0, y: 0 },
-          scale: { x: 1, y: 1 },
-        },
-        this.strokeCtx,
-        { hintInput: null }
-      )
+        await engine.renderPath(
+          session.brushSetting,
+          session.currentInk,
+          stroke.splinedPath.getSimplifiedPath(),
+          {
+            rotate: 0,
+            translate: { x: 0, y: 0 },
+            scale: { x: 1, y: 1 },
+          },
+          this.strokeCtx,
+          { hintInput: null }
+        )
 
-      await engine.render(session.document, strategy)
-    })
+        engine.lazyRender(session.document, strategy)
+      }, 30)
+    )
 
     this.on('strokeComplete', async (stroke) => {
       if (!this.strokeDrawEnable) return
@@ -182,7 +185,6 @@ export class CanvasHandler extends Emitter<Events> {
       setCanvasSize(this.compositeSourceCtx.canvas, size)
       this.strokeCtx.clearRect(0, 0, size.width, size.height)
 
-      console.log('strokeComplete')
       if (activeLayer.layerType === 'raster') {
         this.compositeSourceCtx.drawImage(await activeLayer.imageBitmap, 0, 0)
 
@@ -239,6 +241,7 @@ export class CanvasHandler extends Emitter<Events> {
 
       strategy.markUpdatedLayerId(activeLayer.uid)
       strategy.setLayerOverride(null)
+
       engine.lazyRender(session.document, strategy)
       this.mitt.emit('canvasUpdated')
     })

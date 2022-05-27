@@ -29,4 +29,4 @@ Do you understand????
 - [`pkgs/web`](pkgs/web) is Frontend implementation of @paplico/core.
   - Made with Next.js
 - [`pkgs/desktop`](pkgs/desktop) is Desktop App version of Paplico. (WIP)
-- Made with Electron
+  - Made with Electron

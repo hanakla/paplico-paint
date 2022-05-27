@@ -28,3 +28,5 @@ Do you understand????
   - Made with TypeScript / HTML5 Canvas / DOM
 - [`pkgs/web`](pkgs/web) is Frontend implementation of @paplico/core.
   - Made with Next.js
+- [`pkgs/desktop`](pkgs/desktop) is Desktop App version of Paplico. (WIP)
+- Made with Electron

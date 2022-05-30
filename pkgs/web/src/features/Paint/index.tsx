@@ -262,7 +262,7 @@ export const PaintPage = memo(function PaintPage({}) {
   useFunkyGlobalMouseTrap(['ctrl+s', 'command+s'], (e) => {
     e.preventDefault()
 
-    executeOperation(EditorOps.saveCurrentDocumentToIdb)
+    executeOperation(EditorOps.saveCurrentDocumentToIdb, { notify: true })
   })
   useFunkyGlobalMouseTrap(['ctrl+shift+s', 'command+shift+s'], (e) => {
     e.preventDefault()
@@ -742,15 +742,18 @@ export const PaintPage = memo(function PaintPage({}) {
                 css={`
                   display: flex;
                   flex-flow: column;
-                  flex: 1;
+                  margin-top: auto;
+                  /* flex: none; */
                   width: 200px;
                 `}
               >
+                {/*
                 <div
                   css={`
                     padding: 4px 8px;
                   `}
                 ></div>
+
                 <div
                   css={`
                     padding: 4px 8px;
@@ -774,11 +777,12 @@ export const PaintPage = memo(function PaintPage({}) {
                     />
                     作業中のフィルター効果をオフ
                   </label>
-                </div>
+                </div> */}
 
                 <div
                   css={css`
                     display: flex;
+                    flex: none;
                     padding: 8px;
                     margin-top: auto;
                     border-top: ${({ theme }) =>
@@ -990,6 +994,9 @@ const EditorArea = memo(
 
     useEffect(() => {
       const handleCanvasWheel = (e: WheelEvent) => {
+        if (DOMUtils.closestOrSelf(e.target, '[data-ignore-canvas-wheel]'))
+          return
+
         e.preventDefault()
 
         execute(EditorOps.setCanvasTransform, {
@@ -1019,6 +1026,8 @@ const EditorArea = memo(
           justify-content: center;
           overflow: hidden;
           background-color: ${rgba('#11111A', 0.3)};
+          /** disable magnifying grass in iOS */
+          user-select: none;
         `}
         style={{
           // prettier-ignore
@@ -1277,6 +1286,7 @@ const PaintCanvas = memo(function PaintCanvas({
           background-color: white;
           ${checkerBoard({ size: 24, opacity: 0.1 })}
           box-shadow: 0 0 16px rgba(0, 0, 0, 0.1);
+          /** disable magnifying grass in iOS */
           user-select: none;
         `}
         data-is-paint-canvas="yup"
@@ -1451,7 +1461,12 @@ const ColorHistoryPane = memo(function ColorHistoryPane() {
   })
 
   return (
-    <SidebarPane heading={t('colorHistory')}>
+    <SidebarPane
+      css={`
+        max-height: 200px;
+      `}
+      heading={t('colorHistory')}
+    >
       <div
         css={`
           display: grid;

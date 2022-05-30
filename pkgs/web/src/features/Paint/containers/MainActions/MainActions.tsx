@@ -379,6 +379,7 @@ export const MainActions = memo(function MainActions() {
       style={{
         transform: `translate(${menuPos.x}px, ${menuPos.y}px)`,
       }}
+      data-ignore-canvas-wheel
     >
       <DragDots
         css={`
@@ -528,13 +529,19 @@ export const MainActions = memo(function MainActions() {
               }}
               data-ignore-click
             >
-              <ChromePicker
+              {/* <ChromePicker
                 css={`
                   position: absolute;
                   left: 50%;
                   bottom: 100%;
                   transform: translateX(-50%);
                 `}
+                color={color}
+                onChange={handleChangeColor}
+                onChangeComplete={handleChangeCompleteColor}
+                disableAlpha
+              /> */}
+              <CustomColorPicker
                 color={color}
                 onChange={handleChangeColor}
                 onChangeComplete={handleChangeCompleteColor}
@@ -889,6 +896,13 @@ const AppMenu = memo(function AppMenu({
   const handleClickSave = useFunk(() => {
     if (!currentDocument) return
 
+    execute(EditorOps.saveCurrentDocumentToIdb, { notify: true })
+    onClose()
+  })
+
+  const handleClickSaveAs = useFunk(() => {
+    if (!currentDocument) return
+
     execute(NotifyOps.create, {
       area: 'loadingLock',
       lock: true,
@@ -980,20 +994,24 @@ const AppMenu = memo(function AppMenu({
           fill={false}
         >
           <ActionSheetItemGroup>
-            <ActionSheetItem onClick={handleClickBackToHome}>
-              ホームへ戻る
-            </ActionSheetItem>
             <ActionSheetItem onClick={handleClickChangeTheme}>
               テーマ切り替え
             </ActionSheetItem>
           </ActionSheetItemGroup>
 
           <ActionSheetItemGroup>
-            <ActionSheetItem onClick={handleClickSave}>
-              ファイルを保存
+            <ActionSheetItem onClick={handleClickSave}>保存</ActionSheetItem>
+            <ActionSheetItem onClick={handleClickSaveAs}>
+              アイテムをダウンロードして保存
             </ActionSheetItem>
             <ActionSheetItem onClick={handleClickExportAs}>
               画像に書き出し
+            </ActionSheetItem>
+          </ActionSheetItemGroup>
+
+          <ActionSheetItemGroup>
+            <ActionSheetItem onClick={handleClickBackToHome}>
+              保存してホームへ戻る
             </ActionSheetItem>
           </ActionSheetItemGroup>
 
@@ -1571,102 +1589,106 @@ const VectorColorPicker = memo(function VectorColorPicker({
   )
 })
 
-const CustomColorPicker = CustomPicker(function CustomColorPicker(props) {
-  const [stringValue, setStringValue] = useBufferedState(
-    rgbToColorString({
-      red: props.rgb?.r ?? 0,
-      green: props.rgb?.g ?? 0,
-      blue: props.rgb?.b ?? 0,
-    }).slice(1)
-  )
+const CustomColorPicker = CustomPicker<{ disableAlpha?: boolean }>(
+  function CustomColorPicker(props) {
+    const [stringValue, setStringValue] = useBufferedState(
+      rgbToColorString({
+        red: props.rgb?.r ?? 0,
+        green: props.rgb?.g ?? 0,
+        blue: props.rgb?.b ?? 0,
+      }).slice(1)
+    )
 
-  const handleChangeColor = useFunk(
-    ({ currentTarget }: ChangeEvent<HTMLInputElement>) => {
-      const color = currentTarget.value.replace(/#/g, '')
-      console.log(color)
-      setStringValue(color)
-    }
-  )
+    const handleChangeColor = useFunk(
+      ({ currentTarget }: ChangeEvent<HTMLInputElement>) => {
+        const color = currentTarget.value.replace(/#/g, '')
+        console.log(color)
+        setStringValue(color)
+      }
+    )
 
-  const handleCompleteColor = useFunk(
-    ({ currentTarget }: KeyboardEvent<HTMLInputElement>) => {
-      const color = currentTarget.value.replace(/#/g, '')
-      setStringValue(color)
-      props.onChange?.(`#${color}`)
-    }
-  )
+    const handleCompleteColor = useFunk(
+      ({ currentTarget }: KeyboardEvent<HTMLInputElement>) => {
+        const color = currentTarget.value.replace(/#/g, '')
+        setStringValue(color)
+        props.onChange?.(`#${color}`)
+      }
+    )
 
-  return (
-    <div
-      css={`
-        position: relative;
-        display: flex;
-        flex-flow: column;
-        gap: 8px;
-        padding-bottom: 8px;
-      `}
-    >
-      {/* <Hue {...props} direction="vertical" /> */}
+    return (
       <div
         css={`
           position: relative;
-          width: 100%;
-          height: 100px;
-          padding: 8px 8px 0;
-        `}
-      >
-        <Saturation
-          {...props}
-          onChange={props.onChange!}
-          pointer={HuePointer}
-        />
-      </div>
-      <div
-        css={`
-          position: relative;
-          height: 8px;
-          margin: 0 8px;
-        `}
-      >
-        <Hue {...props} onChange={props.onChange!} pointer={Pointer} />
-      </div>
-
-      <div
-        css={`
-          position: relative;
-          height: 8px;
-          margin: 0 8px;
-        `}
-      >
-        <Alpha {...props} onChange={props.onChange!} pointer={Pointer} />
-      </div>
-
-      <div
-        css={`
           display: flex;
-          align-items: center;
-          justify-content: flex-end;
-          position: relative;
-          margin: 0 8px;
-          text-align: right;
+          flex-flow: column;
+          gap: 8px;
+          padding-bottom: 8px;
         `}
       >
-        #
-        <TextInput
+        {/* <Hue {...props} direction="vertical" /> */}
+        <div
           css={`
-            width: 6em;
+            position: relative;
+            width: 100%;
+            height: 100px;
+            padding: 8px 8px 0;
           `}
-          sizing="sm"
-          value={stringValue}
-          onChange={handleChangeColor}
-          onComplete={handleCompleteColor}
-        />
-      </div>
+        >
+          <Saturation
+            {...props}
+            onChange={props.onChange!}
+            pointer={HuePointer}
+          />
+        </div>
+        <div
+          css={`
+            position: relative;
+            height: 8px;
+            margin: 0 8px;
+          `}
+        >
+          <Hue {...props} onChange={props.onChange!} pointer={Pointer} />
+        </div>
 
-      {/* <ChromePicker {...props} /> */}
-    </div>
-  )
-})
+        {!props.disableAlpha && (
+          <div
+            css={`
+              position: relative;
+              height: 8px;
+              margin: 0 8px;
+            `}
+          >
+            <Alpha {...props} onChange={props.onChange!} pointer={Pointer} />
+          </div>
+        )}
+
+        <div
+          css={`
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            position: relative;
+            margin: 0 8px;
+            text-align: right;
+          `}
+        >
+          #
+          <TextInput
+            css={`
+              width: 6em;
+            `}
+            sizing="sm"
+            value={stringValue}
+            onChange={handleChangeColor}
+            onComplete={handleCompleteColor}
+          />
+        </div>
+
+        {/* <ChromePicker {...props} /> */}
+      </div>
+    )
+  }
+)
 
 const HuePointer = styled.div.withConfig({
   shouldForwardProp: (prop, valid) => prop !== 'color' && valid(prop),

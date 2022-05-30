@@ -32,11 +32,13 @@ export const SidebarPane = ({
         display: flex;
         flex-flow: column;
         flex: 1;
+        overflow: hidden;
 
         & + & {
           ${tm((o) => [o.border.default.top])}
         }
       `}
+      className={className}
     >
       <header
         css={css`

@@ -91,7 +91,7 @@ export class ScatterBrush implements IBrush {
   private scene!: Scene
   // private material!: MeshBasicMaterial
   private geometry!: PlaneBufferGeometry
-  private materials: Record<string, ShaderMaterial> = {}
+  private materials: Record<string, ShaderMaterial | MeshBasicMaterial> = {}
 
   public getInitialSpecificConfig(): ScatterBrush.SpecificSetting {
     return {
@@ -274,7 +274,11 @@ export class ScatterBrush implements IBrush {
 
     const group = new Group()
     const material = this.materials[specific.texture]
-    material.color.set(new Color(color.r, color.g, color.b))
+    if (!ScatterBrush.enablePerMeshOpacity) {
+      ;(material as MeshBasicMaterial).color.set(
+        new Color(color.r, color.g, color.b)
+      )
+    }
     material.needsUpdate = true
 
     if (cache) {
@@ -416,7 +420,8 @@ export class ScatterBrush implements IBrush {
         // const tangent = freezedThreePath.sequencialGetTangent(frac)
         perf_getTangentByPath.timeEnd({ frac, idx, counts })
 
-        const angle = Math.atan2(tangent.x, tangent.y)
+        const angle = degToRad(radToDeg(Math.atan2(tangent.x, tangent.y)) + 90)
+
         mat4.translate([
           lerp(-specific.scatterRange, specific.scatterRange, Math.cos(angle)),
           lerp(-specific.scatterRange, specific.scatterRange, Math.sin(angle)),
@@ -581,7 +586,7 @@ const freezeThreePath = (path: ThreePath) => {
         i++
       }
 
-      return null
+      return null as unknown as THREE.Vector2
     }
   })()
 
@@ -672,7 +677,10 @@ const freezeThreePath = (path: ThreePath) => {
         const tangent =
           target || (pt1.isVector2 ? new Vector2() : new Vector3())
 
-        tangent.copy(pt2).sub(pt1).normalize()
+        tangent
+          .copy(pt2 as any)
+          .sub(pt1 as any)
+          .normalize()
 
         lastT = t
         return tangent

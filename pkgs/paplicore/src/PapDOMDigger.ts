@@ -32,7 +32,7 @@ interface Digger {
 
   findLayerParent<S extends boolean | undefined>(
     document: Document,
-    path: readonly string[],
+    pathOrLayerUid: readonly string[] | string,
     option?: { strict?: S }
   ): (Document | GroupLayer) | (S extends true ? never : null)
 
@@ -64,7 +64,9 @@ interface Digger {
     document: { layers: readonly LayerTypes[] },
     layerUid: string,
     { strict }: { strict?: S }
-  ): { path: string[]; layers: LayerTypes[] } | (S extends true ? never : null)
+  ):
+    | { path: string[]; parent: Document | GroupLayer; layers: LayerTypes[] }
+    | (S extends true ? never : null)
 
   getPathToLayer<S extends boolean | undefined>(
     document: { layers: readonly LayerTypes[] },
@@ -120,11 +122,25 @@ export const PapDOMDigger: Digger = {
 
     return target as any
   },
-  findLayerParent: (document, path, { strict } = {}) => {
+  findLayerParent: (document, pathOrLayerUid, { strict } = {}) => {
     let prev: Document | GroupLayer | null = document
     let parent: any = null
 
-    for (const part of path) {
+    if (typeof pathOrLayerUid === 'string') {
+      const pathToLayer = PapDOMDigger.getPathToLayer(
+        document,
+        pathOrLayerUid,
+        {
+          strict,
+        }
+      )
+
+      if (!pathToLayer) return null
+
+      pathOrLayerUid = pathToLayer
+    }
+
+    for (const part of pathOrLayerUid) {
       const layer: LayerTypes | undefined = prev?.layers.find(
         (l) => l.uid === part
       )
@@ -139,7 +155,8 @@ export const PapDOMDigger: Digger = {
     }
 
     if (parent == null) {
-      if (strict) throw new Error(`Layer not found: ${path.join('->')}`)
+      if (strict)
+        throw new Error(`Layer not found: ${pathOrLayerUid.join('->')}`)
     }
 
     return parent as any
@@ -227,22 +244,29 @@ export const PapDOMDigger: Digger = {
 
   findParentLayers(document, layerUid, { strict } = {}) {
     const traverse = (
-      container: readonly LayerTypes[],
+      container: Document | GroupLayer,
       current: string[] = [],
       layers: LayerTypes[] = []
-    ): { path: string[]; layers: LayerTypes[] } | null => {
-      for (const l of container) {
-        if (l.uid === layerUid) return { path: current, layers }
+    ): {
+      path: string[]
+      parent: Document | GroupLayer
+      layers: LayerTypes[]
+    } | null => {
+      for (const l of container.layers) {
+        if (l.uid === layerUid)
+          return { path: current, parent: container, layers }
 
         if ('layers' in l) {
-          return traverse(l.layers, [...current, l.uid], [...layers, l])
+          let result = traverse(l, [...current, l.uid], [...layers, l])
+          if (result) return result
         }
       }
 
       return null
     }
 
-    const result = traverse(document.layers)
+    const result = traverse(document as Document)
+
     if (strict && result == null)
       throw new Error(`Layer not found (in findParentLayers): ${layerUid}`)
 

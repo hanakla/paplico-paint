@@ -1,7 +1,7 @@
 import { nanoid } from 'nanoid'
 
 import { Document, LayerTypes } from '../DOM'
-import { Brush } from '../Brushes'
+import { Brush, ScatterBrush } from '../Brushes'
 import { CurrentBrushSetting } from '../engine/CurrentBrushSetting'
 import { Emitter } from '../Engine3_Emitter'
 import { RandomInk } from '../Inks/RandomInk'
@@ -44,7 +44,8 @@ export class PapSession extends Emitter<Events> {
   }
 
   public readonly sid: string = nanoid()
-  public renderStrategy: IRenderStrategy = new RenderStrategies.FullRender()
+  public renderStrategy: IRenderStrategy =
+    new RenderStrategies.DifferenceRender()
 
   public renderSetting: PaplicoEngine.RenderSetting = {
     disableAllFilters: false,
@@ -55,12 +56,21 @@ export class PapSession extends Emitter<Events> {
   protected _activeLayer: LayerTypes | null = null
   protected _activeLayerPath: string[] | null = null
   protected _brushSetting: CurrentBrushSetting = {
-    brushId: Brush.id,
-    size: 1,
+    brushId: ScatterBrush.id,
+    size: 20,
     color: { r: 0, g: 0, b: 0 },
-    opacity: 1,
-    specific: {},
+    opacity: 0.8,
+
+    specific: {
+      texture: 'pencil',
+      fadeWeight: 0,
+      inOutInfluence: 1,
+      randomRotation: 1,
+      scatterRange: 0.5,
+      pressureInfluence: 0.5,
+    },
   }
+
   protected _pluginSpecificBrushSettings: {
     [blushId: string]: Record<string, any>
   } = Object.create(null)

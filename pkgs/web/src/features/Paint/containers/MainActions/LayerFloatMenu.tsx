@@ -99,9 +99,13 @@ export const LayerFloatMenu = memo(
       execute(
         EditorOps.runCommand,
         new PapCommands.Layer.MoveLayer({
-          sourcePath: moves.sourcePath,
-          targetGroupPath: moves.targetParentPath,
-          targetIndex: moves.targetIndex,
+          moves: [
+            {
+              layerPath: moves.sourcePath,
+              targetContainerPath: moves.targetParentPath,
+              targetIndex: moves.targetIndex,
+            },
+          ],
         })
       )
     })
@@ -194,40 +198,45 @@ export const LayerFloatMenu = memo(
       >
         <div
           css={`
-            display: grid;
-            gap: 4px;
             max-height: 50vh;
             overflow: auto;
             -webkit-overflow-scrolling: touch;
           `}
-          onTouchMove={DOMUtils.preventAndStopPropagationHandler}
         >
-          <DndContext
-            collisionDetection={closestCenter}
-            onDragEnd={handleLayerDragEnd}
-            modifiers={[
-              restrictToVerticalAxis,
-              restrictToFirstScrollableAncestor,
-            ]}
+          <div
+            css={`
+              display: grid;
+              gap: 4px;
+            `}
+            onTouchMove={DOMUtils.preventAndStopPropagationHandler}
           >
-            <SortableContext
-              items={flatLayers.map((entry) => entry.id)}
-              strategy={verticalListSortingStrategy}
+            <DndContext
+              collisionDetection={closestCenter}
+              onDragEnd={handleLayerDragEnd}
+              modifiers={[
+                restrictToVerticalAxis,
+                restrictToFirstScrollableAncestor,
+              ]}
             >
-              {flatLayers.map((entry) =>
-                entry.type === 'layer' ? (
-                  <SortableLayerItem
-                    key={entry.id}
-                    entry={entry}
-                    childrenOpened={collapsed[entry.id] === false}
-                    onToggleCollapse={handleToggleLayerCollapse}
-                  />
-                ) : (
-                  <SortableObjectItem key={entry.id} entry={entry} />
-                )
-              )}
-            </SortableContext>
-          </DndContext>
+              <SortableContext
+                items={flatLayers.map((entry) => entry.id)}
+                strategy={verticalListSortingStrategy}
+              >
+                {flatLayers.map((entry) =>
+                  entry.type === 'layer' ? (
+                    <SortableLayerItem
+                      key={entry.id}
+                      entry={entry}
+                      childrenOpened={collapsed[entry.id] === false}
+                      onToggleCollapse={handleToggleLayerCollapse}
+                    />
+                  ) : (
+                    <SortableObjectItem key={entry.id} entry={entry} />
+                  )
+                )}
+              </SortableContext>
+            </DndContext>
+          </div>
         </div>
 
         <div
@@ -398,6 +407,34 @@ const SortableLayerItem = memo(
       toggleMenu(false)
     })
 
+    const handleClickTruncateLayer = useFunk(() => {
+      if (layer.layerType === 'raster') {
+        execute(
+          EditorOps.runCommand,
+          new PapCommands.RasterLayer.UpdateBitmap({
+            pathToTargetLayer: [...parentPath, layer.uid],
+            update: (bitmap) => {
+              bitmap.fill(0)
+            },
+          })
+        )
+      } else if (layer.layerType === 'vector') {
+        execute(
+          EditorOps.runCommand,
+          new PapCommands.VectorLayer.TruncateContent({
+            pathToTargetLayer: [...parentPath, layer.uid],
+          })
+        )
+      } else if (layer.layerType === 'filter') {
+        execute(
+          EditorOps.runCommand,
+          new PapCommands.Layer.TruncateFilters({
+            pathToTargetLayer: [...parentPath, layer.uid],
+          })
+        )
+      }
+    })
+
     const handleClickCollapseChildren = useFunk(() => {
       onToggleCollapse(entry.id)
     })
@@ -411,6 +448,29 @@ const SortableLayerItem = memo(
         EditorOps.runCommand,
         new PapCommands.Layer.DuplicateLayer({
           pathToSourceLayer: [...parentPath, layer.uid],
+        })
+      )
+    })
+
+    const handleClickMakeReferenceLayer = useFunk(() => {
+      const refLayer = PapDOM.ReferenceLayer.create({
+        referencedLayerId: [...parentPath, layer.uid],
+      })
+
+      execute(
+        EditorOps.runCommand,
+        new PapCommands.Document.AddLayer({
+          layer: refLayer,
+          aboveOnLayerId: layer.uid,
+        })
+      )
+    })
+
+    const handleClickConvertToSubstance = useFunk(() => {
+      execute(
+        EditorOps.runCommand,
+        new PapCommands.ReferenceLayer.ConvertToSubstance({
+          pathToReference: [...parentPath, layer.uid],
         })
       )
     })
@@ -564,14 +624,34 @@ const SortableLayerItem = memo(
             data-dont-close-layer-float
           >
             <ActionSheetItemGroup>
-              {layer.layerType === 'raster' && (
-                <ActionSheetItem onClick={handleClickTrimByDocument}>
-                  レイヤーを画像サイズでトリム
+              <ActionSheetItem onClick={handleClickDuplicateLayer}>
+                {t('layerView.context.duplicate')}
+              </ActionSheetItem>
+
+              {layer.layerType === 'reference' && (
+                <ActionSheetItem onClick={handleClickConvertToSubstance}>
+                  {t('layerView.context.convertToSubstance')}
                 </ActionSheetItem>
               )}
-              <ActionSheetItem onClick={handleClickDuplicateLayer}>
-                レイヤーを複製
-              </ActionSheetItem>
+
+              {layer.layerType !== 'reference' && (
+                <ActionSheetItem onClick={handleClickMakeReferenceLayer}>
+                  {t('layerView.context.makeReference')}
+                </ActionSheetItem>
+              )}
+
+              {layer.layerType === 'raster' && (
+                <ActionSheetItem onClick={handleClickTrimByDocument}>
+                  {t('layerView.context.trimByCanvasRect')}
+                </ActionSheetItem>
+              )}
+              {layer.layerType !== 'reference' &&
+                layer.layerType !== 'group' &&
+                layer.layerType !== 'text' && (
+                  <ActionSheetItem onClick={handleClickTruncateLayer}>
+                    {t('layerView.context.truncate')}
+                  </ActionSheetItem>
+                )}
             </ActionSheetItemGroup>
 
             <ActionSheetItemGroup>
@@ -742,7 +822,6 @@ const FiltersSheet = memo(function FiltersSheet({
   const handleClickAddFilter = useFunk(
     ({ currentTarget }: MouseEvent<HTMLDivElement>) => {
       toggleAddFilterSheet(false)
-      console.log('hi')
 
       if (!activeLayerPath) return
 

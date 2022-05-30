@@ -5,18 +5,22 @@ import { Document, LayerTypes, ReferenceLayer, VectorObject } from '../../DOM'
 export class ReferenceConvertToSubstance implements ICommand {
   public readonly name = 'ReferenceConvertToSubstance'
 
-  private referenceLayer: ReferenceLayer
-  private sourceLayer!: LayerTypes
+  private pathToReference: string[]
   private clonedLayer!: LayerTypes
 
-  constructor({ referenceLayer }: { referenceLayer: ReferenceLayer }) {
-    this.referenceLayer = referenceLayer
+  constructor({ pathToReference }: { pathToReference: string[] }) {
+    this.pathToReference = pathToReference
   }
 
   async do(document: Document) {
+    const source = PapDOMDigger.findLayer(document, this.pathToReference, {
+      kind: 'reference',
+      strict: true,
+    })
+
     const layer = PapDOMDigger.findLayerRecursive(
       document,
-      this.referenceLayer.uid,
+      source.referencedLayerId,
       { strict: true }
     )
 
@@ -25,17 +29,21 @@ export class ReferenceConvertToSubstance implements ICommand {
 
   async undo(document: Document): Promise<void> {
     document.update((d) => {
-      let path = PapDOMDigger.getPathToLayer(document, this.clonedLayer.uid, {
+      const path = PapDOMDigger.getPathToLayer(document, this.clonedLayer.uid, {
         strict: true,
-      })!.slice(0, -1)
+      })
 
-      const parent = PapDOMDigger.findLayerParent(d, path)
+      const parent = PapDOMDigger.findLayerParent(d, path, { strict: true })
       const index = parent.layers.findIndex(
         (l) => l.uid === this.clonedLayer.uid
       )
       if (index === -1) return
 
-      parent.layers.splice(1, index)
+      parent.update((l) => {
+        l.layers.splice(1, index)
+      })
+
+      this.clonedLayer = null as any
     })
   }
 

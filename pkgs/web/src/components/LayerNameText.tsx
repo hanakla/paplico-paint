@@ -13,7 +13,8 @@ export const LayerNameText = ({ name, layerType, className }: Props) => {
   return (
     <FakeInput
       css={`
-        font-size: 12px;
+        font-size: 11px;
+        line-height: 14px;
         pointer-events: none;
         background: transparent;
       `}

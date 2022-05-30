@@ -15,6 +15,8 @@ commandFlash:
   redoEmpty: やり直し出来ません
   undo: もとに戻す
   redo: やり直す
+  saving: 保存しています
+  saved: 保存しました！
 
 mainActions:
   gradientLength: 長さ
@@ -153,9 +155,12 @@ filterOptions:
 
 layerView:
   context:
+    trimByCanvasRect: キャンバスの範囲でトリム
+    makeGroup: 選択したレイヤーをグループ化
     convertToSubstance: レイヤーに変換
     duplicate: レイヤーを複製
     makeReference: 参照レイヤーをつくる
+    truncate: 内容をリセット
 
   object:
     path: '<パス>'
@@ -167,4 +172,5 @@ brushPresets:
   circle: 円ブラシ
   fade: フェードブラシ
   pencil: ペンシル
-  'pencil-inout': 入り抜きペン
+  'pencil-enterexit': (開発用) 入り抜きペン
+  'baribari': (開発用) マーカーペン

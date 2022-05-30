@@ -48,7 +48,7 @@ export class Document
       layers: obj.layers.map((layer: any) => deserializeLayer(layer)),
       globalColors: Object.entries(obj.globalColors).reduce(
         (a, [uid, color]) => {
-          return assign(a, { [uid]: RGBColor.deserialize(color) })
+          return assign(a, { [uid]: { ...color } })
         },
         Object.create(null)
       ),
@@ -123,7 +123,7 @@ export class Document
       layers: this.layers.map((layer) => layer.serialize()),
       globalColors: Object.entries(this.globalColors).reduce(
         (a, [uid, color]) => {
-          return Object.assign(a, { [uid]: color.serialize() })
+          return Object.assign(a, { [uid]: { ...color } })
         },
         Object.create(null)
       ),

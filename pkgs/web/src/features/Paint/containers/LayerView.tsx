@@ -169,15 +169,37 @@ export const LayerView = memo(function LayerView() {
     const moves = calcLayerMove(flatLayers, { active, over })
     if (!moves) return
 
-    setLayerSorting(false)
-    executeOperation(
-      EditorOps.runCommand,
-      new PapCommands.Layer.MoveLayer({
-        sourcePath: moves.sourcePath,
-        targetGroupPath: moves.targetParentPath,
-        targetIndex: moves.targetIndex,
-      })
-    )
+    console.log(moves)
+
+    if (moves.type === 'layer') {
+      setLayerSorting(false)
+      execute(
+        EditorOps.runCommand,
+        new PapCommands.Layer.MoveLayer({
+          moves: [
+            {
+              layerPath: moves.sourcePath,
+              targetContainerPath: moves.targetParentPath,
+              targetIndex: moves.targetIndex,
+            },
+          ],
+        })
+      )
+    } else if (moves.type === 'object') {
+      execute(
+        EditorOps.runCommand,
+        new PapCommands.VectorLayer.TransferObject({
+          moves: [
+            {
+              sourceContainerPath: moves.sourcePath,
+              destContainerPath: moves.targetParentPath,
+              destIndex: moves.targetIndex,
+              objectUid: moves.objectUid,
+            },
+          ],
+        })
+      )
+    }
   })
 
   const container = useFunk((children: ReactNode) => (
@@ -186,6 +208,7 @@ export const LayerView = memo(function LayerView() {
         display: flex;
         flex-flow: column;
         flex: 1;
+        overflow: hidden;
       `}
     >
       {children}
@@ -201,12 +224,23 @@ export const LayerView = memo(function LayerView() {
     }
   }, [currentDocument?.uid])
 
-  const [collapsed, setCollapsed] = useObjectState<Record<string, boolean>>({})
-  const flatLayers = flattenLayers(layers, (entry) => {
-    return (
-      entry.parentId == null ||
-      (entry.parentId != null && !(collapsed[entry.parentId] ?? true))
-    )
+  const [collapsedEntries, setCollapsed] = useObjectState<
+    Record<string, boolean>
+  >({})
+  const flatLayers = flattenLayers(layers, (entry, _, list) => {
+    let collapse = false
+    let current = entry
+    let nextParent = list.find((e) => e.id === entry.parentId)
+    while (nextParent != null && !collapse) {
+      collapse = nextParent?.id
+        ? collapse || collapsedEntries[nextParent.id]
+        : true
+
+      current = nextParent
+      nextParent = list.find((e) => e.id === current.parentId)
+    }
+
+    return !collapse
   })
 
   useDocumentWatch(currentDocument)
@@ -401,7 +435,8 @@ const SortableLayerItem = memo(
     const handleClickRoot = useFunk((e: MouseEvent<HTMLDivElement>) => {
       if (
         DOMUtils.closestOrSelf(e.target, '[data-ignore-click]') ||
-        DOMUtils.closestOrSelf(e.target, '[data-ignore-layer-click]')
+        DOMUtils.closestOrSelf(e.target, '[data-ignore-layer-click]') ||
+        DOMUtils.closestOrSelf(e.target, '[data-prevent-active-layer-change]')
       )
         return
 
@@ -458,7 +493,12 @@ const SortableLayerItem = memo(
     })
 
     const handleClickConvertToSubstance = useFunk(() => {
-      execute(EditorOps.convertToSubstance, [...parentPath, layer.uid])
+      execute(
+        EditorOps.runCommand,
+        new PapCommands.ReferenceLayer.ConvertToSubstance({
+          pathToReference: [...parentPath, layer.uid],
+        })
+      )
     })
 
     const handleClickMakeReferenceLayer = useFunk(
@@ -486,6 +526,17 @@ const SortableLayerItem = memo(
       )
     })
 
+    const handleClickTrimByDocument = useFunk(
+      ({ props }: LayerContextMenuParam) => {
+        execute(
+          EditorOps.runCommand,
+          new PapCommands.RasterLayer.TrimToDocumentArea({
+            pathToTargetLayer: props!.layerPath,
+          })
+        )
+      }
+    )
+
     const handleClickDeleteLayer = useFunk(
       ({ props }: LayerContextMenuParam) => {
         execute(
@@ -494,6 +545,36 @@ const SortableLayerItem = memo(
             pathToTargetLayer: props!.layerPath,
           })
         )
+      }
+    )
+
+    const handleClickTruncateLayer = useFunk(
+      ({ props }: LayerContextMenuParam) => {
+        if (layer.layerType === 'raster') {
+          execute(
+            EditorOps.runCommand,
+            new PapCommands.RasterLayer.UpdateBitmap({
+              pathToTargetLayer: props!.layerPath,
+              update: (bitmap) => {
+                bitmap.fill(0)
+              },
+            })
+          )
+        } else if (layer.layerType === 'vector') {
+          execute(
+            EditorOps.runCommand,
+            new PapCommands.VectorLayer.TruncateContent({
+              pathToTargetLayer: props!.layerPath,
+            })
+          )
+        } else if (layer.layerType === 'filter') {
+          execute(
+            EditorOps.runCommand,
+            new PapCommands.Layer.TruncateFilters({
+              pathToTargetLayer: props!.layerPath,
+            })
+          )
+        }
       }
     )
 
@@ -542,7 +623,6 @@ const SortableLayerItem = memo(
           ref={combineRef(rootRef)}
           css={`
             cursor: default;
-            margin-left: ${depth * 16}px;
           `}
           onClick={handleClickRoot}
           onContextMenu={handleContextMenu}
@@ -551,12 +631,12 @@ const SortableLayerItem = memo(
           <div
             css={`
               display: flex;
-              gap: 4px;
+              gap: 6px;
               width: 100%;
-              padding: 2px;
               align-items: center;
             `}
             style={{
+              paddingLeft: depth * 16,
               // prettier-ignore
               backgroundColor:
                 activeLayer?.uid === layer.uid ? theme.surface.sidebarListActive
@@ -572,8 +652,12 @@ const SortableLayerItem = memo(
             <div
               css={`
                 flex: none;
-                width: 12px;
+                ${centering()}
+                width: 16px;
+                height: 16px;
               `}
+              onClick={handleClickCollapse}
+              data-prevent-active-layer-change
             >
               {(layer.layerType === 'vector' ||
                 layer.layerType === 'group') && (
@@ -584,7 +668,6 @@ const SortableLayerItem = memo(
                   style={{
                     transform: objectsOpened ? 'rotateZ(180deg)' : 'rotateZ(0)',
                   }}
-                  onClick={handleClickCollapse}
                 />
               )}
             </div>
@@ -635,7 +718,6 @@ const SortableLayerItem = memo(
               css={`
                 width: 16px;
                 flex: none;
-                padding: 0 2px;
               `}
             >
               <Tooltip2 placement="right">
@@ -704,7 +786,7 @@ const SortableLayerItem = memo(
             selectedLayerUids.includes(layer.uid) && (
               <>
                 <ContextMenuItem onClick={handleClickConvertToGroup}>
-                  選択したレイヤーをグループ化
+                  {t('layerView.context.makeGroup')}
                 </ContextMenuItem>
                 <Separator />
               </>
@@ -723,6 +805,24 @@ const SortableLayerItem = memo(
           </ContextMenuItem>
           <ContextMenuItem onClick={handleClickDuplicateLayer}>
             {t('layerView.context.duplicate')}
+          </ContextMenuItem>
+
+          <Separator />
+          <ContextMenuItem
+            onClick={handleClickTrimByDocument}
+            hidden={layer.layerType !== 'raster'}
+          >
+            {t('layerView.context.trimByCanvasRect')}
+          </ContextMenuItem>
+          <ContextMenuItem
+            onClick={handleClickTruncateLayer}
+            hidden={
+              layer.layerType === 'reference' ||
+              layer.layerType === 'group' ||
+              layer.layerType === 'text'
+            }
+          >
+            {t('layerView.context.truncate')}
           </ContextMenuItem>
           <Separator />
           <ContextMenuItem onClick={handleClickDeleteLayer}>
@@ -744,7 +844,7 @@ const SortableObjectItem = memo(function SortableObjectItem({
   entry: FlatLayerEntry
 }) {
   if (entry.type !== 'object') return null
-  const { id, object, parentPath, depth } = entry
+  const { object, parentPath, depth } = entry
 
   const { t } = useTranslation('app')
   const theme = useTheme()
@@ -838,13 +938,18 @@ const SortableObjectItem = memo(function SortableObjectItem({
         ref={setNodeRef}
         css={`
           display: flex;
-          gap: 4px;
-          padding: 6px 8px;
-          margin-left: 16px;
+          gap: 6px;
+          padding: 3px 8px;
+          /* margin-left: 16px; */
+
+          &:hover {
+            background-color: ${({ theme }: ThemeProp) =>
+              rgba(theme.surface.sidebarListActive, 0.1)};
+          }
         `}
         style={{
           ...style,
-          marginLeft: depth * 16,
+          paddingLeft: 24 + depth * 16,
           backgroundColor:
             activeObject?.uid === object.uid
               ? theme.surface.sidebarListActive
@@ -880,7 +985,12 @@ const SortableObjectItem = memo(function SortableObjectItem({
         </div>
 
         <div onClick={handleClickRemoveObject}>
-          <DeleteBin width={16} />
+          <DeleteBin
+            css={`
+              opacity: 0.4;
+            `}
+            width={16}
+          />
         </div>
       </div>
 

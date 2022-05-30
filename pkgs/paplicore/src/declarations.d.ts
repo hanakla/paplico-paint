@@ -13,6 +13,11 @@ declare module 'svg-path-bounds' {
   export = _
 }
 
+declare module 'normalize-svg-path' {
+  function _(path: Array<[string, ...number[]]>): Array<[string, ...number[]]>
+  export = _
+}
+
 declare module 'point-at-length' {
   const _: (path: string) => {
     length(): number

@@ -101,7 +101,7 @@ export const ActionSheet = forwardRef<HTMLDivElement, Props>(
               width: 100%;
               max-width: 400px;
               padding: 12px;
-              padding-bottom: env(safe-area-inset-bottom, 16px);
+              padding-bottom: max(16px, env(safe-area-inset-bottom, 16px));
               overflow: auto;
 
               ${styleWhen(fill)`

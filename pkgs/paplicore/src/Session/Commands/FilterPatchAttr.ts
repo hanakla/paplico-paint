@@ -39,7 +39,7 @@ export class FilterPatchAttr implements ICommand {
       }
     )
 
-    const original = deepClone(pick(filter, ['visible', 'settings']))
+    const original = deepClone(pick(filter, Filter.patchableAttributes))
     const next = deepClone(original)
     this.patcher(next)
 

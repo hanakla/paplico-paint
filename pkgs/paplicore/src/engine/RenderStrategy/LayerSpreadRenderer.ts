@@ -168,6 +168,7 @@ export class LayerSpreadRenderer
             layer,
             size: { width: document.width, height: document.height },
             filterSettings: deepClone(filter.settings),
+            opacity: filter.opacity,
             handleLayerBitmapRequest,
           })
           await engine.compositeLayers(bufferCtx, destCtx, {
@@ -221,6 +222,7 @@ export class LayerSpreadRenderer
           layer,
           size: { width: document.width, height: document.height },
           filterSettings: deepClone(filter.settings),
+          opacity: filter.opacity,
           handleLayerBitmapRequest,
         })
       }

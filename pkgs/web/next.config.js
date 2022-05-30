@@ -51,7 +51,7 @@ const config = {
 
     config.resolve.alias = {
       ...config.resolve.alias,
-      '@paplico/core': '@paplico/core/src/index.ts',
+      '@paplico/core': path.join(__dirname, '../paplicore/src/index.ts'),
       // '@paplico/ui': 'paplico-ui/src/index.ts',
       '🙌': path.join(__dirname, './src'),
       'audio-worklet': path.resolve(__dirname, 'src/utils/audio-worklet'),

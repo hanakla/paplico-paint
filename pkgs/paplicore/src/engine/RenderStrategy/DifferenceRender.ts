@@ -480,6 +480,7 @@ export class DifferenceRender implements IRenderStrategy {
       perf_filterLayer.log()
       perf_composite.log()
 
+      setCanvasSize(filterCtx.canvas, 0, 0)
       this.bufferCtx.release(layerBufferCtx)
     }
   }

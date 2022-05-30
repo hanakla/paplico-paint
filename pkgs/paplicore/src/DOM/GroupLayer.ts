@@ -2,7 +2,7 @@ import { v4 } from 'uuid'
 
 import { LayerTypes } from './index'
 import { Emitter } from '../Engine3_Emitter'
-import { assign, pick } from '../utils/object'
+import { assign, deepClone, pick } from '../utils/object'
 import { deserializeLayer } from './desrializeLayer'
 import { Filter } from './Filter'
 import { CompositeMode, ILayer, LayerEvents } from './ILayer'
@@ -113,7 +113,7 @@ export class GroupLayer extends Emitter<Events> implements ILayer {
     if (prevLength !== this.layers.length) this.emit('layersChanged')
   }
 
-  public serialize() {
+  public serialize(): any {
     return {
       layerType: this.layerType,
       uid: this.uid,
@@ -124,15 +124,26 @@ export class GroupLayer extends Emitter<Events> implements ILayer {
       opacity: this.opacity,
       x: this.x,
       y: this.y,
-      layers: this.layers.map((l) => l.serialize()),
+      layers: this.layers.map((l) => l.serialize()) as unknown as any[],
       filters: this.filters.map((f) => f.serialize()),
       features: this.features,
     }
   }
 
-  public clone(): this {
-    return GroupLayer.deserialize(
-      assign(this.serialize(), { uid: `grouplayer-${v4()}` })
-    ) as this
+  public clone() {
+    const g = GroupLayer.create({
+      name: this.name,
+      lock: this.lock,
+      opacity: this.opacity,
+      visible: this.visible,
+      x: this.x,
+      y: this.y,
+      compositeIsolation: this.compositeIsolation,
+      compositeMode: this.compositeMode,
+      features: deepClone(this.features),
+      layers: this.layers.map((l) => l.clone()),
+    })
+
+    return g as this
   }
 }

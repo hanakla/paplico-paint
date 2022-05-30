@@ -28,7 +28,7 @@ export class Filter
   implements ISilkDOMElement, Filter.Attributes
 {
   public static readonly patchableAttributes: readonly (keyof Filter.Attributes)[] =
-    Object.freeze(['visible', 'settings'])
+    Object.freeze(['visible', 'settings', 'opacity', 'settings'])
 
   public uid: string = `filter-${v4()}`
   public filterId: string = ''

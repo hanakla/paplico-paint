@@ -1,4 +1,4 @@
-import deferred, { DeferredPromise } from 'p-defer'
+import { deferred, DeferredPromise } from './utils/promise'
 
 export class AtomicResource<T> {
   private que: DeferredPromise<T>[] = []

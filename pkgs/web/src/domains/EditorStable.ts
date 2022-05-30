@@ -144,7 +144,7 @@ export const [EditorStore, EditorOps] = minOps('Editor', {
     currentDocument: null,
     documentFetchStatus: Object.create(null),
     renderSetting: { disableAllFilters: false, updateThumbnail: true },
-    currentTool: 'cursor',
+    currentTool: 'draw',
     currentFill: null,
     currentStroke: null,
     activeLayerPath: null,
@@ -367,7 +367,10 @@ export const [EditorStore, EditorOps] = minOps('Editor', {
         await x.executeOperation(EditorOps.saveCurrentDocumentToIdb)
       }
     },
-    async saveCurrentDocumentToIdb(x) {
+    async saveCurrentDocumentToIdb(
+      x,
+      { notify = false }: { notify?: boolean } = {}
+    ) {
       if (!x.state.engine) return
       if (!x.state.currentDocument) return
 
@@ -375,6 +378,13 @@ export const [EditorStore, EditorOps] = minOps('Editor', {
 
       const db = await connectIdb()
       x.finally(() => db.close())
+
+      notify &&
+        (await x.executeOperation(NotifyOps.create, {
+          area: 'commandFlash',
+          messageKey: 'saving',
+          timeout: 1000,
+        }))
 
       try {
         const { blob } = exportProject(document, x.getStore)
@@ -417,7 +427,14 @@ export const [EditorStore, EditorOps] = minOps('Editor', {
           updatedAt: new Date(),
         })
 
-        x.executeOperation(NotifyOps.create, {
+        notify &&
+          (await x.executeOperation(NotifyOps.create, {
+            area: 'commandFlash',
+            messageKey: 'saved',
+            timeout: 1000,
+          }))
+
+        await x.executeOperation(NotifyOps.create, {
           area: 'save',
           messageKey: 'exports.saved',
           timeout: 3000,
@@ -476,6 +493,7 @@ export const [EditorStore, EditorOps] = minOps('Editor', {
 
         // d.activeSessionId = sid
 
+        d.currentTool = 'draw'
         d.currentDocument = document
         d.renderStrategy = renderStrategy
         d.currentFileHandler = null
@@ -852,7 +870,7 @@ export const EditorSelector = {
       brushId: '@paplico/brushes/brush',
       color: { r: 26, g: 26, b: 26 },
       opacity: 1,
-      size: 1,
+      size: 20,
       specific: null,
     })
   ),

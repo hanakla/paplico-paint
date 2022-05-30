@@ -2,6 +2,7 @@ import { Active, Over } from '@dnd-kit/core'
 import { rgba } from 'polished'
 import { PaplicoEngine, PapDOM, PapInks, PapValueTypes } from '@paplico/core'
 import { assign } from '🙌/utils/object'
+import arrayMove from 'array-move'
 
 export const isEventIgnoringTarget = (target: EventTarget | null) => {
   return (target as HTMLElement)?.dataset?.isPaintCanvas != null
@@ -13,7 +14,6 @@ export type FlatLayerEntry = {
   index: number
   indexInParent: number
   depth: number
-  parentIndex: number | null
   parentPath: string[]
 } & (
   | {
@@ -44,9 +44,22 @@ export const calcLayerMove = (
   const movedEntry = flattenLayers[movedEntryIndex]
   const entryAtNewIndex = flattenLayers[newIndexOnFlatten]
 
-  const parent = entryAtNewIndex.parentIndex
-    ? flattenLayers[entryAtNewIndex.parentIndex]
-    : null
+  let parent: FlatLayerEntry | null =
+    // prettier-ignore
+    newIndexOnFlatten === 0 ? null
+      : (entryAtNewIndex.type === 'layer' && entryAtNewIndex.layer.layerType === 'group') ? entryAtNewIndex
+      : entryAtNewIndex.parentId != null ? (flattenLayers.find(e => e.id === entryAtNewIndex.parentId) ?? null)
+      : null
+
+  const entryAtPrevIndex = flattenLayers[newIndexOnFlatten - 1]
+  if (entryAtPrevIndex) {
+    console.log(active.rect.current)
+    if (entryAtPrevIndex.depth !== movedEntry.depth) {
+      parent = flattenLayers.find(
+        (entry) => entry.id === entryAtPrevIndex.parentId
+      )!
+    }
+  }
 
   if (movedEntry.type === 'layer') {
     if (
@@ -56,12 +69,23 @@ export const calcLayerMove = (
       return null
 
     return {
+      type: 'layer' as const,
       sourcePath: [...movedEntry.parentPath, movedEntry.layer.uid],
       targetParentPath:
         parent?.type === 'layer'
           ? [...parent.parentPath, parent.layer.uid]
           : [],
       targetIndex: entryAtNewIndex.indexInParent,
+    }
+  } else if (movedEntry.type === 'object') {
+    if (parent?.type !== 'layer') return null
+
+    return {
+      type: 'object' as const,
+      sourcePath: movedEntry.parentPath,
+      targetParentPath: [...parent.parentPath, parent.layer.uid],
+      targetIndex: entryAtNewIndex.indexInParent,
+      objectUid: movedEntry.object.uid,
     }
   }
 
@@ -82,7 +106,11 @@ const findLastIndexFrom = <T>(
 
 export const flattenLayers = (
   layers: PapDOM.LayerTypes[],
-  filter: (entry: FlatLayerEntry) => boolean = () => true
+  filter: (
+    entry: FlatLayerEntry,
+    idx: number,
+    list: FlatLayerEntry[]
+  ) => boolean = () => true
 ): FlatLayerEntry[] => {
   const flatter = (
     layers: PapDOM.LayerTypes[],
@@ -97,7 +125,6 @@ export const flattenLayers = (
         type: 'layer',
         layer,
         parentPath,
-        parentIndex,
         indexInParent: index,
         depth: parentPath.length,
         index: entries.length,
@@ -113,6 +140,8 @@ export const flattenLayers = (
           entries
         )
       } else if (layer.layerType === 'vector') {
+        const parentIdx = entries.indexOf(entry)
+
         entries.push(
           ...layer.objects.map((o, i) => ({
             id: o.uid,
@@ -120,7 +149,6 @@ export const flattenLayers = (
             indexInParent: i,
             type: 'object' as const,
             object: o,
-            parentIndex: entries.length - 1,
             parentPath: [...parentPath, layer.uid],
             depth: parentPath.length + 1,
             index: entries.length + 1 + i,

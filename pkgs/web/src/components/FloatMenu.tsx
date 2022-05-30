@@ -37,5 +37,5 @@ export const FloatMenuArrow = styled.div`
   border: 6px solid;
   border-color: ${({ theme }) => theme.color.surface3} transparent transparent
     transparent;
-  ${floatingDropShadow}
+  /* ${floatingDropShadow} */
 `

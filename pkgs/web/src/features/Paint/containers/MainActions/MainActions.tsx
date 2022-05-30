@@ -183,7 +183,14 @@ export const MainActions = memo(function MainActions() {
   })
 
   const handleClickColor = useFunk((e: MouseEvent<HTMLDivElement>) => {
-    if (colorPickerPopRef.current!.contains(e.target as HTMLElement)) return
+    if (
+      DOMUtils.isChildren(
+        e.target,
+        colorPickerFl.refs.reference.current as Element
+      )
+    )
+      return
+
     toggleBrushColorPicker()
   })
 
@@ -241,6 +248,18 @@ export const MainActions = memo(function MainActions() {
     ],
   })
 
+  const colorPickerArrowRef = useRef<HTMLDivElement | null>(null)
+  const colorPickerFl = useFloating({
+    placement: 'top',
+    strategy: 'absolute',
+    middleware: [
+      offset(12),
+      shift({ padding: 8 }),
+      flip(),
+      arrow({ element: colorPickerArrowRef }),
+    ],
+  })
+
   const layersArrowRef = useRef<HTMLDivElement | null>(null)
   const layersFl = useFloating({
     strategy: 'absolute',
@@ -254,12 +273,10 @@ export const MainActions = memo(function MainActions() {
     ],
   })
 
-  const brushColorRootRef = useRef<HTMLDivElement | null>(null)
-  const colorPickerPopRef = useRef<HTMLDivElement | null>(null)
-
   const vectorColorRootRef = useRef<HTMLDivElement | null>(null)
 
   useAutoUpdateFloating(brushesFl)
+  useAutoUpdateFloating(colorPickerFl)
   useAutoUpdateFloating(layersFl)
 
   useClickAway(appMenuOpenerRef, (e) => {
@@ -267,8 +284,15 @@ export const MainActions = memo(function MainActions() {
     toggleAppMenuOpened(false)
   })
 
-  useClickAway(colorPickerPopRef, (e) => {
-    if (DOMUtils.childrenOrSelf(e.target, colorPickerPopRef.current)) return
+  useClickAway(colorPickerFl.refs.floating, (e) => {
+    if (
+      DOMUtils.childrenOrSelf(
+        e.target,
+        colorPickerFl.refs.reference.current as HTMLElement | null
+      )
+    )
+      return
+
     if (pickerOpened) toggleBrushColorPicker(false)
   })
 
@@ -293,11 +317,11 @@ export const MainActions = memo(function MainActions() {
     }
   )
 
-  useDelayedLeave(brushColorRootRef, 1000, () => {
+  useDelayedLeave(colorPickerFl.refs.floating, 1300, () => {
     toggleBrushColorPicker(false)
   })
 
-  // useDelayedLeave(vectorColorRootRef, 1000, () => {
+  // useDelayedLeave(vectorColorRootRef, 2000, () => {
   //   toggleVectorFillColorOpened(false)
   // })
 
@@ -347,6 +371,7 @@ export const MainActions = memo(function MainActions() {
     ({ delta }) => {
       setMenuPos((pos) => ({ x: pos.x + delta[0], y: pos.y + delta[1] }))
       brushesFl.update()
+      colorPickerFl.update()
       layersFl.update()
     },
     {
@@ -507,8 +532,9 @@ export const MainActions = memo(function MainActions() {
       >
         {activeLayer?.layerType === 'raster' ? (
           <div
-            ref={brushColorRootRef}
+            ref={colorPickerFl.reference}
             css={`
+              position: relative;
               display: inline-block;
               width: 36px;
               height: 36px;
@@ -519,34 +545,33 @@ export const MainActions = memo(function MainActions() {
             style={{ backgroundColor: rgba(color.r, color.g, color.b, 1) }}
             onClick={handleClickColor}
           >
-            <div
-              ref={colorPickerPopRef}
-              style={{
-                position: 'relative',
-                ...(pickerOpened
-                  ? { opacity: 1, pointerEvents: 'all' }
-                  : { opacity: 0, pointerEvents: 'none' }),
-              }}
-              data-ignore-click
-            >
-              {/* <ChromePicker
-                css={`
-                  position: absolute;
-                  left: 50%;
-                  bottom: 100%;
-                  transform: translateX(-50%);
-                `}
-                color={color}
-                onChange={handleChangeColor}
-                onChangeComplete={handleChangeCompleteColor}
-                disableAlpha
-              /> */}
-              <CustomColorPicker
-                color={color}
-                onChange={handleChangeColor}
-                onChangeComplete={handleChangeCompleteColor}
-                disableAlpha
-              />
+            <div data-ignore-click>
+              <FloatMenu
+                ref={colorPickerFl.floating}
+                style={{
+                  position: colorPickerFl.strategy,
+                  left: colorPickerFl.x ?? 0,
+                  top: colorPickerFl.y ?? 0,
+                  ...(pickerOpened
+                    ? { opacity: 1, pointerEvents: 'all' }
+                    : { opacity: 0, pointerEvents: 'none' }),
+                }}
+              >
+                <BrushColorPicker
+                  color={color}
+                  onChange={handleChangeColor}
+                  onChangeComplete={handleChangeCompleteColor}
+                  disableAlpha
+                />
+
+                <FloatMenuArrow
+                  ref={colorPickerArrowRef}
+                  style={{
+                    left: colorPickerFl.middlewareData.arrow?.x ?? 0,
+                    // top: colorPickerFl.middlewareData.arrow?.y ?? 0,
+                  }}
+                />
+              </FloatMenu>
             </div>
           </div>
         ) : (
@@ -1588,6 +1613,24 @@ const VectorColorPicker = memo(function VectorColorPicker({
     </div>
   )
 })
+
+const BrushColorPicker = memo(
+  CustomPicker<{ disableAlpha?: boolean }>(function BrushColorPicker(props) {
+    return (
+      <div
+        css={css`
+          width: 300px;
+          border-radius: 4px;
+          filter: drop-shadow(0 0 1px ${({ theme }) => theme.colors.surface6});
+          ${tm((o) => [o.bg.surface2])}
+        `}
+        data-ignore-click
+      >
+        <CustomColorPicker {...props} />
+      </div>
+    )
+  })
+)
 
 const CustomColorPicker = CustomPicker<{ disableAlpha?: boolean }>(
   function CustomColorPicker(props) {

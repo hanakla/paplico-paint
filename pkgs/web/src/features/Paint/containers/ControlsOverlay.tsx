@@ -47,10 +47,14 @@ export const ControlsOverlay = ({
         transform={`rotate(0) translate(${x} ${y})`}
         origin="center"
       >
-        {activeLayer?.layerType === 'raster' && <RasterLayerControl />}
-        {activeLayer?.layerType === 'group' && <GroupLayerControl />}
-        {activeLayer?.layerType === 'vector' && <VectorLayerControl />}
-        {activeLayer?.layerType === 'text' && <TextLayerControl />}
+        {!activeLayer?.lock && (
+          <>
+            {activeLayer?.layerType === 'raster' && <RasterLayerControl />}
+            {activeLayer?.layerType === 'group' && <GroupLayerControl />}
+            {activeLayer?.layerType === 'vector' && <VectorLayerControl />}
+            {activeLayer?.layerType === 'text' && <TextLayerControl />}
+          </>
+        )}
       </g>
     </svg>
   )

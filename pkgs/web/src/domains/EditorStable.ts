@@ -625,7 +625,7 @@ export const [EditorStore, EditorOps] = minOps('Editor', {
       // x.commit({ vectorStroking })
     },
 
-    setActiveLayer: (x, path: string[], objectUid?: string) => {
+    setActiveLayer: (x, path: string[] | null, objectUid?: string) => {
       if (shallowEquals(path, x.state.session?.activeLayerPath)) return
 
       x.commit((draft) => {

@@ -11,7 +11,7 @@ import {
   useRef,
   useState,
 } from 'react'
-import { usePrevious, useUpdate } from 'react-use'
+import { useUpdate } from 'react-use'
 import deepEqual from 'fast-deep-equal'
 
 import { deepClone } from './clone'

@@ -32,6 +32,7 @@ import { OutlineFilter } from '../Filters/Outline'
 import { ZoomBlurFilter } from '../Filters/ZoomBlur'
 import { KawaseBlurFilter } from '../Filters/KawaseBlur'
 import { UVReplaceFilter } from '../Filters/UVReplace'
+import { HueShiftFilter } from '../Filters/HueShift'
 import { nanoid } from 'nanoid'
 import {
   logGroup,
@@ -79,6 +80,7 @@ export class PaplicoEngine {
       engine.toolRegistry.registerFilter(ZoomBlurFilter),
       engine.toolRegistry.registerFilter(KawaseBlurFilter),
       engine.toolRegistry.registerFilter(UVReplaceFilter),
+      engine.toolRegistry.registerFilter(HueShiftFilter),
     ])
 
     return engine

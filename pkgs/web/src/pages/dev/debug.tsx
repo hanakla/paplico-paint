@@ -385,12 +385,22 @@ export default function Debug() {
           //     '@paplico/filters/kawase-blur'
           //   )!.initialConfig,
           // })
+          // PapDOM.Filter.create({
+          //   filterId: '@paplico/filters/gradient-map',
+          //   visible: true,
+          //   settings: engine.toolRegistry.getFilterInstance(
+          //     '@paplico/filters/gradient-map'
+          //   )!.initialConfig,
+          // }),
           PapDOM.Filter.create({
-            filterId: '@paplico/filters/gradient-map',
+            filterId: '@paplico/filters/hue-shift',
             visible: true,
-            settings: engine.toolRegistry.getFilterInstance(
-              '@paplico/filters/gradient-map'
-            )!.initialConfig,
+            settings: {
+              ...engine.toolRegistry.getFilterInstance(
+                '@paplico/filters/hue-shift'
+              )!.initialConfig,
+              shift: 0.5,
+            },
           }),
           ...[]
         )

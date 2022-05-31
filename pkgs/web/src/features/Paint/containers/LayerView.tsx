@@ -22,6 +22,8 @@ import {
   DeleteBin,
   Filter3,
   Guide,
+  Lock,
+  LockUnlock,
   Shape,
 } from '@styled-icons/remix-fill'
 import { css } from 'styled-components'
@@ -432,6 +434,16 @@ const SortableLayerItem = memo(
       )
     })
 
+    const handleToggleLock = useFunk(() => {
+      execute(
+        EditorOps.runCommand,
+        new PapCommands.Layer.PatchLayerAttr({
+          patch: { lock: !layer.lock },
+          pathToTargetLayer: [...parentPath, layer.uid],
+        })
+      )
+    })
+
     const handleClickRoot = useFunk((e: MouseEvent<HTMLDivElement>) => {
       if (
         DOMUtils.closestOrSelf(e.target, '[data-ignore-click]') ||
@@ -537,7 +549,7 @@ const SortableLayerItem = memo(
       }
     )
 
-    const handleClickDeleteLayer = useFunk(
+    const handleClickRemoveLayer = useFunk(
       ({ props }: LayerContextMenuParam) => {
         execute(
           EditorOps.runCommand,
@@ -545,6 +557,8 @@ const SortableLayerItem = memo(
             pathToTargetLayer: props!.layerPath,
           })
         )
+
+        execute(EditorOps.setActiveLayer, null)
       }
     )
 
@@ -683,6 +697,19 @@ const SortableLayerItem = memo(
               data-ignore-click
             >
               {layer.visible ? <Eye width={16} /> : <EyeClose width={16} />}
+            </div>
+
+            <div
+              css={css`
+                color: ${({ theme }) => theme.colors.white10};
+              `}
+              style={{
+                ...(layer.lock ? {} : { opacity: 0.5 }),
+              }}
+              onClick={handleToggleLock}
+              data-ignore-click
+            >
+              {layer.lock ? <Lock width={16} /> : <LockUnlock width={16} />}
             </div>
 
             <img
@@ -825,7 +852,7 @@ const SortableLayerItem = memo(
             {t('layerView.context.truncate')}
           </ContextMenuItem>
           <Separator />
-          <ContextMenuItem onClick={handleClickDeleteLayer}>
+          <ContextMenuItem onClick={handleClickRemoveLayer}>
             {t('remove')}
           </ContextMenuItem>
         </ContextMenu>

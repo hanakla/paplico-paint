@@ -7,13 +7,11 @@ import { useClickAway, useToggle } from 'react-use'
 import { useTheme } from 'styled-components'
 import { css } from 'styled-components'
 import { PapCommands, PapDOM } from '@paplico/core'
-import { offset, shift, useFloating } from '@floating-ui/react-dom'
+import { offset, shift, size, useFloating } from '@floating-ui/react-dom'
 import {
   closestCenter,
   DndContext,
   DragEndEvent,
-  DragOverlay,
-  PointerSensor,
   useSensor,
   useSensors,
 } from '@dnd-kit/core'
@@ -42,12 +40,12 @@ import { FilterSettings } from './FilterSettings'
 import { EditorOps, EditorSelector, EditorStore } from '🙌/domains/EditorStable'
 import { isEventIgnoringTarget } from '../helpers'
 import { SidebarPane } from '🙌/components/SidebarPane'
-import { useFleur } from '🙌/utils/hooks'
+import { useFleur, useAutoUpdateFloating } from '🙌/utils/hooks'
 import { useLayerWatch } from '../hooks'
 import { DisableOnInputPointerSensor } from '../dndkit-helper'
-import { pick } from '../../../utils/object'
-import { DragDots } from '../../../components/icons/DragDots'
-import { ThemeProp, tm } from '../../../utils/theme'
+import { pick } from '🙌/utils/object'
+import { DragDots } from '🙌/components/icons/DragDots'
+import { ThemeProp, tm } from '🙌/utils/theme'
 
 export const FilterView = memo(() => {
   const { t } = useTranslation('app')
@@ -66,10 +64,10 @@ export const FilterView = memo(() => {
   const [listOpened, toggleListOpened] = useToggle(false)
   const [sortingFilterUid, setSortingFilterUid] = useState<string | null>(null)
 
-  const listfl = useFloating({
+  const listFl = useFloating({
     placement: 'bottom-end',
     strategy: 'fixed',
-    middleware: [shift(), offset(4)],
+    middleware: [shift(), size(), offset(4)],
   })
 
   const sensors = useSensors(
@@ -126,10 +124,12 @@ export const FilterView = memo(() => {
     )
   })
 
-  useClickAway(listfl.refs.floating, (e) => {
+  useClickAway(listFl.refs.floating, (e) => {
     if (isEventIgnoringTarget(e.target)) return
     toggleListOpened(false)
   })
+
+  useAutoUpdateFloating(listFl)
 
   return (
     <SidebarPane
@@ -138,7 +138,7 @@ export const FilterView = memo(() => {
           {t('layerFilter')}
 
           <div
-            ref={listfl.reference}
+            ref={listFl.reference}
             css={`
               position: relative;
               margin-left: auto;
@@ -148,7 +148,7 @@ export const FilterView = memo(() => {
 
             <Portal>
               <ul
-                ref={listfl.floating}
+                ref={listFl.floating}
                 css={css`
                   position: fixed;
                   z-index: 1;
@@ -167,9 +167,9 @@ export const FilterView = memo(() => {
                   }
                 `}
                 style={{
-                  position: listfl.strategy,
-                  left: listfl.x ?? 0,
-                  top: listfl.y ?? 0,
+                  position: listFl.strategy,
+                  left: listFl.x ?? 0,
+                  top: listFl.y ?? 0,
                   ...(listOpened
                     ? { visibility: 'visible', pointerEvents: 'all' }
                     : { visibility: 'hidden', pointerEvents: 'none' }),

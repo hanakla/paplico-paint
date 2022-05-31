@@ -335,6 +335,7 @@ export const PaintPage = memo(function PaintPage({}) {
       })
     )
   })
+
   useFunkyGlobalMouseTrap(['command+down', 'ctrl+down'], (e) => {
     const activeLayer = EditorSelector.activeLayer(getStore)
     const activeLayerPath = EditorSelector.activeLayerPath(getStore)
@@ -676,7 +677,7 @@ export const PaintPage = memo(function PaintPage({}) {
             >
               <Sidebar
                 style={{
-                  width: sidebarOpened ? 200 : 32,
+                  width: sidebarOpened ? 220 : 32,
                 }}
                 closed={!sidebarOpened}
                 side="left"
@@ -686,7 +687,7 @@ export const PaintPage = memo(function PaintPage({}) {
                     display: flex;
                     flex-flow: column;
                     flex: 1;
-                    width: 200px;
+                    /* width: 200px; */
                     height: 100%;
                     padding-bottom: env(safe-area-inset-bottom);
                   `}
@@ -729,7 +730,7 @@ export const PaintPage = memo(function PaintPage({}) {
                 `}
               `}
               style={{
-                width: sidebarOpened ? 200 : 32,
+                width: sidebarOpened ? 220 : 32,
               }}
               closed={!sidebarOpened}
               side="right"
@@ -744,7 +745,7 @@ export const PaintPage = memo(function PaintPage({}) {
                   flex-flow: column;
                   margin-top: auto;
                   /* flex: none; */
-                  width: 200px;
+                  /* width: 200px; */
                 `}
               >
                 {/*

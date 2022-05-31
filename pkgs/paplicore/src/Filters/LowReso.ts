@@ -1,7 +1,6 @@
 import { FilterContext, IFilter } from '../engine/IFilter'
 import { WebGLContext } from '../engine/WebGLContext'
 
-// From: https://wgld.org/d/glsl/g007.html
 const FRAGMENT_SHADER = `
   precision mediump float;
 

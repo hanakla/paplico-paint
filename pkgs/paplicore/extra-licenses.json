@@ -1,0 +1,44 @@
+{
+  "forks": [
+    {
+      "name": "substack/point-at-length",
+      "url": "https://github.com/substack/point-at-length"
+    },
+    {
+      "name": "jkroso/parse-svg-path",
+      "url": "https://github.com/jkroso/parse-svg-path"
+    },
+    {
+      "name": "dy/svg-path-bounds",
+      "url": "https://github.com/dy/svg-path-bounds"
+    },
+    {
+      "name": "jkroso/abs-svg-path",
+      "url": "https://github.com/jkroso/abs-svg-path/blob/master/index.js"
+    },
+    {
+      "name": "jkroso/normalize-svg-path",
+      "url": "https://github.com/jkroso/normalize-svg-path/blob/master/index.js"
+    },
+    {
+      "name": "mrdoob/three.js/examples/jsm/postprocessing/HalftonePass.js",
+      "url": "https://github.com/mrdoob/three.js/blob/master/examples/jsm/postprocessing/HalftonePass.js"
+    },
+    {
+      "name": "mrdoob/three.js/examples/jsm/shaders/HalftoneShader.js",
+      "url": "https://github.com/mrdoob/three.js/blob/master/examples/jsm/shaders/HalftoneShader.js"
+    },
+    {
+      "name": "pixijs/filters/filters/kawase-blur",
+      "url": "https://github.com/pixijs/filters/blob/main/filters/kawase-blur"
+    },
+    {
+      "name": "pixijs/filters/filters/outline",
+      "url": "https://github.com/pixijs/filters/blob/main/filters/outline"
+    },
+    {
+      "name": "pixijs/filters/filters/zoom-blur",
+      "url": "https://github.com/pixijs/filters/tree/main/filters/zoom-blur"
+    }
+  ]
+}

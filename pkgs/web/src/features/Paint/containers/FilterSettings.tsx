@@ -25,6 +25,7 @@ import {
 } from './FilterSettings/_components'
 import { Noise } from './FilterSettings/Noise'
 import { GradientMap } from './FilterSettings/GradientMap'
+import { HueShift } from './FilterSettings/HueShift'
 
 type Props = { layer: PapDOM.LayerTypes; filter: PapDOM.Filter }
 
@@ -72,6 +73,9 @@ export const FilterSettings = ({ layer, filter }: Props) => {
     }
     case '@paplico/filters/gradient-map': {
       return <GradientMap layer={layer} filter={filter} />
+    }
+    case '@paplico/filters/hue-shift': {
+      return <HueShift layer={layer} filter={filter} />
     }
     default: {
       return <>🤔</>

@@ -8,7 +8,7 @@ import { EditorOps, EditorSelector } from '🙌/domains/EditorStable'
 import { useFleur } from '🙌/utils/hooks'
 import { TextInput } from '../../../../components/TextInput'
 import { useTransactionCommand } from '../../hooks'
-import { Column } from './_components'
+import { Column, OpacityColumn } from './_components'
 import { FilterPaneProps } from './_shared'
 
 export const Noise = memo(function Noise({ layer, filter }: FilterPaneProps) {
@@ -105,6 +105,7 @@ export const Noise = memo(function Noise({ layer, filter }: FilterPaneProps) {
           onBlur={handleBlur}
         />
       </Column>
+      <OpacityColumn filter={filter} />
     </div>
   )
 })

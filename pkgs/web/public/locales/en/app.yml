@@ -112,6 +112,11 @@ filterOptions:
     sameBlocks: Both same size
     levelX: Holizontal blocks
     levelY: Vetical blocks
+  '@paplico/filters/noise':
+    opacity: 'Opacity'
+    color: Colored noise
+    scale: Scale
+    seed: Seed number
   '@paplico/filters/outline':
     opacity: 'Opacity'
     thickness: Thickness
@@ -138,6 +143,12 @@ filterOptions:
   '@paplico/filters/gradient-map':
     opacity: 'Opacity'
     map: Map
+  '@paplico/filters/hue-shift':
+    opacity: 'Opacity'
+    shift: Shift amount
+    colorSpace: Color space
+    hsv: Normal
+    yiq: Keep luminance
 
 layerView:
   context:

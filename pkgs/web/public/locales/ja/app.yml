@@ -81,6 +81,7 @@ filters:
   '@paplico/filters/kawase-blur': カワセブラー
   '@paplico/filters/uvreplace': ピクセル移動
   '@paplico/filters/gradient-map': グラデーションマップ
+  '@paplico/filters/hue-shift': 色相ずらし
 
 filterOptions:
   '@paplico/filters/bloom':
@@ -121,6 +122,7 @@ filterOptions:
     opacity: '透明度'
     color: カラーノイズ
     scale: 大きさ
+    seed: シード値
   '@paplico/filters/outline':
     opacity: '透明度'
     thickness: 太さ
@@ -152,6 +154,12 @@ filterOptions:
   '@paplico/filters/gradient-map':
     opacity: '透明度'
     map: マップ
+  '@paplico/filters/hue-shift':
+    opacity: '透明度'
+    shift: ずらし量
+    colorSpace: 色空間
+    hsv: 通常
+    yiq: 輝度を保つ
 
 layerView:
   context:

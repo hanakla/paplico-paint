@@ -3,7 +3,6 @@ import { FilterContext, FilterInitContext, IFilter } from '../engine/IFilter'
 // import { WebGLContext } from '../engine/WebGLContext'
 import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer'
 import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass'
-import { FXAAShader } from 'three/examples/jsm/shaders/FXAAShader'
 import { HalftonePass } from './HalfTone/HalftonePass'
 import {
   CanvasTexture,

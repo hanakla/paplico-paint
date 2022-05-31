@@ -19,7 +19,7 @@ export const FakeInput = forwardRef<
         border-radius: 2px;
         color: inherit;
         outline: none;
-        /* font-size: inherit; */
+        font-size: inherit;
         background-color: ${({ theme }) => theme.colors.whiteFade10};
         color: ${({ theme }) => theme.color.text1};
 

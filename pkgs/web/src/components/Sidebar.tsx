@@ -20,7 +20,7 @@ export const Sidebar = forwardRef<HTMLDivElement, Props>(
           display: flex;
           flex-flow: column;
           height: 100%;
-          max-width: 200px;
+          max-width: 250px;
           overflow: hidden;
           background-color: ${({ theme }) => theme.color.surface3};
           ${tm((o) => [

@@ -1001,6 +1001,8 @@ const SortableObjectItem = memo(function SortableObjectItem({
           css={`
             display: inline-block;
             flex: 1;
+            font-size: 11px;
+            line-height: 14px;
           `}
           data-object-id={object.uid}
           onClick={handleClickObject}
@@ -1120,16 +1122,6 @@ const ActiveLayerPane = memo(function ActiveLayerPane() {
       </div>
     </div>
   )
-})
-
-const ObjectItem = memo(() => {
-  const { attributes, listeners, setNodeRef, transform, transition } =
-    useSortable({ id: layer.uid })
-
-  const style = {
-    transform: CSS.Transform.toString(transform),
-    transition,
-  }
 })
 
 type LayerContextMenuParam = ContextMenuParam<{ layerPath: string[] }>

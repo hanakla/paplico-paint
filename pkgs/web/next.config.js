@@ -14,7 +14,7 @@ const config = {
   experimental: {
     // reactRoot: true,
     // reactMode: 'concurrent',
-    swcMinify: true,
+    // swcMinify: true,
   },
   pwa: {
     dest: 'public',

@@ -571,7 +571,7 @@ const SortableLayerItem = memo(
             new PapCommands.RasterLayer.UpdateBitmap({
               pathToTargetLayer: props!.layerPath,
               update: (bitmap) => {
-                bitmap.fill(0)
+                bitmap.fill(0, 0)
               },
             })
           )

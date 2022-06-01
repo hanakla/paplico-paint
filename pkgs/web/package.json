@@ -18,7 +18,7 @@
     "@fleur/mordred": "^0.1.0-pre.3",
     "@fleur/next": "^1.0.0",
     "@fleur/react": "^5.0.3",
-    "@floating-ui/react-dom": "^0.6.1",
+    "@floating-ui/react-dom": "^0.7.1",
     "@hanakla/arma": "^0.3.3",
     "@popperjs/core": "^2.9.3",
     "@react-aria/select": "^3.6.4",

@@ -9,7 +9,7 @@ import {
   setCanvasSize,
   setCanvasSizeIfDifferent,
 } from '../../utils'
-import { deepClone, pick } from '../../utils/object'
+import { pick } from '../../utils/object'
 import { IRenderStrategy } from './IRenderStrategy'
 import { AtomicResource } from '../../AtomicResource'
 import { CompositeMode } from '../../DOM/ILayer'
@@ -314,9 +314,6 @@ export class DifferenceRender implements IRenderStrategy {
       setCanvasSizeIfDifferent(layerBufferCtx.canvas, document)
       layerBufferCtx.clearRect(0, 0, document.width, document.height)
 
-      const mixBufferCtx = createContext2D()
-      setCanvasSizeIfDifferent(mixBufferCtx.canvas, document)
-
       perf_initCanvas.timeEnd(
         prev,
         pick(layerBufferCtx.canvas, ['width', 'height'])
@@ -348,7 +345,7 @@ export class DifferenceRender implements IRenderStrategy {
             await engine.applyFilter(layerBufferCtx, filterCtx, instance, {
               layer: layer,
               size: { width: document.width, height: document.height },
-              filterSettings: deepClone(filter.settings),
+              filterSettings: filter.settings,
               opacity: filter.opacity,
               handleLayerBitmapRequest: createLayerBitmapRequestHandler(
                 layer.uid
@@ -428,12 +425,7 @@ export class DifferenceRender implements IRenderStrategy {
         if (!instance)
           throw new Error(`Filter not found (id:${filter.filterId})`)
 
-        if (
-          filterCtx.canvas.width !== document.width ||
-          filterCtx.canvas.height !== document.height
-        ) {
-          setCanvasSize(filterCtx.canvas, document)
-        }
+        setCanvasSizeIfDifferent(filterCtx.canvas, document)
 
         await saveAndRestoreCanvas(filterCtx, async () => {
           filterCtx.clearRect(0, 0, document.width, document.height)
@@ -441,8 +433,8 @@ export class DifferenceRender implements IRenderStrategy {
           await engine.applyFilter(layerBufferCtx, filterCtx, instance, {
             layer,
             size: { width: document.width, height: document.height },
+            filterSettings: filter.settings,
             opacity: filter.opacity,
-            filterSettings: deepClone(filter.settings),
             handleLayerBitmapRequest: createLayerBitmapRequestHandler(
               layer.uid
             ),
@@ -450,7 +442,7 @@ export class DifferenceRender implements IRenderStrategy {
         })
 
         layerBufferCtx.clearRect(0, 0, document.width, document.height)
-        layerBufferCtx.drawImage(mixBufferCtx.canvas, 0, 0)
+        layerBufferCtx.drawImage(filterCtx.canvas, 0, 0)
       }
 
       perf_filter.timeEnd()

@@ -100,10 +100,9 @@ export class CanvasHandler extends Emitter<Events> {
     const isDrawableLayer = (
       layer: LayerTypes | null
     ): layer is RasterLayer | VectorLayer =>
-      layer?.layerType === 'raster' ||
-      (layer?.layerType === 'vector' &&
-        layer.lock === false &&
-        layer.visible === true)
+      (layer?.layerType === 'raster' || layer?.layerType === 'vector') &&
+      layer.lock === false &&
+      layer.visible === true
 
     session.on('documentChanged', (s) => {
       if (s.document == null) return

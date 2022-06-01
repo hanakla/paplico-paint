@@ -139,12 +139,11 @@ export const SelectBox = ({
               key={idx}
               css={css`
                 display: flex;
-                padding: 8px 4px;
+                padding: 6px 4px;
                 padding-right: 8px;
                 color: ${({ theme }) => theme.color.text2};
 
                 &:hover {
-                  color: ${({ theme }) => theme.exactColors.white50};
                   background-color: ${({ theme }) =>
                     theme.exactColors.blueFade40};
                 }

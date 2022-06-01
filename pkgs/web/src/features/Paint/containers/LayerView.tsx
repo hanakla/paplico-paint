@@ -637,6 +637,7 @@ const SortableLayerItem = memo(
         <div
           ref={combineRef(rootRef)}
           css={`
+            position: relative;
             cursor: default;
           `}
           onClick={handleClickRoot}
@@ -646,7 +647,6 @@ const SortableLayerItem = memo(
           <div
             css={`
               display: flex;
-              gap: 6px;
               width: 100%;
               align-items: center;
             `}
@@ -668,7 +668,7 @@ const SortableLayerItem = memo(
               css={`
                 flex: none;
                 ${centering()}
-                width: 16px;
+                width: 20px;
                 height: 16px;
               `}
               onClick={handleClickCollapse}
@@ -689,32 +689,49 @@ const SortableLayerItem = memo(
 
             <div
               css={css`
+                margin-right: 4px;
                 color: ${({ theme }) => theme.colors.white10};
+                opacity: 0.6;
+                &:hover {
+                  opacity: 1;
+                }
               `}
-              style={{
-                ...(layer.visible ? {} : { opacity: 0.5 }),
-              }}
               onClick={handleToggleVisibility}
               data-ignore-click
             >
-              {layer.visible ? <Eye width={16} /> : <EyeClose width={16} />}
+              <span
+                style={{
+                  ...(layer.visible ? {} : { opacity: 0.5 }),
+                }}
+              >
+                {layer.visible ? <Eye width={16} /> : <EyeClose width={16} />}
+              </span>
             </div>
 
             <div
               css={css`
+                margin-right: 4px;
                 color: ${({ theme }) => theme.colors.white10};
+                opacity: 0.6;
+                &:hover {
+                  opacity: 1;
+                }
               `}
-              style={{
-                ...(layer.lock ? {} : { opacity: 0.5 }),
-              }}
               onClick={handleToggleLock}
               data-ignore-click
             >
-              {layer.lock ? <Lock width={16} /> : <LockUnlock width={16} />}
+              <span
+                style={{
+                  ...(layer.lock ? {} : { opacity: 0.5 }),
+                }}
+              >
+                {layer.lock ? <Lock width={16} /> : <LockUnlock width={16} />}
+              </span>
             </div>
 
             <img
               css={`
+                margin-right: 4px;
                 background: linear-gradient(
                     45deg,
                     rgba(0, 0, 0, 0.2) 25%,
@@ -966,7 +983,7 @@ const SortableObjectItem = memo(function SortableObjectItem({
         ref={setNodeRef}
         css={`
           display: flex;
-          gap: 6px;
+          gap: 4px;
           padding: 3px 8px;
           /* margin-left: 16px; */
 

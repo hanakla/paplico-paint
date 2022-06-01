@@ -10,16 +10,16 @@ import { useDropArea, useMount } from 'react-use'
 import { rgba } from 'polished'
 import { openModal } from '@fleur/mordred'
 import isSafari from 'is-safari'
+import dayjs from 'dayjs'
+import relativeTime from 'dayjs/plugin/relativeTime'
+import 'dayjs/locale/ja'
+import { useTranslation } from 'next-i18next'
 
 import { EditorOps, EditorSelector, EditorStore } from '🙌/domains/EditorStable'
 import { Sidebar } from '🙌/components/Sidebar'
 import { media } from '🙌/utils/responsive'
 import { centering } from '🙌/utils/mixins'
 import { ThemeProp, tm } from '🙌/utils/theme'
-import { useTranslation } from 'next-i18next'
-import dayjs from 'dayjs'
-import relativeTime from 'dayjs/plugin/relativeTime'
-import 'dayjs/locale/ja'
 import { useRouter } from 'next/router'
 import { useFleur } from '🙌/utils/hooks'
 import { Button } from '🙌/components/Button'
@@ -29,10 +29,12 @@ import {
   ContextMenu,
   ContextMenuItem,
 } from '🙌/components/ContextMenu'
-import { NotifyOps } from '../../domains/Notify'
-import { NewItemModal } from '../../modals/NewItemModal'
+import { NotifyOps } from '🙌/domains/Notify'
+import { NewItemModal } from '🙌/modals/NewItemModal'
 import { createDocumentWithSize } from './utils'
-import { AspectPreview } from '../../components/AspectPreview'
+import { AspectPreview } from '🙌/components/AspectPreview'
+import { PaplicoPreloader } from '🙌/components/PaplicoPreloader'
+
 dayjs.extend(relativeTime)
 
 export const HomeContent = () => {
@@ -211,200 +213,166 @@ export const HomeContent = () => {
 
       <div
         css={`
+          display: flex;
+          flex-flow: column;
           flex: 1;
           padding: 10vh 64px;
           overflow: auto;
+          gap: 64px;
 
           ${media.narrow`
             padding: 32px;
           `}
         `}
       >
-        <div>
-          {savedItems.length > 0 && (
-            <section
-              css={`
-                margin-top: 64px;
-              `}
-            >
-              <Heading>{t('savedItems')}</Heading>
-              <ul
-                css={`
-                  display: grid;
-                  flex-wrap: nowrap;
-                  gap: 8px;
-                  margin: 0 -8px;
-                  overflow: auto;
-                  grid-template-columns: repeat(6, 1fr);
+        <section>
+          <Heading>{t('savedItems')}</Heading>
 
-                  ${media.narrow`
-                  display: grid;
-                  gap: 24px 8px;
-                  grid-template-columns: repeat(2, 1fr);
-                  overflow: none;
-                `}
-                `}
-              >
-                {savedItems.slice(0, displayItems).map((item) => (
-                  <li
-                    key={item.uid}
-                    css={css`
-                      /* width: 128px; */
-                      padding: 8px;
-                      border-radius: 4px;
-                      cursor: pointer;
-
-                      &:hover {
-                        background-color: ${({ theme }) =>
-                          theme.colors.whiteFade10};
-                      }
-
-                      ${media.narrow`
-                      width: 100%;
-                    `}
-                    `}
-                    data-document-uid={item.uid}
-                    onClick={handleClickSavedItem}
-                    onContextMenu={handleItemContextMenu}
-                  >
-                    <div
-                      role="img"
-                      css={`
-                        width: 100%;
-                        background-position: 80% 0;
-                        background-size: cover;
-                        border-radius: 4px;
-                        background-color: ${({ theme }: ThemeProp) =>
-                          theme.color.surface9};
-
-                        &::before {
-                          content: '';
-                          display: block;
-                          padding-top: 100%;
-                        }
-                      `}
-                      style={{ backgroundImage: cssurl(item.thumbnailUrl) }}
-                    />
-
-                    <h2
-                      css={`
-                        margin: 8px 0 4px;
-                        ${tm((o) => [o.typography(14)])}
-                      `}
-                    >
-                      {!item.title ? <span>{t('untitled')}</span> : item.title}
-                    </h2>
-                    <time
-                      css={`
-                        display: block;
-                        ${tm((o) => [o.font.text2])}
-                      `}
-                    >
-                      {dayjs(item.updatedAt).locale(locale!).fromNow()}
-                    </time>
-                  </li>
-                ))}
-              </ul>
-
-              {savedItems.length > displayItems && (
-                <div
-                  css={`
-                    ${centering()}
-                    margin: 16px 0 32px;
-                    text-align: center;
-                  `}
-                >
-                  <Button
-                    css={`
-                      ${tm((o) => [o.typography(14)])}
-                      text-align: center;
-                      cursor: pointer;
-                    `}
-                    kind="normal"
-                    onClick={handleClickMoreSavedItems}
-                  >
-                    もっと見る
-                  </Button>
-                </div>
-              )}
-            </section>
-          )}
-
-          <section>
-            <Heading>{t('createNew')}</Heading>
-
+          {savedItems.loading ? (
             <div
               css={`
-                display: grid;
-                gap: 16px;
-                grid-template-columns: repeat(4, minmax(0px, 1fr));
-
-                ${media.narrow`
-                grid-template-columns: repeat(2, minmax(0px, 1fr));
-              `}
+                text-align: center;
               `}
             >
-              {[
-                { name: t('sizePresets.hdLandscape'), size: [1920, 1080] },
-                { name: t('sizePresets.hdPortrait'), size: [1080, 1920] },
+              <PaplicoPreloader width={64} />
+            </div>
+          ) : savedItems.items.length <= 0 ? (
+            <div
+              css={`
+                ${centering({ x: false, y: true })};
+                padding: 32px 0;
+              `}
+            >
+              <p>{t('noSavedItems')}</p>
+            </div>
+          ) : (
+            <ul
+              css={`
+                display: grid;
+                flex-wrap: nowrap;
+                gap: 8px;
+                margin: 0 -8px;
+                overflow: auto;
+                grid-template-columns: repeat(5, 1fr);
 
-                { name: t('sizePresets.a4Landscape'), size: [3508, 2480] },
-                { name: t('sizePresets.a4Portrait'), size: [2480, 3508] },
-
-                { name: t('sizePresets.twitterHeader'), size: [1500, 500] },
-              ].map((preset, idx) => (
-                <div
-                  key={idx}
+                ${media.narrow`
+                      display: grid;
+                      gap: 24px 8px;
+                      grid-template-columns: repeat(2, 1fr);
+                      overflow: none;
+                    `}
+              `}
+            >
+              {savedItems.items.slice(0, displayItems).map((item) => (
+                <li
+                  key={item.uid}
                   css={css`
-                    padding: 16px;
-                    text-align: center;
-                    border-radius: 8px;
-                    background-color: ${({ theme }) =>
-                      theme.colors.whiteFade10};
+                    /* width: 128px; */
+                    padding: 8px;
+                    border-radius: 4px;
                     cursor: pointer;
 
                     &:hover {
                       background-color: ${({ theme }) =>
-                        theme.colors.whiteFade20};
+                        theme.colors.whiteFade10};
                     }
+
+                    ${media.narrow`
+                      width: 100%;
+                    `}
                   `}
-                  onClick={handleClickItem}
-                  tabIndex={-1}
-                  data-width={preset.size[0]}
-                  data-height={preset.size[1]}
+                  data-document-uid={item.uid}
+                  onClick={handleClickSavedItem}
+                  onContextMenu={handleItemContextMenu}
                 >
                   <div
+                    role="img"
                     css={`
-                      ${centering()}
                       width: 100%;
-                      height: 100px;
-                    `}
-                  >
-                    <AspectPreview
-                      width={preset.size[0]}
-                      height={preset.size[1]}
-                      maxWidth={100}
-                      maxHeight={100}
-                      dotted
-                    />
-                  </div>
+                      background-position: 80% 0;
+                      background-size: cover;
+                      border-radius: 4px;
+                      background-color: ${({ theme }: ThemeProp) =>
+                        theme.color.surface9};
 
-                  <div
+                      &::before {
+                        content: '';
+                        display: block;
+                        padding-top: 100%;
+                      }
+                    `}
+                    style={{ backgroundImage: cssurl(item.thumbnailUrl) }}
+                  />
+
+                  <h2
                     css={`
-                      margin: 8px 0 8px;
-                      font-size: 16px;
-                      font-weight: bold;
+                      margin: 8px 0 4px;
+                      ${tm((o) => [o.typography(14)])}
                     `}
                   >
-                    {preset.name}
-                  </div>
-                  <div>
-                    {preset.size[0]} × {preset.size[1]} px
-                  </div>
-                </div>
+                    {!item.title ? <span>{t('untitled')}</span> : item.title}
+                  </h2>
+                  <time
+                    css={`
+                      display: block;
+                      ${tm((o) => [o.font.text2])}
+                    `}
+                  >
+                    {dayjs(item.updatedAt).locale(locale!).fromNow()}
+                  </time>
+                </li>
               ))}
+            </ul>
+          )}
 
+          {savedItems.items.length > displayItems && (
+            <div
+              css={`
+                ${centering()}
+                margin: 16px 0 0;
+                text-align: center;
+              `}
+            >
+              <Button
+                css={`
+                  ${tm((o) => [o.typography(14)])}
+                  text-align: center;
+                  cursor: pointer;
+                `}
+                kind="normal"
+                onClick={handleClickMoreSavedItems}
+              >
+                もっと見る
+              </Button>
+            </div>
+          )}
+        </section>
+
+        <section>
+          <Heading>{t('createNew')}</Heading>
+
+          <div
+            css={`
+              display: grid;
+              gap: 16px;
+              grid-template-columns: repeat(4, minmax(0px, 1fr));
+
+              ${media.narrow`
+                grid-template-columns: repeat(2, minmax(0px, 1fr));
+              `}
+            `}
+          >
+            {[
+              { name: t('sizePresets.hdLandscape'), size: [1920, 1080] },
+              { name: t('sizePresets.hdPortrait'), size: [1080, 1920] },
+
+              { name: t('sizePresets.a4Landscape'), size: [3508, 2480] },
+              { name: t('sizePresets.a4Portrait'), size: [2480, 3508] },
+
+              { name: t('sizePresets.twitterHeader'), size: [1500, 500] },
+            ].map((preset, idx) => (
               <div
+                key={idx}
                 css={css`
                   padding: 16px;
                   text-align: center;
@@ -417,8 +385,10 @@ export const HomeContent = () => {
                       theme.colors.whiteFade20};
                   }
                 `}
-                onClick={handleClickSpecifiedSize}
+                onClick={handleClickItem}
                 tabIndex={-1}
+                data-width={preset.size[0]}
+                data-height={preset.size[1]}
               >
                 <div
                   css={`
@@ -427,13 +397,15 @@ export const HomeContent = () => {
                     height: 100px;
                   `}
                 >
-                  <File
-                    css={`
-                      width: 64px;
-                      color: ${rgba('#aaa', 0.5)};
-                    `}
+                  <AspectPreview
+                    width={preset.size[0]}
+                    height={preset.size[1]}
+                    maxWidth={100}
+                    maxHeight={100}
+                    dotted
                   />
                 </div>
+
                 <div
                   css={`
                     margin: 8px 0 8px;
@@ -441,122 +413,161 @@ export const HomeContent = () => {
                     font-weight: bold;
                   `}
                 >
-                  {t('customSize')}
+                  {preset.name}
+                </div>
+                <div>
+                  {preset.size[0]} × {preset.size[1]} px
                 </div>
               </div>
-            </div>
-          </section>
-
-          <section
-            css={`
-              margin-top: 64px;
-            `}
-          >
-            <Heading>{t('openFile')}</Heading>
+            ))}
 
             <div
               css={css`
-                ${centering()}
-                flex-flow:column;
-                padding: 48px 32px;
-                font-size: 24px;
-                background-color: ${({ theme }) => theme.colors.whiteFade20};
+                padding: 16px;
+                text-align: center;
                 border-radius: 8px;
+                background-color: ${({ theme }) => theme.colors.whiteFade10};
                 cursor: pointer;
 
                 &:hover {
-                  background-color: ${({ theme }) => theme.colors.whiteFade30};
+                  background-color: ${({ theme }) => theme.colors.whiteFade20};
                 }
               `}
-              style={{
-                ...(dropState.over
-                  ? { backgroundColor: theme.colors.whiteFade30 }
-                  : {}),
-              }}
-              onClick={handleClickDropArea}
-              {...bindDrop}
+              onClick={handleClickSpecifiedSize}
+              tabIndex={-1}
             >
-              <DragDrop
+              <div
                 css={`
-                  width: 32px;
-                  margin-right: 16px;
-                  vertical-align: bottom;
+                  ${centering()}
+                  width: 100%;
+                  height: 100px;
                 `}
-              />
-              ファイルをドロップしてひらく
+              >
+                <File
+                  css={`
+                    width: 64px;
+                    color: ${rgba('#aaa', 0.5)};
+                  `}
+                />
+              </div>
+              <div
+                css={`
+                  margin: 8px 0 8px;
+                  font-size: 16px;
+                  font-weight: bold;
+                `}
+              >
+                {t('customSize')}
+              </div>
             </div>
-          </section>
+          </div>
+        </section>
+
+        <section>
+          <Heading>{t('openFile')}</Heading>
 
           <div
             css={css`
-              display: flex;
-              margin-top: 16px;
-              padding: 16px 0 0;
-              border-top: ${({ theme }) =>
-                `1px solid ${rgba(theme.colors.white50, 0.2)}`};
+              ${centering()}
+              flex-flow:column;
+              padding: 48px 32px;
+              font-size: 24px;
+              background-color: ${({ theme }) => theme.colors.whiteFade20};
+              border-radius: 8px;
+              cursor: pointer;
+
+              &:hover {
+                background-color: ${({ theme }) => theme.colors.whiteFade30};
+              }
+            `}
+            style={{
+              ...(dropState.over
+                ? { backgroundColor: theme.colors.whiteFade30 }
+                : {}),
+            }}
+            onClick={handleClickDropArea}
+            {...bindDrop}
+          >
+            <DragDrop
+              css={`
+                width: 32px;
+                margin-right: 16px;
+                vertical-align: bottom;
+              `}
+            />
+            ファイルをドロップしてひらく
+          </div>
+        </section>
+
+        <div
+          css={css`
+            display: flex;
+            margin-top: 16px;
+            padding: 16px 0 0;
+            border-top: ${({ theme }) =>
+              `1px solid ${rgba(theme.colors.white50, 0.2)}`};
+          `}
+        >
+          <div
+            css={css`
+              ${centering()}
+              gap: 4px;
             `}
           >
-            <div
-              css={css`
-                ${centering()}
-                gap: 4px;
-              `}
-            >
-              <span
-                css={`
-                  padding: 4px;
-                  border-radius: 64px;
-                `}
-                style={{
-                  color:
-                    currentTheme === 'dark'
-                      ? theme.exactColors.black40
-                      : undefined,
-                  backgroundColor:
-                    currentTheme === 'dark'
-                      ? theme.exactColors.white40
-                      : undefined,
-                }}
-                onClick={handleClickDarkTheme}
-              >
-                <Moon
-                  css={`
-                    width: 20px;
-                  `}
-                />
-              </span>
-              <span
-                css={`
-                  padding: 4px;
-                  border-radius: 64px;
-                `}
-                style={{
-                  color:
-                    currentTheme === 'light'
-                      ? theme.exactColors.white40
-                      : undefined,
-                  backgroundColor:
-                    currentTheme === 'light'
-                      ? theme.exactColors.black40
-                      : undefined,
-                }}
-                onClick={handleClickLightTheme}
-              >
-                <Sun
-                  css={`
-                    width: 20px;
-                  `}
-                />
-              </span>
-            </div>
-
-            <div
+            <span
               css={`
-                margin-left: auto;
+                padding: 4px;
+                border-radius: 64px;
               `}
+              style={{
+                color:
+                  currentTheme === 'dark'
+                    ? theme.exactColors.black40
+                    : undefined,
+                backgroundColor:
+                  currentTheme === 'dark'
+                    ? theme.exactColors.white40
+                    : undefined,
+              }}
+              onClick={handleClickDarkTheme}
             >
-              SHA: {(process.env.VERCEL_GIT_COMMIT_SHA ?? 'dev').slice(0, 8)}
-            </div>
+              <Moon
+                css={`
+                  width: 20px;
+                `}
+              />
+            </span>
+            <span
+              css={`
+                padding: 4px;
+                border-radius: 64px;
+              `}
+              style={{
+                color:
+                  currentTheme === 'light'
+                    ? theme.exactColors.white40
+                    : undefined,
+                backgroundColor:
+                  currentTheme === 'light'
+                    ? theme.exactColors.black40
+                    : undefined,
+              }}
+              onClick={handleClickLightTheme}
+            >
+              <Sun
+                css={`
+                  width: 20px;
+                `}
+              />
+            </span>
+          </div>
+
+          <div
+            css={`
+              margin-left: auto;
+            `}
+          >
+            SHA: {(process.env.VERCEL_GIT_COMMIT_SHA ?? 'dev').slice(0, 8)}
           </div>
         </div>
 

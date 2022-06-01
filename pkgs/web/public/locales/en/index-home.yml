@@ -1,6 +1,7 @@
 createNew: Draw new art
 openFile: Open document or image
 savedItems: Your items
+noSavedItems: No items saved yet!
 untitled: Untitled
 removeDocumentConfirm: Deleted items cannot be restored. Do you seriously want to delete it?
 customSize: Specify size

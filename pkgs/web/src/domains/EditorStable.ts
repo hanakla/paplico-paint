@@ -51,11 +51,14 @@ export type ColorHistoryEntry = {
 
 interface State {
   savedItems: {
-    uid: string
-    title: string
-    thumbnailUrl: string | null
-    updatedAt: Date
-  }[]
+    loading: boolean
+    items: {
+      uid: string
+      title: string
+      thumbnailUrl: string | null
+      updatedAt: Date
+    }[]
+  }
 
   engine: PaplicoEngine | null
   session: PapSession | null
@@ -118,7 +121,10 @@ export const EditorActions = actions('Editor', {
 
 export const [EditorStore, EditorOps] = minOps('Editor', {
   initialState: (): State => ({
-    savedItems: [],
+    savedItems: {
+      loading: true,
+      items: [],
+    },
 
     engine: null,
     session: null,
@@ -164,16 +170,23 @@ export const [EditorStore, EditorOps] = minOps('Editor', {
       const db = await connectIdb()
       x.finally(() => db.close())
 
+      await new Promise((r) => setTimeout(r, 1000))
+
       const documents = await db.getAll('projects')
       x.commit({
-        savedItems: documents
-          .map((d) => ({
-            uid: d.uid,
-            title: d.title,
-            thumbnailUrl: d.thumbnail ? URL.createObjectURL(d.thumbnail) : null,
-            updatedAt: d.updatedAt,
-          }))
-          .sort((a, b) => +b.updatedAt - +a.updatedAt),
+        savedItems: {
+          loading: false,
+          items: documents
+            .map((d) => ({
+              uid: d.uid,
+              title: d.title,
+              thumbnailUrl: d.thumbnail
+                ? URL.createObjectURL(d.thumbnail)
+                : null,
+              updatedAt: d.updatedAt,
+            }))
+            .sort((a, b) => +b.updatedAt - +a.updatedAt),
+        },
       })
     },
     async removeSavedDocment(x, uid: string) {

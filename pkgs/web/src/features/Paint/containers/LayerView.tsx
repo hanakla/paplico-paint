@@ -233,9 +233,10 @@ export const LayerView = memo(function LayerView() {
     let collapse = false
     let current = entry
     let nextParent = list.find((e) => e.id === entry.parentId)
+
     while (nextParent != null && !collapse) {
       collapse = nextParent?.id
-        ? collapse || collapsedEntries[nextParent.id]
+        ? collapse || (collapsedEntries[nextParent.id] ?? true)
         : true
 
       current = nextParent

@@ -179,14 +179,24 @@ export const LayerFloatMenu = memo(
       if (addLayerSheetOpened) toggleAddLayerSheetOpened(false)
     })
 
-    const [collapsed, setCollapsed] = useObjectState<Record<string, boolean>>(
-      {}
-    )
-    const flatLayers = flattenLayers(layers, (entry) => {
-      return (
-        entry.parentId == null ||
-        (entry.parentId != null && !(collapsed[entry.parentId] ?? true))
-      )
+    const [collapsedEntries, setCollapsed] = useObjectState<
+      Record<string, boolean>
+    >({})
+    const flatLayers = flattenLayers(layers, (entry, _, list) => {
+      let collapse = false
+      let current = entry
+      let nextParent = list.find((e) => e.id === entry.parentId)
+
+      while (nextParent != null && !collapse) {
+        collapse = nextParent?.id
+          ? collapse || (collapsedEntries[nextParent.id] ?? true)
+          : true
+
+        current = nextParent
+        nextParent = list.find((e) => e.id === current.parentId)
+      }
+
+      return !collapse
     })
 
     return (
@@ -227,7 +237,7 @@ export const LayerFloatMenu = memo(
                     <SortableLayerItem
                       key={entry.id}
                       entry={entry}
-                      childrenOpened={collapsed[entry.id] === false}
+                      childrenOpened={collapsedEntries[entry.id] === false}
                       onToggleCollapse={handleToggleLayerCollapse}
                     />
                   ) : (

@@ -14,10 +14,12 @@ import { animated, useSpring } from 'react-spring'
 import { css, useTheme } from 'styled-components'
 import { DOMUtils } from '🙌/utils/dom'
 import { tm } from '../utils/theme'
+import { centering } from '../utils/mixins'
 
 type Props = {
   opened: boolean
   className?: string
+  heading?: ReactNode
   children?: ReactNode
   fill?: boolean
   backdrop?: boolean
@@ -32,6 +34,7 @@ export const ActionSheet = forwardRef<HTMLDivElement, Props>(
       opened,
       fill = true,
       backdrop = true,
+      heading,
       children,
       className,
       onClose,
@@ -122,24 +125,32 @@ export const ActionSheet = forwardRef<HTMLDivElement, Props>(
             <div
               css={`
                 position: sticky;
-                top: 8px;
-                right: 8px;
                 display: flex;
-                margin-left: auto;
-                align-items: center;
-                justify-content: center;
-                padding: 4px;
-                background-color: ${rgba('#000', 0.1)};
-                border-radius: 32px;
+                margin-bottom: 12px;
+                ${centering({ x: false, y: true })}
               `}
-              onClick={handleClickClose}
             >
-              <Close
+              <div>{heading}</div>
+              <div
                 css={`
-                  width: 24px;
-                  opacity: 0.4;
+                  right: 8px;
+                  display: flex;
+                  margin-left: auto;
+                  align-items: center;
+                  justify-content: center;
+                  padding: 4px;
+                  background-color: ${rgba('#000', 0.1)};
+                  border-radius: 32px;
                 `}
-              />
+                onClick={handleClickClose}
+              >
+                <Close
+                  css={`
+                    width: 24px;
+                    opacity: 0.4;
+                  `}
+                />
+              </div>
             </div>
 
             <div

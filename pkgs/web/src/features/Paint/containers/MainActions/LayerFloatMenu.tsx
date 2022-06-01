@@ -865,25 +865,21 @@ const FiltersSheet = memo(function FiltersSheet({
       ref={rootRef}
       opened={opened}
       onClose={handleCloseFilterSheet}
+      heading={
+        <span
+          css={`
+            max-width: 100px;
+            white-space: nowrap;
+            text-overflow: ellipsis;
+          `}
+        >
+          {t('filter')}
+        </span>
+      }
       fill
       data-ignore-open-layer-menu
     >
       <div data-dont-close-layer-float>
-        <div
-          css={`
-            margin-bottom: 24px;
-          `}
-        >
-          <span
-            css={`
-              max-width: 100px;
-              white-space: nowrap;
-              text-overflow: ellipsis;
-            `}
-          >
-            {t('filter')}
-          </span>
-        </div>
         <header
           css={`
             display: flex;

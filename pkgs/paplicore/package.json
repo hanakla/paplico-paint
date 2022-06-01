@@ -13,7 +13,8 @@
     "build": "run-p build:*",
     "test": "yarn vitest",
     "clean-dist": "rm -rf ./dist",
-    "prepublishOnly": "yarn clean-dist && yarn build"
+    "prepublishOnly": "yarn clean-dist && yarn build",
+    "image-to-datauri": "yarn esr scripts/image-to-datauri.ts"
   },
   "dependencies": {
     "@babel/preset-env": "^7.16.11",
@@ -68,6 +69,7 @@
     "@types/svg-arc-to-cubic-bezier": "^3.2.0",
     "@types/three": "^0.139.0",
     "bili": "^5.0.5",
+    "esbuild-runner": "^2.2.1",
     "npm-run-all": "^4.1.5",
     "rollup-plugin-glslify": "^1.2.1",
     "rollup-plugin-swc": "^0.2.1",

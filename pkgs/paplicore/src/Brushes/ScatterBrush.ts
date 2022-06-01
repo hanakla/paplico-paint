@@ -19,13 +19,9 @@ import {
   CustomBlending,
   Group,
   Matrix4 as ThreeMatrix4,
-  RawShaderMaterial,
-  Float32BufferAttribute,
   InstancedBufferAttribute,
-  MaxEquation,
   ShaderMaterial,
   DoubleSide,
-  AdditiveBlending,
 } from 'three'
 import { Matrix4 } from 'math.gl'
 
@@ -55,10 +51,12 @@ export declare namespace ScatterBrush {
     texture: keyof typeof Textures
     divisions: number
     scatterRange: number
+    /** Adjust rate particle to path curve (0..1) */
+    rotationAdjust: number
     /** 0..1 */
     randomRotation: number
-    /** Influence of stroke fade. 0..1 */
-    fadeWeight: number
+    /** 0..1, each particle scale randomize range */
+    randomScale: number
     /** Influence of stroke in / out weight. 0..1 */
     inOutInfluence: number
     /** 0..1 */
@@ -98,8 +96,9 @@ export class ScatterBrush implements IBrush {
       texture: 'fadeBrush',
       divisions: 1000,
       scatterRange: 0.5,
+      rotationAdjust: 1,
       randomRotation: 0,
-      fadeWeight: 1,
+      randomScale: 0,
       inOutInfluence: 0,
       pressureInfluence: 0.8,
     }
@@ -360,7 +359,9 @@ export class ScatterBrush implements IBrush {
       mesh.matrixAutoUpdate = false
       mesh.instanceMatrix.needsUpdate = false
 
-      const seed = fastRandom(inputPath.randomSeed)
+      const rotationRandom = fastRandom(inputPath.randomSeed)
+      const scaleRandom = fastRandom(inputPath.randomSeed + 0x2435ffab)
+
       // const pointsReader = inputPath.getSequencialPointsReader()
       const pressureReader = inputPath.getSequencialPressuresReader()
       // const tangentReader = inputPath.getSequencialTangentsReader()
@@ -390,7 +391,7 @@ export class ScatterBrush implements IBrush {
         matrices.push(mat4)
 
         perf_rand.time()
-        const randomFloat = seed.nextFloat()
+        const randomFloat = rotationRandom.nextFloat()
         perf_rand.timeEnd()
 
         perf_getPoint.time()
@@ -443,9 +444,11 @@ export class ScatterBrush implements IBrush {
 
         mat4.rotateZ(
           degToRad(
-            radToDeg(angle) + -1 + randomFloat * 360 * specific.randomRotation
-          )
+            radToDeg(angle) + (-1 + randomFloat * 360 * specific.randomRotation)
+          ) * specific.rotationAdjust
         )
+
+        const randomScale = 1 - specific.randomScale * scaleRandom.nextFloat()
 
         // fade(1) * influence(1) = 1 入り抜き影響済みの太さ
         // fade(1) * influence(0) = 0 入り抜き影響済みの太さ
@@ -455,8 +458,8 @@ export class ScatterBrush implements IBrush {
         // 打ち消し式: (fade * influence) + 1 = 1
 
         mat4.scale([
-          brushSetting.size * pressureWeight * fadeWeight,
-          brushSetting.size * pressureWeight * fadeWeight,
+          brushSetting.size * pressureWeight * fadeWeight * randomScale,
+          brushSetting.size * pressureWeight * fadeWeight * randomScale,
           1,
         ])
 

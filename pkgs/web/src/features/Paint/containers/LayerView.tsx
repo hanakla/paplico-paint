@@ -24,6 +24,7 @@ import {
   Guide,
   Lock,
   LockUnlock,
+  Magic,
   Shape,
 } from '@styled-icons/remix-fill'
 import { css } from 'styled-components'
@@ -729,59 +730,66 @@ const SortableLayerItem = memo(
               </span>
             </div>
 
-            <img
+            <div
               css={`
-                margin-right: 4px;
-                background: linear-gradient(
-                    45deg,
-                    rgba(0, 0, 0, 0.2) 25%,
-                    transparent 25%,
-                    transparent 75%,
-                    rgba(0, 0, 0, 0.2) 75%
-                  ),
-                  linear-gradient(
-                    45deg,
-                    rgba(0, 0, 0, 0.2) 25%,
-                    transparent 25%,
-                    transparent 75%,
-                    rgba(0, 0, 0, 0.2) 75%
-                  );
-                /* background-color: transparent; */
-                background-size: 4px 4px;
-                background-position: 0 0, 2px 2px;
-                width: 16px;
-                height: 16px;
-                flex: none;
+                position: relative;
               `}
-              src={
-                thumbnailUrlOfLayer(layer.uid) ??
-                'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII='
-              }
-            />
+            >
+              <img
+                css={`
+                  margin-right: 4px;
+                  background: linear-gradient(
+                      45deg,
+                      rgba(0, 0, 0, 0.2) 25%,
+                      transparent 25%,
+                      transparent 75%,
+                      rgba(0, 0, 0, 0.2) 75%
+                    ),
+                    linear-gradient(
+                      45deg,
+                      rgba(0, 0, 0, 0.2) 25%,
+                      transparent 25%,
+                      transparent 75%,
+                      rgba(0, 0, 0, 0.2) 75%
+                    );
+                  /* background-color: transparent; */
+                  background-size: 4px 4px;
+                  background-position: 0 0, 2px 2px;
+                  width: 16px;
+                  height: 16px;
+                  flex: none;
+                `}
+                src={
+                  thumbnailUrlOfLayer(layer.uid) ??
+                  'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII='
+                }
+              />
+
+              {layer.filters.length > 0 && (
+                <Magic
+                  css={`
+                    position: absolute;
+                    right: 2px;
+                    bottom: 0;
+                    color: ${({ theme }: ThemeProp) => theme.colors.white10};
+                  `}
+                  width={12}
+                />
+              )}
+            </div>
 
             <div
               css={`
                 width: 16px;
                 flex: none;
+                opacity: 0.5;
               `}
             >
               <Tooltip2 placement="right">
                 {t(`layerType.${layer.layerType}`)}
               </Tooltip2>
-              {layer.layerType === 'filter' && (
-                <Filter3
-                  css={`
-                    font-size: 16px;
-                  `}
-                />
-              )}
-              {layer.layerType === 'raster' && (
-                <Brush
-                  css={`
-                    font-size: 16px;
-                  `}
-                />
-              )}
+              {layer.layerType === 'filter' && <Filter3 width={14} />}
+              {layer.layerType === 'raster' && <Brush width={14} />}
               {layer.layerType === 'text' &&
                 // <Text
                 //   css={`
@@ -789,20 +797,14 @@ const SortableLayerItem = memo(
                 //   `}
                 // />
                 'T'}
-              {layer.layerType === 'vector' && (
-                <Shape
-                  css={`
-                    font-size: 16px;
-                  `}
-                />
-              )}
+              {layer.layerType === 'vector' && <Shape width={14} />}
               {layer.layerType === 'reference' && (
                 <Guide
                   css={`
-                    font-size: 16px;
                     border-bottom: 1px solid currentColor;
                     cursor: pointer;
                   `}
+                  width={14}
                   onClick={handleChangeActiveLayerToReferenceTarget}
                   {...bindReferenceHover()}
                 />
@@ -853,6 +855,7 @@ const SortableLayerItem = memo(
           </ContextMenuItem>
 
           <Separator />
+
           <ContextMenuItem
             onClick={handleClickTrimByDocument}
             hidden={layer.layerType !== 'raster'}
@@ -869,6 +872,7 @@ const SortableLayerItem = memo(
           >
             {t('layerView.context.truncate')}
           </ContextMenuItem>
+
           <Separator />
           <ContextMenuItem onClick={handleClickRemoveLayer}>
             {t('remove')}

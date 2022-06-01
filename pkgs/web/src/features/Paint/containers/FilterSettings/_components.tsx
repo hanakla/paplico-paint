@@ -37,7 +37,13 @@ export const Column = memo(
     const { t } = useTranslation('app')
 
     return (
-      <div>
+      <div
+        css={`
+          & + & {
+            margin-top: 8px;
+          }
+        `}
+      >
         <div
           css={`
             flex: 1;
@@ -52,7 +58,6 @@ export const Column = memo(
         <div
           css={`
             display: flex;
-            margin-top: 4px;
             flex: 1;
             flex-basis: 100%;
             gap: 4px;

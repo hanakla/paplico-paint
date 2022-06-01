@@ -567,7 +567,7 @@ export const HomeContent = () => {
               margin-left: auto;
             `}
           >
-            バージョン: ${process.env.NEXT_PUBLIC_VERCEL_ENV ?? 'dev'}{' '}
+            バージョン: {process.env.NEXT_PUBLIC_VERCEL_ENV ?? 'dev'}{' '}
             {(process.env.NEXT_PUBLIC_VERCEL_GIT_COMMIT_SHA ?? '').slice(0, 8)}
           </div>
         </div>

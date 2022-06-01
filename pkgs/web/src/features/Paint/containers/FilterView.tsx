@@ -67,7 +67,19 @@ export const FilterView = memo(() => {
   const listFl = useFloating({
     placement: 'bottom-end',
     strategy: 'fixed',
-    middleware: [shift(), size(), offset(4)],
+    middleware: [
+      offset(4),
+      shift(),
+      size({
+        padding: 8,
+        apply: ({ availableWidth, availableHeight, elements }) => {
+          Object.assign(elements.floating.style, {
+            // maxWidth: `${availableWidth}px`,
+            maxHeight: `${availableHeight}px`,
+          })
+        },
+      }),
+    ],
   })
 
   const sensors = useSensors(
@@ -153,10 +165,11 @@ export const FilterView = memo(() => {
                   position: fixed;
                   z-index: 1;
                   width: 184px;
-                  background-color: ${({ theme }) => theme.surface.popupMenu};
+                  background-color: ${({ theme }) => theme.color.surface3};
                   color: ${({ theme }) => theme.text.white};
                   box-shadow: 0 0 4px ${rgba('#000', 0.5)};
                   border-radius: 4px;
+                  overflow: auto;
 
                   li {
                     padding: 8px;

@@ -620,8 +620,8 @@ const SortableLayerItem = memo(
       if (layer.layerType !== 'reference') return
 
       execute(EditorOps.setHighlightedLayers, (ids) => {
-        if (hovering) [...ids, layer.referencedLayerId]
-        else ids.filter((id) => id !== layer.referencedLayerId)
+        if (hovering) return [...ids, layer.referencedLayerId]
+        else return ids.filter((id) => id !== layer.referencedLayerId)
       })
     })
 

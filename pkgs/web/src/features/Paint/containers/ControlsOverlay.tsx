@@ -5,6 +5,7 @@ import { VectorLayerControl } from './LayerControls/VectorLayerControl'
 import { RasterLayerControl } from './LayerControls/RasterLayerControl'
 import { TextLayerControl } from './LayerControls/TextLayerControl'
 import { GroupLayerControl } from './LayerControls/GroupLayerControl'
+import { ReferenceLayerControl } from './LayerControls/ReferenceLayerControl'
 import { useMeasure } from 'react-use'
 
 export const ControlsOverlay = ({
@@ -50,6 +51,9 @@ export const ControlsOverlay = ({
         {!activeLayer?.lock && (
           <>
             {activeLayer?.layerType === 'raster' && <RasterLayerControl />}
+            {activeLayer?.layerType === 'reference' && (
+              <ReferenceLayerControl />
+            )}
             {activeLayer?.layerType === 'group' && <GroupLayerControl />}
             {activeLayer?.layerType === 'vector' && <VectorLayerControl />}
             {activeLayer?.layerType === 'text' && <TextLayerControl />}

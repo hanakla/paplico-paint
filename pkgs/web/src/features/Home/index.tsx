@@ -34,6 +34,7 @@ import { NewItemModal } from '🙌/modals/NewItemModal'
 import { createDocumentWithSize } from './utils'
 import { AspectPreview } from '🙌/components/AspectPreview'
 import { PaplicoPreloader } from '🙌/components/PaplicoPreloader'
+import { ConfirmModal } from '../../modals/ConfirmModal'
 
 dayjs.extend(relativeTime)
 
@@ -150,11 +151,33 @@ export const HomeContent = () => {
   )
 
   const handleClickSavedItem = useFunk(
-    ({ currentTarget }: MouseEvent<HTMLLIElement>) => {
+    async ({ currentTarget }: MouseEvent<HTMLLIElement>) => {
+      const item = savedItems.items.find(
+        (item) => item.uid === currentTarget.dataset.documentUid
+      )
+      if (!item) return
+
+      let loadFromManualSave = true
+
+      if (item.hasAutoSaveRevision) {
+        loadFromManualSave = !(await openModal(ConfirmModal, {
+          message: (
+            <>
+              自動保存されたバージョンがあります。
+              <br />
+              自動保存バージョンを読み込みますか？
+            </>
+          ),
+          confirmLabel: '読み込む',
+          discardLabel: '手動保存版を読み込む',
+        }))
+      }
+
       loadingNotification(() => {
         execute(
           EditorOps.loadDocumentFromIdb,
-          currentTarget.dataset.documentUid!
+          currentTarget.dataset.documentUid!,
+          { useAutoSavedRevition: !loadFromManualSave }
         )
         execute(EditorOps.setEditorPage, 'app')
       })

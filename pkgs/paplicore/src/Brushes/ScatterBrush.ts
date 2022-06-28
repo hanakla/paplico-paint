@@ -39,6 +39,7 @@ import {
   timeSumming,
 } from '../DebugHelper'
 import { Path } from '../DOM'
+import { WebGLContext } from '../engine/WebGLContext'
 
 const _object = new Object3D()
 _object.matrixAutoUpdate = false
@@ -61,6 +62,8 @@ export declare namespace ScatterBrush {
     inOutInfluence: number
     /** 0..1 */
     pressureInfluence: number
+    /** 0..1 */
+    noiseInfluence: number
   }
 }
 
@@ -90,6 +93,7 @@ export class ScatterBrush implements IBrush {
   // private material!: MeshBasicMaterial
   private geometry!: PlaneBufferGeometry
   private materials: Record<string, ShaderMaterial | MeshBasicMaterial> = {}
+  private noiseProgram!: WebGLContext.ProgramSet
 
   public getInitialSpecificConfig(): ScatterBrush.SpecificSetting {
     return {
@@ -101,10 +105,13 @@ export class ScatterBrush implements IBrush {
       randomScale: 0,
       inOutInfluence: 0,
       pressureInfluence: 0.8,
+      noiseInfluence: 0,
     }
   }
 
-  public async initialize() {
+  public async initialize({ gl }: { gl: WebGLContext }): Promise<void> {
+    this.noiseProgram = gl.createProgram(NOISE_FRAGMENT)
+
     this.scene = new Scene()
 
     await Promise.all(
@@ -254,6 +261,7 @@ export class ScatterBrush implements IBrush {
     context: ctx,
     threeRenderer: renderer,
     threeCamera: camera,
+    gl,
     path: inputPath,
     transform,
     ink,
@@ -289,7 +297,7 @@ export class ScatterBrush implements IBrush {
       mesh.matrixAutoUpdate = false
       mesh.instanceMatrix.needsUpdate = false
 
-      logTime('Scatter: set atributes (with cache)')
+      logTime('Scatter: set attributes (with cache)')
 
       geometry.setAttribute(
         'opacity',
@@ -308,7 +316,7 @@ export class ScatterBrush implements IBrush {
 
       group.add(mesh)
 
-      logTimeEnd('Scatter: set atributes (with cache)')
+      logTimeEnd('Scatter: set attributes (with cache)')
     } else {
       // #region Building path for instancing
       const threePath = new ThreePath()
@@ -377,11 +385,11 @@ export class ScatterBrush implements IBrush {
         `getTangentAtByPath at will calls ${counts} times`
       )
       const perf_updateMatrix = timeSumming(
-        `setMatrixAt at will calls ${counts} times`
+        `updateMatrix at will calls ${counts} times`
       )
       const perf_rand = timeSumming(`devRand at will calls ${counts} times`)
 
-      logTime('Scatter: set atributes')
+      logTime('Scatter: set attributes')
 
       const matrices: Matrix4[] = []
       for (let idx = 0; idx < counts; idx++) {
@@ -492,7 +500,7 @@ export class ScatterBrush implements IBrush {
         vertices: counts,
       })
 
-      logTimeEnd('Scatter: set atributes')
+      logTimeEnd('Scatter: set attributes')
 
       perf_getPoint.log()
       perf_getTangentByPath.log()
@@ -517,15 +525,41 @@ export class ScatterBrush implements IBrush {
     perf_render.timeEnd()
     perf_render.log()
 
-    if (!ScatterBrush.enablePerMeshOpacity) {
-      ctx.globalAlpha = opacity
-    }
-    ctx.drawImage(renderer.domElement, 0, 0)
+    gl.applyProgram(
+      this.noiseProgram,
+      {
+        noiseInfluence: gl.uni1f(specific.noiseInfluence),
+      },
+      renderer.domElement,
+      ctx.canvas
+    )
+
+    // if (!ScatterBrush.enablePerMeshOpacity) {
+    //   ctx.globalAlpha = opacity
+    // }
+    // ctx.drawImage(renderer.domElement, 0, 0)
 
     this.scene.remove(group)
     logGroupEnd()
   }
 }
+
+const NOISE_FRAGMENT = `
+precision mediump float;
+
+varying vec2 vUv;
+uniform sampler2D source;
+uniform float noiseInfluence;
+
+float random(vec2 co) {
+  return fract(sin(dot(co.xy, vec2(12.9898, 78.233))) * 43758.5453);
+}
+
+void main() {
+  vec4 color = texture2D(source, vUv);
+  gl_FragColor = vec4(color.r, color.g, color.b, color.a * (1.0 - noiseInfluence * random(vUv)));
+}
+`
 
 // SEE: https://jsfiddle.net/ys5wap0b/
 const VERTEX_SHADER = `

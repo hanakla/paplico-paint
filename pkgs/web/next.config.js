@@ -1,3 +1,5 @@
+/** @type {import('webpack')} */
+const webpack = require('webpack')
 const ForkTsCheckerWebpackPlugin = require('fork-ts-checker-webpack-plugin')
 const withPWA = require('next-pwa')
 const runtimeCaching = require('next-pwa/cache')
@@ -92,6 +94,10 @@ const config = {
             zlib: false,
           }),
     }
+
+    // config.plugins.push(new webpack.DefinePlugin({
+    //   COMMIT_HASH
+    // }))
 
     // if (context.dev) {
     //   config.plugins.push(new ForkTsCheckerWebpackPlugin())

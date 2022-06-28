@@ -60,10 +60,10 @@ export const debounce = <T extends (...args: any[]) => void>(
   let timerId: number = -1
 
   const run = (...args: any[]) => {
-    last = Date.now()
     clearTimeout(timerId)
 
     fn(...args)
+    last = Date.now()
   }
 
   return (...args: Parameters<T>) => {

@@ -9,6 +9,7 @@ export type BrushContext<T = unknown> = {
   context: CanvasRenderingContext2D
   threeRenderer: WebGLRenderer
   threeCamera: Camera
+  gl: WebGLContext
   /** Input path. this is cloned and freezed */
   path: Path
   transform: {

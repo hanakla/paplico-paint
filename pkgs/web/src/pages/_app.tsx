@@ -58,14 +58,7 @@ function MyApp({ Component, pageProps }: AppProps) {
       </Head>
 
       <ThemeProvider theme={theme}>
-        <LysContext>
-          <GlobalStyle />
-
-          <ErrorBoundary FallbackComponent={ErrorFallback}>
-            <LoadingLock />
-            <Component {...pageProps} />
-          </ErrorBoundary>
-        </LysContext>
+        <Component {...pageProps} />
 
         <MordredRoot>
           {(children) => (

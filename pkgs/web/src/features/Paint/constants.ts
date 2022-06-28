@@ -1,4 +1,4 @@
-import { PapBrushes } from '@paplico/core'
+import { PapBrushes, PapFilters } from '@paplico/core'
 import { nanoid } from 'nanoid'
 
 export const BRUSH_PRESETS = [
@@ -107,5 +107,55 @@ export const BRUSH_PRESETS = [
       scatterRange: 0,
       pressureInfluence: 0.5,
     } as Partial<PapBrushes.ScatterBrush.SpecificSetting>,
+  },
+  {
+    id: nanoid(),
+    nameKey: 'noise',
+    brushId: PapBrushes.ScatterBrush.id,
+    size: 20,
+    opacity: 1,
+    specific: {
+      texture: 'noise',
+      inOutInfluence: 1,
+      randomRotation: 1,
+      randomScale: 0,
+      scatterRange: 1,
+      pressureInfluence: 0.5,
+      noiseInfluence: 0.5,
+    } as Partial<PapBrushes.ScatterBrush.SpecificSetting>,
+  },
+]
+
+export const FILTER_CATEGORIES = [
+  {
+    category: 'filterCategory.blur',
+    items: [
+      PapFilters.BloomFilter.id,
+      PapFilters.KawaseBlurFilter.id,
+      PapFilters.ZoomBlurFilter.id,
+      PapFilters.TiltShiftFilter.id,
+    ],
+  },
+  {
+    category: 'filterCategory.distortion',
+    items: [
+      PapFilters.LowResoFilter.id,
+      PapFilters.BinarizationFilter.id,
+      PapFilters.UVReplaceFilter.id,
+      PapFilters.GlitchJpegFilter.id,
+    ],
+  },
+  {
+    category: 'filterCategory.coloring',
+    items: [
+      PapFilters.HalftoneFilter.id,
+      PapFilters.GradientMapFilter.id,
+      PapFilters.ChromaticAberrationFilter.id,
+      PapFilters.PosterizationFilter.id,
+    ],
+  },
+  {
+    category: 'filterCategory.etc',
+    items: [PapFilters.OutlineFilter.id, PapFilters.NoiseFilter.id],
   },
 ]

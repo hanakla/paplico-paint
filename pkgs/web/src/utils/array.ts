@@ -15,3 +15,13 @@ export const uniqBy = <T, K extends string | number>(
       .values()
   )
 }
+
+export const timesMap = <T>(n: number, fn: (i: number) => T): T[] => {
+  const result: T[] = []
+
+  for (let i = 0; i < n; i++) {
+    result.push(fn(i))
+  }
+
+  return result
+}

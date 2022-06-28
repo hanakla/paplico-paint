@@ -9,6 +9,7 @@ import { LayerTypes, RasterLayer, VectorLayer, VectorObject } from '../DOM'
 import { createContext2D } from '../Engine3_CanvasFactory'
 import { Commands } from '../Session/Commands'
 import isIOS from 'is-ios'
+import { logTime, logTimeEnd } from '../DebugHelper'
 
 type Events = {
   strokeStart: Stroke
@@ -146,6 +147,7 @@ export class CanvasHandler extends Emitter<Events> {
         )
           return
 
+        logTime('Render stroke complete (change)')
         const size = session.document.getLayerSize(activeLayer)
         this.strokeCtx.clearRect(0, 0, size.width, size.height)
 
@@ -163,6 +165,7 @@ export class CanvasHandler extends Emitter<Events> {
         )
 
         engine.lazyRender(session.document, strategy)
+        logTimeEnd('Render stroke complete (change)')
       }, 30)
     )
 
@@ -183,6 +186,8 @@ export class CanvasHandler extends Emitter<Events> {
       setCanvasSize(this.strokeCtx.canvas, size)
       setCanvasSize(this.compositeSourceCtx.canvas, size)
       this.strokeCtx.clearRect(0, 0, size.width, size.height)
+
+      logTime('Render stroke complete (complete)')
 
       if (activeLayer.layerType === 'raster') {
         this.compositeSourceCtx.drawImage(await activeLayer.imageBitmap, 0, 0)
@@ -242,6 +247,8 @@ export class CanvasHandler extends Emitter<Events> {
       strategy.setLayerOverride(null)
 
       engine.lazyRender(session.document, strategy)
+
+      logTimeEnd('Render stroke complete (complete)')
       this.mitt.emit('canvasUpdated')
     })
 
@@ -266,6 +273,8 @@ export class CanvasHandler extends Emitter<Events> {
 
   #handleMouseDown = (e: PointerEvent) => {
     this._stroking = true
+
+    this.canvas.releasePointerCapture(e.pointerId)
 
     this.currentStroke = new Stroke()
     this.currentStroke.startTime = e.timeStamp

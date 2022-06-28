@@ -29,6 +29,7 @@ import { NoiseFilter } from '../Filters/Noise'
 import { BinarizationFilter } from '../Filters/Binarization'
 import { LowResoFilter } from '../Filters/LowReso'
 import { OutlineFilter } from '../Filters/Outline'
+import { TiltShiftFilter } from '../Filters/TiltShift'
 import { ZoomBlurFilter } from '../Filters/ZoomBlur'
 import { KawaseBlurFilter } from '../Filters/KawaseBlur'
 import { UVReplaceFilter } from '../Filters/UVReplace'
@@ -77,6 +78,7 @@ export class PaplicoEngine {
       engine.toolRegistry.registerFilter(BinarizationFilter),
       engine.toolRegistry.registerFilter(LowResoFilter),
       engine.toolRegistry.registerFilter(OutlineFilter),
+      engine.toolRegistry.registerFilter(TiltShiftFilter),
       engine.toolRegistry.registerFilter(ZoomBlurFilter),
       engine.toolRegistry.registerFilter(KawaseBlurFilter),
       engine.toolRegistry.registerFilter(UVReplaceFilter),
@@ -221,10 +223,11 @@ export class PaplicoEngine {
 
   public lazyRender = debounce(
     (document: Document, strategy: IRenderStrategy) => {
+      console.log('Queued')
       this.render(document, strategy, { lazy: true })
       console.log('RENDER COMPLETE')
     },
-    300
+    100
   )
 
   public async render(
@@ -426,6 +429,7 @@ export class PaplicoEngine {
         context: destCtx,
         threeRenderer: renderer,
         threeCamera: this.camera,
+        gl: this.gl,
         ink: ink,
         path,
         transform,

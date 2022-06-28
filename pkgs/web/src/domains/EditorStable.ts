@@ -57,6 +57,7 @@ interface State {
       title: string
       thumbnailUrl: string | null
       updatedAt: Date
+      hasAutoSaveRevision: boolean
     }[]
   }
 
@@ -173,12 +174,15 @@ export const [EditorStore, EditorOps] = minOps('Editor', {
       await new Promise((r) => setTimeout(r, 1000))
 
       const documents = await db.getAll('projects')
+      const revisions = await db.getAll('autoSaveRevisions')
+
       x.commit({
         savedItems: {
           loading: false,
-          items: documents
+          items: uniqBy([...documents, ...revisions], (item) => item.uid)
             .map((d) => ({
               uid: d.uid,
+              hasAutoSaveRevision: revisions.some((rev) => rev.uid === d.uid),
               title: d.title,
               thumbnailUrl: d.thumbnail
                 ? URL.createObjectURL(d.thumbnail)
@@ -208,9 +212,16 @@ export const [EditorStore, EditorOps] = minOps('Editor', {
       await x.executeOperation(EditorOps.restoreStateFromDocumentMeta, extra)
       x.commit({ editorPage: 'app' })
     },
-    async loadDocumentFromIdb(x, documentUid: string) {
+    async loadDocumentFromIdb(
+      x,
+      documentUid: string,
+      { useAutoSavedRevition }: { useAutoSavedRevition: boolean }
+    ) {
       const db = await connectIdb()
-      const record = await db.get('projects', documentUid)
+      const record = useAutoSavedRevition
+        ? await db.get('autoSaveRevisions', documentUid)
+        : await db.get('projects', documentUid)
+
       if (!record) {
         x.commit((d) => (d.documentFetchStatus[documentUid] = { found: false }))
         return
@@ -260,7 +271,10 @@ export const [EditorStore, EditorOps] = minOps('Editor', {
           timeout: 0,
         })
 
-        await x.executeOperation(EditorOps.saveCurrentDocumentToIdb)
+        await x.executeOperation(EditorOps.saveCurrentDocumentToIdb, {
+          toAutoSaveRevision: false,
+          deleteAutoSaveRevision: false,
+        })
 
         await x.executeOperation(NotifyOps.create, {
           area: 'loadingLock',
@@ -377,12 +391,22 @@ export const [EditorStore, EditorOps] = minOps('Editor', {
             : { messageKey: 'exports.saveFailed', timeout: 3000 }),
         })
       } else {
-        await x.executeOperation(EditorOps.saveCurrentDocumentToIdb)
+        await x.executeOperation(EditorOps.saveCurrentDocumentToIdb, {
+          toAutoSaveRevision: true,
+        })
       }
     },
     async saveCurrentDocumentToIdb(
       x,
-      { notify = false }: { notify?: boolean } = {}
+      {
+        notify = false,
+        toAutoSaveRevision,
+        deleteAutoSaveRevision,
+      }: {
+        notify?: boolean
+        toAutoSaveRevision?: boolean
+        deleteAutoSaveRevision?: boolean
+      } = {}
     ) {
       if (!x.state.engine) return
       if (!x.state.currentDocument) return
@@ -431,14 +455,24 @@ export const [EditorStore, EditorOps] = minOps('Editor', {
 
         if (err) console.warn('Error caused by thumbnail generation', err)
 
-        await db.put('projects', {
+        const record = {
           uid: document.uid,
           title: document.title,
           bin: blob,
           hasSavedOnce: prev?.hasSavedOnce ?? false,
           thumbnail: thumbnail,
           updatedAt: new Date(),
-        })
+        }
+
+        if (toAutoSaveRevision) {
+          await db.put('autoSaveRevisions', record)
+        } else {
+          await db.put('projects', record)
+        }
+
+        if (deleteAutoSaveRevision) {
+          await db.delete('autoSaveRevisions', document.uid)
+        }
 
         notify &&
           (await x.executeOperation(NotifyOps.create, {

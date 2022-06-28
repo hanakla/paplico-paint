@@ -81,35 +81,35 @@ if (typeof window !== 'undefined' && window !== null) {
   ;(window as any).logImage = logImage
 }
 
-export let disableLog = true
+export let enableLog = true
 
 export const logLog: Console['group'] = (...args) => {
-  if (disableLog) return
+  if (!enableLog) return
   console.log(...args)
 }
 
 export const logGroup: Console['group'] = (...args) => {
-  if (disableLog) return
+  if (!enableLog) return
   console.group(...args)
 }
 
 export const logGroupCollapsed: Console['group'] = (...args) => {
-  if (disableLog) return
+  if (!enableLog) return
   console.groupCollapsed(...args)
 }
 
 export const logGroupEnd: Console['groupEnd'] = (...args) => {
-  if (disableLog) return
+  if (!enableLog) return
   console.groupEnd(...args)
 }
 
 export const logTime: Console['time'] = (...args) => {
-  if (disableLog) return
+  if (!enableLog) return
   console.time(...args)
 }
 
 export const logTimeEnd: Console['timeEnd'] = (...args) => {
-  if (disableLog) return
+  if (!enableLog) return
   console.timeEnd(...args)
 }
 
@@ -155,7 +155,7 @@ export const timeSumming = (label: string, mark: string = ''): TimeSumming => {
       }
     },
     log: () => {
-      if (disableLog) return
+      if (!enableLog) return
 
       logGroupCollapsed(
         `%c🕛${mark} Time to estimate ${label}:%c\n ${roundString(

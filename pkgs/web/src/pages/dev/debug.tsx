@@ -402,11 +402,21 @@ export default function Debug() {
               shift: 0.5,
             },
           }),
+          PapDOM.Filter.create({
+            filterId: '@paplico/filters/tilt-shift',
+            visible: true,
+            settings: {
+              ...engine.toolRegistry.getFilterInstance(
+                '@paplico/filters/tilt-shift'
+              )!.initialConfig,
+              shift: 0.5,
+            },
+          }),
           ...[]
         )
 
         document.addLayer(displacement)
-        // document.addLayer(bgLayer)
+        document.addLayer(bgLayer)
         document.addLayer(vector, { aboveLayerId: bgLayer.uid })
         document.addLayer(raster)
 

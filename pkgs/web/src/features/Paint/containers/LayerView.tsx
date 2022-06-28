@@ -45,6 +45,7 @@ import { SelectBox } from '🙌/components/SelectBox'
 
 import { FakeInput } from '🙌/components/FakeInput'
 import { DOMUtils } from '🙌/utils/dom'
+import { timesMap } from '🙌/utils/array'
 import { useMouseTrap } from '🙌/hooks/useMouseTrap'
 import { useTheme } from 'styled-components'
 import { useFleurContext, useStore } from '@fleur/react'
@@ -645,6 +646,22 @@ const SortableLayerItem = memo(
           onContextMenu={handleContextMenu}
           tabIndex={-1}
         >
+          {
+            <>
+              {timesMap(depth, (i) => (
+                <div
+                  css={`
+                    width: 1px;
+                    padding-left: 8px;
+                    border-left: 1px solid #b5b5b5;
+                  `}
+                  style={{
+                    left: i * 8,
+                  }}
+                />
+              ))}
+            </>
+          }
           <div
             css={`
               display: flex;

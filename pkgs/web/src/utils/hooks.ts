@@ -246,7 +246,7 @@ export const useAutoUpdateFloating = (fl: UseFloatingReturn) => {
       fl.refs.reference.current,
       fl.refs.floating.current,
       fl.update,
-      { ancestorResize: true, ancestorScroll: true, elementResize: false }
+      { ancestorResize: true, ancestorScroll: true, elementResize: true }
     )
   }, [fl.refs.reference, fl.refs.floating, fl.update])
 }

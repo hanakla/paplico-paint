@@ -3,7 +3,7 @@
   "background_color": "#ececec",
   "display": "standalone",
   "scope": "/",
-  "start_url": "/?source=pwa",
+  "start_url": "/app?source=pwa",
   "name": "Paplico Paint",
   "short_name": "Paplico",
   "description": "Paplico Paint",

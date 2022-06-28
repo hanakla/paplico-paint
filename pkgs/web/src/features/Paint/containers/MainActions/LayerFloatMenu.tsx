@@ -877,7 +877,8 @@ const FiltersSheet = memo(function FiltersSheet({
         </span>
       }
       fill
-      data-ignore-open-layer-menu
+      backdrop={false}
+      // data-ignore-open-layer-menu
     >
       <div data-dont-close-layer-float>
         <header

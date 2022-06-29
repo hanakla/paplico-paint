@@ -44,7 +44,7 @@
     "jsdom": "^19.0.0",
     "mousetrap": "^1.6.5",
     "nanoid": "^3.3.2",
-    "next": "12.1.6",
+    "next": "^12.2.0",
     "next-i18next": "^8.5.5",
     "object-fit-math": "^1.0.0",
     "polished": "^4.1.3",

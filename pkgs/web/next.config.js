@@ -13,10 +13,8 @@ const { i18n } = require('./next-i18next.config')
 /** @type {import('next').NextConfig} */
 const config = {
   i18n,
-  experimental: {
-    // reactRoot: true,
-    // reactMode: 'concurrent',
-    // swcMinify: true,
+  compiler: {
+    styledComponents: true,
   },
   pwa: {
     dest: 'public',

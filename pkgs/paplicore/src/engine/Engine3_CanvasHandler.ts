@@ -3,7 +3,7 @@ import { Emitter } from '../Engine3_Emitter'
 import { PapSession } from '../Session/Engine3_Sessions'
 import { DifferenceRender } from './RenderStrategy/DifferenceRender'
 import { Stroke } from './Stroke'
-import { debounce, setCanvasSize } from '../utils'
+import { setCanvasSize, throttleSingle } from '../utils'
 import { deepClone } from '../utils/object'
 import { LayerTypes, RasterLayer, VectorLayer, VectorObject } from '../DOM'
 import { createContext2D } from '../Engine3_CanvasFactory'
@@ -136,7 +136,7 @@ export class CanvasHandler extends Emitter<Events> {
 
     this.on(
       'strokeChange',
-      debounce(async (stroke: Stroke) => {
+      throttleSingle(async (stroke: Stroke) => {
         if (!this.strokeDrawEnable) return
 
         const { activeLayer } = session
@@ -164,9 +164,9 @@ export class CanvasHandler extends Emitter<Events> {
           { hintInput: null }
         )
 
-        engine.lazyRender(session.document, strategy)
+        await engine.render(session.document, strategy)
         logTimeEnd('Render stroke complete (change)')
-      }, 30)
+      })
     )
 
     this.on('strokeComplete', async (stroke) => {
@@ -246,7 +246,7 @@ export class CanvasHandler extends Emitter<Events> {
       strategy.markUpdatedLayerId(activeLayer.uid)
       strategy.setLayerOverride(null)
 
-      engine.lazyRender(session.document, strategy)
+      engine.render(session.document, strategy)
 
       logTimeEnd('Render stroke complete (complete)')
       this.mitt.emit('canvasUpdated')

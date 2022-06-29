@@ -25,6 +25,9 @@ export const DevLayout = ({ children }: { children: ReactNode }) => {
         <Tab active={router.asPath === '/dev/bench'}>
           <Link href="/dev/bench">bench</Link>{' '}
         </Tab>
+        <Tab active={router.asPath === '/dev/draw-perf'}>
+          <Link href="/dev/draw-perf">draw-perf</Link>{' '}
+        </Tab>
       </TabBar>
       <div>{children}</div>
     </div>

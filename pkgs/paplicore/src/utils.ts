@@ -78,6 +78,29 @@ export const debounce = <T extends (...args: any[]) => void>(
   }
 }
 
+export const throttleSingle = <T extends (...args: any[]) => Promise<any>>(
+  fn: T
+) => {
+  let running = false
+  let queue: (() => void) | null = null
+
+  return async (...args: Parameters<T>) => {
+    if (running) {
+      queue = () => fn(...args)
+      return
+    }
+
+    running = true
+    await fn(...args)
+    running = false
+
+    let q = queue
+    queue = null
+
+    q?.()
+  }
+}
+
 export const createKeyedRequestIdeCallback = () => {
   const map: Record<string, number> = Object.create(null)
 

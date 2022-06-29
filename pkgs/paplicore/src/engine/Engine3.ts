@@ -221,14 +221,32 @@ export class PaplicoEngine {
   //   return PaplicoEngine.layerBitmapCache.get(document)?.[layerId]
   // }
 
-  public lazyRender = debounce(
-    (document: Document, strategy: IRenderStrategy) => {
-      console.log('Queued')
-      this.render(document, strategy, { lazy: true })
-      console.log('RENDER COMPLETE')
-    },
-    100
-  )
+  public lazyRender = (() => {
+    let lastPromise: Promise<void> | null = null
+    let runnging = false
+    let queued = false
+
+    return (document: Document, strategy: IRenderStrategy) => {
+      if (runnging) {
+        if (queued) return
+
+        queued = true
+
+        lastPromise?.then(() => {
+          this.lazyRender(document, strategy)
+        })
+
+        return
+      }
+
+      runnging = true
+      lastPromise = this.render(document, strategy, { lazy: true }).then(() => {
+        runnging = false
+        queued = false
+        lastPromise = null
+      })
+    }
+  })()
 
   public async render(
     document: Document,
@@ -277,25 +295,35 @@ export class PaplicoEngine {
       logGroupCollapsed('Start Strategy render')
 
       await strategy.render(this, document, preDestCtx)
+      // await logImage(preDestCtx)
 
-      target && setCanvasSize(target.canvas, document.width, document.height)
-      target?.clearRect(0, 0, document.width, document.height)
-      target?.drawImage(
-        preDestCtx.canvas,
-        0,
-        0,
-        document.width,
-        document.height
-      )
+      if (target) {
+        setCanvasSizeIfDifferent(target.canvas, document.width, document.height)
+
+        target.clearRect(0, 0, document.width, document.height)
+        target.drawImage(
+          preDestCtx.canvas,
+          0,
+          0,
+          document.width,
+          document.height
+        )
+
+        await new Promise((r) => setTimeout(r))
+      }
 
       logGroupEnd()
       logTimeEnd('Essential render')
 
       if (errors.length > 0) {
-        this.mitt.emit(
-          'renderError',
-          new AggregateError(errors, 'Caught errors in rendering process')
+        const error = new AggregateError(
+          errors,
+          'Caught errors in rendering process'
         )
+
+        this.mitt.emit('renderError', error)
+
+        throw error
       }
 
       if (target === this.canvasCtx) {

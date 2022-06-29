@@ -40,7 +40,10 @@ export const connectIdb = async () => {
       }
 
       if (old <= 4) {
-        db.deleteObjectStore('autoSaveRevisions')
+        if (db.objectStoreNames.contains('autoSaveRevisions')) {
+          db.deleteObjectStore('autoSaveRevisions')
+        }
+
         db.createObjectStore('autoSaveRevisions', {
           autoIncrement: true,
           keyPath: 'uid',

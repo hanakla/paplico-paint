@@ -23,15 +23,18 @@ export const Sidebar = forwardRef<HTMLDivElement, Props>(
           max-width: 250px;
           overflow: hidden;
           background-color: ${({ theme }) => theme.color.surface3};
-          ${tm((o) => [
-            side === 'left'
-              ? o.border.default.right
-              : side === 'right'
-              ? o.border.default.left
-              : null,
-          ])}
+
+          ${({ side }) =>
+            tm((o) => [
+              side === 'left'
+                ? o.border.default.right
+                : side === 'right'
+                ? o.border.default.left
+                : null,
+            ])}
         `}
         className={className}
+        {...{ side }}
       >
         <div
           css={css`

@@ -101,6 +101,8 @@ interface State {
   activeLayerPath: string[] | null
   activeObjectId: string | null
   activeObjectPointIndices: number[]
+  selectedObjectUids: string[] | null
+  activeObjectsPointIndices: { [objectId: string]: number[] }
   selectedFilterIds: { [id: string]: true | undefined }
   vectorStroking: VectorStroking | null
   vectorFocusing: { objectId: string } | null
@@ -155,8 +157,13 @@ export const [EditorStore, EditorOps] = minOps('Editor', {
     currentFill: null,
     currentStroke: null,
     activeLayerPath: null,
+    /** @deprecated */
     activeObjectId: null,
     activeObjectPointIndices: [],
+
+    selectedObjectUids: null,
+    activeObjectsPointIndices: {},
+
     selectedFilterIds: {},
     vectorStroking: null,
     vectorFocusing: null,
@@ -706,7 +713,7 @@ export const [EditorStore, EditorOps] = minOps('Editor', {
 
     async setActiveObject(
       x,
-      objectId: string | null,
+      objectId: string | string[] | null,
       pathToLayer: string[] | null = null
     ) {
       if (pathToLayer != null) {
@@ -719,14 +726,33 @@ export const [EditorStore, EditorOps] = minOps('Editor', {
           d.vectorStroking = null
         }
 
-        d.activeObjectId = objectId
+        if (objectId == null) {
+          d.activeObjectId = null
+          d.selectedObjectUids = null
+        } else if (typeof objectId === 'string') {
+          d.activeObjectId = objectId
+          d.selectedObjectUids = [objectId]
+        } else {
+          d.activeObjectId = objectId[0]
+          d.selectedObjectUids = objectId
+        }
 
+        // TODO: Supports uids
         if (x.state.activeObjectId !== objectId)
           trace('activeObject changed', { objectId })
       })
     },
     setSelectedObjectPoints: (x, indices: number[]) => {
-      x.commit({ activeObjectPointIndices: indices })
+      x.commit((draft) => {
+        if (draft.activeObjectId == null) {
+          draft.activeObjectPointIndices = []
+          draft.activeObjectsPointIndices = {}
+          return
+        }
+
+        draft.activeObjectPointIndices = indices
+        draft.activeObjectsPointIndices = { [draft.activeObjectId]: indices }
+      })
     },
     setVectorStroking: (x, vectorStroking: VectorStroking | null) => {
       trace('vectorStroking changed', vectorStroking)
@@ -1035,6 +1061,27 @@ export const EditorSelector = {
     return session?.activeLayer?.objects.find(
       (obj) => obj.uid === activeObjectId
     ) as any
+  }),
+  activeObjects: selector((get): PapDOM.VectorObject[] | null => {
+    const { session, activeLayerPath, selectedObjectUids } = get(EditorStore)
+
+    if (!activeLayerPath) return null
+    if (session?.activeLayer?.layerType !== 'vector') return null
+
+    return (
+      selectedObjectUids
+        ?.map((uid) => {
+          return PapDOMDigger.findObjectDeeplyInLayer(
+            session.document!,
+            activeLayerPath,
+            uid,
+            { strict: false }
+          )?.object
+        })
+        .filter((o): o is PapDOM.VectorObject => o != null) ?? null
+    )
+
+    // return session?.activeLayer?.objects.filter(obj => )
   }),
   activeLayerBBox: selector(
     (get) => get(EditorStore).session?.currentLayerBBox

@@ -112,6 +112,35 @@ export const flattenLayers = (
     list: FlatLayerEntry[]
   ) => boolean = () => true
 ): FlatLayerEntry[] => {
+  const flatObjects = (
+    objects: PapDOM.VectorObject[],
+    parentPath: string[],
+    parentIndex: number | null,
+    entries: FlatLayerEntry[]
+  ) => {
+    objects.forEach((object, index) => {
+      const entry: FlatLayerEntry = {
+        id: object.uid,
+        parentId: parentPath.slice(-1)[0],
+        type: 'object',
+        object,
+        parentPath,
+        indexInParent: index,
+        depth: parentPath.length,
+        index: entries.length,
+      }
+
+      entries.push(entry)
+
+      flatObjects(
+        object.objects,
+        [...parentPath, object.uid],
+        entries.length - 1,
+        entries
+      )
+    })
+  }
+
   const flatter = (
     layers: PapDOM.LayerTypes[],
     parentPath: string[],
@@ -141,19 +170,25 @@ export const flattenLayers = (
         )
       } else if (layer.layerType === 'vector') {
         const parentIdx = entries.indexOf(entry)
-
-        entries.push(
-          ...layer.objects.map((o, i) => ({
-            id: o.uid,
-            parentId: layer.uid,
-            indexInParent: i,
-            type: 'object' as const,
-            object: o,
-            parentPath: [...parentPath, layer.uid],
-            depth: parentPath.length + 1,
-            index: entries.length + 1 + i,
-          }))
+        flatObjects(
+          layer.objects,
+          [...parentPath, layer.uid],
+          parentIndex,
+          entries
         )
+
+        // entries.push(
+        //   ...layer.objects.map((o, i) => ({
+        //     id: o.uid,
+        //     parentId: layer.uid,
+        //     indexInParent: i,
+        //     type: 'object' as const,
+        //     object: o,
+        //     parentPath: [...parentPath, layer.uid],
+        //     depth: parentPath.length + 1,
+        //     index: entries.length + 1 + i,
+        //   }))
+        // )
       }
     })
 

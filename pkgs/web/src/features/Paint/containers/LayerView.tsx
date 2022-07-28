@@ -259,9 +259,9 @@ export const LayerView = memo(function LayerView() {
         <>
           <Stack
             css={`
-              width: 16px;
               margin-right: 4px;
             `}
+            size={16}
           />
           レイヤー
         </>
@@ -286,7 +286,7 @@ export const LayerView = memo(function LayerView() {
           `}
         >
           <div ref={addLayerFl.reference} onClick={toggleAddLayerOpened}>
-            <Add css="width: 16px;" />
+            <Add width={16} />
           </div>
         </div>
 

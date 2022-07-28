@@ -4,7 +4,7 @@ export const saveAndRestoreCanvas = <
 >(
   ctx: C,
   proc: T
-) => {
+): ReturnType<T> => {
   try {
     ctx.save()
     return proc(ctx)

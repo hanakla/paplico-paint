@@ -511,32 +511,71 @@ export class PaplicoEngine {
       for (const object of [...layer.objects].reverse()) {
         if (!object.visible) continue
 
-        bufferCtx.save()
+        renderObject.call(this, object, bufferCtx)
+      }
 
-        bufferCtx.globalCompositeOperation = 'source-over'
+      if (dest) {
+        dest.drawImage(bufferCtx.canvas, 0, 0)
+      } else {
+        return bufferCtx.getImageData(0, 0, width, height).data
+      }
+    } finally {
+      logGroupEnd()
+      this.atomicBufferCtx.release(bufferCtx)
+    }
+
+    async function renderObject(
+      this: PaplicoEngine,
+      object: VectorObject,
+      dest: CanvasRenderingContext2D
+    ) {
+      function applyObjectPathAndTransform(
+        object: VectorObject,
+        dest: CanvasRenderingContext2D
+      ) {
+        dest.transform(...object.matrix)
+        dest.beginPath()
+
+        const start = object.path.points[0]
+        dest.moveTo(start.x, start.y)
+
+        object.path.mapPoints(
+          (point, prev) => {
+            dest.bezierCurveTo(
+              prev!.out?.x ?? prev!.x,
+              prev!.out?.y ?? prev!.y,
+              point.in?.x ?? point.x,
+              point.in?.y ?? point.y,
+              point.x,
+              point.y
+            )
+          },
+          { startOffset: 1 }
+        )
+
+        if (object.path.closed) dest.closePath()
+      }
+
+      await saveAndRestoreCanvas(bufferCtx, async () => {
+        if (object.mode === 'clipping') {
+          for (const o of object.objects) {
+            await renderObject.call(this, o, bufferCtx)
+          }
+
+          //   await logImage(bufferCtx, 'Clip')
+
+          applyObjectPathAndTransform(object, dest)
+          dest.globalCompositeOperation = 'destination-in'
+          dest.fillStyle = '#fff'
+          dest.fill()
+
+          return
+        }
+
+        dest.globalCompositeOperation = 'source-over'
 
         if (object.fill) {
-          bufferCtx.transform(...object.matrix)
-          bufferCtx.beginPath()
-
-          const start = object.path.points[0]
-          bufferCtx.moveTo(start.x, start.y)
-
-          object.path.mapPoints(
-            (point, prev) => {
-              bufferCtx.bezierCurveTo(
-                prev!.out?.x ?? prev!.x,
-                prev!.out?.y ?? prev!.y,
-                point.in?.x ?? point.x,
-                point.in?.y ?? point.y,
-                point.x,
-                point.y
-              )
-            },
-            { startOffset: 1 }
-          )
-
-          if (object.path.closed) bufferCtx.closePath()
+          applyObjectPathAndTransform(object, dest)
 
           switch (object.fill.type) {
             case 'fill': {
@@ -545,11 +584,11 @@ export class PaplicoEngine {
                 opacity,
               } = object.fill
 
-              bufferCtx.globalAlpha = 1
-              bufferCtx.fillStyle = `rgba(${r * 255}, ${g * 255}, ${
+              dest.globalAlpha = 1
+              dest.fillStyle = `rgba(${r * 255}, ${g * 255}, ${
                 b * 255
               }, ${opacity})`
-              bufferCtx.fill()
+              dest.fill()
               break
             }
             case 'linear-gradient': {
@@ -566,7 +605,7 @@ export class PaplicoEngine {
               const centerX = left + width / 2
               const centerY = top + height / 2
 
-              const gradient = bufferCtx.createLinearGradient(
+              const gradient = dest.createLinearGradient(
                 centerX + start.x,
                 centerY + start.y,
                 centerX + end.x,
@@ -583,14 +622,14 @@ export class PaplicoEngine {
                 )
               }
 
-              bufferCtx.globalAlpha = opacity
-              bufferCtx.fillStyle = gradient
-              bufferCtx.fill()
+              dest.globalAlpha = opacity
+              dest.fillStyle = gradient
+              dest.fill()
               break
             }
           }
 
-          bufferCtx.resetTransform()
+          dest.resetTransform()
         }
 
         if (object.brush) {
@@ -618,18 +657,7 @@ export class PaplicoEngine {
 
           logTimeEnd('Engine.renderPath')
         }
-
-        bufferCtx.restore()
-      }
-
-      if (dest) {
-        dest.drawImage(bufferCtx.canvas, 0, 0)
-      } else {
-        return bufferCtx.getImageData(0, 0, width, height).data
-      }
-    } finally {
-      logGroupEnd()
-      this.atomicBufferCtx.release(bufferCtx)
+      })
     }
   }
 

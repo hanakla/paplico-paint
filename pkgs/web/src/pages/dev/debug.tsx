@@ -101,6 +101,7 @@ export default function Debug() {
           name: 'square',
           objects: [
             PapDOM.VectorObject.create({
+              mode: 'clipping',
               fill: {
                 type: 'fill',
                 color: { r: 1, g: 1, b: 1 },
@@ -138,6 +139,36 @@ export default function Debug() {
             }),
           ],
         })
+
+        square.objects[0].objects.push(
+          PapDOM.VectorObject.create({
+            fill: { type: 'fill', color: { r: 0, g: 1, b: 1 }, opacity: 0.5 },
+            path: PapDOM.Path.create({
+              points: [
+                {
+                  x: 0,
+                  y: 0,
+                  in: null,
+                  out: null,
+                },
+                {
+                  x: document.width,
+                  y: 0,
+                  in: null,
+                  out: null,
+                },
+                {
+                  x: 0,
+                  y: document.height,
+                  in: null,
+                  out: null,
+                },
+              ],
+              closed: true,
+            }),
+          })
+        )
+
         const strokes = PapDOM.VectorLayer.create({
           name: 'strokes',
           opacity: 100,

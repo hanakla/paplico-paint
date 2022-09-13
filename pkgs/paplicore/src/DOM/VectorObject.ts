@@ -23,6 +23,7 @@ export declare namespace VectorObject {
     lock: boolean
     /** 0..360 */
     rotate: number
+    mode: VectorObjectMode
     /** 100% = 1.0 */
     scale: [number, number]
     brush: BrushSetting | null
@@ -44,6 +45,8 @@ export declare namespace VectorObject {
     uid: string
     path: Path.SerializedAttibutes
   }
+
+  export type VectorObjectMode = 'normal' | 'clipping'
 }
 
 export class VectorObject
@@ -73,10 +76,14 @@ export class VectorObject
   public rotate: number = 0
   public scale: [number, number] = [1, 1]
 
+  public mode: VectorObject.VectorObjectMode = 'normal'
   public path: Path = null as any
   public brush: BrushSetting | null = null
   public fill: FillSetting | null = null
   // public appearances: ObjectAppearance[]
+
+  /** Compositing first to last (last is foreground) */
+  public readonly objects: VectorObject[] = []
 
   /** Mark for re-rendering decision */
   protected _contentUpdatedAt = { key: nanoid(), time: Date.now() }

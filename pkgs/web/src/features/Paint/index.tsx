@@ -259,11 +259,17 @@ export const PaintPage = memo(function PaintPage({}) {
 
   const [bindDrop, dragState] = useDropArea({ onFiles: handleOnDrop })
 
+  useFunkyGlobalMouseTrap(['ctrl+k', 'command+k'], (e) => {
+    e.preventDefault()
+    if (process.env.NODE_ENV === 'development') console.clear()
+  })
+
   useFunkyGlobalMouseTrap(['ctrl+s', 'command+s'], (e) => {
     e.preventDefault()
 
     executeOperation(EditorOps.saveCurrentDocumentToIdb, { notify: true })
   })
+
   useFunkyGlobalMouseTrap(['ctrl+shift+s', 'command+shift+s'], (e) => {
     e.preventDefault()
     handleClickExport()

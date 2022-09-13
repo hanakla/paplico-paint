@@ -50,6 +50,7 @@ import {
 } from '🙌/components/ContextMenu'
 import { tm } from '🙌/utils/theme'
 import { floatingDropShadow } from '🙌/utils/mixins'
+import { filterNonNull, pluck } from '../../../../utils/array'
 
 const POINT_SIZE = 8
 
@@ -77,6 +78,7 @@ export const VectorLayerControl = () => {
     activeObjectId,
     vectorFocusing,
     activeObject,
+    activeObjects,
   } = useStore((get) => ({
     canvasScale: EditorSelector.canvasScale(get),
     canvasPosition: EditorSelector.canvasPosition(get),
@@ -92,6 +94,7 @@ export const VectorLayerControl = () => {
     activeObjectId: get(EditorStore).state.activeObjectId,
     vectorFocusing: get(EditorStore).state.vectorFocusing,
     activeObject: EditorSelector.activeObject(get),
+    activeObjects: EditorSelector.activeObjects(get),
   }))
 
   useLayerWatch(activeLayer)
@@ -199,10 +202,17 @@ export const VectorLayerControl = () => {
   const handleClickObjectOutline = useFunk((e: MouseEvent<SVGPathElement>) => {
     e.stopPropagation()
 
-    execute(
-      EditorOps.setActiveObject,
-      e.currentTarget.dataset.objectUid ?? null
-    )
+    const objectUid = e.currentTarget.dataset.objectUid!
+    if (e.shiftKey) {
+      const currentUids = activeObjects?.map((o) => o.uid) ?? []
+      const nextUids = currentUids.includes(objectUid)
+        ? currentUids.filter((uid) => uid != objectUid)
+        : [...currentUids, objectUid]
+
+      execute(EditorOps.setActiveObject, nextUids)
+    } else {
+      execute(EditorOps.setActiveObject, [objectUid])
+    }
   })
 
   const bindRootDrag = useDrag(
@@ -391,6 +401,7 @@ export const VectorLayerControl = () => {
       )
 
       if (last) {
+        console.log('commit')
         trsnCommand.commit()
       }
     },
@@ -448,6 +459,42 @@ export const VectorLayerControl = () => {
   const handleContextClickMoveDown = useFunk(
     (e: ContextMenuParam<{ objectUid: string }>) => {
       moveDownObjectOrder(e.props!.objectUid)
+    }
+  )
+
+  const handleContextClickClipMask = useFunk(
+    (e: ContextMenuParam<{ objectUid: string }>) => {
+      if (!activeObjects) return
+
+      const children = activeObjects.slice(0, -1)
+      const clipUid = activeObjects.slice(-1)[0]
+
+      activeLayer.update((l) => {
+        const objects = l.objects
+        const next = objects.filter((o) => !children.includes(o))
+        l.objects.splice(0)
+        l.objects.splice(0, 0, ...next)
+
+        clipUid.objects.push(...children)
+        clipUid.mode = 'clipping'
+      })
+
+      execute(EditorOps.rerenderCanvas)
+
+      // execute(
+      //   EditorOps.runCommand,
+      //   new PapCommands.Transaction({
+      //     commands: [
+      //       new PapCommands.VectorLayer.TransferObject({
+      //         moves: children.map(uid => ({
+      //           sourceContainerPath: activeLayerPath,
+      //           objectUid: uid,
+      //           destContainerPath: [...activeLayerPath, clipUid],
+
+      //         }))
+      //     ]
+      //   })
+      // )
     }
   )
 
@@ -575,7 +622,7 @@ export const VectorLayerControl = () => {
         onClick={handleClickRoot}
         {...bindRootDrag()}
       />
-      {activeLayer.objects.map((object) => (
+      {[...activeLayer.objects].reverse().map((object) => (
         <g
           data-devmemo="Each objects controls"
           key={object.uid}
@@ -690,6 +737,13 @@ export const VectorLayerControl = () => {
           </ContextMenuItem>
           <ContextMenuItem onClick={handleContextClickMoveDown}>
             {t('vectorControl.context.movedown')}
+          </ContextMenuItem>
+
+          <ContextMenuItem
+            hidden={!activeObjects || activeObjects!.length < 2}
+            onClick={handleContextClickClipMask}
+          >
+            クリッピングマスクを作成
           </ContextMenuItem>
         </ContextMenu>
       </Portal>
@@ -1005,7 +1059,6 @@ const PathSegments = ({
 
   const handleClickPoint = useFunk((e: MouseEvent<SVGRectElement>) => {
     e.stopPropagation()
-    console.log('hi')
 
     const { dataset } = e.currentTarget
     const pointIndex = +dataset.pointIndex!
@@ -1015,6 +1068,7 @@ const PathSegments = ({
     if (the(currentTool).notIn('point-cursor', 'shape-pen') || !activeLayerPath)
       return
 
+    // Case: in stroking, click first point in open path object
     if (vectorStroking && (isLastPoint || isFirstPoint)) {
       if (!activeLayer || !activeObject) return
       if (vectorStroking.objectId !== object.uid) return
@@ -1034,15 +1088,16 @@ const PathSegments = ({
       return
     }
 
-    if (activeObject && (isLastPoint || isFirstPoint)) {
-      execute(EditorOps.setVectorStroking, {
-        objectId: object.uid,
-        selectedPointIndex: pointIndex,
-        isHead: isFirstPoint,
-        isTail: isLastPoint,
-      })
-      return
-    }
+    // Case: not in stroking and click a point
+    // if (activeObject && (isLastPoint || isFirstPoint)) {
+    //   execute(EditorOps.setVectorStroking, {
+    //     objectId: object.uid,
+    //     selectedPointIndex: pointIndex,
+    //     isHead: isFirstPoint,
+    //     isTail: isLastPoint,
+    //   })
+    //   return
+    // }
 
     const nextIndices = e.shiftKey
       ? [...activeObjectPointIndices, pointIndex]
@@ -1184,7 +1239,7 @@ const PathSegments = ({
   const pathSegments = useDeepCompareMemo(() => {
     return object.path
       .mapPoints((point, prevPoint, pointIdx, points) => {
-        const isActive = activeObject?.uid === object.uid
+        const isObjectActive = activeObject?.uid === object.uid
         const isPointSelected = activeObjectPointIndices.includes(pointIdx)
         const isFirstPoint = pointIdx === 0
         const isLastPoint = pointIdx === points.length - 1
@@ -1216,7 +1271,7 @@ const PathSegments = ({
                   shape-rendering: optimizeSpeed;
                 `}
                 style={{
-                  ...(isActive ? { stroke: '#4e7fff' } : {}),
+                  ...(isObjectActive ? { stroke: '#4e7fff' } : {}),
                 }}
                 d={segmentPath}
                 data-object-id={object.uid}
@@ -1229,41 +1284,39 @@ const PathSegments = ({
 
           inControl: (
             <Fragment key={`inControl-${object.uid}`}>
-              {isActive &&
-                isPointSelected &&
-                !(object.path.closed && isLastPoint) && (
-                  <>
-                    {/* handle from previous to current */}
-                    {point.in && (
-                      <>
-                        <polyline
-                          css={`
-                            stroke: #4e7fff;
-                            pointer-events: none;
-                            shape-rendering: optimizeSpeed;
-                          `}
-                          style={{ strokeWidth: 0.5 * zoom }}
-                          points={`${point.in.x},${point.in.y} ${point.x},${point.y}`}
-                        />
-                        <circle
-                          css={`
-                            fill: #4e7fff;
-                            stroke: rgba(0, 0, 0, 0.2);
-                            pointer-events: visiblePainted;
-                            shape-rendering: optimizeSpeed;
-                          `}
-                          cx={point.in.x}
-                          cy={point.in.y}
-                          r={POINT_SIZE * zoom}
-                          data-object-id={object.uid}
-                          data-point-index={pointIdx}
-                          onDoubleClick={handleDoubleClickInPoint}
-                          {...bindDragStartInAnchor()}
-                        />
-                      </>
-                    )}
-                  </>
-                )}
+              {isObjectActive && isPointSelected && (
+                <>
+                  {/* handle from previous to current */}
+                  {point.in && (
+                    <>
+                      <polyline
+                        css={`
+                          stroke: #4e7fff;
+                          pointer-events: none;
+                          shape-rendering: optimizeSpeed;
+                        `}
+                        style={{ strokeWidth: 0.5 * zoom }}
+                        points={`${point.in.x},${point.in.y} ${point.x},${point.y}`}
+                      />
+                      <circle
+                        css={`
+                          fill: #4e7fff;
+                          stroke: rgba(0, 0, 0, 0.2);
+                          pointer-events: visiblePainted;
+                          shape-rendering: optimizeSpeed;
+                        `}
+                        cx={point.in.x}
+                        cy={point.in.y}
+                        r={POINT_SIZE * zoom}
+                        data-object-id={object.uid}
+                        data-point-index={pointIdx}
+                        onDoubleClick={handleDoubleClickInPoint}
+                        {...bindDragStartInAnchor()}
+                      />
+                    </>
+                  )}
+                </>
+              )}
             </Fragment>
           ),
 
@@ -1302,7 +1355,7 @@ const PathSegments = ({
             </Fragment>
           ),
           point:
-            !renderPoint || !isActive ? null : (
+            !renderPoint || !isObjectActive ? null : (
               <Fragment key={`point-${object.uid}`}>
                 <g
                   data-object-id={object.uid}

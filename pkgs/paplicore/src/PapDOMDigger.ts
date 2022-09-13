@@ -60,6 +60,20 @@ interface Digger {
     | { index: number; object: VectorObject }
     | (S extends true ? never : Nullish)
 
+  findObjectDeeplyInLayer<S extends boolean | undefined>(
+    document: { layers: readonly LayerTypes[] },
+    path: readonly string[],
+    objectUid: string,
+    option?: { strict?: S }
+  ):
+    | {
+        path: string
+        closestParent: VectorObject | null
+        indexInClosestParent: number
+        object: VectorObject
+      }
+    | (S extends true ? never : Nullish)
+
   findParentLayers<S extends boolean | undefined>(
     document: { layers: readonly LayerTypes[] },
     layerUid: string,
@@ -240,6 +254,63 @@ export const PapDOMDigger: Digger = {
     }
 
     return { index, object: layer.objects[index] } as any
+  },
+
+  findObjectDeeplyInLayer: (document, path, objectUid, { strict } = {}) => {
+    const traverse = (
+      object: VectorObject,
+      callback: (
+        o: VectorObject,
+        path: string[],
+        parent: VectorObject | null
+      ) => boolean | void,
+      currentPath: string[] = [],
+      parent: VectorObject | null = null
+    ) => {
+      const result = callback(object, currentPath, parent)
+      if (result != null) return result
+
+      currentPath = [...currentPath, ...object.uid]
+
+      for (const o of object.objects) {
+        if (traverse(o, callback, currentPath, o) === false) return
+      }
+    }
+
+    const layer = PapDOMDigger.findLayer(document, path, {
+      kind: 'vector',
+      strict: true,
+    })
+
+    let parentObject: VectorObject | null = null
+    let object: VectorObject | null = null
+    let objectPath: string[] | null = null
+
+    for (const obj of layer.objects) {
+      traverse(obj, (o, path, parent) => {
+        if (o.uid === objectUid) {
+          object = o
+          objectPath = path
+          parentObject = parent
+          return false
+        }
+      })
+    }
+
+    if (strict && object == null) {
+      throw new Error(
+        `VectorObject not found: ${path.join('->')}->${objectUid}`
+      )
+    }
+
+    return {
+      object,
+      closestParent: parentObject as VectorObject | null,
+      path: objectPath as unknown as string[],
+      indexInClosestParent: (
+        parentObject as VectorObject | null
+      )?.objects.findIndex((o) => o.uid === objectUid),
+    } as any
   },
 
   findParentLayers(document, layerUid, { strict } = {}) {

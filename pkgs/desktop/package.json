@@ -1,5 +1,6 @@
 {
   "private": true,
+  "version": "0.0.0",
   "name": "@paplico/desktop",
   "main": "main/index.js",
   "productName": "Paplico Paint",

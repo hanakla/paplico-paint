@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "workspaces": [
-    "./pkgs/*"
+    "pkgs/*"
   ],
   "scripts": {
     "dev": "wsrun -p @paplico/web -c dev",
@@ -12,5 +12,6 @@
   },
   "devDependencies": {
     "wsrun": "^5.2.4"
-  }
+  },
+  "packageManager": "yarn@3.3.0"
 }

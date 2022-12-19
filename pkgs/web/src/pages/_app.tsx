@@ -15,7 +15,7 @@ import Head from 'next/head'
 import { LoadingLock } from '🙌/containers/LoadingLock'
 import { GlobalStyle } from '🙌/components/GlobalStyle'
 import { darkWithCharcoal, lightWithCharcoal } from '🙌/utils/theme'
-import { EditorStore } from '🙌/domains/EditorStable'
+// import { EditorStore } from '🙌/domains/EditorStable'
 import { ThemeProvider } from 'styled-components'
 
 const fastclick = typeof window !== 'undefined' ? require('fastclick') : null
@@ -23,7 +23,7 @@ typeof window !== 'undefined' ? require('doubletouch-to-dblclick') : null
 
 function MyApp({ Component, pageProps }: AppProps) {
   const { currentTheme } = useStore((get) => ({
-    currentTheme: get(EditorStore).state.currentTheme,
+    currentTheme: 'dark', //get(EditorStore).state.currentTheme,
   }))
 
   const theme = useMemo(

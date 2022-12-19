@@ -40,16 +40,22 @@ const cases = {
     iterate: 1000,
   }),
   imageBitmap: benchCase({
-    name: 'createImageBitmap',
+    name: 'createImageBitmap vs ImageBitmap',
     init: async () => {
       const imageData = new ImageData(1000, 1000)
       return { imageData }
     },
     cases: [
       {
-        name: 'test',
+        name: 'createImageBitmap',
         run: async ({ imageData }) => {
           await createImageBitmap(imageData)
+        },
+      },
+      {
+        name: 'new ImageData',
+        run: ({ imageData }) => {
+          new ImageData(imageData.width, imageData.height)
         },
       },
     ],

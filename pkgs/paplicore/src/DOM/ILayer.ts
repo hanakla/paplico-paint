@@ -2,13 +2,6 @@ import { type Emitter } from '../Engine3_Emitter'
 import { type ISilkDOMElement } from './ISilkDOMElement'
 import { FeatureTagMixin } from './internal/featureTag'
 
-export type CompositeMode =
-  | 'normal'
-  | 'multiply'
-  | 'screen'
-  | 'overlay'
-  | 'clipper'
-
 export type LayerEvents<T extends ILayer> = {
   updated: T
 }

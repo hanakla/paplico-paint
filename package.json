@@ -6,7 +6,7 @@
     "pkgs/*"
   ],
   "scripts": {
-    "dev": "wsrun -p @paplico/web -c dev",
+    "dev": "wsrun -p @paplico/web @paplico/core-new -c dev",
     "build": "cd pkgs/web; yarn build",
     "start": "cd pkgs/web; yarn start"
   },

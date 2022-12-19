@@ -67,7 +67,7 @@ const config = {
             // buffer: false,
             console: false,
             constants: false,
-            crypto: false,
+            // crypto: false,
             child_process: false,
             domain: false,
             // events: false,

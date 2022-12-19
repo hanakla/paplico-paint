@@ -1,10 +1,12 @@
 import Fleur, { AppContext } from '@fleur/fleur'
-import { AppStore } from './App'
-import { EditorStore } from './EditorStable'
-import { NotifyStore } from './Notify'
+// import { AppStore } from './App'
+// import { EditorStore } from './EditorStable'
+// import { NotifyStore } from './Notify'
 
 const app = new Fleur({
-  stores: [AppStore, EditorStore, NotifyStore],
+  stores: [
+    // AppStore, EditorStore, NotifyStore
+  ],
 })
 
 export const createContext = () => {

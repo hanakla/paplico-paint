@@ -5,7 +5,8 @@
     "**/*.code-search": true,
     "**/.next": true
   },
-  "typescript.preferences.importModuleSpecifier": "relative",
+  "typescript.tsdk": "./node_modules/typescript/lib",
+  "typescript.preferences.importModuleSpecifier": "shortest",
   "[glsl]": {
     "editor.formatOnSave": false
   },

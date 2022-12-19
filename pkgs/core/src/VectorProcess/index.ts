@@ -1,0 +1,1 @@
+export { simplifySvgPath } from './simplifyPath'

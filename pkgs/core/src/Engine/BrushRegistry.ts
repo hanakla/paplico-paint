@@ -1,4 +1,5 @@
 import { Emitter } from '@/utils/Emitter'
+import { catchToLog } from '@/utils/error'
 import { BrushClass, IBrush } from './Brush'
 
 type Events = {
@@ -10,11 +11,18 @@ export class BrushRegistry extends Emitter<Events> {
   protected instances: WeakMap<BrushClass, IBrush> = new WeakMap()
 
   public async register(Brush: BrushClass) {
-    this.brushes.set(Brush.id, Brush)
+    try {
+      this.brushes.set(Brush.id, Brush)
 
-    const brush = new Brush()
-    await brush.initialize({ gl: this.gl })
-    this.instances.set(Brush, brush)
+      const brush = new Brush()
+      await brush.initialize({ gl: this.gl })
+
+      this.instances.set(Brush, brush)
+    } catch (e) {
+      this.brushes.delete(Brush.id)
+      this.instances.delete(Brush)
+      throw e
+    }
 
     this.emit('entriesChanged')
   }

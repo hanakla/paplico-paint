@@ -1,5 +1,10 @@
 import { loadImage, useFunk } from '@hanakla/arma'
-import Paplico, { UICanvas, Document, ExtraBrushes } from '@paplico/core-new'
+import Paplico, {
+  UICanvas,
+  Document,
+  ExtraBrushes,
+  _installPapDebugGlobaly,
+} from '@paplico/core-new'
 import { MouseEvent, useEffect, useRef, useState } from 'react'
 import { useEffectOnce } from 'react-use'
 import { css } from 'styled-components'
@@ -32,8 +37,13 @@ export default function NewPage() {
   })
 
   useEffectOnce(() => {
+    _installPapDebugGlobaly()
+
     const paplico = (window.pap = pap.current = new Paplico(ref.current!))
     paplico.brushes.register(ExtraBrushes.ScatterBrush)
+    console.log(paplico.brushes)
+
+    console.log(new ExtraBrushes.ScatterBrush().initialize())
 
     const doc = (window.__papdoc = new Document.PaplicoDocument())
     doc.layerEntities.push(

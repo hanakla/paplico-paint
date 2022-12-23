@@ -1,10 +1,10 @@
 import { pathBounds } from '@/fastsvg/pathBounds'
 
-import { VectorObject, VectorPath } from '@/Document'
-import { VectorPathPoint } from '@/Document/LayerEntity/VectorPath'
+import { type VectorObject, type VectorPath } from '@/Document'
+import { type VectorPathPoint } from '@/Document/LayerEntity/VectorPath'
 import { shallowEqMemoize } from './shallowedMemoize'
-import { Point2D } from '@/Document/Struct/Point2D'
-import { SVGDCommand } from '@/fastsvg/CachedPointAtLength'
+import { type Point2D } from '@/Document/Struct/Point2D'
+import { type SVGDCommand } from '@/fastsvg/CachedPointAtLength'
 
 export const addPoint2D = (a: Point2D, b: Point2D) => ({
   x: a.x + b.x,

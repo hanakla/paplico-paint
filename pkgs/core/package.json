@@ -17,7 +17,7 @@
   },
   "scripts": {
     "test": "vitest",
-    "dev": "NODE_OPTIONS=\"--max-old-space-size=8192\" vite build --watch -l warn",
+    "dev": "vite build --watch",
     "build": "vite build",
     "build:types": "tsc --emitDeclarationOnly --declaration --declarationDir dist"
   },
@@ -26,9 +26,9 @@
     "@types/gl-matrix": "^3.2.0",
     "@types/three": "^0.146.0",
     "typescript": "^4.9.3",
-    "vite": "^3.2.4",
-    "vite-tsconfig-paths": "^3.5.2",
-    "vitest": "^0.25.2"
+    "vite": "^4.0.3",
+    "vite-tsconfig-paths": "^4.0.3",
+    "vitest": "^0.26.2"
   },
   "dependencies": {
     "@luncheon/simplify-svg-path": "^0.2.0",
@@ -44,7 +44,6 @@
     "mitt": "^3.0.0",
     "polished": "^4.2.2",
     "three": "^0.146.0",
-    "ulid": "^2.3.0",
     "zod": "^3.19.1"
   }
 }

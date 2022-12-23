@@ -1,6 +1,7 @@
 import { VectorObject, VectorPath } from '@/Document'
 import { VectorLayer } from '@/Document/LayerEntity'
 import { VectorStrokeSetting } from '@/Document/LayerEntity/VectorStrokeSetting'
+import { AbortError } from '@/Errors'
 import { UIStroke } from '@/UI/UIStroke'
 import { AtomicResource } from '@/utils/AtomicResource'
 import { saveAndRestoreCanvas, setCanvasSize } from '@/utils/canvas'
@@ -45,7 +46,7 @@ export class Renderer {
   public async renderVectorLayer(
     dest: HTMLCanvasElement,
     layer: VectorLayer,
-    options: { viewport: Viewport }
+    options: { viewport: Viewport; abort?: AbortSignal }
   ) {
     setCanvasSize(dest, options.viewport)
     const dstctx = dest.getContext('2d')!
@@ -138,6 +139,7 @@ export class Renderer {
             }
 
             await this.renderStroke(dest, obj.path, ap.stroke, {
+              abort: options.abort,
               transform: {
                 position: addPoint2D(layer.transform.position, obj.position),
                 scale: multiplyPoint2D(layer.transform.scale, obj.scale),
@@ -176,20 +178,19 @@ export class Renderer {
     path: VectorPath,
     strokeSetting: VectorStrokeSetting,
     {
-      state,
       transform,
+      abort,
     }: {
-      state: {
-        beginVertIndex: number
-      }
       transform: {
         position: { x: number; y: number }
         scale: { x: number; y: number }
         rotation: number
       }
+      abort?: AbortSignal
     }
   ) {
     const brush = this.brushRegistry.getInstance(strokeSetting.brushId)
+
     if (!brush) throw new Error(`Unregistered brush ${strokeSetting.brushId}`)
 
     const renderer = await this.atomicThreeRenderer.enjure()
@@ -208,6 +209,10 @@ export class Renderer {
 
     try {
       await brush.render({
+        abort: abort ?? new AbortController().signal,
+        abortIfNeeded: () => {
+          if (abort?.aborted) throw new AbortError()
+        },
         context: dstctx,
         threeRenderer: renderer,
         threeCamera: this.camera,

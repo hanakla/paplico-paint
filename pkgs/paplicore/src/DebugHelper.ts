@@ -77,7 +77,7 @@ export const logImage = async (
   console.groupEnd()
 }
 
-if (typeof window !== 'undefined' && window !== null) {
+if (typeof window !== 'undefined' && window != null) {
   ;(window as any).logImage = logImage
 }
 

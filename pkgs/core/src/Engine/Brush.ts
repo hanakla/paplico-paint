@@ -7,6 +7,8 @@ import { WebGLRenderer, Camera } from 'three'
 import { VectorStrokeSetting, VectorPath } from '@/Document'
 
 export type BrushContext<T extends Record<string, any>> = {
+  abort: AbortSignal
+  abortIfNeeded: () => never | void
   context: CanvasRenderingContext2D
   threeRenderer: WebGLRenderer
   threeCamera: Camera

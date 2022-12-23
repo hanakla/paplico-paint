@@ -1,6 +1,6 @@
-import { ulid } from 'ulid'
 import prand from 'pure-rand'
 
+import { ulid } from '@/utils/ulid'
 import { FilterLayer, RasterLayer, VectorLayer } from './LayerEntity'
 import { VectorObject } from './LayerEntity/VectorObject'
 import { VectorPath } from './LayerEntity/VectorPath'

@@ -1,8 +1,8 @@
+import { ulid } from '@/utils/ulid'
 import { assign, deepClone } from '@/utils/object'
 import { LayerEntity } from './LayerEntity'
 import { LayerNode } from './LayerNode'
 import { PaplicoBlob } from './PaplicoBlob'
-import { ulid } from 'ulid'
 
 export namespace PaplicoDocument {
   export type Meta = {

@@ -1,31 +1,32 @@
 /** @type {import('webpack')} */
 const webpack = require('webpack')
 const ForkTsCheckerWebpackPlugin = require('fork-ts-checker-webpack-plugin')
-const withPWA = require('next-pwa')
+const withPWA = require('next-pwa')({ dest: 'public' })
 const runtimeCaching = require('next-pwa/cache')
 const path = require('path')
-const withTranspileModules = require('next-transpile-modules')([
-  '@paplico/core',
-  // '@paplico/ui',
-])
 const { i18n } = require('./next-i18next.config')
 
 /** @type {import('next').NextConfig} */
 const config = {
   i18n,
+  transpilePackages: ['@paplico/core', '@paplico/core-new'],
   compiler: {
     styledComponents: true,
-  },
-  pwa: {
-    dest: 'public',
-    mode: 'production',
-    runtimeCaching,
   },
   typescript: {
     ignoreBuildErrors: true,
   },
-  webpack: (config, context) => {
+  webpack: (/** @type {import('webpack').Configuration} */ config, context) => {
     config.experiments.asyncWebAssembly = true
+
+    config.optimization.splitChunks = {
+      cacheGroups: {
+        paplicoNew: {
+          name: 'paplico-new',
+          test: /[\\/]node_modules[\\/]@paplico[\\/]core-new[\\/]/,
+        },
+      },
+    }
 
     config.module.rules.push({
       test: /zstd\.wasm/,
@@ -105,4 +106,4 @@ const config = {
   },
 }
 
-module.exports = withTranspileModules(withPWA(config))
+module.exports = withPWA(config)

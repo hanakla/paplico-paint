@@ -77,7 +77,8 @@ export const logImage = async (
   console.groupEnd()
 }
 
-if (typeof window !== 'undefined' && window !== null) {
+export const installGlobally = () => {
+  if (typeof window === 'undefined' || window == null) return
   ;(window as any).logImage = logImage
 }
 

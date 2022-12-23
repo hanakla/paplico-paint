@@ -35,9 +35,11 @@ export class MixerPipeline {
     doc: RuntimeDocument,
     render: Renderer,
     {
+      abort,
       viewport,
       override,
     }: {
+      abort?: AbortSignal
       viewport: Viewport
       override?: { [layerId: string]: HTMLCanvasElement | ImageBitmap }
     }
@@ -74,7 +76,7 @@ export class MixerPipeline {
             requestSize
           ))!
 
-          await render.renderVectorLayer(tmp, layer, { viewport })
+          await render.renderVectorLayer(tmp, layer, { viewport, abort })
 
           doc.updateLayerBitmapCache(
             layer.uid,

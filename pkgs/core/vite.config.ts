@@ -1,3 +1,5 @@
+import type {} from 'vitest/config'
+
 import { defineConfig } from 'vite'
 import tsConfigPaths from 'vite-tsconfig-paths'
 import ts from '@rollup/plugin-typescript'
@@ -10,6 +12,7 @@ export default defineConfig({
   resolve: {
     alias: {
       crypto: 'crypto-js',
+      '@/': `${__dirname}/src/`,
     },
   },
   build: {
@@ -21,6 +24,9 @@ export default defineConfig({
       fileName: 'index',
     },
     rollupOptions: {
+      output: {
+        exports: 'named',
+      },
       plugins: [
         // @ts-expect-error
         ts({

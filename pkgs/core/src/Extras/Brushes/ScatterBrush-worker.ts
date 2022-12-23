@@ -1,12 +1,13 @@
-// import { pointsToSVGCommandArray } from '@/Engine/VectorUtils'
+import { pointsToSVGCommandArray } from '@/Engine/VectorUtils'
 import { type BrushLayoutData } from '@/index'
-// import { scatterPlot, getRadianFromTangent } from '@/StrokeHelper'
-// import { interpolateMapObject, Matrix4 } from '@/Math'
-// import { indexedPointAtLength } from '@/fastsvg/CachedPointAtLength'
+import { getRadianFromTangent } from '@/StrokeHelper'
+import { interpolateMapObject, Matrix4 } from '@/Math'
+import { indexedPointAtLength } from '@/fastsvg/CachedPointAtLength'
 import { type VectorPath } from '@/Document/LayerEntity/VectorPath'
 
 export type Payload =
   | { type: 'warming' }
+  | { type: 'aborted'; id: string }
   | {
       id: string
       type: 'getPoints'
@@ -25,10 +26,17 @@ export type GetPointWorkerResponse = {
 
 export type WorkerResponse = { type: 'warming' } | GetPointWorkerResponse
 
-self.onmessage = ({ data }: MessageEvent<Payload>) => {
+const abortedTasks = new Set<string>()
+
+self.onmessage = async ({ data }: MessageEvent<Payload>) => {
   switch (data.type) {
     case 'warming': {
       self.postMessage({ type: 'warming' })
+      break
+    }
+
+    case 'aborted': {
+      abortedTasks.add(data.id)
       break
     }
 
@@ -67,7 +75,16 @@ self.onmessage = ({ data }: MessageEvent<Payload>) => {
       const interX = interpolateMapObject(points, (idx, arr) => arr[idx].x)
       const interY = interpolateMapObject(points, (idx, arr) => arr[idx].y)
 
+      let i = 0
       for (let len = 0; len <= totalLen; len += step) {
+        if (abortedTasks.has(id)) {
+          abortedTasks.delete(id)
+          return
+        }
+
+        i++
+        i % 1000 === 0 && (await new Promise((r) => setTimeout(r, 0)))
+
         const t = len / totalLen
         const [x, y] = [interX(t), interY(t)]
 
@@ -77,6 +94,7 @@ self.onmessage = ({ data }: MessageEvent<Payload>) => {
         )
 
         const ypos = y / destSize.height
+
         const matt4 = new Matrix4()
           .translate(
             x - destSize.width / 2,
@@ -92,6 +110,11 @@ self.onmessage = ({ data }: MessageEvent<Payload>) => {
         bbox.top = Math.min(bbox.top, y)
         bbox.right = Math.max(bbox.right, x)
         bbox.bottom = Math.max(bbox.bottom, y)
+      }
+
+      if (abortedTasks.has(id)) {
+        abortedTasks.delete(id)
+        return
       }
 
       self.postMessage({

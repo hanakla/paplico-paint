@@ -1,16 +1,6 @@
-import { rgba } from 'polished'
-import { pointsToSVGCommandArray } from '@/Engine/VectorUtils'
-import {
-  BrushContext,
-  CanvasFactory,
-  IBrush,
-  StrokeHelper,
-  BrushLayoutData,
-} from '@/index'
+import { BrushContext, IBrush, BrushLayoutData } from '@/index'
 import * as Textures from './ScatterTexture/index'
 import { mergeToNew } from '@/utils/object'
-import { interpolateMapObject, Matrix4 } from '@/Math'
-import { indexedPointAtLength } from '@/fastsvg/CachedPointAtLength'
 import {
   AddEquation,
   CanvasTexture,
@@ -26,16 +16,11 @@ import {
   Scene,
 } from 'three'
 
-// import { GPUComputationRenderer } from 'three/examples/jsm/misc/GPUComputationRenderer'
-// import { Matrix4 } from 'matrixgl'
-// import {mat4} from 'gl-matrix'
-
-// console.log(Textures.airBrushTexture)
-
 import ScatterBrushWorker from './ScatterBrush-worker?worker&inline'
 import {
   type GetPointWorkerResponse,
   type WorkerResponse,
+  type Payload,
 } from './ScatterBrush-worker'
 
 const _mat4 = new ThreeMatrix4()
@@ -86,7 +71,6 @@ export class ScatterBrush implements IBrush {
   protected worker: Worker | null = null
   protected textures: { [name: string]: ImageBitmap } = {}
   protected materials: { [name: string]: MeshBasicMaterial } = {}
-  protected gpuCompute: GPUComputationRenderer
 
   public async initialize(context: {}): Promise<void> {
     this.worker = await this.createWorker()
@@ -134,6 +118,8 @@ export class ScatterBrush implements IBrush {
   }
 
   protected async renderWithWorker({
+    abort,
+    abortIfNeeded,
     context: ctx,
     path: inputPath,
     transform,
@@ -152,28 +138,26 @@ export class ScatterBrush implements IBrush {
       bottom: 0,
     }
 
-    //     const gpuCompute = new GPUComputationRenderer(100_000, 1, threeRenderer)
-    //     const tex = gpuCompute.createTexture()
-    //     const radians = gpuCompute.addVariable(
-    //       'radiansArray',
-    //       `
-    //       uniform sampler2D texture;
-
-    //       void main() {
-    //         vec2 uv = gl_FragCoord.xy / resolution.xy;
-    //         float value = texture2D(radiansArray, uv).r;
-    //       }
-    // `,
-    //       tex
-    //     )
-    //     gpuCompute.setVariableDependencies(radians, [radians])
-    //     gpuCompute.init()
-    //     gpuCompute.compute()
-
     for (const path of inputPath) {
+      abortIfNeeded()
+
       // const { points, closed } = path
       const id = generateId()
+
       const res = await new Promise<GetPointWorkerResponse>((r) => {
+        abort.addEventListener(
+          'abort',
+          () => {
+            this.worker!.postMessage({
+              type: 'aborted',
+              id,
+            } as const satisfies Payload)
+
+            this.worker!.removeEventListener('message', waiter)
+          },
+          { once: true }
+        )
+
         const waiter = (e: MessageEvent<WorkerResponse>) => {
           if (e.data.type !== 'getPoints' || e.data.id !== id) return
 
@@ -186,10 +170,11 @@ export class ScatterBrush implements IBrush {
           id,
           type: 'getPoints',
           path,
-          closed,
+          // closed,
+          destSize,
           scatterRange: sp.scatterRange,
           scatterScale: 1,
-        })
+        } as const satisfies Payload)
       })
 
       if (res.matrices == null) return { bbox }
@@ -209,7 +194,6 @@ export class ScatterBrush implements IBrush {
       for (let i = 0, l = res.matrices.length; i < l; i++) {
         _mat4.fromArray(res.matrices[i])
         mesh.setMatrixAt(i, _mat4)
-        mesh.count++
       }
 
       if (res.bbox) {
@@ -287,17 +271,21 @@ export class ScatterBrush implements IBrush {
     // }
   }
 
-  protected createWorker() {
+  protected async createWorker() {
     const worker = new ScatterBrushWorker()
 
-    return new Promise<Worker>((r) => {
+    return await new Promise<Worker>((r, rj) => {
       const listener = (e: MessageEvent<WorkerResponse>) => {
         if (e.data.type !== 'warming') return
-        worker.removeEventListener('message', listener)
         r(worker)
       }
 
-      worker.addEventListener('message', listener)
+      const onError = (e: ErrorEvent) => {
+        rj(new Error(e.message, { cause: e }))
+      }
+
+      worker.addEventListener('error', onError, { once: true })
+      worker.addEventListener('message', listener, { once: true })
       worker.postMessage({ type: 'warming' })
     })
   }

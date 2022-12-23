@@ -95,6 +95,7 @@ export class Paplico extends Emitter<Events> {
   protected runtimeDoc: RuntimeDocument | null = null
 
   // protected activeLayerStatus: | null = null
+  protected lastRenderAborter: AbortController | null = null
 
   #state: Paplico.State = {
     activeLayer: null,
@@ -120,7 +121,7 @@ export class Paplico extends Emitter<Events> {
     this.dstctx = canvas.getContext('2d')!
 
     this.tmp = createCanvas()
-    this.tmpctx = this.tmp.getContext('2d')!
+    this.tmpctx = this.tmp.getContext('2d', { willReadFrequently: true })!
 
     this.onUIStrokeChange = singletonCall(this.onUIStrokeChange.bind(this))
     this.onUIStrokeComplete = singletonCall(this.onUIStrokeComplete.bind(this))
@@ -244,6 +245,9 @@ export class Paplico extends Emitter<Events> {
     if (!this.runtimeDoc) return
     if (!this.activeLayerEntity) return
 
+    this.lastRenderAborter?.abort()
+    this.lastRenderAborter = new AbortController()
+
     const tmpctx = this.tmp.getContext('2d')!
     const dstctx = this.dstctx
 
@@ -259,6 +263,7 @@ export class Paplico extends Emitter<Events> {
           objects: [...this.activeLayerEntity.objects, obj],
         },
         {
+          abort: this.lastRenderAborter.signal,
           viewport: {
             top: 0,
             left: 0,
@@ -283,9 +288,7 @@ export class Paplico extends Emitter<Events> {
       console.log('render stroke')
       // Write stroke to current layer
       await this.renderer.renderStroke(this.tmp, path, this.strokeSetting, {
-        state: {
-          beginVertIndex: 0,
-        },
+        abort: this.lastRenderAborter.signal,
         transform: {
           position: { x: 0, y: 0 },
           scale: { x: 1, y: 1 },
@@ -305,6 +308,7 @@ export class Paplico extends Emitter<Events> {
     try {
       await this.pipeline.fullyRender(dstctx, this.runtimeDoc, this.renderer, {
         override: { [this.activeLayerEntity.uid]: tmpctx.canvas },
+        abort: this.lastRenderAborter.signal,
         viewport: {
           top: 0,
           left: 0,
@@ -320,6 +324,9 @@ export class Paplico extends Emitter<Events> {
   protected async onUIStrokeComplete(stroke: UIStroke) {
     if (!this.runtimeDoc) return
     if (!this.activeLayerEntity) return
+
+    this.lastRenderAborter?.abort()
+    this.lastRenderAborter = new AbortController()
 
     const tmpctx = this.tmp.getContext('2d')!
     const dstctx = this.dstctx
@@ -344,9 +351,7 @@ export class Paplico extends Emitter<Events> {
 
       // Write stroke to current layer
       await this.renderer.renderStroke(this.tmp, path, this.strokeSetting, {
-        state: {
-          beginVertIndex: 0,
-        },
+        abort: this.lastRenderAborter.signal,
         transform: {
           position: { x: 0, y: 0 },
           scale: { x: 1, y: 1 },
@@ -365,6 +370,7 @@ export class Paplico extends Emitter<Events> {
 
     try {
       await this.pipeline.fullyRender(dstctx, this.runtimeDoc, this.renderer, {
+        abort: this.lastRenderAborter.signal,
         viewport: {
           top: 0,
           left: 0,
@@ -372,7 +378,6 @@ export class Paplico extends Emitter<Events> {
           height: this.dstCanvas.height,
         },
       })
-      console.log('ok')
     } finally {
       tmpctx.clearRect(0, 0, this.tmp.width, this.tmp.height)
     }

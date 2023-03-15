@@ -26,6 +26,7 @@ import { CircleBrush } from './Engine/Brushes/CircleBrush'
 import { Emitter } from './utils/Emitter'
 import { BrushClass } from './Engine/Brush'
 import { logImage } from './utils/DebugHelper'
+import { RenderCycleLogger } from './Engine/RenderCycleLogger'
 
 export namespace Paplico {
   export type StrokeSetting<T extends Record<string, any> = any> =
@@ -245,7 +246,8 @@ export class Paplico extends Emitter<Events> {
     if (!this.runtimeDoc) return
     if (!this.activeLayerEntity) return
 
-    this.lastRenderAborter?.abort()
+    const renderLogger = RenderCycleLogger.createNext()
+    // this.lastRenderAborter?.abort()
     this.lastRenderAborter = new AbortController()
 
     const tmpctx = this.tmp.getContext('2d')!
@@ -263,13 +265,14 @@ export class Paplico extends Emitter<Events> {
           objects: [...this.activeLayerEntity.objects, obj],
         },
         {
-          abort: this.lastRenderAborter.signal,
+          // abort: this.lastRenderAborter.signal,
           viewport: {
             top: 0,
             left: 0,
             width: this.dstCanvas.width,
             height: this.dstCanvas.height,
           },
+          logger: renderLogger,
         }
       )
     } else if (this.activeLayerEntity.layerType === 'raster') {
@@ -285,15 +288,16 @@ export class Paplico extends Emitter<Events> {
       tmpctx.clearRect(0, 0, this.tmp.width, this.tmp.height)
       tmpctx.drawImage(currentBitmap, 0, 0)
 
-      console.log('render stroke')
+      renderLogger.log('render stroke')
       // Write stroke to current layer
       await this.renderer.renderStroke(this.tmp, path, this.strokeSetting, {
-        abort: this.lastRenderAborter.signal,
+        // abort: this.lastRenderAborter.signal,
         transform: {
           position: { x: 0, y: 0 },
           scale: { x: 1, y: 1 },
           rotation: 0,
         },
+        logger: renderLogger,
       })
     } else {
       return
@@ -308,34 +312,70 @@ export class Paplico extends Emitter<Events> {
     try {
       await this.pipeline.fullyRender(dstctx, this.runtimeDoc, this.renderer, {
         override: { [this.activeLayerEntity.uid]: tmpctx.canvas },
-        abort: this.lastRenderAborter.signal,
+        // abort: this.lastRenderAborter.signal,
         viewport: {
           top: 0,
           left: 0,
           width: this.dstCanvas.width,
           height: this.dstCanvas.height,
         },
+        logger: renderLogger,
       })
     } finally {
       tmpctx.clearRect(0, 0, this.tmp.width, this.tmp.height)
+      renderLogger.printLogs('onUIStrokeChange')
     }
   }
 
   protected async onUIStrokeComplete(stroke: UIStroke) {
+    RenderCycleLogger.createNext()
+
+    RenderCycleLogger.current.log('start: stroke complete')
+
     if (!this.runtimeDoc) return
     if (!this.activeLayerEntity) return
 
-    this.lastRenderAborter?.abort()
+    // this.lastRenderAborter?.abort()
     this.lastRenderAborter = new AbortController()
 
     const tmpctx = this.tmp.getContext('2d')!
     const dstctx = this.dstctx
 
+    RenderCycleLogger.current.time('toSimplefiedPath')
     const path = stroke.toSimplefiedPath()
+    RenderCycleLogger.current.timeEnd('toSimplefiedPath')
+    RenderCycleLogger.current.info(
+      `Path simplified: ${path.points.length} -> ${stroke.points.length}`
+    )
 
     if (this.activeLayerEntity.layerType === 'vector') {
       const obj = this.createVectorObjectByStrokeAndCurrentSettings(stroke)
       this.activeLayerEntity.objects.push(obj)
+
+      // Update layer image data
+      setCanvasSize(this.tmp, this.dstCanvas.width, this.dstCanvas.height)
+
+      this.renderer.renderVectorLayer(
+        this.tmp,
+        {
+          ...this.activeLayerEntity,
+        },
+        {
+          // abort: this.lastRenderAborter.signal,
+          viewport: {
+            top: 0,
+            left: 0,
+            width: this.dstCanvas.width,
+            height: this.dstCanvas.height,
+          },
+          logger: RenderCycleLogger.current,
+        }
+      )
+
+      await this.runtimeDoc.updateOrCreateLayerBitmapCache(
+        this.activeLayerEntity.uid,
+        tmpctx.getImageData(0, 0, this.tmp.width, this.tmp.height)
+      )
     } else if (this.activeLayerEntity.layerType === 'raster') {
       if (!this.strokeSetting) return
 
@@ -351,16 +391,17 @@ export class Paplico extends Emitter<Events> {
 
       // Write stroke to current layer
       await this.renderer.renderStroke(this.tmp, path, this.strokeSetting, {
-        abort: this.lastRenderAborter.signal,
+        // abort: this.lastRenderAborter.signal,
         transform: {
           position: { x: 0, y: 0 },
           scale: { x: 1, y: 1 },
           rotation: 0,
         },
+        logger: RenderCycleLogger.current,
       })
 
       // Update layer image data
-      await this.runtimeDoc.updateLayerBitmapCache(
+      await this.runtimeDoc.updateOrCreateLayerBitmapCache(
         this.activeLayerEntity.uid,
         tmpctx.getImageData(0, 0, currentBitmap.width, currentBitmap.height)
       )
@@ -369,17 +410,21 @@ export class Paplico extends Emitter<Events> {
     }
 
     try {
+      RenderCycleLogger.current.log('Refresh all layers')
+
       await this.pipeline.fullyRender(dstctx, this.runtimeDoc, this.renderer, {
-        abort: this.lastRenderAborter.signal,
+        // abort: this.lastRenderAborter.signal,
         viewport: {
           top: 0,
           left: 0,
           width: this.dstCanvas.width,
           height: this.dstCanvas.height,
         },
+        logger: RenderCycleLogger.current,
       })
     } finally {
       tmpctx.clearRect(0, 0, this.tmp.width, this.tmp.height)
+      RenderCycleLogger.current.printLogs('onUIStrokeComplete')
     }
   }
 

@@ -5,6 +5,7 @@ import { WebGLRenderer, Camera } from 'three'
 // import { WebGLContext } from './WebGLContext'
 // import { VectorObject } from '../DOM/VectorObject'
 import { VectorStrokeSetting, VectorPath } from '@/Document'
+import { RenderCycleLogger } from './RenderCycleLogger'
 
 export type BrushContext<T extends Record<string, any>> = {
   abort: AbortSignal
@@ -29,6 +30,7 @@ export type BrushContext<T extends Record<string, any>> = {
    * This canvas is readonly.
    */
   hintInput: CanvasImageSource | null
+  logger: RenderCycleLogger
 }
 
 export type BrushLayoutData = {

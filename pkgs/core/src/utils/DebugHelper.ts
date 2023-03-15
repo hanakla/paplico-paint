@@ -11,6 +11,33 @@ export const logImage = async (
   label?: string,
   { collapsed = true }: { collapsed?: boolean } = {}
 ) => {
+  const { blobUrl, imageUrl } = await imageSourceToBlob(img)
+
+  const content = [
+    `%cLogImage%c ${label} image log (full image in %o)`,
+    'padding:2px 4px; background:linear-gradient(40deg, #f25847, #f8be12);color:#fff;border-radius:4px;',
+    '',
+    blobUrl,
+  ]
+
+  collapsed ? console.groupCollapsed(...content) : console.group(...content)
+
+  console.log(
+    '%c+',
+    `font-size: 0px; padding: 128px; color: transparent; background: url(${imageUrl}) center/contain no-repeat; border: 1px solid #444;`
+  )
+
+  console.groupEnd()
+}
+
+export const imageSourceToBlob = async (
+  img:
+    | ImageBitmap
+    | ImageData
+    | HTMLCanvasElement
+    | CanvasRenderingContext2D
+    | OffscreenCanvas
+) => {
   let canvas!: HTMLCanvasElement | OffscreenCanvas
   let blobUrl: string | null = null
   let imageUrl: string | null = null
@@ -60,21 +87,7 @@ export const logImage = async (
     imageUrl = (canvas as HTMLCanvasElement).toDataURL('image/png')
   }
 
-  const content = [
-    `%cLogImage%c ${label} image log (full image in %o)`,
-    'padding:2px 4px; background:linear-gradient(40deg, #f25847, #f8be12);color:#fff;border-radius:4px;',
-    '',
-    blobUrl,
-  ]
-
-  collapsed ? console.groupCollapsed(...content) : console.group(...content)
-
-  console.log(
-    '%c+',
-    `font-size: 0px; padding: 128px; color: transparent; background: url(${imageUrl}) center/contain no-repeat; border: 1px solid #444;`
-  )
-
-  console.groupEnd()
+  return { blobUrl, imageUrl }
 }
 
 export const installGlobally = () => {

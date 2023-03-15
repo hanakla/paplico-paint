@@ -24,8 +24,8 @@ export class RuntimeDocument {
   public layerImageCache: Map<string, ImageBitmap> = new Map()
   public blobCaches: Map<string, WeakRef<any>> = new Map()
   protected writebackCallbackIds = new Map<string, number>()
-  protected layoutData = new Map<string, RuntimeDocument.LayoutData>()
 
+  protected layoutData = new Map<string, RuntimeDocument.LayoutData>()
   protected layerEntities = new Map<string, RuntimeLayerEntity>()
 
   constructor(document: PaplicoDocument) {
@@ -105,17 +105,29 @@ export class RuntimeDocument {
     return bitmap
   }
 
+  public invalidateLayerBitmapCache(layerUid: string) {
+    this.layerImageCache.delete(layerUid)
+  }
+
   // public getLayerImageBitmap(layerUid: string) {}
 
-  public async updateLayerBitmapCache(layerUid: string, newBitmap: ImageData) {
+  public async updateOrCreateLayerBitmapCache(
+    layerUid: string,
+    newBitmap: ImageData
+  ) {
     const layer = this.document.layerEntities.find((l) => l.uid === layerUid)
-    if (layer?.layerType !== 'raster') return null
 
     const bitmap = this.layerImageCache.get(layerUid)
     bitmap?.close()
 
-    layer.bitmap = newBitmap.data
-    this.layerImageCache.set(layerUid, await createImageBitmap(newBitmap))
+    if (layer?.layerType === 'raster') {
+      layer.bitmap = newBitmap.data
+    }
+
+    const nextBitmap = await createImageBitmap(newBitmap)
+    this.layerImageCache.set(layerUid, nextBitmap)
+
+    return nextBitmap
   }
 
   public setBlobCache<T extends object = any>(uid: string, value: T) {

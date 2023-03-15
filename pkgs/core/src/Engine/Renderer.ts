@@ -9,6 +9,7 @@ import { deepClone } from '@/utils/object'
 import { OrthographicCamera, WebGLRenderer } from 'three'
 import { BrushRegistry } from './BrushRegistry'
 import { createCanvas } from './CanvasFactory'
+import { RenderCycleLogger } from './RenderCycleLogger'
 import { Viewport } from './types'
 import {
   addPoint2D,
@@ -46,7 +47,11 @@ export class Renderer {
   public async renderVectorLayer(
     dest: HTMLCanvasElement,
     layer: VectorLayer,
-    options: { viewport: Viewport; abort?: AbortSignal }
+    options: {
+      viewport: Viewport
+      abort?: AbortSignal
+      logger: RenderCycleLogger
+    }
   ) {
     setCanvasSize(dest, options.viewport)
     const dstctx = dest.getContext('2d')!
@@ -145,6 +150,7 @@ export class Renderer {
                 scale: multiplyPoint2D(layer.transform.scale, obj.scale),
                 rotation: layer.transform.rotate + obj.rotate,
               },
+              logger: options.logger,
             })
           }
         }
@@ -180,6 +186,7 @@ export class Renderer {
     {
       transform,
       abort,
+      logger,
     }: {
       transform: {
         position: { x: number; y: number }
@@ -187,6 +194,7 @@ export class Renderer {
         rotation: number
       }
       abort?: AbortSignal
+      logger: RenderCycleLogger
     }
   ) {
     const brush = this.brushRegistry.getInstance(strokeSetting.brushId)
@@ -225,6 +233,7 @@ export class Renderer {
           scale: { x: transform.scale.x, y: transform.scale.y },
           rotate: transform.rotation,
         },
+        logger,
       })
     } finally {
       this.atomicThreeRenderer.release(renderer)

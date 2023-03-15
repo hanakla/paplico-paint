@@ -3,12 +3,9 @@ import abs from 'abs-svg-path'
 
 import { VectorPath, VectorPathPoint } from '@/Document/LayerEntity/VectorPath'
 
-import { parseSVGPath } from '@/fastsvg/parse'
 import { interpolateMap } from '@/Math'
 import { indexedPointAtLength } from '@/fastsvg/CachedPointAtLength'
 import { simplifySvgPath } from '@/VectorProcess'
-import { FuncStats } from '@/utils/perfstats'
-import { StrokeHelper } from '..'
 
 export type UIStrokePoint = {
   x: number
@@ -56,8 +53,6 @@ export class UIStroke {
   public toSimplefiedPath({
     tolerance = 1,
   }: { tolerance?: number } = {}): VectorPath {
-    console.time('toSimplefiedPath')
-
     const simplified = simplifySvgPath(
       this.points.map((p) => [p.x, p.y] as const),
       { closed: false, precision: 3, tolerance }
@@ -106,10 +101,6 @@ export class UIStroke {
         }
       }
     })
-
-    console.timeEnd('toSimplefiedPath')
-    console.log(`Before: ${this.points.length}, After: ${points.length}`)
-    // FuncStats.getStats(StrokeHelper.scatterPlot)?.log()
 
     return {
       points,

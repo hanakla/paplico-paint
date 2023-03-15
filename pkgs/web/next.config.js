@@ -16,17 +16,19 @@ const config = {
   typescript: {
     ignoreBuildErrors: true,
   },
+  transpilePackages: ['@paplico/core', '@paplico/core-new'],
   webpack: (/** @type {import('webpack').Configuration} */ config, context) => {
     config.experiments.asyncWebAssembly = true
+    config.watchOptions.followSymlinks = true
 
-    config.optimization.splitChunks = {
-      cacheGroups: {
-        paplicoNew: {
-          name: 'paplico-new',
-          test: /[\\/]node_modules[\\/]@paplico[\\/]core-new[\\/]/,
-        },
-      },
-    }
+    // config.optimization.splitChunks = {
+    //   cacheGroups: {
+    //     paplicoNew: {
+    //       name: 'paplico-new',
+    //       test: /[\\/]node_modules[\\/]@paplico[\\/]core-new[\\/]/,
+    //     },
+    //   },
+    // }
 
     config.module.rules.push({
       test: /zstd\.wasm/,
@@ -54,6 +56,7 @@ const config = {
     config.resolve.alias = {
       ...config.resolve.alias,
       '@paplico/core': path.join(__dirname, '../paplicore/src/index.ts'),
+      // '@paplico/core-new': path.join(__dirname, '../core/src/index.ts'),
       // '@paplico/ui': 'paplico-ui/src/index.ts',
       '🙌': path.join(__dirname, './src'),
       'audio-worklet': path.resolve(__dirname, 'src/utils/audio-worklet'),

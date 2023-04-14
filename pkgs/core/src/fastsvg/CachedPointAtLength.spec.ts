@@ -4,24 +4,27 @@ import { indexedPointAtLength } from './CachedPointAtLength'
 describe('CachedPointAtLength', () => {
   const path = complexPath()
 
-  it('should returns same result to point-at-length', () => {
+  it('should be correctly sorted lengthCache and lengthCacheDetail', () => {
+    const cached = indexedPointAtLength(path)
+    const length = cached.totalLength
+
+    for (let i = 0; i < cached._lengthCache.length; i++) {
+      expect(cached._lengthCache[i]).toBeCloseTo(
+        cached._lengthCacheDetail[i].len,
+        2
+      )
+    }
+  })
+
+  it('should be returns same result to point-at-length', () => {
     const original = pal(path)
     const cached = indexedPointAtLength(path)
     const length = cached.totalLength
 
-    expect(Math.floor(length)).toBeCloseTo(Math.floor(original.length()), 1)
-
-    expect(cached.at(0)[0]).toBeCloseTo(original.at(0)[0], 2)
-    expect(cached.at(0)[1]).toBeCloseTo(original.at(0)[1], 2)
-
-    expect(cached.at(1)[0]).toBeCloseTo(original.at(1)[0], 2)
-    expect(cached.at(1)[1]).toBeCloseTo(original.at(1)[1], 2)
-
-    expect(cached.at(100)[0]).toBeCloseTo(original.at(100)[0], 2)
-    expect(cached.at(100)[1]).toBeCloseTo(original.at(100)[1], 2)
-
-    expect(cached.at(length)[0]).toBeCloseTo(original.at(length)[0], 2)
-    expect(cached.at(length)[1]).toBeCloseTo(original.at(length)[1], 2)
+    for (let i = 0; i < length; i += length / 100) {
+      expect(cached.at(i)[0]).toBeCloseTo(original.at(i)[0], 2)
+      expect(cached.at(i)[1]).toBeCloseTo(original.at(i)[1], 2)
+    }
   })
 
   describe('getSequencialReader', () => {

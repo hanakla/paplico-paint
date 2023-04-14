@@ -17,19 +17,27 @@ export class IndexedPointAtLength {
 
   /** array of length at vertex */
   protected lengthCache: number[] = []
-  protected lengthIndexData: LengthIndexData[] = []
+  protected lengthCacheDetail: {
+    len: number
+    div: number | null
+    vertIdx: number
+  }[] = []
 
-  /** array of point */
-  protected vertIdxOfLengthIndex: number[] = []
   protected pointAtVertCache: {
     [indexOfLengthIndex: number]: [number, number]
   } = Object.create(null)
 
-  constructor(path: string | Array<SVGDCommand>, protected divisions = 100) {
+  constructor(
+    path: string | Array<SVGDCommand>,
+    protected readonly divisions = 100
+  ) {
     this.points = point(path)._path
 
     // warming
-    const warmResult = this.walk(null, divisions, { fromIndex: 0 }, true)
+    const warmResult = this.walk(null, { fromLengthIndex: 0 }, true)
+    this.lengthCache.sort((a, b) => (a > b ? 1 : -1))
+    this.lengthCacheDetail.sort((a, b) => (a.len > b.len ? 1 : -1))
+
     this._length = warmResult.length
   }
 
@@ -41,8 +49,8 @@ export class IndexedPointAtLength {
     return this.lengthCache
   }
 
-  public get _lengthIndexData() {
-    return this.lengthIndexData
+  public get _lengthCacheDetail() {
+    return this.lengthCacheDetail
   }
 
   public get _points() {
@@ -51,54 +59,35 @@ export class IndexedPointAtLength {
 
   public at(
     len: number,
-    {
-      hintIndexGTEq,
-      lengthIndex,
-    }: { hintIndexGTEq?: number; lengthIndex?: number } = {}
+    { fromLengthIndex }: { fromLengthIndex?: number } = {}
   ) {
-    return (
-      (this.atWithDetail(len, { hintIndexGTEq, lengthIndex })?.pos as [
-        number,
-        number
-      ]) ?? null
-    )
+    return this.atWithDetail(len, { fromLengthIndex })?.pos ?? null
   }
 
   public atWithDetail(
     len: number,
-    {
-      hintIndexGTEq,
-      lengthIndex,
-    }: { hintIndexGTEq?: number; lengthIndex?: number } = {}
+    { fromLengthIndex }: { fromLengthIndex?: number } = {}
   ) {
-    if (hintIndexGTEq != null) {
-      const result = this.walk(len, this.divisions, {
-        fromIndex: hintIndexGTEq,
-        lengthIndex,
+    if (fromLengthIndex != null) {
+      const result = this.walk(len, {
+        fromLengthIndex,
       })
       return result
     }
 
-    const lenIdx = binarySearch(this.lengthCache, len)
-    const nearIdx = this.vertIdxOfLengthIndex[lenIdx]
+    const minNearIdx = binarySearch(this.lengthCache, len)
 
-    const result = this.walk(len, this.divisions, {
-      fromIndex: nearIdx,
-      // lengthIndex: lenIdx,
+    const result = this.walk(len, {
+      fromLengthIndex: minNearIdx,
+    })
+
+    console.log({
+      reqLen: len,
+      result,
+      detail: this.lengthCacheDetail[minNearIdx],
     })
 
     return result
-  }
-
-  public nearVertexAtLength(len: number) {
-    const nearIndex =
-      this.vertIdxOfLengthIndex[binarySearch(this.lengthCache, len)]
-
-    return {
-      index: nearIndex,
-      length: this.lengthCache[nearIndex],
-      pos: this.pointAtVertCache[nearIndex] as [x: number, y: number],
-    }
   }
 
   public lengthOfVertex(idx: number) {
@@ -116,55 +105,43 @@ export class IndexedPointAtLength {
   // with indexing
   private walk(
     pos: number | undefined | null,
-    divs: number = this.divisions,
-    {
-      fromIndex = 0,
-      lengthIndex = null,
-    }: { fromIndex?: number; lengthIndex?: number | null } = {},
-    warm: boolean | { warmFrom: number } = false
+    { fromLengthIndex = 0 }: { fromLengthIndex?: number } = {},
+    warm: boolean = false
   ): {
     length: number
     pos: [number, number]
     lastIndex: number
     nextHint: LengthIndexData
   } {
-    const {
-      pointAtVertCache,
-      lengthCache,
-      vertIdxOfLengthIndex,
-      lengthIndexData,
-    } = this
+    const divs = this.divisions
+    const { pointAtVertCache, lengthCache, lengthCacheDetail } = this
 
-    if (typeof warm !== 'boolean') {
-      fromIndex = warm.warmFrom
-    }
+    const fromVertIdx = warm
+      ? 0
+      : lengthCacheDetail[fromLengthIndex]?.vertIdx! ?? 0
 
-    var cur: [number, number] = [
-      pointAtVertCache[fromIndex]?.[0] ?? 0,
-      pointAtVertCache[fromIndex]?.[1] ?? 0,
+    let cur: [number, number] = [
+      pointAtVertCache[fromVertIdx]?.[0] ?? 0,
+      pointAtVertCache[fromVertIdx]?.[1] ?? 0,
     ]
-    var len = lengthCache[fromIndex - 1] ?? 0
-    let lenIdx = lengthIndex ?? 0
+
+    let len = lengthCache[fromLengthIndex] ?? 0
+    let currentLengthIndex = fromLengthIndex
 
     var p0 = [0, 0, 0]
     var prev = [0, 0, 0]
 
-    for (var i = fromIndex, l = this.points.length; i < l; i++) {
+    for (var i = fromVertIdx, l = this.points.length; i < l; i++) {
       var p = this.points[i]
 
       if (p[0] === 'M') {
         cur[0] = p[1]
         cur[1] = p[2]
 
-        lenIdx++
+        currentLengthIndex++
         if (warm) {
-          vertIdxOfLengthIndex.push(i)
           lengthCache.push(len)
-          lengthIndexData.push({
-            vertexIndex: i,
-            lengthIndex: lenIdx,
-            divFrom: 0,
-          })
+          lengthCacheDetail.push({ len, div: null, vertIdx: i })
           pointAtVertCache[i] = [cur[0], cur[1]]
         }
 
@@ -173,7 +150,9 @@ export class IndexedPointAtLength {
             length: len,
             pos: cur,
             lastIndex: i,
-            nextHint: { vertexIndex: i, lengthIndex: lenIdx, divFrom: null },
+            nextHint: {
+              lengthIndex: currentLengthIndex,
+            },
           }
         }
       } else if (p[0] === 'C') {
@@ -181,20 +160,14 @@ export class IndexedPointAtLength {
         prev[1] = p0[1] = cur[1]
         prev[2] = len
 
-        lenIdx++
+        currentLengthIndex++
         if (warm) {
-          pointAtVertCache[i] = [cur[0], cur[1]]
-          vertIdxOfLengthIndex.push(i)
-          lengthIndexData.push({
-            vertexIndex: i,
-            lengthIndex: lenIdx,
-            divFrom: 0,
-          })
           lengthCache.push(len)
+          lengthCacheDetail.push({ len, div: null, vertIdx: i })
+          pointAtVertCache[i] = [cur[0], cur[1]]
         }
 
-        const starthint = lengthIndex ? lengthIndexData[lengthIndex] : null
-        let divStart = starthint?.vertexIndex === i ? starthint.divFrom ?? 0 : 0
+        const divStart = lengthCacheDetail[fromLengthIndex]?.div ?? 0
 
         let j = divStart
         for (; j <= divs; j++) {
@@ -219,16 +192,19 @@ export class IndexedPointAtLength {
               length: len,
               pos: npos,
               lastIndex: i,
-              nextHint: { vertexIndex: i, lengthIndex: lenIdx, divFrom: j },
+              nextHint: {
+                lengthIndex: currentLengthIndex,
+              },
             }
           }
 
-          // lenIdx++
-          // if (warm) {
-          //   pointIndexOfLengthIndex.push(i)
-          //   lengthIndexData.push([i, lenIdx, j])
-          //   lengthCache.push(len)
-          // }
+          currentLengthIndex++
+          if (warm) {
+            lengthCache.push(len)
+            lengthCacheDetail.push({ len, div: j, vertIdx: i })
+            // skip, this is not a point
+            // pointAtVertCache[i] = [cur[0], cur[1]]
+          }
 
           prev[0] = cur[0]
           prev[1] = cur[1]
@@ -239,11 +215,11 @@ export class IndexedPointAtLength {
         prev[1] = p0[1] = cur[1]
         prev[2] = len
 
-        lenIdx++
+        currentLengthIndex++
         if (warm) {
-          pointAtVertCache[i] = [cur[0], cur[1]]
-          vertIdxOfLengthIndex.push(i)
           lengthCache.push(len)
+          lengthCacheDetail.push({ len, div: null, vertIdx: i })
+          pointAtVertCache[i] = [cur[0], cur[1]]
         }
 
         for (var j = 0; j <= divs; j++) {
@@ -255,6 +231,14 @@ export class IndexedPointAtLength {
           cur[0] = x
           cur[1] = y
 
+          currentLengthIndex++
+          if (warm) {
+            lengthCache.push(len)
+            lengthCacheDetail.push({ len, div: j, vertIdx: i })
+            // skip, this is not a point
+            // pointAtVertCache[i] = [cur[0], cur[1]]
+          }
+
           if (typeof pos === 'number' && len >= pos) {
             var dv = (len - pos) / (len - prev[2])
             dv = Number.isNaN(dv) ? 0 : dv
@@ -264,18 +248,13 @@ export class IndexedPointAtLength {
               cur[1] * (1 - dv) + prev[1] * dv,
             ] as [number, number]
 
-            lenIdx++
-            if (warm) {
-              pointAtVertCache[i] = [cur[0], cur[1]]
-              vertIdxOfLengthIndex.push(i)
-              lengthCache.push(len)
-            }
-
             return {
               length: len,
               pos: npos,
               lastIndex: i,
-              nextHint: { vertexIndex: i, lengthIndex: lenIdx, divFrom: j },
+              nextHint: {
+                lengthIndex: currentLengthIndex,
+              },
             }
           }
 
@@ -292,11 +271,12 @@ export class IndexedPointAtLength {
         cur[0] = p[1]
         cur[1] = p[2]
 
-        lenIdx++
+        currentLengthIndex++
+
         if (warm) {
-          pointAtVertCache[i] = [cur[0], cur[1]]
-          vertIdxOfLengthIndex.push(i)
           lengthCache.push(len)
+          lengthCacheDetail.push({ len, div: null, vertIdx: i })
+          pointAtVertCache[i] = [cur[0], cur[1]]
         }
 
         if (typeof pos === 'number' && len >= pos) {
@@ -312,7 +292,9 @@ export class IndexedPointAtLength {
             length: len,
             pos: npos,
             lastIndex: i,
-            nextHint: { vertexIndex: i, lengthIndex: lenIdx, divFrom: null },
+            nextHint: {
+              lengthIndex: currentLengthIndex,
+            },
           }
         }
 
@@ -328,7 +310,9 @@ export class IndexedPointAtLength {
     return {
       length: len,
       pos: cur,
-      nextHint: { vertexIndex: i, lengthIndex: lenIdx, divFrom: null },
+      nextHint: {
+        lengthIndex: currentLengthIndex,
+      },
       lastIndex: i,
     }
 
@@ -412,8 +396,7 @@ export class SequencialPointAtLength {
     }
 
     const result = this.pal.atWithDetail(len, {
-      hintIndexGTEq: this.nextHint?.vertexIndex,
-      lengthIndex: this.nextHint?.lengthIndex,
+      fromLengthIndex: this.nextHint?.lengthIndex,
     })
 
     if (seek) {
@@ -425,28 +408,27 @@ export class SequencialPointAtLength {
 }
 
 type LengthIndexData = {
-  vertexIndex: number
   lengthIndex: number
-  divFrom: number | null
 }
 
 // SEE: https://stackoverflow.com/questions/60343999/binary-search-in-typescript-vs-indexof-how-to-get-performance-properly
 function binarySearch(sortedArray: number[], seekElement: number): number {
-  let startIndex = 0
-  let endIndex: number = sortedArray.length - 1
-  let minNearIdx: number = 0
+  let left = 0
+  let right = sortedArray.length - 1
+  let minNearIdx = 0
 
-  while (startIndex <= endIndex) {
-    const mid = startIndex + Math.floor((endIndex - startIndex) / 2)
+  while (left <= right) {
+    const mid = left + Math.floor((right - left) / 2)
     const guess = sortedArray[mid]
+
     if (guess === seekElement) {
       return mid
     } else if (guess > seekElement) {
-      minNearIdx = endIndex = mid - 1
+      minNearIdx = right = mid - 1
     } else {
-      startIndex = mid + 1
+      left = mid + 1
     }
   }
 
-  return minNearIdx!
+  return minNearIdx
 }

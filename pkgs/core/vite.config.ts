@@ -2,8 +2,8 @@ import type {} from 'vitest/config'
 
 import { defineConfig } from 'vite'
 import tsConfigPaths from 'vite-tsconfig-paths'
-import ts from '@rollup/plugin-typescript'
 import { resolve } from 'path'
+import dts from 'vite-plugin-dts'
 
 export default defineConfig({
   define: {
@@ -17,7 +17,7 @@ export default defineConfig({
   },
   build: {
     minify: false,
-    emptyOutDir: true,
+    emptyOutDir: false,
     lib: {
       entry: 'src/index.ts',
       name: 'PapCore',
@@ -28,18 +28,9 @@ export default defineConfig({
       output: {
         exports: 'named',
       },
-      plugins: [
-        // @ts-expect-error
-        ts({
-          rootDir: resolve(__dirname, 'src'),
-          declaration: true,
-          declarationDir: 'dist',
-          exclude: ['node_modules'],
-        }),
-      ],
     },
   },
-  plugins: [tsConfigPaths()],
+  plugins: [dts({ rollupTypes: false })],
   test: {
     globals: true,
     includeSource: ['src/**/*{.spec.ts,.ts}'],

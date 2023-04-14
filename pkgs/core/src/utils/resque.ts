@@ -26,7 +26,7 @@ interface Resque {
 const createResult = (result: any = null, error: any = null): Result<any> =>
   Object.assign([result, error] as const, { result, error })
 
-const isExpectedError = (actual: Error, expects: any[]) => {
+const isExpectedError = (actual: unknown, expects: any[]) => {
   if (expects.length === 0) return true
   return expects.some((E) => actual instanceof E)
 }

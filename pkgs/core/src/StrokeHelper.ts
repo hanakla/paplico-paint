@@ -10,15 +10,27 @@ import { pointsToSVGCommandArray, pointsToSVGPath } from './Engine/VectorUtils'
 import { ColorRGB, createVectorPath } from './Document'
 import { interpolateMap, interpolateMapObject, lerp } from './Math'
 import { FuncStats } from './utils/perfstats'
-import { degToRad, radToDeg } from './utils/math'
+import { degToRad } from './utils/math'
+import { type Color } from 'three'
 
 export { setCanvasSize } from '@/utils/canvas'
 export { mapPoints } from './Engine/VectorUtils'
 
-// type ScatteredPoint = VectorPathPoint & {}
+export {
+  interpolateMap,
+  interpolateMapObject,
+  indexedPointAtLength,
+  type IndexedPointAtLength,
+  pointsToSVGCommandArray,
+}
 
 export const rgbToHexColor = (color: ColorRGB) => {
   return rgb(color.r * 255, color.g * 255, color.b * 255)
+}
+
+export const rgbToThreeRGB = (color: ColorRGB, target: Color) => {
+  target.setRGB(color.r, color.g, color.b)
+  return target
 }
 
 const getTangentAt = (pal: SequencialPointAtLength, t: number) => {

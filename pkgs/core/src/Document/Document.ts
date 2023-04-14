@@ -8,6 +8,10 @@ export namespace PaplicoDocument {
   export type Meta = {
     schemaVersion: '2'
     title: string
+    mainArtboard: {
+      width: number
+      height: number
+    }
   }
 
   export type SerializedSchema = {
@@ -34,11 +38,19 @@ export class PaplicoDocument {
   public meta: PaplicoDocument.Meta = {
     schemaVersion: '2',
     title: '',
+    mainArtboard: {
+      width: 100,
+      height: 100,
+    },
   }
 
   public layerEntities: LayerEntity[] = []
   public layerTree: LayerNode[] = []
   public blobs: PaplicoBlob[] = []
+
+  public constructor({ width, height }: { width: number; height: number }) {
+    this.meta.mainArtboard = { width, height }
+  }
 
   public resolveLayerEntity(layerId: string) {
     return this.layerEntities.find((layer) => layer.uid === layerId)

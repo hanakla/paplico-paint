@@ -13,5 +13,10 @@
   "devDependencies": {
     "wsrun": "^5.2.4"
   },
-  "packageManager": "yarn@3.3.0"
+  "packageManager": "yarn@3.3.0",
+  "dependencies": {
+    "@radix-ui/react-popover": "latest",
+    "@radix-ui/react-scroll-area": "^1.0.3",
+    "react-draggable-tree": "^0.7.0"
+  }
 }

@@ -1,4 +1,7 @@
 import { type mat4 } from 'gl-matrix'
+import fastRandom from 'fast-random'
+
+export const createSeededRandom = fastRandom
 
 type Interpolator = (a: number, b: number, ratio: number) => number
 
@@ -24,6 +27,8 @@ const clampIndex = (array: any[], index: number) => {
     index
 }
 
+export type Vector3Tuple = [x: number, y: number, z: number]
+
 // from: https://github.com/toji/gl-matrix/blob/master/src/mat4.js
 export class Matrix4 {
   // prettier-ignore
@@ -34,7 +39,7 @@ export class Matrix4 {
     0, 0, 0, 1
   ]
 
-  public translate(...vector: [x: number, y: number, z: number]): this {
+  public translate(...vector: Vector3Tuple): this {
     const out = this.matrix,
       a = this.matrix.slice(),
       v = vector
@@ -83,6 +88,34 @@ export class Matrix4 {
       out[14] = a02 * x + a12 * y + a22 * z + a[14]
       out[15] = a03 * x + a13 * y + a23 * z + a[15]
     }
+
+    return this
+  }
+
+  /**
+   * Scales the mat4 by the dimensions in the given vec3 not using vectorization
+   **/
+  public scale(v: Vector3Tuple) {
+    const out = this.matrix
+    const a = this.matrix.slice()
+    const [x, y, z] = v
+
+    out[0] = a[0] * x
+    out[1] = a[1] * x
+    out[2] = a[2] * x
+    out[3] = a[3] * x
+    out[4] = a[4] * y
+    out[5] = a[5] * y
+    out[6] = a[6] * y
+    out[7] = a[7] * y
+    out[8] = a[8] * z
+    out[9] = a[9] * z
+    out[10] = a[10] * z
+    out[11] = a[11] * z
+    out[12] = a[12]
+    out[13] = a[13]
+    out[14] = a[14]
+    out[15] = a[15]
 
     return this
   }

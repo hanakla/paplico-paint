@@ -57,7 +57,7 @@ export function replaceCharAt(str: string, index: number, char: string) {
 }
 
 export function incrementBase32(str: string): string {
-  let done: string = undefined
+  let done: string | undefined = undefined
   let index = str.length
   let char
   let charIndex
@@ -200,7 +200,7 @@ export function monotonicFactory(currPrng?: PRNG): ULID {
       return encodeTime(lastTime, TIME_LEN) + incrementedRandom
     }
     lastTime = seedTime
-    const newRandom = (lastRandom = encodeRandom(RANDOM_LEN, currPrng))
+    const newRandom = (lastRandom = encodeRandom(RANDOM_LEN, currPrng!))
     return encodeTime(seedTime, TIME_LEN) + newRandom
   }
 }

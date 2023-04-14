@@ -1,13 +1,21 @@
 /** @type {import('webpack')} */
 const webpack = require('webpack')
 const ForkTsCheckerWebpackPlugin = require('fork-ts-checker-webpack-plugin')
-const withPWA = require('next-pwa')({ dest: 'public' })
+const withPWA = require('next-pwa')({ dest: 'public', disableDevLogs: true })
 const runtimeCaching = require('next-pwa/cache')
 const path = require('path')
 const { i18n } = require('./next-i18next.config')
 
+const withNextra = require('nextra')({
+  theme: 'nextra-theme-docs',
+  themeConfig: './src/theme.config.jsx',
+})
+
 /** @type {import('next').NextConfig} */
 const config = {
+  experimental: {
+    externalDir: true,
+  },
   i18n,
   transpilePackages: ['@paplico/core', '@paplico/core-new'],
   compiler: {
@@ -56,7 +64,7 @@ const config = {
     config.resolve.alias = {
       ...config.resolve.alias,
       '@paplico/core': path.join(__dirname, '../paplicore/src/index.ts'),
-      // '@paplico/core-new': path.join(__dirname, '../core/src/index.ts'),
+      '@paplico/core-new': path.join(__dirname, '../core/dist/index.mjs'),
       // '@paplico/ui': 'paplico-ui/src/index.ts',
       '🙌': path.join(__dirname, './src'),
       'audio-worklet': path.resolve(__dirname, 'src/utils/audio-worklet'),
@@ -109,4 +117,4 @@ const config = {
   },
 }
 
-module.exports = withPWA(config)
+module.exports = withPWA(withNextra(config))

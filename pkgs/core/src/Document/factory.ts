@@ -1,12 +1,23 @@
 import prand from 'pure-rand'
 
 import { ulid } from '@/utils/ulid'
+import { PaplicoDocument } from './Document'
 import { FilterLayer, RasterLayer, VectorLayer } from './LayerEntity'
 import { VectorObject } from './LayerEntity/VectorObject'
 import { VectorPath } from './LayerEntity/VectorPath'
 
 type Requires<T, K extends keyof T> = Omit<T, K> & {
   [P in K]-?: T[P]
+}
+
+export const createDocument = ({
+  width,
+  height,
+}: {
+  width: number
+  height: number
+}) => {
+  return new PaplicoDocument({ width, height })
 }
 
 export const createRasterLayerEntity = ({

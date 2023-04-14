@@ -17,22 +17,24 @@ import { setCanvasSize } from '@/utils/canvas'
 import { RuntimeDocument } from './Engine/RuntimeDocument'
 import { VectorStrokeSetting } from './Document/LayerEntity/VectorStrokeSetting'
 import { VectorFillSetting } from './Document/LayerEntity/VectorFillSetting'
+import { InkSetting as _InkSetting } from './Document/LayerEntity/InkSetting'
 import { deepClone } from './utils/object'
-import {
-  VectorAppearance,
-  VectorAppearanceFill,
-} from './Document/LayerEntity/VectorAppearance'
+import { VectorAppearance } from './Document/LayerEntity/VectorAppearance'
 import { CircleBrush } from './Engine/Brushes/CircleBrush'
 import { Emitter } from './utils/Emitter'
 import { BrushClass } from './Engine/Brush'
-import { logImage } from './utils/DebugHelper'
 import { RenderCycleLogger } from './Engine/RenderCycleLogger'
+import { PlainInk } from './Engine/Inks/PlainInk'
+import { InkRegistry } from './Engine/InkRegistry'
+import { RainbowInk } from './Engine/Inks/RainbowInk'
 
 export namespace Paplico {
   export type StrokeSetting<T extends Record<string, any> = any> =
     VectorStrokeSetting<T>
 
   export type FillSetting = VectorFillSetting
+
+  export type InkSetting = _InkSetting
 
   export type State = {
     activeLayer: {
@@ -42,6 +44,7 @@ export namespace Paplico {
     } | null
     currentStroke: StrokeSetting | null
     currentFill: FillSetting | null
+    currentInk: InkSetting
     strokeComposition: 'normal' | 'erase'
     brushEntries: BrushClass[]
   }
@@ -82,6 +85,7 @@ const singletonCall = <T extends (...args: any[]) => Promise<void>>(fn: T) => {
 
 export class Paplico extends Emitter<Events> {
   public brushes: BrushRegistry
+  public inks: InkRegistry
 
   public pipeline: MixerPipeline
   public renderer: Renderer
@@ -102,6 +106,11 @@ export class Paplico extends Emitter<Events> {
     activeLayer: null,
     currentStroke: null,
     currentFill: null,
+    currentInk: {
+      inkId: RainbowInk.id,
+      inkVersion: RainbowInk.version,
+      specific: {},
+    },
     strokeComposition: 'normal',
     brushEntries: [],
   }
@@ -114,8 +123,15 @@ export class Paplico extends Emitter<Events> {
     this.brushes = new BrushRegistry()
     this.brushes.register(CircleBrush)
 
+    this.inks = new InkRegistry()
+    this.inks.register(PlainInk)
+    this.inks.register(RainbowInk)
+
     this.pipeline = new MixerPipeline({ brushRegistry: this.brushes, canvas })
-    this.renderer = new Renderer({ brushRegistry: this.brushes })
+    this.renderer = new Renderer({
+      brushRegistry: this.brushes,
+      inkRegistry: this.inks,
+    })
     this.uiCanvas = new UICanvas(canvas).activate()
 
     this.dstCanvas = canvas
@@ -124,8 +140,8 @@ export class Paplico extends Emitter<Events> {
     this.tmp = createCanvas()
     this.tmpctx = this.tmp.getContext('2d', { willReadFrequently: true })!
 
-    this.onUIStrokeChange = singletonCall(this.onUIStrokeChange.bind(this))
-    this.onUIStrokeComplete = singletonCall(this.onUIStrokeComplete.bind(this))
+    this.onUIStrokeChange = this.onUIStrokeChange.bind(this)
+    this.onUIStrokeComplete = this.onUIStrokeComplete.bind(this)
     this.initilize()
   }
 
@@ -291,6 +307,7 @@ export class Paplico extends Emitter<Events> {
       renderLogger.log('render stroke')
       // Write stroke to current layer
       await this.renderer.renderStroke(this.tmp, path, this.strokeSetting, {
+        inkSetting: this.#state.currentInk,
         // abort: this.lastRenderAborter.signal,
         transform: {
           position: { x: 0, y: 0 },
@@ -345,7 +362,7 @@ export class Paplico extends Emitter<Events> {
     const path = stroke.toSimplefiedPath()
     RenderCycleLogger.current.timeEnd('toSimplefiedPath')
     RenderCycleLogger.current.info(
-      `Path simplified: ${path.points.length} -> ${stroke.points.length}`
+      `Path simplified: ${stroke.points.length} -> ${path.points.length}`
     )
 
     if (this.activeLayerEntity.layerType === 'vector') {
@@ -391,6 +408,7 @@ export class Paplico extends Emitter<Events> {
 
       // Write stroke to current layer
       await this.renderer.renderStroke(this.tmp, path, this.strokeSetting, {
+        inkSetting: this.#state.currentInk,
         // abort: this.lastRenderAborter.signal,
         transform: {
           position: { x: 0, y: 0 },

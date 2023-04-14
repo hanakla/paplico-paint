@@ -43,7 +43,7 @@ export default function NewPage() {
     paplico.brushes.register(ExtraBrushes.ScatterBrush)
     console.log(paplico.brushes)
 
-    console.log(new ExtraBrushes.ScatterBrush().initialize())
+    // console.log(new ExtraBrushes.ScatterBrush().initialize())
 
     const doc = (window.__papdoc = new Document.PaplicoDocument())
     doc.layerEntities.push(
@@ -66,7 +66,8 @@ export default function NewPage() {
 
     paplico.strokeSetting = {
       // brushId: '@paplico/core/circle-brush',
-      brushId: ExtraBrushes.ScatterBrush.id,
+      brushId: '@paplico/core/circle-brush',
+      // brushId: ExtraBrushes.ScatterBrush.id,
       brushVersion: '1.0.0',
       color: { r: 0, g: 0, b: 0 },
       opacity: 1,

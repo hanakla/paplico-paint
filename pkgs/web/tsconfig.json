@@ -20,6 +20,7 @@
     "isolatedModules": true,
     "strict": true,
     "jsx": "preserve",
+    "downlevelIteration": true,
     "paths": {
       "🙌/*": ["./src/*"]
     },

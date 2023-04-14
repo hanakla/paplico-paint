@@ -1,4 +1,4 @@
-import { BrushContext, IBrush, BrushLayoutData } from '@/index'
+import { BrushContext, IBrush, BrushLayoutData, StrokeHelper } from '@/index'
 import * as Textures from './ScatterTexture/index'
 import { mergeToNew } from '@/utils/object'
 import {
@@ -22,13 +22,14 @@ import {
   type WorkerResponse,
   type Payload,
 } from './ScatterBrush-worker'
+import { ColorRGBA } from '@/Document'
 
 const _mat4 = new ThreeMatrix4()
 
 const generateId = () => (Date.now() + Math.random()).toString(36)
 
 export declare namespace ScatterBrush {
-  export type SpecificSetting = {
+  export type SpecificSetting = Partial<{
     texture: keyof typeof Textures
     divisions: number
     scatterRange: number
@@ -44,7 +45,7 @@ export declare namespace ScatterBrush {
     pressureInfluence: number
     /** 0..1 */
     noiseInfluence: number
-  }
+  }>
 }
 
 export class ScatterBrush implements IBrush {
@@ -112,6 +113,17 @@ export class ScatterBrush implements IBrush {
           blendEquation: AddEquation,
         })
 
+        // this.materials[name] = new ShaderMaterial({
+        //   uniforms: {
+        //     texture: { value: texture },
+        //     // color: { value: new Color(0xffffff) },
+        //   },
+        //   vertexShader: VS,
+        //   fragmentShader: FS,
+        //   vertexColors: true,
+        //   depthTest: true,
+        // })
+
         // this.textures[name] = await createImageBitmap(data)
       })
     )
@@ -123,13 +135,15 @@ export class ScatterBrush implements IBrush {
     context: ctx,
     path: inputPath,
     transform,
-    // ink,
+    ink,
     brushSetting: { size, color, opacity, specific },
     threeRenderer,
     threeCamera,
     destSize,
   }: BrushContext<ScatterBrush.SpecificSetting>): Promise<BrushLayoutData> {
     const sp = mergeToNew(this.getInitialSpecificConfig(), specific)
+    const baseColor: ColorRGBA = { ...color, a: opacity }
+    const _color = new Color()
 
     const bbox: BrushLayoutData['bbox'] = {
       left: 0,
@@ -171,17 +185,18 @@ export class ScatterBrush implements IBrush {
           type: 'getPoints',
           path,
           // closed,
+          brushSize: size,
           destSize,
           scatterRange: sp.scatterRange,
           scatterScale: 1,
-        } as const satisfies Payload)
+        } satisfies Payload)
       })
 
       if (res.matrices == null) return { bbox }
 
       const scene = new Scene()
       const material = this.materials[sp.texture]
-      material.color.set(new Color(color.r, color.g, color.b))
+      // material.color.set(new Color(color.r, color.g, color.b))
       material.needsUpdate = true
 
       const group = new Group()
@@ -194,6 +209,19 @@ export class ScatterBrush implements IBrush {
       for (let i = 0, l = res.matrices.length; i < l; i++) {
         _mat4.fromArray(res.matrices[i])
         mesh.setMatrixAt(i, _mat4)
+        mesh.setColorAt(
+          i,
+          StrokeHelper.rgbToThreeRGB(
+            ink.getColor({
+              pointIndex: i,
+              points: path.points,
+              pointAtLength: res.lengths[i],
+              totalLength: res.totalLength,
+              baseColor,
+            }),
+            _color
+          )
+        )
       }
 
       if (res.bbox) {

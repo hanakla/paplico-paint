@@ -66,34 +66,42 @@ export class MixerPipeline {
         continue
       }
 
-      logger.log('Render layer', layer.uid, layer.name, layer.layerType)
+      logger.log(
+        'Render layer',
+        layer.source.uid,
+        layer.source.name,
+        layer.source.layerType
+      )
 
       let image: ImageBitmap | HTMLCanvasElement | null | void
 
-      if (override?.[layer.uid]) {
-        image = override[layer.uid]
-      } else if (layer.layerType === 'raster') {
-        image = (await doc.getOrCreateLayerBitmapCache(layer.uid))!
-      } else if (layer.layerType === 'vector') {
+      if (override?.[layer.source.uid]) {
+        image = override[layer.source.uid]
+      } else if (layer.source.layerType === 'raster') {
+        image = (await doc.getOrCreateLayerBitmapCache(layer.source.uid))!
+      } else if (layer.source.layerType === 'vector') {
         const requestSize = { width: viewport.width, height: viewport.height }
 
-        if (doc.hasLayerBitmapCache(layer.uid, requestSize)) {
-          logger.info('Use cached bitmap for vector layer', layer.uid)
+        if (doc.hasLayerBitmapCache(layer.source.uid, requestSize)) {
+          logger.info('Use cached bitmap for vector layer', layer.source.uid)
           image = (await doc.getOrCreateLayerBitmapCache(
-            layer.uid,
+            layer.source.uid,
             requestSize
           ))!
         } else {
-          logger.info('Cache is invalidated, re-render vector layer', layer.uid)
+          logger.info(
+            'Cache is invalidated, re-render vector layer',
+            layer.source.uid
+          )
 
-          await render.renderVectorLayer(tmp, layer, {
+          await render.renderVectorLayer(tmp, layer.source, {
             viewport,
             abort,
             logger,
           })
 
           image = await doc.updateOrCreateLayerBitmapCache(
-            layer.uid,
+            layer.source.uid,
             tmpctx.getImageData(0, 0, viewport.width, viewport.height)
           )
         }
@@ -102,11 +110,13 @@ export class MixerPipeline {
         continue
       }
 
-      const mode = layerCompositeModeToCanvasCompositeMode(layer.compositeMode)
+      const mode = layerCompositeModeToCanvasCompositeMode(
+        layer.source.compositeMode
+      )
 
       await saveAndRestoreCanvas(dest, async () => {
         logger.log(
-          `Will draw layer ${layer.uid} as ${mode} to destination.`,
+          `Will draw layer ${layer.source.uid} as ${mode} to destination.`,
           image
         )
         dest.globalCompositeOperation = mode

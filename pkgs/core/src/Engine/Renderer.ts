@@ -1,5 +1,6 @@
 import { VectorObject, VectorPath } from '@/Document'
 import { VectorLayer } from '@/Document/LayerEntity'
+import { InkSetting } from '@/Document/LayerEntity/InkSetting'
 import { VectorStrokeSetting } from '@/Document/LayerEntity/VectorStrokeSetting'
 import { AbortError } from '@/Errors'
 import { UIStroke } from '@/UI/UIStroke'
@@ -9,6 +10,7 @@ import { deepClone } from '@/utils/object'
 import { OrthographicCamera, WebGLRenderer } from 'three'
 import { BrushRegistry } from './BrushRegistry'
 import { createCanvas } from './CanvasFactory'
+import { InkRegistry } from './InkRegistry'
 import { RenderCycleLogger } from './RenderCycleLogger'
 import { Viewport } from './types'
 import {
@@ -22,10 +24,15 @@ import {
 export class Renderer {
   protected atomicThreeRenderer: AtomicResource<WebGLRenderer>
   protected brushRegistry: BrushRegistry
+  protected inkRegistry: InkRegistry
   protected camera: OrthographicCamera
 
-  constructor(options: { brushRegistry: BrushRegistry }) {
+  constructor(options: {
+    brushRegistry: BrushRegistry
+    inkRegistry: InkRegistry
+  }) {
     this.brushRegistry = options.brushRegistry
+    this.inkRegistry = options.inkRegistry
 
     const renderer = new WebGLRenderer({
       alpha: true,
@@ -160,7 +167,7 @@ export class Renderer {
     }
   }
 
-  protected async renderPath() {}
+  // protected async renderPath() {}
 
   public async renderVectorObject(dest: HTMLCanvasElement, path: VectorPath) {
     const dstctx = dest.getContext('2d')!
@@ -184,10 +191,12 @@ export class Renderer {
     path: VectorPath,
     strokeSetting: VectorStrokeSetting,
     {
+      inkSetting,
       transform,
       abort,
       logger,
     }: {
+      inkSetting: InkSetting
       transform: {
         position: { x: number; y: number }
         scale: { x: number; y: number }
@@ -198,8 +207,10 @@ export class Renderer {
     }
   ) {
     const brush = this.brushRegistry.getInstance(strokeSetting.brushId)
+    const ink = this.inkRegistry.getInstance(inkSetting.inkId)
 
     if (!brush) throw new Error(`Unregistered brush ${strokeSetting.brushId}`)
+    if (!ink) throw new Error(`Unregistered ink ${inkSetting.inkId}`)
 
     const renderer = await this.atomicThreeRenderer.enjure()
     const dstctx = dest.getContext('2d')!
@@ -226,6 +237,7 @@ export class Renderer {
         threeCamera: this.camera,
         hintInput: null,
         brushSetting: deepClone(strokeSetting),
+        ink: ink.getInkGenerator({}),
         path: [path],
         destSize: { width: dest.width, height: dest.height },
         transform: {

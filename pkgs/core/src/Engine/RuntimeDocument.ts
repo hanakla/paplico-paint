@@ -33,7 +33,7 @@ export class RuntimeDocument {
     this.document.layerEntities.forEach((l) => {
       this.layerEntities.set(l.uid, {
         lastUpdated: 0,
-        ...l,
+        source: l,
       })
     })
   }

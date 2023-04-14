@@ -37,9 +37,9 @@ import { Restart } from '@styled-icons/remix-fill'
 //   return {}
 // }
 
-declare module 'styled-components' {
-  export interface DefaultTheme extends ThemeType {}
-}
+// declare module 'styled-components' {
+//   export interface DefaultTheme extends ThemeType {}
+// }
 
 const PageSwitch = memo(function PageSwitch() {
   const isNarrowMedia = useMedia(`(max-width: ${narrow})`, false)

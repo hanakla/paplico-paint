@@ -19,7 +19,7 @@ export class CircleBrush implements IBrush {
 
   public getInitialSpecificConfig(): CircleBrush.SpecificSetting {
     return {
-      lineCap: 'square',
+      lineCap: 'round',
     }
   }
 
@@ -72,8 +72,8 @@ export class CircleBrush implements IBrush {
 
       // console.log(scattered)
 
-      path.mapPoints(
-        scattered,
+      mapPoints(
+        path.points,
         (point, prev) => {
           ctx.bezierCurveTo(
             prev!.out?.x ?? prev!.x,

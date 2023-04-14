@@ -50,13 +50,20 @@ export class UIStroke {
     }
   }
 
+  /**
+   * @param tolerance
+   *  補正強度(0=なし,1=元の線に忠実,5=かなりなめらか くらいのニュアンス)
+   *
+   *  SEE: https://luncheon.github.io/simplify-svg-path/index.html
+   */
   public toSimplefiedPath({
-    tolerance = 1,
+    tolerance = 5,
   }: { tolerance?: number } = {}): VectorPath {
     const simplified = simplifySvgPath(
       this.points.map((p) => [p.x, p.y] as const),
-      { closed: false, precision: 3, tolerance }
+      { closed: false, precision: 5, tolerance }
     )
+
     const absoluted = abs(simplified)
     const pal = indexedPointAtLength(simplified)
 

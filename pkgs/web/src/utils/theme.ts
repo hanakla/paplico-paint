@@ -204,7 +204,7 @@ export const tm = createTheme(styled)
 
 declare module 'styled-components' {
   // interface DefaultTheme extends ThemeType {}
-  interface DefaultTheme extends ThemeType {}
+  interface DefaultTheme extends CharcoalTheme {}
 }
 
 export type ThemeProp<T = {}> = T & { theme: ThemeType }

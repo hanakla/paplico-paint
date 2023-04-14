@@ -6,10 +6,13 @@ import { WebGLRenderer, Camera } from 'three'
 // import { VectorObject } from '../DOM/VectorObject'
 import { VectorStrokeSetting, VectorPath } from '@/Document'
 import { RenderCycleLogger } from './RenderCycleLogger'
+import { InkGenerator } from './Ink'
 
 export type BrushContext<T extends Record<string, any>> = {
   abort: AbortSignal
   abortIfNeeded: () => never | void
+
+  /** Render result destination canvas */
   context: CanvasRenderingContext2D
   threeRenderer: WebGLRenderer
   threeCamera: Camera
@@ -21,7 +24,7 @@ export type BrushContext<T extends Record<string, any>> = {
     scale: { x: number; y: number }
     translate: { x: number; y: number }
   }
-  // ink: IInk
+  ink: InkGenerator
   brushSetting: VectorStrokeSetting<T | null>
   /** Expected destination canvas size */
   destSize: { width: number; height: number }

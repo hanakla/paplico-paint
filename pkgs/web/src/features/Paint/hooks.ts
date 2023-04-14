@@ -96,6 +96,7 @@ export const useDocumentWatch = (
 ) => {
   const rerender = useUpdate()
 
+  console.trace()
   useEffect(() => {
     document?.on('layersChanged', rerender)
     return () => document?.off('layersChanged', rerender)

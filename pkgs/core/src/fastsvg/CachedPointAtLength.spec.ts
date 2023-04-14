@@ -19,6 +19,9 @@ describe('CachedPointAtLength', () => {
 
     expect(cached.at(100)[0]).toBeCloseTo(original.at(100)[0], 2)
     expect(cached.at(100)[1]).toBeCloseTo(original.at(100)[1], 2)
+
+    expect(cached.at(length)[0]).toBeCloseTo(original.at(length)[0], 2)
+    expect(cached.at(length)[1]).toBeCloseTo(original.at(length)[1], 2)
   })
 
   describe('getSequencialReader', () => {

@@ -6,6 +6,7 @@ export {
   Pipeline,
   RuntimeDocument,
   createCustomBrush,
+  StandardBrushes,
   type BrushClass,
   type BrushContext,
   type IBrush,
@@ -17,4 +18,5 @@ export * as VectorProcess from './VectorProcess'
 export * as RasterProcess from './RasterProcess'
 export * as ExtraBrushes from './Extras/ExtraBrushes'
 export * as StrokeHelper from './StrokeHelper'
+export * as PaplicoMath from './Math'
 export { installGlobally as _installPapDebugGlobaly } from './utils/DebugHelper'

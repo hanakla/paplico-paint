@@ -6,7 +6,6 @@ describe('CachedPointAtLength', () => {
 
   it('should be correctly sorted lengthCache and lengthCacheDetail', () => {
     const cached = indexedPointAtLength(path)
-    const length = cached.totalLength
 
     for (let i = 0; i < cached._lengthCache.length; i++) {
       expect(cached._lengthCache[i]).toBeCloseTo(
@@ -21,7 +20,7 @@ describe('CachedPointAtLength', () => {
     const cached = indexedPointAtLength(path)
     const length = cached.totalLength
 
-    for (let i = 0; i < length; i += length / 100) {
+    for (let i = 0; i < length; i += length / 500) {
       expect(cached.at(i)[0]).toBeCloseTo(original.at(i)[0], 2)
       expect(cached.at(i)[1]).toBeCloseTo(original.at(i)[1], 2)
     }

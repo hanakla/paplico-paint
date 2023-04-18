@@ -1,5 +1,5 @@
 import pal from 'point-at-length'
-import { indexedPointAtLength } from './CachedPointAtLength'
+import { indexedPointAtLength } from './IndexedPointAtLength'
 
 describe('CachedPointAtLength', () => {
   const path = complexPath()

@@ -41,6 +41,8 @@ export declare namespace ScatterBrush {
     randomScale: number
     /** Influence of stroke in / out weight. 0..1 */
     inOutInfluence: number
+    /** In / out length */
+    inOutLength: number
     /** 0..1 */
     pressureInfluence: number
     /** 0..1 */
@@ -63,7 +65,8 @@ export class ScatterBrush implements IBrush {
       rotationAdjust: 1,
       randomRotation: 0,
       randomScale: 0,
-      inOutInfluence: 0,
+      inOutInfluence: 1,
+      inOutLength: 100,
       pressureInfluence: 0.8,
       noiseInfluence: 0,
     }
@@ -187,7 +190,9 @@ export class ScatterBrush implements IBrush {
           // closed,
           brushSize: size,
           destSize,
-          scatterRange: sp.scatterRange,
+          scatterRange: sp.scatterRange ?? 0,
+          inOutInfluence: sp.inOutInfluence ?? 0,
+          inOutLength: sp.inOutLength ?? 0,
           scatterScale: 1,
         } satisfies Payload)
       })

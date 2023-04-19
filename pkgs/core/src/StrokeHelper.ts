@@ -5,7 +5,7 @@ import {
   IndexedPointAtLength,
   indexedPointAtLength,
   SequencialPointAtLength,
-} from './fastsvg/CachedPointAtLength'
+} from './fastsvg/IndexedPointAtLength'
 import { pointsToSVGCommandArray, pointsToSVGPath } from './Engine/VectorUtils'
 import { ColorRGB, createVectorPath } from './Document'
 import { interpolateMap, interpolateMapObject, lerp } from './Math'

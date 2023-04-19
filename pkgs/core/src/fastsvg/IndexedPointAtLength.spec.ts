@@ -1,7 +1,7 @@
 import pal from 'point-at-length'
 import { indexedPointAtLength } from './IndexedPointAtLength'
 
-describe('CachedPointAtLength', () => {
+describe('IndexedPointAtLength', () => {
   const path = complexPath()
 
   it('should be correctly sorted lengthCache and lengthCacheDetail', () => {

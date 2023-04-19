@@ -45,6 +45,10 @@ export class IndexedPointAtLength {
     return this._length
   }
 
+  public lengthOfVertex(vertIdx: number) {
+    return this.lengthCacheDetail.find((lenData) => lenData.vertIdx === vertIdx)
+  }
+
   public at(
     pos: number,
     opts: {

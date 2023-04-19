@@ -30,7 +30,7 @@ jobs:
         run: yarn install
       - name: Testing @paplico/core-new
         run: |
-          cd pkgs/core-new
+          cd pkgs/core
           yarn prepublishOnly
           yarn test
       - name: Testing @paplico/web

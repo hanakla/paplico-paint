@@ -28,6 +28,10 @@ jobs:
             ${{ matrix.os }}-
       - name: Install deps
         run: yarn install
+      - name: Build @paplico/core
+        run: |
+          cd pkgs/paplicore
+          yarn prepublishOnly
       - name: Testing @paplico/core-new
         run: |
           cd pkgs/core

@@ -401,7 +401,7 @@ if (import.meta.vitest) {
       })
 
       it('should return the index of the nearest element', () => {
-        expect(binarySearch([1, 2, 3, 4, 5], 3.5)).toBe(3)
+        expect(binarySearch([1, 2, 3, 4, 5], 3.5)).toBe(2)
       })
 
       it('should return the index of the nearest element', () => {

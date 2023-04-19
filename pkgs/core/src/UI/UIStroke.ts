@@ -4,7 +4,7 @@ import abs from 'abs-svg-path'
 import { VectorPath, VectorPathPoint } from '@/Document/LayerEntity/VectorPath'
 
 import { interpolateMap } from '@/Math'
-import { indexedPointAtLength } from '@/fastsvg/CachedPointAtLength'
+import { indexedPointAtLength } from '@/fastsvg/IndexedPointAtLength'
 import { simplifySvgPath } from '@/VectorProcess'
 
 export type UIStrokePoint = {
@@ -74,7 +74,7 @@ export class UIStroke {
 
     const points = absoluted.map(([cmd, ...args], idx): VectorPathPoint => {
       const next = absoluted[idx + 1]
-      const frac = pal.lengthOfVertex(idx).length / pal.totalLength
+      const frac = pal.lengthOfVertex(idx)!.len / pal.totalLength
 
       switch (cmd) {
         case 'M':

@@ -20,15 +20,21 @@ jobs:
       - name: Cache
         uses: actions/cache@v1.0.0
         with:
-          path: ~/.cache/yarn
+          path: |
+            .yarn/cache
+            node_modules/
           key: ${{ matrix.os }}-${{ hashFiles(format('{0}{1}', github.workspace, '/yarn.lock')) }}
           restore-keys: |
             ${{ matrix.os }}-
       - name: Install deps
         run: yarn install
-      - name: Testing @paplico/core
+      - name: Build @paplico/core
         run: |
           cd pkgs/paplicore
+          yarn prepublishOnly
+      - name: Testing @paplico/core-new
+        run: |
+          cd pkgs/core
           yarn prepublishOnly
           yarn test
       - name: Testing @paplico/web

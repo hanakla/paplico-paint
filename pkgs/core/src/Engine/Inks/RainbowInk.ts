@@ -1,4 +1,4 @@
-import { createSeededRandom } from '@/Math'
+import { createSeededRandom, hsvToRgb, rgbToHsv } from '@/Math'
 import { IInk, InkGenerator } from '../Ink'
 
 export class RainbowInk implements IInk {
@@ -11,22 +11,19 @@ export class RainbowInk implements IInk {
 
   public initialize() {}
 
-  getInkGenerator(ctx: any): InkGenerator {
+  public getInkGenerator(ctx: any): InkGenerator {
     return {
       applyTexture(canvas, context) {
         return
       },
-      getColor({ pointIndex, points, baseColor }) {
-        const random = createSeededRandom(pointIndex)
+      getColor({ pointIndex, points, baseColor, pointAtLength, totalLength }) {
+        // const random = createSeededRandom(pointIndex)
 
-        return baseColor
+        const [h, s, v] = rgbToHsv(baseColor.r, baseColor.g, baseColor.b)
+        const newH = h + pointAtLength / totalLength
+        const [r, g, b] = hsvToRgb(newH, s, v)
 
-        return {
-          r: random.nextFloat(),
-          g: random.nextFloat(),
-          b: random.nextFloat(),
-          a: baseColor.a,
-        }
+        return { r, g, b, a: baseColor.a }
       },
     }
   }

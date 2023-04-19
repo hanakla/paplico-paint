@@ -27,6 +27,7 @@ import { RenderCycleLogger } from './Engine/RenderCycleLogger'
 import { PlainInk } from './Engine/Inks/PlainInk'
 import { InkRegistry } from './Engine/InkRegistry'
 import { RainbowInk } from './Engine/Inks/RainbowInk'
+import { TextureReadInk } from './Engine/Inks/TextureReadInk'
 
 export namespace Paplico {
   export type StrokeSetting<T extends Record<string, any> = any> =
@@ -126,6 +127,7 @@ export class Paplico extends Emitter<Events> {
     this.inks = new InkRegistry()
     this.inks.register(PlainInk)
     this.inks.register(RainbowInk)
+    this.inks.register(TextureReadInk)
 
     this.pipeline = new MixerPipeline({ brushRegistry: this.brushes, canvas })
     this.renderer = new Renderer({
@@ -148,6 +150,10 @@ export class Paplico extends Emitter<Events> {
   /** (Readonly) current editor states */
   public get state() {
     return this.#state
+  }
+
+  public get currentDocument() {
+    return this.document
   }
 
   protected setState(fn: (draft: Draft<Paplico.State>) => void) {

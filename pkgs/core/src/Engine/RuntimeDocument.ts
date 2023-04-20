@@ -1,4 +1,5 @@
 import { PaplicoDocument } from '@/Document/Document'
+import { AtomicResource } from '@/utils/AtomicResource'
 import { RuntimeLayerEntity } from './RuntimeDocument/RuntimeLayerEntity'
 
 const cancelIdle =
@@ -27,6 +28,8 @@ export class RuntimeDocument {
 
   protected layoutData = new Map<string, RuntimeDocument.LayoutData>()
   protected layerEntities = new Map<string, RuntimeLayerEntity>()
+
+  public updaterLock = new AtomicResource({})
 
   constructor(document: PaplicoDocument) {
     this.document = document

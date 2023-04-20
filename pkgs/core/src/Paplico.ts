@@ -48,6 +48,7 @@ export namespace Paplico {
     currentInk: InkSetting
     strokeComposition: 'normal' | 'erase'
     brushEntries: BrushClass[]
+    busy: boolean
   }
 }
 
@@ -114,6 +115,7 @@ export class Paplico extends Emitter<Events> {
     },
     strokeComposition: 'normal',
     brushEntries: [],
+    busy: false,
   }
 
   #activeLayerEntity: LayerEntity | null = null
@@ -358,97 +360,111 @@ export class Paplico extends Emitter<Events> {
     if (!this.runtimeDoc) return
     if (!this.activeLayerEntity) return
 
-    // this.lastRenderAborter?.abort()
-    this.lastRenderAborter = new AbortController()
-
-    const tmpctx = this.tmp.getContext('2d')!
-    const dstctx = this.dstctx
-
-    RenderCycleLogger.current.time('toSimplefiedPath')
-    const path = stroke.toSimplefiedPath()
-    RenderCycleLogger.current.timeEnd('toSimplefiedPath')
-    RenderCycleLogger.current.info(
-      `Path simplified: ${stroke.points.length} -> ${path.points.length}`
-    )
-
-    if (this.activeLayerEntity.layerType === 'vector') {
-      const obj = this.createVectorObjectByStrokeAndCurrentSettings(stroke)
-      this.activeLayerEntity.objects.push(obj)
-
-      // Update layer image data
-      setCanvasSize(this.tmp, this.dstCanvas.width, this.dstCanvas.height)
-
-      this.renderer.renderVectorLayer(
-        this.tmp,
-        {
-          ...this.activeLayerEntity,
-        },
-        {
-          // abort: this.lastRenderAborter.signal,
-          viewport: {
-            top: 0,
-            left: 0,
-            width: this.dstCanvas.width,
-            height: this.dstCanvas.height,
-          },
-          logger: RenderCycleLogger.current,
-        }
-      )
-
-      await this.runtimeDoc.updateOrCreateLayerBitmapCache(
-        this.activeLayerEntity.uid,
-        tmpctx.getImageData(0, 0, this.tmp.width, this.tmp.height)
-      )
-    } else if (this.activeLayerEntity.layerType === 'raster') {
-      if (!this.strokeSetting) return
-
-      const currentBitmap = (await this.runtimeDoc.getOrCreateLayerBitmapCache(
-        this.activeLayerEntity.uid
-      ))!
-
-      setCanvasSize(this.tmp, currentBitmap.width, currentBitmap.height)
-
-      // Copy current layer image to tmpctx
-      tmpctx.clearRect(0, 0, this.tmp.width, this.tmp.height)
-      tmpctx.drawImage(currentBitmap, 0, 0)
-
-      // Write stroke to current layer
-      await this.renderer.renderStroke(this.tmp, path, this.strokeSetting, {
-        inkSetting: this.#state.currentInk,
-        // abort: this.lastRenderAborter.signal,
-        transform: {
-          position: { x: 0, y: 0 },
-          scale: { x: 1, y: 1 },
-          rotation: 0,
-        },
-        logger: RenderCycleLogger.current,
-      })
-
-      // Update layer image data
-      await this.runtimeDoc.updateOrCreateLayerBitmapCache(
-        this.activeLayerEntity.uid,
-        tmpctx.getImageData(0, 0, currentBitmap.width, currentBitmap.height)
-      )
-    } else {
-      return
-    }
+    let updateLock = await this.runtimeDoc.updaterLock.enjure()
+    this.setState((d) => (d.busy = true))
 
     try {
-      RenderCycleLogger.current.log('Refresh all layers')
+      // this.lastRenderAborter?.abort()
+      this.lastRenderAborter = new AbortController()
 
-      await this.pipeline.fullyRender(dstctx, this.runtimeDoc, this.renderer, {
-        // abort: this.lastRenderAborter.signal,
-        viewport: {
-          top: 0,
-          left: 0,
-          width: this.dstCanvas.width,
-          height: this.dstCanvas.height,
-        },
-        logger: RenderCycleLogger.current,
-      })
+      const tmpctx = this.tmp.getContext('2d')!
+      const dstctx = this.dstctx
+
+      RenderCycleLogger.current.time('toSimplefiedPath')
+      const path = stroke.toSimplefiedPath()
+      RenderCycleLogger.current.timeEnd('toSimplefiedPath')
+      RenderCycleLogger.current.info(
+        `Path simplified: ${stroke.points.length} -> ${path.points.length}`
+      )
+
+      if (this.activeLayerEntity.layerType === 'vector') {
+        const obj = this.createVectorObjectByStrokeAndCurrentSettings(stroke)
+        this.activeLayerEntity.objects.push(obj)
+
+        // Update layer image data
+        setCanvasSize(this.tmp, this.dstCanvas.width, this.dstCanvas.height)
+
+        this.renderer.renderVectorLayer(
+          this.tmp,
+          {
+            ...this.activeLayerEntity,
+          },
+          {
+            // abort: this.lastRenderAborter.signal,
+            viewport: {
+              top: 0,
+              left: 0,
+              width: this.dstCanvas.width,
+              height: this.dstCanvas.height,
+            },
+            logger: RenderCycleLogger.current,
+          }
+        )
+
+        await this.runtimeDoc.updateOrCreateLayerBitmapCache(
+          this.activeLayerEntity.uid,
+          tmpctx.getImageData(0, 0, this.tmp.width, this.tmp.height)
+        )
+      } else if (this.activeLayerEntity.layerType === 'raster') {
+        if (!this.strokeSetting) return
+
+        const currentBitmap =
+          (await this.runtimeDoc.getOrCreateLayerBitmapCache(
+            this.activeLayerEntity.uid
+          ))!
+
+        setCanvasSize(this.tmp, currentBitmap.width, currentBitmap.height)
+
+        // Copy current layer image to tmpctx
+        tmpctx.clearRect(0, 0, this.tmp.width, this.tmp.height)
+        tmpctx.drawImage(currentBitmap, 0, 0)
+
+        // Write stroke to current layer
+        await this.renderer.renderStroke(this.tmp, path, this.strokeSetting, {
+          inkSetting: this.#state.currentInk,
+          // abort: this.lastRenderAborter.signal,
+          transform: {
+            position: { x: 0, y: 0 },
+            scale: { x: 1, y: 1 },
+            rotation: 0,
+          },
+          logger: RenderCycleLogger.current,
+        })
+
+        // Update layer image data
+        await this.runtimeDoc.updateOrCreateLayerBitmapCache(
+          this.activeLayerEntity.uid,
+          tmpctx.getImageData(0, 0, currentBitmap.width, currentBitmap.height)
+        )
+      } else {
+        return
+      }
+
+      try {
+        RenderCycleLogger.current.log('Refresh all layers')
+
+        await this.pipeline.fullyRender(
+          dstctx,
+          this.runtimeDoc,
+          this.renderer,
+          {
+            // abort: this.lastRenderAborter.signal,
+            viewport: {
+              top: 0,
+              left: 0,
+              width: this.dstCanvas.width,
+              height: this.dstCanvas.height,
+            },
+            logger: RenderCycleLogger.current,
+          }
+        )
+      } finally {
+        tmpctx.clearRect(0, 0, this.tmp.width, this.tmp.height)
+        RenderCycleLogger.current.printLogs('onUIStrokeComplete')
+      }
     } finally {
-      tmpctx.clearRect(0, 0, this.tmp.width, this.tmp.height)
-      RenderCycleLogger.current.printLogs('onUIStrokeComplete')
+      this.runtimeDoc.updaterLock.release(updateLock)
+      this.setState((d) => (d.busy = false))
     }
   }
 

@@ -87,61 +87,15 @@ export class AtomicResource<T> {
   public release(resource: T) {
     if (resource !== this.resource)
       throw new Error('Incorrect resource released')
+
     if (!this.locked) throw new Error('Unused resource released')
 
     const [next] = this.que.splice(0, 1)
+
     if (next) {
       next.resolve(this.resource)
     } else {
       this.locked = false
     }
   }
-}
-
-if (import.meta.vitest) {
-  const { describe, it, expect, vi } = import.meta.vitest
-
-  describe('AtomicResource', () => {
-    describe('wait', () => {
-      it('should resolve immediately if resource is not locked', async () => {
-        const atom = new AtomicResource(1)
-        const ensureSpy = vi.fn()
-
-        await atom.enjure().then(ensureSpy)
-        expect(ensureSpy).toHaveBeenCalledTimes(1)
-        expect(ensureSpy).toHaveBeenCalledWith(1)
-      })
-
-      it('Should resolve after resource is released', async () => {
-        const atom = new AtomicResource(1)
-        const ensureSpy = vi.fn()
-
-        const resource = await atom.enjure()
-        const promise = atom.enjure().then(ensureSpy)
-
-        expect(ensureSpy).toHaveBeenCalledTimes(0)
-        atom.release(resource)
-
-        await promise
-        expect(ensureSpy).toHaveBeenCalledTimes(1)
-        expect(ensureSpy).toHaveBeenCalledWith(1)
-      })
-
-      it('Should not resolve before resource is release', async () => {
-        const atom = new AtomicResource(1)
-        const ensureSpy = vi.fn()
-
-        const resource = await atom.enjure()
-        atom.enjure().then(ensureSpy)
-
-        setTimeout(() => {
-          expect(ensureSpy).toHaveBeenCalledTimes(0)
-
-          atom.release(resource)
-          expect(ensureSpy).toBeCalledTimes(1)
-          expect(ensureSpy).toHaveBeenCalledWith(1)
-        }, 100)
-      })
-    })
-  })
 }

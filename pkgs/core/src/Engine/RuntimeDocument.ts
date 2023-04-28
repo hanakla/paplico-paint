@@ -29,7 +29,7 @@ export class RuntimeDocument {
   protected layoutData = new Map<string, RuntimeDocument.LayoutData>()
   protected layerEntities = new Map<string, RuntimeLayerEntity>()
 
-  public updaterLock = new AtomicResource({})
+  public updaterLock = new AtomicResource({}, 'RuntimeDocument#updateLock')
 
   constructor(document: PaplicoDocument) {
     this.document = document

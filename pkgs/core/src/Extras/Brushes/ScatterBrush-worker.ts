@@ -29,15 +29,28 @@ export type GetPointWorkerResponse = {
   bbox: { left: number; top: number; right: number; bottom: number } | null
 }
 
-export type WorkerResponse = { type: 'warming' } | GetPointWorkerResponse
+export type WorkerResponse =
+  | { type: 'warming' }
+  | { type: 'aborted'; id: string }
+  | GetPointWorkerResponse
 
 const abortedTasks = new Set<string>()
 
-self.onmessage = async ({ data }: MessageEvent<Payload>) => {
+const handleMessage = (
+  handler: (event: MessageEvent<Payload>) => Promise<WorkerResponse | undefined>
+) => {
+  return async (event: MessageEvent<Payload>) => {
+    const result = await handler(event)
+    if (result != null) {
+      self.postMessage(result)
+    }
+  }
+}
+
+self.onmessage = handleMessage(async ({ data }) => {
   switch (data.type) {
     case 'warming': {
-      self.postMessage({ type: 'warming' })
-      break
+      return { type: 'warming' }
     }
 
     case 'aborted': {
@@ -81,16 +94,18 @@ self.onmessage = async ({ data }: MessageEvent<Payload>) => {
       const totalLen = pal.totalLength
 
       if (totalLen === 0) {
-        self.postMessage({ id, type: 'getPoints', points: null, bbox: null })
-        return
+        return { id, type: 'getPoints', points: null, bbox: null }
       }
 
       const step = 500 / totalLen
 
       for (let len = 0; len <= totalLen; len += step) {
+        // wait for tick (for receiving abort message from main thread)
+        await Promise.resolve()
+
         if (abortedTasks.has(id)) {
           abortedTasks.delete(id)
-          return
+          return { id, type: 'aborted' }
         }
 
         const [x, y] = pal.at(len)
@@ -129,20 +144,20 @@ self.onmessage = async ({ data }: MessageEvent<Payload>) => {
 
       if (abortedTasks.has(id)) {
         abortedTasks.delete(id)
-        return
+        return { id, type: 'aborted' }
       }
 
-      self.postMessage({
+      return {
         type: 'getPoints',
         id,
         bbox,
         lengths,
         totalLength: totalLen,
         matrices,
-      } satisfies GetPointWorkerResponse)
+      }
     }
 
     default:
       break
   }
-}
+})

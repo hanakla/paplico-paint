@@ -5,7 +5,7 @@ describe('AtomicResource', () => {
     const atom = new AtomicResource(1)
     const ensureSpy = vi.fn()
 
-    await atom.enjure().then(ensureSpy)
+    await atom.ensure().then(ensureSpy)
     expect(ensureSpy).toHaveBeenCalledTimes(1)
     expect(ensureSpy).toHaveBeenCalledWith(1)
   })
@@ -14,8 +14,8 @@ describe('AtomicResource', () => {
     const atom = new AtomicResource(1)
     const ensureSpy = vi.fn()
 
-    const resource = await atom.enjure()
-    const promise = atom.enjure().then(ensureSpy)
+    const resource = await atom.ensure()
+    const promise = atom.ensure().then(ensureSpy)
 
     expect(ensureSpy).toHaveBeenCalledTimes(0)
     atom.release(resource)
@@ -29,8 +29,8 @@ describe('AtomicResource', () => {
     const atom = new AtomicResource(1)
     const ensureSpy = vi.fn()
 
-    const resource = await atom.enjure()
-    atom.enjure().then(ensureSpy)
+    const resource = await atom.ensure()
+    atom.ensure().then(ensureSpy)
 
     setTimeout(() => {
       expect(ensureSpy).toHaveBeenCalledTimes(0)

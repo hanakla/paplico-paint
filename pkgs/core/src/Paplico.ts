@@ -28,6 +28,8 @@ import { PlainInk } from './Engine/Inks/PlainInk'
 import { InkRegistry } from './Engine/InkRegistry'
 import { RainbowInk } from './Engine/Inks/RainbowInk'
 import { TextureReadInk } from './Engine/Inks/TextureReadInk'
+import { AtomicResource } from './utils/AtomicResource'
+import { PaplicoAbortError, PaplicoIgnoreableError } from './Errors'
 
 export namespace Paplico {
   export type StrokeSetting<T extends Record<string, any> = any> =
@@ -48,6 +50,7 @@ export namespace Paplico {
     currentInk: InkSetting
     strokeComposition: 'normal' | 'erase'
     brushEntries: BrushClass[]
+    busy: boolean
   }
 }
 
@@ -94,14 +97,16 @@ export class Paplico extends Emitter<Events> {
 
   protected dstCanvas: HTMLCanvasElement
   protected dstctx: CanvasRenderingContext2D
-  protected tmp: HTMLCanvasElement
-  protected tmpctx: CanvasRenderingContext2D
+  // protected tmp: HTMLCanvasElement
+  // protected tmpctx: CanvasRenderingContext2D
 
   protected document: PaplicoDocument | null = null
   protected runtimeDoc: RuntimeDocument | null = null
 
   // protected activeLayerStatus: | null = null
   protected lastRenderAborter: AbortController | null = null
+  protected beforeCommitAborter: AbortController = new AbortController()
+  protected tmpctxResource: AtomicResource<CanvasRenderingContext2D>
 
   #state: Paplico.State = {
     activeLayer: null,
@@ -114,6 +119,7 @@ export class Paplico extends Emitter<Events> {
     },
     strokeComposition: 'normal',
     brushEntries: [],
+    busy: false,
   }
 
   #activeLayerEntity: LayerEntity | null = null
@@ -139,8 +145,9 @@ export class Paplico extends Emitter<Events> {
     this.dstCanvas = canvas
     this.dstctx = canvas.getContext('2d')!
 
-    this.tmp = createCanvas()
-    this.tmpctx = this.tmp.getContext('2d', { willReadFrequently: true })!
+    const tmpCanvas = createCanvas()
+    const tmpctx = tmpCanvas.getContext('2d', { willReadFrequently: true })!
+    this.tmpctxResource = new AtomicResource(tmpctx, 'Paplico#tmpctx')
 
     this.onUIStrokeChange = this.onUIStrokeChange.bind(this)
     this.onUIStrokeComplete = this.onUIStrokeComplete.bind(this)
@@ -157,7 +164,9 @@ export class Paplico extends Emitter<Events> {
   }
 
   protected setState(fn: (draft: Draft<Paplico.State>) => void) {
-    this.#state = immer(this.#state, fn)
+    this.#state = immer(this.#state, (d) => {
+      fn(d)
+    })
     this.emit('stateChanged', this.#state)
   }
 
@@ -267,86 +276,123 @@ export class Paplico extends Emitter<Events> {
   protected async onUIStrokeChange(stroke: UIStroke) {
     if (!this.runtimeDoc) return
     if (!this.activeLayerEntity) return
+    if (this.#state.busy) return
 
     const renderLogger = RenderCycleLogger.createNext()
-    // this.lastRenderAborter?.abort()
-    this.lastRenderAborter = new AbortController()
 
-    const tmpctx = this.tmp.getContext('2d')!
+    this.lastRenderAborter?.abort()
+    const aborter =
+      Math.random() > 0.5
+        ? (this.lastRenderAborter = new AbortController())
+        : this.beforeCommitAborter
+
+    const tmpctx = await this.tmpctxResource.ensure()
     const dstctx = this.dstctx
 
-    const path = stroke.toPath()
-
-    if (this.activeLayerEntity.layerType === 'vector') {
-      const obj = this.createVectorObjectByStrokeAndCurrentSettings(stroke)
-
-      this.renderer.renderVectorLayer(
-        this.tmp,
-        {
-          ...this.activeLayerEntity,
-          objects: [...this.activeLayerEntity.objects, obj],
-        },
-        {
-          // abort: this.lastRenderAborter.signal,
-          viewport: {
-            top: 0,
-            left: 0,
-            width: this.dstCanvas.width,
-            height: this.dstCanvas.height,
-          },
-          logger: renderLogger,
-        }
-      )
-    } else if (this.activeLayerEntity.layerType === 'raster') {
-      if (!this.strokeSetting) return
-
-      const currentBitmap = (await this.runtimeDoc.getOrCreateLayerBitmapCache(
-        this.activeLayerEntity.uid
-      ))!
-
-      setCanvasSize(this.tmp, currentBitmap.width, currentBitmap.height)
-
-      // Copy current layer image to tmpctx
-      tmpctx.clearRect(0, 0, this.tmp.width, this.tmp.height)
-      tmpctx.drawImage(currentBitmap, 0, 0)
-
-      renderLogger.log('render stroke')
-      // Write stroke to current layer
-      await this.renderer.renderStroke(this.tmp, path, this.strokeSetting, {
-        inkSetting: this.#state.currentInk,
-        // abort: this.lastRenderAborter.signal,
-        transform: {
-          position: { x: 0, y: 0 },
-          scale: { x: 1, y: 1 },
-          rotation: 0,
-        },
-        logger: renderLogger,
-      })
-    } else {
-      return
-    }
-
-    // Mix current layer to destination
-    // this.pipeline.mix(dstctx, tmpctx, {composition: 'normal'})
-
-    // this.destctx.clearRect(0, 0, this.canvas.width, this.canvas.height)
-    // this.destctx.drawImage(this.tmp, 0, 0)
-
     try {
-      await this.pipeline.fullyRender(dstctx, this.runtimeDoc, this.renderer, {
-        override: { [this.activeLayerEntity.uid]: tmpctx.canvas },
-        // abort: this.lastRenderAborter.signal,
-        viewport: {
-          top: 0,
-          left: 0,
-          width: this.dstCanvas.width,
-          height: this.dstCanvas.height,
-        },
-        logger: renderLogger,
-      })
+      if (aborter.signal.aborted) {
+        throw new PaplicoAbortError()
+      }
+
+      // clear first, if clear after render, it will cause visually freeze
+      tmpctx.clearRect(0, 0, tmpctx.canvas.width, tmpctx.canvas.height)
+
+      const path = stroke.toPath()
+
+      if (this.activeLayerEntity.layerType === 'vector') {
+        const obj = this.createVectorObjectByStrokeAndCurrentSettings(stroke)
+
+        await this.renderer.renderVectorLayer(
+          tmpctx.canvas,
+          {
+            ...this.activeLayerEntity,
+            objects: [...this.activeLayerEntity.objects, obj],
+          },
+          {
+            abort: aborter.signal,
+            viewport: {
+              top: 0,
+              left: 0,
+              width: this.dstCanvas.width,
+              height: this.dstCanvas.height,
+            },
+            logger: renderLogger,
+          }
+        )
+      } else if (this.activeLayerEntity.layerType === 'raster') {
+        if (!this.strokeSetting) return
+
+        const currentBitmap =
+          (await this.runtimeDoc.getOrCreateLayerBitmapCache(
+            this.activeLayerEntity.uid
+          ))!
+
+        setCanvasSize(tmpctx.canvas, currentBitmap.width, currentBitmap.height)
+
+        // Copy current layer image to tmpctx
+        tmpctx.clearRect(0, 0, tmpctx.canvas.width, tmpctx.canvas.height)
+        tmpctx.drawImage(currentBitmap, 0, 0)
+
+        renderLogger.log('render stroke')
+        // Write stroke to current layer
+        await this.renderer.renderStroke(
+          tmpctx.canvas,
+          path,
+          this.strokeSetting,
+          {
+            inkSetting: this.#state.currentInk,
+            abort: aborter.signal,
+            transform: {
+              position: { x: 0, y: 0 },
+              scale: { x: 1, y: 1 },
+              rotation: 0,
+            },
+            logger: renderLogger,
+          }
+        )
+      } else {
+        return
+      }
+
+      // Mix current layer to destination
+      // this.pipeline.mix(dstctx, tmpctx, {composition: 'normal'})
+
+      // this.destctx.clearRect(0, 0, this.canvas.width, this.canvas.height)
+      // this.destctx.drawImage(tmpctx.canvas, 0, 0)
+
+      try {
+        if (aborter.signal.aborted) {
+          throw new PaplicoAbortError()
+        }
+
+        await this.pipeline.fullyRender(
+          dstctx,
+          this.runtimeDoc,
+          this.renderer,
+          {
+            override: { [this.activeLayerEntity.uid]: tmpctx.canvas },
+            abort: aborter.signal,
+            viewport: {
+              top: 0,
+              left: 0,
+              width: this.dstCanvas.width,
+              height: this.dstCanvas.height,
+            },
+            logger: renderLogger,
+          }
+        )
+      } finally {
+        tmpctx.clearRect(0, 0, tmpctx.canvas.width, tmpctx.canvas.height)
+        renderLogger.printLogs('onUIStrokeChange')
+      }
+    } catch (e) {
+      if (!(e instanceof PaplicoIgnoreableError)) {
+        throw e
+      } else {
+        console.info('ignoreable error', e)
+      }
     } finally {
-      tmpctx.clearRect(0, 0, this.tmp.width, this.tmp.height)
-      renderLogger.printLogs('onUIStrokeChange')
+      this.tmpctxResource.release(tmpctx)
     }
   }
 
@@ -357,98 +403,136 @@ export class Paplico extends Emitter<Events> {
 
     if (!this.runtimeDoc) return
     if (!this.activeLayerEntity) return
+    if (this.#state.busy) return
 
-    // this.lastRenderAborter?.abort()
-    this.lastRenderAborter = new AbortController()
+    const updateLock = await this.runtimeDoc.updaterLock.ensure()
+    // -- ^ waiting for previous render commit
 
-    const tmpctx = this.tmp.getContext('2d')!
+    this.beforeCommitAborter?.abort()
+    this.beforeCommitAborter = new AbortController()
+
+    this.lastRenderAborter?.abort()
+
+    // Not do this, commit is must be completion or failed
+    // This aborter is not used
+    // const aborter = (this.lastRenderAborter = new AbortController())
+    const aborter = new AbortController()
+
+    const tmpctx = await this.tmpctxResource.ensure()
     const dstctx = this.dstctx
 
-    RenderCycleLogger.current.time('toSimplefiedPath')
-    const path = stroke.toSimplefiedPath()
-    RenderCycleLogger.current.timeEnd('toSimplefiedPath')
-    RenderCycleLogger.current.info(
-      `Path simplified: ${stroke.points.length} -> ${path.points.length}`
-    )
-
-    if (this.activeLayerEntity.layerType === 'vector') {
-      const obj = this.createVectorObjectByStrokeAndCurrentSettings(stroke)
-      this.activeLayerEntity.objects.push(obj)
-
-      // Update layer image data
-      setCanvasSize(this.tmp, this.dstCanvas.width, this.dstCanvas.height)
-
-      this.renderer.renderVectorLayer(
-        this.tmp,
-        {
-          ...this.activeLayerEntity,
-        },
-        {
-          // abort: this.lastRenderAborter.signal,
-          viewport: {
-            top: 0,
-            left: 0,
-            width: this.dstCanvas.width,
-            height: this.dstCanvas.height,
-          },
-          logger: RenderCycleLogger.current,
-        }
-      )
-
-      await this.runtimeDoc.updateOrCreateLayerBitmapCache(
-        this.activeLayerEntity.uid,
-        tmpctx.getImageData(0, 0, this.tmp.width, this.tmp.height)
-      )
-    } else if (this.activeLayerEntity.layerType === 'raster') {
-      if (!this.strokeSetting) return
-
-      const currentBitmap = (await this.runtimeDoc.getOrCreateLayerBitmapCache(
-        this.activeLayerEntity.uid
-      ))!
-
-      setCanvasSize(this.tmp, currentBitmap.width, currentBitmap.height)
-
-      // Copy current layer image to tmpctx
-      tmpctx.clearRect(0, 0, this.tmp.width, this.tmp.height)
-      tmpctx.drawImage(currentBitmap, 0, 0)
-
-      // Write stroke to current layer
-      await this.renderer.renderStroke(this.tmp, path, this.strokeSetting, {
-        inkSetting: this.#state.currentInk,
-        // abort: this.lastRenderAborter.signal,
-        transform: {
-          position: { x: 0, y: 0 },
-          scale: { x: 1, y: 1 },
-          rotation: 0,
-        },
-        logger: RenderCycleLogger.current,
-      })
-
-      // Update layer image data
-      await this.runtimeDoc.updateOrCreateLayerBitmapCache(
-        this.activeLayerEntity.uid,
-        tmpctx.getImageData(0, 0, currentBitmap.width, currentBitmap.height)
-      )
-    } else {
-      return
-    }
+    this.setState((d) => (d.busy = true))
 
     try {
-      RenderCycleLogger.current.log('Refresh all layers')
+      // clear first, if clear after render, it will cause visually freeze
+      tmpctx.clearRect(0, 0, tmpctx.canvas.width, tmpctx.canvas.height)
 
-      await this.pipeline.fullyRender(dstctx, this.runtimeDoc, this.renderer, {
-        // abort: this.lastRenderAborter.signal,
-        viewport: {
-          top: 0,
-          left: 0,
-          width: this.dstCanvas.width,
-          height: this.dstCanvas.height,
-        },
-        logger: RenderCycleLogger.current,
-      })
+      RenderCycleLogger.current.time('toSimplefiedPath')
+      const path = stroke.toSimplefiedPath()
+      RenderCycleLogger.current.timeEnd('toSimplefiedPath')
+      RenderCycleLogger.current.info(
+        `Path simplified: ${stroke.points.length} -> ${path.points.length}`
+      )
+
+      if (this.activeLayerEntity.layerType === 'vector') {
+        const obj = this.createVectorObjectByStrokeAndCurrentSettings(stroke)
+        this.activeLayerEntity.objects.push(obj)
+
+        // Update layer image data
+        setCanvasSize(
+          tmpctx.canvas,
+          this.dstCanvas.width,
+          this.dstCanvas.height
+        )
+
+        await this.renderer.renderVectorLayer(
+          tmpctx.canvas,
+          {
+            ...this.activeLayerEntity,
+          },
+          {
+            // abort: aborter.signal,
+            viewport: {
+              top: 0,
+              left: 0,
+              width: this.dstCanvas.width,
+              height: this.dstCanvas.height,
+            },
+            logger: RenderCycleLogger.current,
+          }
+        )
+
+        await this.runtimeDoc.updateOrCreateLayerBitmapCache(
+          this.activeLayerEntity.uid,
+          tmpctx.getImageData(0, 0, tmpctx.canvas.width, tmpctx.canvas.height)
+        )
+      } else if (this.activeLayerEntity.layerType === 'raster') {
+        if (!this.strokeSetting) return
+
+        const currentBitmap =
+          (await this.runtimeDoc.getOrCreateLayerBitmapCache(
+            this.activeLayerEntity.uid
+          ))!
+
+        setCanvasSize(tmpctx.canvas, currentBitmap.width, currentBitmap.height)
+
+        // Copy current layer image to tmpctx
+        tmpctx.clearRect(0, 0, tmpctx.canvas.width, tmpctx.canvas.height)
+        tmpctx.drawImage(currentBitmap, 0, 0)
+
+        // Write stroke to current layer
+        await this.renderer.renderStroke(
+          tmpctx.canvas,
+          path,
+          this.strokeSetting,
+          {
+            inkSetting: this.#state.currentInk,
+            abort: aborter.signal,
+            transform: {
+              position: { x: 0, y: 0 },
+              scale: { x: 1, y: 1 },
+              rotation: 0,
+            },
+            logger: RenderCycleLogger.current,
+          }
+        )
+
+        // Update layer image data
+        await this.runtimeDoc.updateOrCreateLayerBitmapCache(
+          this.activeLayerEntity.uid,
+          tmpctx.getImageData(0, 0, currentBitmap.width, currentBitmap.height)
+        )
+      } else {
+        return
+      }
+
+      try {
+        RenderCycleLogger.current.log('Refresh all layers')
+
+        await this.pipeline.fullyRender(
+          dstctx,
+          this.runtimeDoc,
+          this.renderer,
+          {
+            // abort: aborter.signal,
+            viewport: {
+              top: 0,
+              left: 0,
+              width: this.dstCanvas.width,
+              height: this.dstCanvas.height,
+            },
+            logger: RenderCycleLogger.current,
+          }
+        )
+      } finally {
+        RenderCycleLogger.current.printLogs('onUIStrokeComplete')
+      }
+    } catch (e) {
+      if (!(e instanceof PaplicoIgnoreableError)) throw e
     } finally {
-      tmpctx.clearRect(0, 0, this.tmp.width, this.tmp.height)
-      RenderCycleLogger.current.printLogs('onUIStrokeComplete')
+      this.runtimeDoc.updaterLock.release(updateLock)
+      this.tmpctxResource.release(tmpctx)
+      this.setState((d) => (d.busy = false))
     }
   }
 
@@ -465,7 +549,11 @@ export class Paplico extends Emitter<Events> {
           : []),
         ...(this.state.currentStroke
           ? ([
-              { kind: 'stroke', stroke: deepClone(this.state.currentStroke) },
+              {
+                kind: 'stroke',
+                stroke: deepClone(this.state.currentStroke),
+                ink: deepClone(this.state.currentInk),
+              },
             ] satisfies VectorAppearance[])
           : []),
       ],

@@ -1,5 +1,6 @@
 import { BrushContext, IBrush, BrushLayoutData, StrokeHelper } from '@/index'
 import * as Textures from './ScatterTexture/index'
+import { PaplicoAbortError } from '@/Errors'
 import { mergeToNew } from '@/utils/object'
 import {
   AddEquation,
@@ -161,41 +162,54 @@ export class ScatterBrush implements IBrush {
       // const { points, closed } = path
       const id = generateId()
 
-      const res = await new Promise<GetPointWorkerResponse>((r) => {
-        abort.addEventListener(
-          'abort',
-          () => {
-            this.worker!.postMessage({
-              type: 'aborted',
-              id,
-            } as const satisfies Payload)
+      let res
+      try {
+        res = await new Promise<GetPointWorkerResponse>((r, reject) => {
+          abort.addEventListener(
+            'abort',
+            () => {
+              console.log('received abort')
 
-            this.worker!.removeEventListener('message', waiter)
-          },
-          { once: true }
-        )
+              this.worker!.postMessage({
+                type: 'aborted',
+                id,
+              } as const satisfies Payload)
 
-        const waiter = (e: MessageEvent<WorkerResponse>) => {
-          if (e.data.type !== 'getPoints' || e.data.id !== id) return
+              this.worker!.removeEventListener('message', receiver)
+            },
+            { once: true }
+          )
 
-          r(e.data)
-          this.worker!.removeEventListener('message', waiter)
-        }
+          const receiver = (e: MessageEvent<WorkerResponse>) => {
+            if (e.data.type === 'aborted' && e.data.id === id) {
+              reject(new PaplicoAbortError())
+            }
 
-        this.worker!.addEventListener('message', waiter)
-        this.worker!.postMessage({
-          id,
-          type: 'getPoints',
-          path,
-          // closed,
-          brushSize: size,
-          destSize,
-          scatterRange: sp.scatterRange ?? 0,
-          inOutInfluence: sp.inOutInfluence ?? 0,
-          inOutLength: sp.inOutLength ?? 0,
-          scatterScale: 1,
-        } satisfies Payload)
-      })
+            if (e.data.type !== 'getPoints' || e.data.id !== id) return
+
+            r(e.data)
+            this.worker!.removeEventListener('message', receiver)
+          }
+
+          this.worker!.addEventListener('message', receiver)
+
+          this.worker!.postMessage({
+            id,
+            type: 'getPoints',
+            path,
+            // closed,
+            brushSize: size,
+            destSize,
+            scatterRange: sp.scatterRange ?? 0,
+            inOutInfluence: sp.inOutInfluence ?? 0,
+            inOutLength: sp.inOutLength ?? 0,
+            scatterScale: 1,
+          } satisfies Payload)
+        })
+      } catch (e) {
+        console.log(e)
+        throw e
+      }
 
       if (res.matrices == null) return { bbox }
 

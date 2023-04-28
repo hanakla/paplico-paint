@@ -2,7 +2,7 @@ import { VectorObject, VectorPath } from '@/Document'
 import { VectorLayer } from '@/Document/LayerEntity'
 import { InkSetting } from '@/Document/LayerEntity/InkSetting'
 import { VectorStrokeSetting } from '@/Document/LayerEntity/VectorStrokeSetting'
-import { AbortError } from '@/Errors'
+import { PaplicoAbortError } from '@/Errors'
 import { UIStroke } from '@/UI/UIStroke'
 import { AtomicResource } from '@/utils/AtomicResource'
 import { saveAndRestoreCanvas, setCanvasSize } from '@/utils/canvas'
@@ -152,6 +152,7 @@ export class Renderer {
 
             await this.renderStroke(dest, obj.path, ap.stroke, {
               abort: options.abort,
+              inkSetting: ap.ink,
               transform: {
                 position: addPoint2D(layer.transform.position, obj.position),
                 scale: multiplyPoint2D(layer.transform.scale, obj.scale),
@@ -212,7 +213,7 @@ export class Renderer {
     if (!brush) throw new Error(`Unregistered brush ${strokeSetting.brushId}`)
     if (!ink) throw new Error(`Unregistered ink ${inkSetting.inkId}`)
 
-    const renderer = await this.atomicThreeRenderer.enjure()
+    const renderer = await this.atomicThreeRenderer.ensure()
     const dstctx = dest.getContext('2d')!
     const { width, height } = dest
 
@@ -230,7 +231,7 @@ export class Renderer {
       await brush.render({
         abort: abort ?? new AbortController().signal,
         abortIfNeeded: () => {
-          if (abort?.aborted) throw new AbortError()
+          if (abort?.aborted) throw new PaplicoAbortError()
         },
         context: dstctx,
         threeRenderer: renderer,

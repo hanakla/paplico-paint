@@ -1,5 +1,6 @@
 export { PaplicoDocument } from './Document'
 export * from './factory'
+export * from './layerTree'
 export type { LayerEntity, CompositeMode } from './LayerEntity'
 export type { LayerNode } from './LayerNode'
 export type { LayerFilter } from './LayerFilter'

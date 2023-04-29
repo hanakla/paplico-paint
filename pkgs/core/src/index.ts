@@ -12,6 +12,7 @@ export {
   type IBrush,
   type BrushLayoutData,
 } from './Engine/index'
+export * as Commands from './History/Commands/index'
 export { Paplico as default, Paplico } from './Paplico'
 export { UICanvas, UIStroke, type UIStrokePoint } from './UI/index'
 export * as VectorProcess from './VectorProcess'

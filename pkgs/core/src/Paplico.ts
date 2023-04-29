@@ -30,6 +30,8 @@ import { RainbowInk } from './Engine/Inks/RainbowInk'
 import { TextureReadInk } from './Engine/Inks/TextureReadInk'
 import { AtomicResource } from './utils/AtomicResource'
 import { PaplicoAbortError, PaplicoIgnoreableError } from './Errors'
+import { History } from './History/History'
+import { ICommand } from './History/ICommand'
 
 export namespace Paplico {
   export type StrokeSetting<T extends Record<string, any> = any> =
@@ -197,9 +199,19 @@ export class Paplico extends Emitter<Events> {
     this.uiCanvas.dispose()
   }
 
+  public command = {
+    do: (command: ICommand) => this.runtimeDoc?.command.do(command),
+    undo: () => this.runtimeDoc?.command.undo(),
+    redo: () => this.runtimeDoc?.command.redo(),
+  }
+
   public loadDocument(doc: PaplicoDocument) {
     this.document = doc
     this.runtimeDoc = new RuntimeDocument(doc)
+
+    this.runtimeDoc.history.on('affect', ({ layerIds }) => {
+      this.rerenderForHistoryAffection()
+    })
 
     doc.blobs.forEach((blob) => {
       this.runtimeDoc?.setBlobCache(
@@ -560,6 +572,53 @@ export class Paplico extends Emitter<Events> {
     })
 
     return obj
+  }
+
+  protected async rerenderForHistoryAffection() {
+    RenderCycleLogger.createNext()
+
+    RenderCycleLogger.current.log('start: rerender by history affection')
+
+    if (!this.runtimeDoc) return
+    if (!this.activeLayerEntity) return
+    if (this.#state.busy) return
+
+    const updateLock = await this.runtimeDoc.updaterLock.ensure()
+    // -- ^ waiting for previous render commit
+
+    this.beforeCommitAborter?.abort()
+    this.beforeCommitAborter = new AbortController()
+
+    this.lastRenderAborter?.abort()
+
+    // Not do this, commit is must be completion or failed
+    // const aborter = (this.lastRenderAborter = new AbortController())
+    // This aborter is not used
+    const aborter = new AbortController()
+
+    const tmpctx = await this.tmpctxResource.ensure()
+    const dstctx = this.dstctx
+
+    this.setState((d) => (d.busy = true))
+
+    try {
+      await this.pipeline.fullyRender(dstctx, this.runtimeDoc, this.renderer, {
+        abort: aborter.signal,
+        viewport: {
+          top: 0,
+          left: 0,
+          width: this.dstCanvas.width,
+          height: this.dstCanvas.height,
+        },
+        logger: RenderCycleLogger.current,
+      })
+    } catch (e) {
+      if (!(e instanceof PaplicoIgnoreableError)) throw e
+    } finally {
+      this.runtimeDoc.updaterLock.release(updateLock)
+      this.tmpctxResource.release(tmpctx)
+      this.setState((d) => (d.busy = false))
+    }
   }
 
   // public onVectorObjectCreate() {}

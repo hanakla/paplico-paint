@@ -1,15 +1,17 @@
 import { PaplicoDocument } from '@/Document/Document'
 import { AtomicResource } from '@/utils/AtomicResource'
 import { RuntimeLayerEntity } from './RuntimeDocument/RuntimeLayerEntity'
+import { History } from '@/History/History'
+import { ICommand } from '@/History/ICommand'
 
 const cancelIdle =
   typeof cancelIdleCallback !== 'undefined'
     ? cancelIdleCallback
-    : (clearTimeout as typeof window['clearTimeout'])
+    : (clearTimeout as (typeof window)['clearTimeout'])
 const requestIdle =
   typeof requestIdleCallback !== 'undefined'
     ? requestIdleCallback
-    : (setTimeout as typeof window['setTimeout'])
+    : (setTimeout as (typeof window)['setTimeout'])
 
 export namespace RuntimeDocument {
   export type LayoutData = {
@@ -22,6 +24,8 @@ export namespace RuntimeDocument {
 
 export class RuntimeDocument {
   public document: PaplicoDocument
+  public history: History
+
   public layerImageCache: Map<string, ImageBitmap> = new Map()
   public blobCaches: Map<string, WeakRef<any>> = new Map()
   protected writebackCallbackIds = new Map<string, number>()
@@ -39,10 +43,18 @@ export class RuntimeDocument {
         source: l,
       })
     })
+
+    this.history = new History()
   }
 
   public get rootNodes() {
     return this.document.layerTree
+  }
+
+  public command = {
+    do: (command: ICommand) => this.history.do(command, this.document),
+    undo: () => this.history.undo(this.document),
+    redo: () => this.history.redo(this.document),
   }
 
   public resolveLayer(uid: string) {

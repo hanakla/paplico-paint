@@ -52,9 +52,9 @@ export class RuntimeDocument {
   }
 
   public command = {
-    do: (command: ICommand) => this.history.do(command, this.document),
-    undo: () => this.history.undo(this.document),
-    redo: () => this.history.redo(this.document),
+    do: (command: ICommand) => this.history.do(this, command),
+    undo: () => this.history.undo(this),
+    redo: () => this.history.redo(this),
   }
 
   public resolveLayer(uid: string) {

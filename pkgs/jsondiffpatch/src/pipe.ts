@@ -1,12 +1,12 @@
 import Context from './contexts/context'
 import Processor from './processor'
-import { Filter, FilterContext } from './types'
+import { Filter } from './types'
 
-class Pipe<TContext extends Context> {
+class Pipe {
   public name: string
   public debug: boolean = false
   public resultCheck: ((context: Context) => void) | null = null
-  public filters: Filter<TContext>[] = []
+  public filters: Filter<Context>[] = []
   public processor: Processor | null = null
 
   constructor(name: string) {
@@ -14,7 +14,7 @@ class Pipe<TContext extends Context> {
     this.filters = []
   }
 
-  process(input: TContext) {
+  process(input: Context) {
     if (!this.processor) {
       throw new Error('add this pipe to a processor before using it')
     }
@@ -41,12 +41,12 @@ class Pipe<TContext extends Context> {
     console.log(`[jsondiffpatch] ${this.name} pipe, ${msg}`)
   }
 
-  append(...args: Filter<TContext>[]) {
+  append(...args: Filter<Context>[]) {
     this.filters.push(...args)
     return this
   }
 
-  prepend(...args: Filter<TContext>[]) {
+  prepend(...args: Filter<Context>[]) {
     this.filters.unshift(...args)
     return this
   }

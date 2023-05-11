@@ -1,11 +1,10 @@
 import DiffPatcher from './diffpatcher'
-import { Config, Delta } from './types'
+import type { Config, Delta } from './types'
 
-export type { Delta } from './types'
-export { default as DiffPatcher } from './diffpatcher'
+// export type { Delta } from './types'
+// export { default as DiffPatcher } from './diffpatcher'
 
 // export * as formatters from './formatters/index';
-
 // export * as console from './formatters/console';
 
 export function create(options: Config) {

@@ -18,8 +18,12 @@ export default class Processor {
     return this.selfOptions
   }
 
-  pipe<T extends Pipe<any>>(name: T | string, pipeArg?: Pipe<FilterContext>) {
+  pipe<T extends Pipe>(
+    name: T | string | undefined | null,
+    pipeArg?: Pipe
+  ): Pipe {
     let pipe = pipeArg
+
     if (typeof name === 'string') {
       if (typeof pipe === 'undefined') {
         return this.pipes[name]
@@ -27,6 +31,7 @@ export default class Processor {
         this.pipes[name] = pipe
       }
     }
+
     if (name && 'name' in name) {
       pipe = name
       if (pipe.processor === this) {
@@ -34,15 +39,17 @@ export default class Processor {
       }
       this.pipes[pipe.name] = pipe
     }
+
     pipe.processor = this
-    return pipe
+
+    return pipe as Pipe
   }
 
-  process(pipe: Pipe<FilterContext>): any
-  process<T extends Context>(input: T, pipe?: Pipe<FilterContext>): any
-  process(input: Pipe<FilterContext> | Context, pipe?: Pipe<FilterContext>) {
+  process<T extends Context>(input: T, pipe?: Pipe): any
+  process(input: Context, pipe?: Pipe) {
     let context = input
     context.options = this.options()
+
     let nextPipe = pipe || input.pipe || 'default'
     let lastPipe
     let lastContext

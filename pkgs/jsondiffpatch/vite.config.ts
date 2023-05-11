@@ -1,7 +1,6 @@
 import type {} from 'vitest/config'
 
 import { defineConfig } from 'vite'
-import { resolve } from 'path'
 import dts from 'vite-plugin-dts'
 
 export default defineConfig({
@@ -14,7 +13,11 @@ export default defineConfig({
       formats: ['es', 'umd'],
       fileName: 'index',
     },
+    commonjsOptions: {
+      defaultIsModuleExports: true,
+    },
     rollupOptions: {
+      external: ['diff-match-patch'],
       output: {
         exports: 'named',
       },

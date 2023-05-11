@@ -1,15 +1,8 @@
+import { Delta } from '../types'
 import Context from './context'
 
-type Delta = {
-  _t: string
-  [name: string]: any
-}
-
 class ReverseContext extends Context {
-  public delta: {
-    _t: string
-    [name: string]: any
-  }
+  public delta: Delta
 
   public newName?: string
 

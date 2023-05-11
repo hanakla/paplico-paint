@@ -13,14 +13,14 @@ export default class Context<T = any> {
 
   public left: any
   public right: any
-  public pipe?: string | Pipe<FilterContext>
+  public pipe?: string | Pipe
 
   public objectHash?: (obj: any, index?: number) => string
   public matchByPosition?: boolean
 
-  public next?: Context
-  public nextAfterChildren?: Context
-  public nextPipe?: string | Pipe<FilterContext>
+  public next?: Context | null
+  public nextAfterChildren?: Context | null
+  public nextPipe?: string | Pipe
 
   public hasResult?: boolean
 
@@ -42,12 +42,9 @@ export default class Context<T = any> {
     return this
   }
 
-  public switchTo(next: Pipe<FilterContext>): this
-  public switchTo(next: string, pipe: Pipe<FilterContext>): this
-  public switchTo(
-    next: string | Pipe<FilterContext>,
-    pipe?: Pipe<FilterContext>
-  ) {
+  public switchTo(next: Pipe): this
+  public switchTo(next: string, pipe: Pipe): this
+  public switchTo(next: string | Pipe, pipe?: Pipe) {
     if (typeof next === 'string' || next instanceof Pipe) {
       this.nextPipe = next
     } else {

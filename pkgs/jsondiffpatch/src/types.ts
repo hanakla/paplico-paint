@@ -8,7 +8,7 @@ export type FilterContext = PatchContext | DiffContext | ReverseContext
 /**
  * A plugin which can modify the diff(), patch() or reverse() operations
  */
-export interface Filter<TContext extends FilterContext> {
+export interface Filter<TContext extends Context> {
   /**
    * A function which is called at each stage of the operation and can update the context to modify the result
    * @param context The current state of the operation

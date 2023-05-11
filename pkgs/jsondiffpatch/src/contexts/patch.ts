@@ -1,9 +1,5 @@
+import { Delta } from '../types'
 import Context from './context'
-
-type Delta = {
-  _t: string
-  [name: string]: any
-}
 
 class PatchContext extends Context {
   public delta: Delta

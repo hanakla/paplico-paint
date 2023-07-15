@@ -4,12 +4,14 @@ import { indexedPointAtLength } from './IndexedPointAtLength'
 describe('IndexedPointAtLength', () => {
   const path = complexPath()
 
-  it('indexing time', () => {
-    const buildTime = time(() => {
-      indexedPointAtLength(path)
-    })
+  it('should be correctly sorted lengthCache and lengthCacheDetail', () => {
+    const cached = indexedPointAtLength(path)
 
-    console.info(`Indexing time: ${buildTime}ms`)
+    expect(cached._lengthAtSubvert).toEqual(
+      [...cached._lengthAtSubvert].sort((a, b) => a - b),
+    )
+
+    expect(cached._lengthAtSubvert).toHaveLength(cached._subvertIndex.length)
   })
 
   it('should be returns same result to point-at-length', () => {
@@ -27,41 +29,12 @@ describe('IndexedPointAtLength', () => {
 
   describe('getSequencialReader', () => {
     it('should returns same result to .at()', () => {
-      // const cached = indexedPointAtLength(simplePath())
-      const cached = indexedPointAtLength(complexPath())
-      const reader = cached.getSequencialReader()
+      const pal = indexedPointAtLength(path)
+      const seqPal = pal.getSequencialReader()
 
-      expect(reader.at(0)).toEqual(cached.at(0))
-      expect(reader.at(50)).toEqual(cached.at(50))
-      expect(reader.at(100)).toEqual(cached.at(100))
-    })
-
-    it('should hits cache', () => {
-      const cached = indexedPointAtLength(path)
-      const reader = cached.getSequencialReader()
-    })
-
-    it('check using hint', () => {
-      const times = 1000
-
-      const normal = indexedPointAtLength(path)
-      const cached = normal.getSequencialReader()
-
-      const normalTime = time(() => {
-        for (let i = 0; i < times; i++) {
-          normal.at(normal.totalLength * (i / times))
-        }
-      })
-
-      const cachedTime = time(() => {
-        for (let i = 0; i < times; i++) {
-          cached.at(normal.totalLength * (i / times))
-        }
-      })
-
-      console.log(`normal ${times}times:`, normalTime)
-      console.log(`cached ${times}times:`, cachedTime)
-      console.log('faster:', normalTime - cachedTime)
+      expect(seqPal.at(0)).toEqual(pal.at(0))
+      expect(seqPal.at(50)).toEqual(pal.at(50))
+      expect(seqPal.at(100)).toEqual(pal.at(100))
     })
   })
 

@@ -425,8 +425,6 @@ export class SequencialPointAtLength {
       )
     }
 
-    let a = this.nextHint?.latestSubvertIdx
-
     const result = this.pal.atWithDetail(len, {
       fromSubvertIndex: this.nextHint?.latestSubvertIdx,
     })

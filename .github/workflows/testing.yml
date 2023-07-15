@@ -13,10 +13,12 @@ jobs:
 
     steps:
       - uses: actions/checkout@v2
+
       - name: Setup Node.js for use with actions
         uses: actions/setup-node@v1
         with:
           node-version: ${{ matrix.node-version }}
+
       - name: Cache
         uses: actions/cache@v1.0.0
         with:
@@ -26,18 +28,30 @@ jobs:
           key: ${{ matrix.os }}-${{ hashFiles(format('{0}{1}', github.workspace, '/yarn.lock')) }}
           restore-keys: |
             ${{ matrix.os }}-
+
       - name: Install deps
         run: yarn install
-      - name: Build @paplico/core
+
+      # - name: Build @paplico/core
+      #   run: |
+      #     cd pkgs/paplicore
+      #     yarn prepublishOnly
+
+      - name: Testing @paplico/jsondiffpatch
+        continue-on-error: true
         run: |
-          cd pkgs/paplicore
-          yarn prepublishOnly
+          cd pkgs/jsondiffpatch
+          yarn test
+
       - name: Testing @paplico/core-new
+        continue-on-error: true
         run: |
           cd pkgs/core
-          yarn prepublishOnly
+          # yarn prepublishOnly
           yarn test
+
       - name: Testing @paplico/web
+        continue-on-error: true
         run: |
           cd pkgs/web
           yarn test

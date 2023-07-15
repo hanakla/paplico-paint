@@ -1374,6 +1374,6 @@ const examples = {
     },
     0
   ]
-}
+} as const
 
 export default examples

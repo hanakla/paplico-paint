@@ -1,9 +1,6 @@
 import DiffPatcher from './diffpatcher'
 import type { Config, Delta } from './types'
 
-// export type { Delta } from './types'
-// export { default as DiffPatcher } from './diffpatcher'
-
 // export * as formatters from './formatters/index';
 // export * as console from './formatters/console';
 
@@ -11,6 +8,7 @@ export function create(options: Config) {
   return new DiffPatcher(options)
 }
 
+export { type Delta, DiffPatcher }
 export { default as dateReviver } from './date-reviver'
 
 let defaultInstance: DiffPatcher

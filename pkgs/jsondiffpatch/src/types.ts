@@ -53,9 +53,6 @@ export interface Config {
    * @param name property name, present in either context.left or context.right objects
    * @param context the diff context (has context.left and context.right objects)
    */
-  /**
-   *
-   */
   propertyFilter?: (name: string, context: DiffContext) => boolean
 
   /**

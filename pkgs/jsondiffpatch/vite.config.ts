@@ -1,4 +1,6 @@
-import type {} from 'vitest/config'
+
+import type {UserConfig} from 'vitest/config'
+
 
 import { defineConfig } from 'vite'
 import dts from 'vite-plugin-dts'
@@ -30,6 +32,7 @@ export default defineConfig({
   ],
   test: {
     globals: true,
-    includeSource: ['test/**/*{.spec.ts}'],
-  },
+    includeSource: ['test/**/*.spec.ts'],
+    testTimeout: 5000,
+  } satisfies UserConfig['test']
 })

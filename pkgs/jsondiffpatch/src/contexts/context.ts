@@ -66,7 +66,7 @@ export default class Context<T = any> {
     child.options = child.options || this.options
     if (!this.children) {
       this.children = [child]
-      this.nextAfterChildren = this.next || undefined
+      this.nextAfterChildren = this.next || null
       this.next = child
     } else {
       this.children[this.children.length - 1].next = child

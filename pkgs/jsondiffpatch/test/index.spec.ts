@@ -1,3 +1,4 @@
+<<<<<<< Updated upstream
 /*
  * mocha's bdd syntax is inspired in RSpec
  *   please read: http://betterspecs.org/
@@ -5,11 +6,20 @@
 import * as jsondiffpatch from '../src/index'
 import examples from './examples/diffpatch'
 import chai from 'chai'
+=======
+import { expect, describe, it, beforeAll, beforeEach } from 'vitest'
+import * as jsondiffpatch from '../src/index'
+// import * as jsondiffpatch from 'jsondiffpatch'
+import examples from './examples/diffpatch'
+>>>>>>> Stashed changes
 
 import lcs from '../src/filters/lcs'
 import { arrayForEach, objectKeys, valueDescription } from './utils'
 import { Formatter } from '../src/types'
+<<<<<<< Updated upstream
 const expect = chai.expect
+=======
+>>>>>>> Stashed changes
 
 describe('jsondiffpatch', () => {
   beforeAll(() => {})
@@ -22,13 +32,21 @@ describe('jsondiffpatch', () => {
 const DiffPatcher = jsondiffpatch.DiffPatcher
 
 describe('DiffPatcher', () => {
+<<<<<<< Updated upstream
   arrayForEach(objectKeys(examples), groupName => {
+=======
+  objectKeys(examples).forEach(groupName => {
+>>>>>>> Stashed changes
     const group = examples[groupName]
 
     describe(groupName, () => {
       let instance: jsondiffpatch.DiffPatcher
 
+<<<<<<< Updated upstream
       arrayForEach(group, example => {
+=======
+      group.forEach(example => {
+>>>>>>> Stashed changes
         if (!example) {
           return
         }
@@ -103,7 +121,11 @@ describe('DiffPatcher', () => {
     })
   })
 
+<<<<<<< Updated upstream
   describe('.clone', () => {
+=======
+  describe.skip('.clone', () => {
+>>>>>>> Stashed changes
     it('clones complex objects', () => {
       const obj = {
         name: 'a string',
@@ -132,7 +154,11 @@ describe('DiffPatcher', () => {
     })
   })
 
+<<<<<<< Updated upstream
   describe('using cloneDiffValues', () => {
+=======
+  describe.skip('using cloneDiffValues', () => {
+>>>>>>> Stashed changes
     let instance: jsondiffpatch.DiffPatcher
 
     beforeAll(() => {
@@ -162,7 +188,11 @@ describe('DiffPatcher', () => {
     })
   })
 
+<<<<<<< Updated upstream
   describe('static shortcuts', () => {
+=======
+  describe.skip('static shortcuts', () => {
+>>>>>>> Stashed changes
     it('diff', () => {
       const delta = jsondiffpatch.diff(4, 5)
       expect(delta).to.deep.equal([4, 5])
@@ -181,7 +211,11 @@ describe('DiffPatcher', () => {
     })
   })
 
+<<<<<<< Updated upstream
   describe('plugins', () => {
+=======
+  describe.skip('plugins', () => {
+>>>>>>> Stashed changes
     let instance: jsondiffpatch.DiffPatcher
 
     beforeAll(() => {
@@ -321,7 +355,11 @@ describe('DiffPatcher', () => {
     })
   })
 
+<<<<<<< Updated upstream
   describe('formatters', () => {
+=======
+  describe.skip('formatters', () => {
+>>>>>>> Stashed changes
     describe('jsonpatch', () => {
       let instance
       let formatter

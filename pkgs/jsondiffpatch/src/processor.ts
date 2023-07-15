@@ -1,10 +1,17 @@
 import Context from './contexts/context'
-import Pipe from './pipe'
+import DiffContext from './contexts/diff'
+import PatchContext from './contexts/patch'
+import ReverseContext from './contexts/reverse'
+import Pipe, { PipeName } from './pipe'
 import { Config, FilterContext } from './types'
 
 export default class Processor {
   public selfOptions: Config
-  public pipes: any
+  public pipes: {
+    patch?: Pipe<PatchContext>
+    diff?: Pipe<DiffContext>
+    reverse?: Pipe<ReverseContext>
+  }
 
   constructor(options?: Config) {
     this.selfOptions = options || {}
@@ -18,12 +25,11 @@ export default class Processor {
     return this.selfOptions
   }
 
-  pipe<T extends Pipe>(
-    name: T | string | undefined | null,
-    pipeArg?: Pipe
-  ): Pipe {
+  pipe<TPipe extends Pipe<FilterContext>>(
+    name: TPipe | PipeName | undefined | null,
+    pipeArg?: Pipe<FilterContext>
+  ) {
     let pipe = pipeArg
-
     if (typeof name === 'string') {
       if (typeof pipe === 'undefined') {
         return this.pipes[name]
@@ -31,25 +37,21 @@ export default class Processor {
         this.pipes[name] = pipe
       }
     }
-
-    if (name && 'name' in name) {
+    if (name && name.name) {
       pipe = name
       if (pipe.processor === this) {
         return pipe
       }
       this.pipes[pipe.name] = pipe
     }
-
     pipe.processor = this
-
-    return pipe as Pipe
+    return pipe
   }
 
   process<T extends Context>(input: T, pipe?: Pipe): any
   process(input: Context, pipe?: Pipe) {
     let context = input
     context.options = this.options()
-
     let nextPipe = pipe || input.pipe || 'default'
     let lastPipe
     let lastContext

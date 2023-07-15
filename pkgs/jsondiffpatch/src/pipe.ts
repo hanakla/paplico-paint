@@ -1,23 +1,26 @@
 import Context from './contexts/context'
 import Processor from './processor'
-import { Filter } from './types'
+import { Filter, FilterContext } from './types'
 
-class Pipe {
-  public name: string
+export type PipeName = 'patch' | 'diff' | 'reverse'
+
+class Pipe<TContext extends FilterContext> {
+  public name: PipeName
   public debug: boolean = false
   public resultCheck: ((context: Context) => void) | null = null
-  public filters: Filter<Context>[] = []
+  public filters: Filter<TContext>[] = []
   public processor: Processor | null = null
 
-  constructor(name: string) {
+  constructor(name: PipeName) {
     this.name = name
     this.filters = []
   }
 
-  process(input: Context) {
+  process(input: TContext) {
     if (!this.processor) {
       throw new Error('add this pipe to a processor before using it')
     }
+
     let debug = this.debug
     let length = this.filters.length
     let context = input
@@ -37,16 +40,16 @@ class Pipe {
     }
   }
 
-  log(msg) {
+  log(msg: string) {
     console.log(`[jsondiffpatch] ${this.name} pipe, ${msg}`)
   }
 
-  append(...args: Filter<Context>[]) {
+  append(...args: Filter<TContext>[]) {
     this.filters.push(...args)
     return this
   }
 
-  prepend(...args: Filter<Context>[]) {
+  prepend(...args: Filter<TContext>[]) {
     this.filters.unshift(...args)
     return this
   }
@@ -68,36 +71,36 @@ class Pipe {
     return this.filters.map(f => f.filterName)
   }
 
-  after(filterName: string) {
+  after(filterName: string, ...filters: Filter<TContext>[]) {
     let index = this.indexOf(filterName)
     let params = Array.prototype.slice.call(arguments, 1)
     if (!params.length) {
       throw new Error('a filter is required')
     }
     params.unshift(index + 1, 0)
-    this.filters.splice(...params)
+    this.filters.splice(index, 0, ...filters)
     return this
   }
 
-  before(filterName: string) {
+  before(filterName: string, ...filters: Filter<TContext>[]) {
     let index = this.indexOf(filterName)
     let params = Array.prototype.slice.call(arguments, 1)
     if (!params.length) {
       throw new Error('a filter is required')
     }
     params.unshift(index, 0)
-    this.filters.splice(...params)
+    this.filters.splice(index, 0, ...filters)
     return this
   }
 
-  replace(filterName: string) {
+  replace(filterName: string, ...filters: Filter<TContext>[]) {
     let index = this.indexOf(filterName)
     let params = Array.prototype.slice.call(arguments, 1)
     if (!params.length) {
       throw new Error('a filter is required')
     }
     params.unshift(index, 1)
-    Array.prototype.splice.apply(this.filters, params)
+    this.filters.splice(index, 0, ...filters)
     return this
   }
 
@@ -108,7 +111,8 @@ class Pipe {
   }
 
   clear() {
-    this.filters.length = 0
+    // this.filters.length = 0
+    this.filters = []
     return this
   }
 
@@ -121,7 +125,7 @@ class Pipe {
       return
     }
     let pipe = this
-    this.resultCheck = (context: Context) => {
+    this.resultCheck = context => {
       if (!context.hasResult) {
         console.log(context)
         let error = new Error(`${pipe.name} failed`)

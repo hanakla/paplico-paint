@@ -2,7 +2,7 @@ import Context from '../contexts/context'
 import DiffContext from '../contexts/diff'
 import PatchContext from '../contexts/patch'
 import ReverseContext from '../contexts/reverse'
-import { Config, FilterContext } from '../types'
+import { FilterContext } from '../types'
 
 import lcs from './lcs'
 

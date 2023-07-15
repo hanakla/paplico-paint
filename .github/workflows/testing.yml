@@ -30,7 +30,7 @@ jobs:
             ${{ matrix.os }}-
 
       - name: Install deps
-        run: yarn install
+        run: yarn --immutable
 
       # - name: Build @paplico/core
       #   run: |

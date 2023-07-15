@@ -8,6 +8,21 @@ import abs from 'abs-svg-path'
 
 export type SVGDCommand = [cmd: string, ...args: number[]]
 
+type AtOption = {
+  fromSubvertIndex?: number
+  /** for benchmark use, it's decreasings performance */
+  noBinsearch?: boolean
+}
+
+type SubvertData = {
+  pos: [number, number]
+
+  div: number | null
+  svgVertIdx: number
+  prev: [number, number, number]
+  fragStartPos: [number, number]
+}
+
 export const indexedPointAtLength = (path: string | Array<SVGDCommand>) => {
   return new IndexedPointAtLength(path)
 }
@@ -18,14 +33,8 @@ export class IndexedPointAtLength {
   protected _path: Array<SVGDCommand>
   protected _length: number = 0
 
-  protected subvertIndex: {
-    len: number
-    pos: [number, number]
-
-    div: number | null
-    svgVertIdx: number
-    prev: [number, number, number]
-  }[] = []
+  public readonly _lengthAtSubvert: number[] = []
+  public readonly _subvertIndex: SubvertData[] = []
 
   constructor(path: string | Array<SVGDCommand>) {
     this._path = Array.isArray(path) ? path : parseSVGPath(path)
@@ -37,34 +46,28 @@ export class IndexedPointAtLength {
     this._length = warm.length
   }
 
-  public get _subvertIndex() {
-    return this.subvertIndex
-  }
-
   public get totalLength() {
     return this._length
   }
 
   public lengthOfVertex(vertIdx: number) {
-    return this.subvertIndex.find((lenData) => lenData.svgVertIdx === vertIdx)
+    return this._subvertIndex.find((lenData) => lenData.svgVertIdx === vertIdx)
   }
 
-  public at(
-    pos: number,
-    opts: {
-      fromSubvertIndex?: number
-    } = {},
-  ) {
-    return this._walk(pos, opts).pos
+  public at(pos: number, opts: AtOption = {}) {
+    return this.atWithDetail(pos, opts).pos
   }
 
-  public atWithDetail(
-    pos: number,
-    opts: {
-      fromSubvertIndex?: number
-    } = {},
-  ) {
-    return this._walk(pos, opts)
+  public atWithDetail(pos: number, opts: AtOption = {}) {
+    let nearPrevIdx: number | undefined
+
+    if (!opts.noBinsearch && opts.fromSubvertIndex == null) {
+      nearPrevIdx = binarySearch(this._lengthAtSubvert, pos)
+    }
+
+    return this._walk(pos, {
+      fromSubvertIndex: opts.fromSubvertIndex ?? nearPrevIdx,
+    })
   }
 
   public getSequencialReader() {
@@ -85,14 +88,14 @@ export class IndexedPointAtLength {
     pos: [number, number]
     latestSubvertIdx: number
   } {
-    const { subvertIndex } = this
+    const { _subvertIndex, _lengthAtSubvert } = this
 
     let cur: [x: number, y: number] = [0, 0]
     let prev: [x: number, y: number, len: number] = [0, 0, 0]
     let tmpFragStart: [x: number, y: number] = [0, 0]
     let len = 0
 
-    const startSubvertData = subvertIndex[fromSubvertIndex]
+    const startSubvertData = _subvertIndex[fromSubvertIndex]
     const fromSvgVertIndex = warm ? 0 : startSubvertData?.svgVertIdx ?? 0
     let currentSubvertIdx = fromSubvertIndex
 
@@ -115,11 +118,15 @@ export class IndexedPointAtLength {
 
         currentSubvertIdx++
         if (warm) {
-          subvertIndex.push({
-            // len,
+          _lengthAtSubvert.push(len)
+
+          _subvertIndex.push({
+            pos: [...cur],
+
             div: null,
             svgVertIdx,
             prev: [...prev],
+            fragStartPos: [...tmpFragStart],
           })
         }
 
@@ -127,15 +134,15 @@ export class IndexedPointAtLength {
           return {
             length: len,
             pos: cur,
-            latestSubvertIdx: currentSubvertIdx - 1,
+            latestSubvertIdx: currentSubvertIdx,
           }
         }
       } else if (p[0] === 'C') {
-        prev[0] = tmpFragStart[0] = cur[0]
-        prev[1] = tmpFragStart[1] = cur[1]
+        prev[0] = tmpFragStart[0] = startSubvertData?.fragStartPos[0] ?? cur[0]
+        prev[1] = tmpFragStart[1] = startSubvertData?.fragStartPos[1] ?? cur[1]
         prev[2] = len
 
-        for (var j = 0; j <= SUBDIVIDES; j++) {
+        for (var j = startSubvertData?.div ?? 0; j <= SUBDIVIDES; j++) {
           var t = j / SUBDIVIDES
           var x = xof_C(p, t, tmpFragStart[0])
           var y = yof_C(p, t, tmpFragStart[1])
@@ -147,13 +154,14 @@ export class IndexedPointAtLength {
           currentSubvertIdx++
 
           if (warm) {
-            subvertIndex.push({
-              len,
-              pos: cur,
+            _lengthAtSubvert.push(len)
+            _subvertIndex.push({
+              pos: [...cur],
 
               div: j,
               svgVertIdx,
               prev: [...prev],
+              fragStartPos: [...tmpFragStart],
             })
           }
 
@@ -168,7 +176,7 @@ export class IndexedPointAtLength {
             return {
               length: len,
               pos: npos,
-              latestSubvertIdx: currentSubvertIdx - 1,
+              latestSubvertIdx: currentSubvertIdx,
             }
           }
 
@@ -177,11 +185,11 @@ export class IndexedPointAtLength {
           prev[2] = len
         }
       } else if (p[0] === 'Q') {
-        prev[0] = tmpFragStart[0] = cur[0]
-        prev[1] = tmpFragStart[1] = cur[1]
+        prev[0] = tmpFragStart[0] = startSubvertData?.fragStartPos[0] ?? cur[0]
+        prev[1] = tmpFragStart[1] = startSubvertData?.fragStartPos[1] ?? cur[1]
         prev[2] = len
 
-        for (var j = 0; j <= SUBDIVIDES; j++) {
+        for (var j = startSubvertData?.div ?? 0; j <= SUBDIVIDES; j++) {
           var t = j / SUBDIVIDES
           var x = xof_Q(p, t, tmpFragStart[0])
           var y = yof_Q(p, t, tmpFragStart[1])
@@ -192,13 +200,14 @@ export class IndexedPointAtLength {
 
           currentSubvertIdx++
           if (warm) {
-            subvertIndex.push({
-              len,
-              pos: cur,
+            _lengthAtSubvert.push(len)
+            _subvertIndex.push({
+              pos: [...cur],
 
               div: j,
               svgVertIdx: svgVertIdx,
               prev: [...prev],
+              fragStartPos: [...tmpFragStart],
             })
           }
 
@@ -212,7 +221,7 @@ export class IndexedPointAtLength {
             return {
               length: len,
               pos: npos,
-              latestSubvertIdx: currentSubvertIdx - 1,
+              latestSubvertIdx: currentSubvertIdx,
             }
           }
 
@@ -231,13 +240,14 @@ export class IndexedPointAtLength {
 
         currentSubvertIdx++
         if (warm) {
-          subvertIndex.push({
-            len,
-            pos: cur,
+          _lengthAtSubvert.push(len)
+          _subvertIndex.push({
+            pos: [...cur],
 
             div: null,
             svgVertIdx: svgVertIdx,
             prev: [...prev],
+            fragStartPos: [...tmpFragStart],
           })
         }
 
@@ -247,10 +257,11 @@ export class IndexedPointAtLength {
             cur[0] * (1 - dv) + prev[0] * dv,
             cur[1] * (1 - dv) + prev[1] * dv,
           ]
+
           return {
             length: len,
             pos: npos,
-            latestSubvertIdx: currentSubvertIdx - 1,
+            latestSubvertIdx: currentSubvertIdx,
           }
         }
 
@@ -263,7 +274,7 @@ export class IndexedPointAtLength {
     return {
       length: len,
       pos: cur,
-      latestSubvertIdx: Math.max(0, currentSubvertIdx - 1),
+      latestSubvertIdx: currentSubvertIdx,
     }
 
     function xof_C(p: SVGDCommand, t: number, startX: number) {
@@ -414,10 +425,8 @@ export class SequencialPointAtLength {
       )
     }
 
-    let a = this.nextHint?.latestSubvertIdx
-
     const result = this.pal.atWithDetail(len, {
-      // fromSubvertIndex: this.nextHint?.latestSubvertIdx,
+      fromSubvertIndex: this.nextHint?.latestSubvertIdx,
     })
 
     if (seek) {
@@ -425,7 +434,7 @@ export class SequencialPointAtLength {
       this.prevLen = len
     }
 
-    return { ...result, fromSubVert: a }
+    return result
   }
 }
 
@@ -436,13 +445,17 @@ function binarySearch(sortedArray: number[], seekElement: number): number {
   let minNearIdx = 0
 
   while (left <= right) {
-    const mid = left + Math.floor((right - left) / 2)
+    let mid = left + Math.floor((right - left) / 2)
     const guess = sortedArray[mid]
 
     if (guess === seekElement) {
+      while (mid - 1 >= 0 && sortedArray[mid - 1] === seekElement) {
+        mid--
+      }
+
       return mid
     } else if (guess > seekElement) {
-      minNearIdx = right = mid - 1
+      right = minNearIdx = mid - 1
     } else {
       left = mid + 1
     }
@@ -455,15 +468,19 @@ if (import.meta.vitest) {
   describe('IndexedPointAtLength', () => {
     describe('binarySearch', () => {
       it('should return the index of the element', () => {
-        expect(binarySearch([1, 2, 3, 4, 5], 3)).toBe(2)
+        expect(binarySearch([1.1, 2.2, 3.3, 4.4, 5.5], 3.3)).toBe(2)
       })
 
       it('should return the index of the nearest element', () => {
-        expect(binarySearch([1, 2, 3, 4, 5], 3.5)).toBe(2)
+        expect(binarySearch([1.1, 2.2, 3.3, 4.4, 5.5], 3.5)).toBe(2)
       })
 
       it('should return the index of the nearest element', () => {
-        expect(binarySearch([1, 2, 3, 4, 5], 2.5)).toBe(1)
+        expect(binarySearch([1.1, 2.2, 3.3, 4.4, 5.5], 2.5)).toBe(1)
+      })
+
+      it('should return the index of the early element when some value exists', () => {
+        expect(binarySearch([1.1, 1.1, 1.1, 2.2, 3.3, 4.4, 5.5], 1.1)).toBe(0)
       })
     })
   })

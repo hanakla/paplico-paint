@@ -52,7 +52,7 @@ export class RuntimeDocument {
   /** Check valid bitmap cache in requested size availablity */
   public hasLayerBitmapCache(
     layerUid: string,
-    size: { width: number; height: number }
+    size: { width: number; height: number },
   ) {
     const layer = this.document.layerEntities.find((l) => l.uid === layerUid)
     if (!layer) return false
@@ -67,16 +67,20 @@ export class RuntimeDocument {
     return true
   }
 
+  public getLayerBitmapCache(layerUid: string) {
+    return this.layerImageCache.get(layerUid)
+  }
+
   public async getOrCreateLayerBitmapCache(
     layerUid: string,
-    size?: { width: number; height: number }
+    size?: { width: number; height: number },
   ) {
     const layer = this.document.layerEntities.find((l) => l.uid === layerUid)
     if (!layer) return null
 
     if (layer?.layerType !== 'raster' && !size) {
       throw new Error(
-        'Cannot create bitmap cache without size when layer is not raster'
+        'Cannot create bitmap cache without size when layer is not raster',
       )
     }
 
@@ -97,7 +101,7 @@ export class RuntimeDocument {
       bitmap = await createImageBitmap(
         layer.bitmap
           ? new ImageData(layer.bitmap, layer.width, layer.height)
-          : new ImageData(layer.width, layer.height)
+          : new ImageData(layer.width, layer.height),
       )
       this.layerImageCache.set(layerUid, bitmap)
     } else if (layer.layerType === 'vector') {
@@ -116,7 +120,7 @@ export class RuntimeDocument {
 
   public async updateOrCreateLayerBitmapCache(
     layerUid: string,
-    newBitmap: ImageData
+    newBitmap: ImageData,
   ) {
     const layer = this.document.layerEntities.find((l) => l.uid === layerUid)
 
@@ -145,7 +149,7 @@ export class RuntimeDocument {
 
   public setLayerLayoutData(
     layerUid: string,
-    data: RuntimeDocument.LayoutData
+    data: RuntimeDocument.LayoutData,
   ) {
     const layer = this.document.layerEntities.find((l) => l.uid === layerUid)
     if (!layer) return

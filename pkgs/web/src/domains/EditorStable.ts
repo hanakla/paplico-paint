@@ -755,50 +755,7 @@ export const [EditorStore, EditorOps] = minOps('Editor', {
       await x.executeOperation(EditorOps.rerenderCanvas)
       x.commit({})
     },
-    undoCommand: async (x) => {
-      const cmd = await x.state.session?.undo()
 
-      cmd?.effectedLayers.forEach((p) =>
-        x.state.renderStrategy?.markUpdatedLayerId(p.slice(-1)[0])
-      )
-
-      if (cmd) {
-        await x.executeOperation(NotifyOps.create, {
-          area: 'commandFlash',
-          timeout: 1000,
-          messageKey: 'undo',
-        })
-        await x.executeOperation(EditorOps.rerenderCanvas)
-      } else {
-        await x.executeOperation(NotifyOps.create, {
-          area: 'commandFlash',
-          timeout: 1000,
-          messageKey: 'undoEmpty',
-        })
-      }
-    },
-    redoCommand: async (x) => {
-      const cmd = await x.state.session?.redo()
-
-      cmd?.effectedLayers.forEach((p) =>
-        x.state.renderStrategy?.markUpdatedLayerId(p.slice(-1)[0])
-      )
-
-      if (cmd) {
-        await x.executeOperation(NotifyOps.create, {
-          area: 'commandFlash',
-          timeout: 1000,
-          messageKey: 'redo',
-        })
-        await x.executeOperation(EditorOps.rerenderCanvas)
-      } else {
-        await x.executeOperation(NotifyOps.create, {
-          area: 'commandFlash',
-          timeout: 1000,
-          messageKey: 'redoEmpty',
-        })
-      }
-    },
     revertCommand: async (
       x,
       { whenCommandIs }: { whenCommandIs?: PapCommands.AnyCommandType }

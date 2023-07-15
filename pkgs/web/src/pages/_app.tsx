@@ -5,31 +5,21 @@ import { appWithTranslation } from 'next-i18next'
 import { useEffect, useMemo } from 'react'
 import { Restart } from '@styled-icons/remix-line'
 import { ErrorBoundary, FallbackProps } from 'react-error-boundary'
-import { appWithFleur } from '../lib/fleur'
-import { LysContext } from '@fleur/lys'
-import { useStore } from '@fleur/react'
 import { MordredRoot, Mordred } from '@fleur/mordred'
 import { rgba } from 'polished'
 import Head from 'next/head'
 
-import { LoadingLock } from '🙌/containers/LoadingLock'
-import { GlobalStyle } from '🙌/components/GlobalStyle'
 import { darkWithCharcoal, lightWithCharcoal } from '🙌/utils/theme'
-// import { EditorStore } from '🙌/domains/EditorStable'
 import { ThemeProvider } from 'styled-components'
 
 const fastclick = typeof window !== 'undefined' ? require('fastclick') : null
 typeof window !== 'undefined' ? require('doubletouch-to-dblclick') : null
 
 function MyApp({ Component, pageProps }: AppProps) {
-  const { currentTheme } = useStore((get) => ({
-    currentTheme: 'dark', //get(EditorStore).state.currentTheme,
-  }))
-
-  const theme = useMemo(
-    () => (currentTheme === 'dark' ? darkWithCharcoal : lightWithCharcoal),
-    [currentTheme]
-  )
+  // const theme = useMemo(
+  //   () => (currentTheme === 'dark' ? darkWithCharcoal : lightWithCharcoal),
+  //   [currentTheme]
+  // )
 
   useMemo(() => !Mordred.instance && Mordred.init(), [])
 
@@ -57,11 +47,11 @@ function MyApp({ Component, pageProps }: AppProps) {
         <title>Paplico Paint</title>
       </Head>
 
-      <ThemeProvider theme={theme}>
+      <ThemeProvider theme={darkWithCharcoal}>
         <Component {...pageProps} />
 
         <MordredRoot>
-          {(children) => (
+          {children => (
             <div
               css={`
                 position: fixed;
@@ -128,6 +118,4 @@ const ErrorFallback = ({ error, resetErrorBoundary }: FallbackProps) => {
   )
 }
 
-export default appWithTranslation(
-  appWithFleur(MyApp, { enableGetIntialProps: false })
-)
+export default appWithTranslation(MyApp)

@@ -1,6 +1,7 @@
 import { ExtraBrushes, StandardBrushes } from '@paplico/core-new'
 import { nanoid } from 'nanoid'
 
+
 export const BRUSH_PRESETS = [
   {
     id: nanoid(),

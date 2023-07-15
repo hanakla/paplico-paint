@@ -8,19 +8,26 @@ type LogKind =
   | 'groupEnd'
 
 export class RenderCycleLogger {
+  public static enabled = false
+
   public static current = new RenderCycleLogger()
+
   public static createNext() {
     this.current = new RenderCycleLogger()
     return this.current
   }
 
   public logs: [LogKind, ...any[]][] = []
-  public currentGroup: { label: any[]; logs: [LogKind, ...any[]][] } | null =
-    null
+  public currentGroup: {
+    label: any[]
+    logs: [LogKind, ...any[]][]
+  } | null = null
 
   private _times = new Map<string, number>()
 
   public printLogs(label?: string) {
+    if (!RenderCycleLogger.enabled) return
+
     console.group(`Render cycle logs: ${label ?? ''}`)
 
     for (const [kind, ...message] of this.logs) {
@@ -62,7 +69,7 @@ export class RenderCycleLogger {
       this.currentStack.push([
         'log',
         `Time: ${label}`,
-        `${performance.now() - start}ms`,
+        `${performance.now() - start}ms`
       ])
     }
   }

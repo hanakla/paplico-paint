@@ -272,11 +272,42 @@ export const PaintV2 = memo(function PaintPage({}) {
   })
 
   useFunkyGlobalMouseTrap(['ctrl+z', 'command+z'], () => {
-    executeOperation(EditorOps.undoCommand)
+    if (!engine.current?.command.canUndo()) {
+      execute(NotifyOps.create, {
+        area: 'commandFlash',
+        timeout: 1000,
+        messageKey: 'undoEmpty',
+      })
+
+      return
+    }
+
+    engine.current?.command.undo()?.then(() => {
+      execute(NotifyOps.create, {
+        area: 'commandFlash',
+        timeout: 1000,
+        messageKey: 'undo',
+      })
+    })
   })
 
   useFunkyGlobalMouseTrap(['ctrl+shift+z', 'command+shift+z', 'ctrl+y'], () => {
-    executeOperation(EditorOps.redoCommand)
+    if (!engine.current?.command.canRedo()) {
+      execute(NotifyOps.create, {
+        area: 'commandFlash',
+        timeout: 1000,
+        messageKey: 'redoEmpty',
+      })
+      return
+    }
+
+    engine.current?.command.redo()?.then(() => {
+      execute(NotifyOps.create, {
+        area: 'commandFlash',
+        timeout: 1000,
+        messageKey: 'redo',
+      })
+    })
   })
 
   useFunkyGlobalMouseTrap(['v'], () =>
@@ -404,6 +435,7 @@ export const PaintV2 = memo(function PaintPage({}) {
   useAsyncEffect(async () => {
     ;(window as any).engine = engine.current = new Paplico(canvasRef.current!)
     await engine.current.brushes.register(ExtraBrushes.ScatterBrush)
+
     console.log('hey')
 
     executeOperation(EditorOps.initEngine, engine.current)

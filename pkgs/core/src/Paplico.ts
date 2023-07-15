@@ -210,7 +210,10 @@ export class Paplico extends Emitter<Events> {
   }
 
   public enterLayer(path: string[]) {
-    if (!this.document) return
+    if (!this.document) {
+      console.log('Paplico.enterLayer: No document loaded')
+      return
+    }
 
     // Dig layer
     let cursor = this.document.layerTree
@@ -266,7 +269,7 @@ export class Paplico extends Emitter<Events> {
   }
 
   public set strokeComposition(
-    composition: Paplico.State['strokeComposition']
+    composition: Paplico.State['strokeComposition'],
   ) {
     this.setState((d) => {
       d.strokeComposition = composition
@@ -300,7 +303,7 @@ export class Paplico extends Emitter<Events> {
       const path = stroke.toPath()
 
       if (this.activeLayerEntity.layerType === 'vector') {
-        const obj = this.createVectorObjectByStrokeAndCurrentSettings(stroke)
+        const obj = this.createVectorObjectByCurrentSettings(stroke)
 
         await this.renderer.renderVectorLayer(
           tmpctx.canvas,
@@ -317,14 +320,14 @@ export class Paplico extends Emitter<Events> {
               height: this.dstCanvas.height,
             },
             logger: renderLogger,
-          }
+          },
         )
       } else if (this.activeLayerEntity.layerType === 'raster') {
         if (!this.strokeSetting) return
 
         const currentBitmap =
           (await this.runtimeDoc.getOrCreateLayerBitmapCache(
-            this.activeLayerEntity.uid
+            this.activeLayerEntity.uid,
           ))!
 
         setCanvasSize(tmpctx.canvas, currentBitmap.width, currentBitmap.height)
@@ -348,7 +351,7 @@ export class Paplico extends Emitter<Events> {
               rotation: 0,
             },
             logger: renderLogger,
-          }
+          },
         )
       } else {
         return
@@ -379,7 +382,7 @@ export class Paplico extends Emitter<Events> {
               height: this.dstCanvas.height,
             },
             logger: renderLogger,
-          }
+          },
         )
       } finally {
         tmpctx.clearRect(0, 0, tmpctx.canvas.width, tmpctx.canvas.height)
@@ -431,27 +434,35 @@ export class Paplico extends Emitter<Events> {
       const path = stroke.toSimplefiedPath()
       RenderCycleLogger.current.timeEnd('toSimplefiedPath')
       RenderCycleLogger.current.info(
-        `Path simplified: ${stroke.points.length} -> ${path.points.length}`
+        `Path simplified: ${stroke.points.length} -> ${path.points.length}`,
       )
 
       if (this.activeLayerEntity.layerType === 'vector') {
-        const obj = this.createVectorObjectByStrokeAndCurrentSettings(stroke)
-        this.activeLayerEntity.objects.push(obj)
+        const obj = this.createVectorObjectByCurrentSettings(stroke)
+
+        await this.command.do(
+          new Commands.VectorUpdateLayer(this.activeLayerEntity.uid, {
+            updater: (layer) => {
+              console.log('ok')
+              layer.objects.push(obj)
+            },
+          }),
+        )
 
         // Update layer image data
         setCanvasSize(
           tmpctx.canvas,
           this.dstCanvas.width,
-          this.dstCanvas.height
+          this.dstCanvas.height,
         )
+
+        console.log('draw', this.activeLayerEntity)
 
         await this.renderer.renderVectorLayer(
           tmpctx.canvas,
+          this.activeLayerEntity,
           {
-            ...this.activeLayerEntity,
-          },
-          {
-            // abort: aborter.signal,
+            abort: aborter.signal,
             viewport: {
               top: 0,
               left: 0,
@@ -459,19 +470,20 @@ export class Paplico extends Emitter<Events> {
               height: this.dstCanvas.height,
             },
             logger: RenderCycleLogger.current,
-          }
+          },
         )
 
         await this.runtimeDoc.updateOrCreateLayerBitmapCache(
           this.activeLayerEntity.uid,
-          tmpctx.getImageData(0, 0, tmpctx.canvas.width, tmpctx.canvas.height)
+          tmpctx.getImageData(0, 0, tmpctx.canvas.width, tmpctx.canvas.height),
         )
       } else if (this.activeLayerEntity.layerType === 'raster') {
+        console.log(this.strokeSetting)
         if (!this.strokeSetting) return
 
         const currentBitmap =
           (await this.runtimeDoc.getOrCreateLayerBitmapCache(
-            this.activeLayerEntity.uid
+            this.activeLayerEntity.uid,
           ))!
 
         setCanvasSize(tmpctx.canvas, currentBitmap.width, currentBitmap.height)
@@ -536,8 +548,8 @@ export class Paplico extends Emitter<Events> {
     }
   }
 
-  protected createVectorObjectByStrokeAndCurrentSettings(
-    stroke: UIStroke
+  protected createVectorObjectByCurrentSettings(
+    stroke: UIStroke,
   ): VectorObject {
     const obj = createVectorObject({
       path: stroke.toPath(),

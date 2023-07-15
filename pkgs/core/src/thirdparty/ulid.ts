@@ -180,7 +180,7 @@ export function factory(currPrng?: PRNG): ULID {
     if (seedTime == null || isNaN(seedTime)) {
       seedTime = Date.now()
     }
-    return encodeTime(seedTime, TIME_LEN) + encodeRandom(RANDOM_LEN, currPrng)
+    return encodeTime(seedTime, TIME_LEN) + encodeRandom(RANDOM_LEN, currPrng!)
   }
 }
 

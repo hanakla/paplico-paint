@@ -26,11 +26,15 @@ export default defineConfig({
     },
     rollupOptions: {
       output: {
-        exports: 'named',
+        exports: 'auto',
       },
     },
   },
-  plugins: [dts({ rollupTypes: false })],
+  plugins: [
+    dts({
+      rollupTypes: false,
+    }),
+  ],
   test: {
     globals: true,
     includeSource: ['src/**/*{.spec.ts,.ts}'],

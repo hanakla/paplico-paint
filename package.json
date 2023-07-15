@@ -6,11 +6,12 @@
     "pkgs/*"
   ],
   "scripts": {
-    "dev": "wsrun -p @paplico/web @paplico/core-new -c dev",
-    "build": "wsrun -p @paplico/web @paplico/core-new -c build",
+    "dev": "wsrun -p @paplico/web2 @paplico/jsondiffpatch @paplico/core-new -c dev",
+    "build": "wsrun -p @paplico/jsondiffpatch @paplico/web2 @paplico/core-new -c build",
     "start": "cd pkgs/web; yarn start"
   },
   "devDependencies": {
+    "prettier": "^3.0.0",
     "wsrun": "^5.2.4"
   },
   "packageManager": "yarn@3.3.0",

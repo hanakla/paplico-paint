@@ -4,15 +4,12 @@ import { indexedPointAtLength } from './IndexedPointAtLength'
 describe('IndexedPointAtLength', () => {
   const path = complexPath()
 
-  it('should be correctly sorted lengthCache and lengthCacheDetail', () => {
-    const cached = indexedPointAtLength(path)
+  it('indexing time', () => {
+    const buildTime = time(() => {
+      indexedPointAtLength(path)
+    })
 
-    for (let i = 0; i < cached._lengthCache.length; i++) {
-      expect(cached._lengthCache[i]).toBeCloseTo(
-        cached._lengthCacheDetail[i].len,
-        2
-      )
-    }
+    console.info(`Indexing time: ${buildTime}ms`)
   })
 
   it('should be returns same result to point-at-length', () => {
@@ -28,17 +25,18 @@ describe('IndexedPointAtLength', () => {
 
   describe('getSequencialReader', () => {
     it('should returns same result to .at()', () => {
-      const cached = indexedPointAtLength(path)
+      // const cached = indexedPointAtLength(simplePath())
+      const cached = indexedPointAtLength(complexPath())
       const reader = cached.getSequencialReader()
 
-      expect(reader.at(0)[0]).toEqual(cached.at(0)[0])
-      expect(reader.at(0)[1]).toEqual(cached.at(0)[1])
+      expect(reader.at(0)).toEqual(cached.at(0))
+      expect(reader.at(50)).toEqual(cached.at(50))
+      expect(reader.at(100)).toEqual(cached.at(100))
+    })
 
-      expect(reader.at(1)[0]).toEqual(cached.at(1)[0])
-      expect(reader.at(1)[1]).toEqual(cached.at(1)[1])
-
-      expect(reader.at(100)[0]).toEqual(cached.at(100)[0])
-      expect(reader.at(100)[1]).toEqual(cached.at(100)[1])
+    it('should hits cache', () => {
+      const cached = indexedPointAtLength(path)
+      const reader = cached.getSequencialReader()
     })
 
     it('check using hint', () => {

@@ -17,7 +17,7 @@ export const logImage = async (
     `%cLogImage%c ${label} image log (full image in %o)`,
     'padding:2px 4px; background:linear-gradient(40deg, #f25847, #f8be12);color:#fff;border-radius:4px;',
     '',
-    blobUrl,
+    blobUrl
   ]
 
   collapsed ? console.groupCollapsed(...content) : console.group(...content)
@@ -66,7 +66,7 @@ export const imageSourceToBlob = async (
     const blob = await canvas.convertToBlob({ type: 'image/png' })
 
     const reader = new FileReader()
-    await new Promise<void>((r) => {
+    await new Promise<void>(r => {
       reader.onload = () => {
         blobUrl = URL.createObjectURL(blob)
         imageUrl = reader.result as string
@@ -78,7 +78,7 @@ export const imageSourceToBlob = async (
   } else {
     const blob = await new Promise<Blob>((r, j) =>
       (canvas as HTMLCanvasElement).toBlob(
-        (b) => (b ? r(b) : j(new Error())),
+        b => (b ? r(b) : j(new Error())),
         'image/png'
       )
     )
@@ -91,8 +91,8 @@ export const imageSourceToBlob = async (
 }
 
 export const installGlobally = () => {
-  if (typeof window === 'undefined' || window == null) return
-  ;(window as any).logImage = logImage
+  // if (typeof window === 'undefined') return
+  // ;(window as any).logImage = logImage
 }
 
 export let enableLog = true
@@ -282,7 +282,7 @@ export const timeSumming = (label: string, mark: string = ''): TimeSumming => {
       logLog('Max detail', ...maxDetail)
       logLog('Min detail', ...minDetail)
       logGroupEnd()
-    },
+    }
   }
 }
 

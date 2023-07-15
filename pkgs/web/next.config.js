@@ -8,23 +8,22 @@ const { i18n } = require('./next-i18next.config')
 
 const withNextra = require('nextra')({
   theme: 'nextra-theme-docs',
-  themeConfig: './src/theme.config.jsx',
+  themeConfig: './src/theme.config.jsx'
 })
 
 /** @type {import('next').NextConfig} */
 const config = {
   experimental: {
-    externalDir: true,
+    externalDir: true
   },
   i18n,
-  transpilePackages: ['@paplico/core', '@paplico/core-new'],
+  transpilePackages: ['@paplico/core-new'],
   compiler: {
-    styledComponents: true,
+    styledComponents: true
   },
   typescript: {
-    ignoreBuildErrors: true,
+    ignoreBuildErrors: true
   },
-  transpilePackages: ['@paplico/core', '@paplico/core-new'],
   webpack: (/** @type {import('webpack').Configuration} */ config, context) => {
     config.experiments.asyncWebAssembly = true
     config.watchOptions.followSymlinks = true
@@ -40,15 +39,15 @@ const config = {
 
     config.module.rules.push({
       test: /zstd\.wasm/,
-      type: 'asset/resource',
+      type: 'asset/resource'
     })
 
     config.module.rules.push({
       test: /\.(mp3)$/,
       type: 'asset/resource',
       generator: {
-        filename: 'static/chunks/[hash][ext]',
-      },
+        filename: 'static/chunks/[hash][ext]'
+      }
     })
 
     config.module.rules.push({
@@ -56,18 +55,18 @@ const config = {
       parser: {
         url: true,
         javascript: {
-          worker: ['AudioWorklet from audio-worklet', '...'],
-        },
-      },
+          worker: ['AudioWorklet from audio-worklet', '...']
+        }
+      }
     })
 
     config.resolve.alias = {
       ...config.resolve.alias,
-      '@paplico/core': path.join(__dirname, '../paplicore/src/index.ts'),
-      '@paplico/core-new': path.join(__dirname, '../core/dist/index.mjs'),
+      // '@paplico/core': path.join(__dirname, '../paplicore/src/index.ts'),
+      // '@paplico/core-new': path.join(__dirname, '../core/dist/index.mjs'),
       // '@paplico/ui': 'paplico-ui/src/index.ts',
       '🙌': path.join(__dirname, './src'),
-      'audio-worklet': path.resolve(__dirname, 'src/utils/audio-worklet'),
+      'audio-worklet': path.resolve(__dirname, 'src/utils/audio-worklet')
     }
 
     config.resolve.fallback = {
@@ -101,8 +100,8 @@ const config = {
             url: false,
             // util: false,
             vm: false,
-            zlib: false,
-          }),
+            zlib: false
+          })
     }
 
     // config.plugins.push(new webpack.DefinePlugin({
@@ -114,7 +113,7 @@ const config = {
     // }
 
     return config
-  },
+  }
 }
 
 module.exports = withPWA(withNextra(config))

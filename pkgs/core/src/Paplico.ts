@@ -30,8 +30,8 @@ import { RainbowInk } from './Engine/Inks/RainbowInk'
 import { TextureReadInk } from './Engine/Inks/TextureReadInk'
 import { AtomicResource } from './utils/AtomicResource'
 import { PaplicoAbortError, PaplicoIgnoreableError } from './Errors'
-import { History } from './History/History'
 import { ICommand } from './History/ICommand'
+import { Commands } from '.'
 
 export namespace Paplico {
   export type StrokeSetting<T extends Record<string, any> = any> =
@@ -203,6 +203,8 @@ export class Paplico extends Emitter<Events> {
     do: (command: ICommand) => this.runtimeDoc?.command.do(command),
     undo: () => this.runtimeDoc?.command.undo(),
     redo: () => this.runtimeDoc?.command.redo(),
+    canUndo: () => this.runtimeDoc?.command.canUndo() ?? false,
+    canRedo: () => this.runtimeDoc?.command.canRedo() ?? false,
   }
 
   public loadDocument(doc: PaplicoDocument) {
@@ -216,7 +218,7 @@ export class Paplico extends Emitter<Events> {
     doc.blobs.forEach((blob) => {
       this.runtimeDoc?.setBlobCache(
         blob.uid,
-        new Blob([blob.data], { type: blob.mimeType })
+        new Blob([blob.data], { type: blob.mimeType }),
       )
     })
   }
@@ -506,13 +508,23 @@ export class Paplico extends Emitter<Events> {
               rotation: 0,
             },
             logger: RenderCycleLogger.current,
-          }
+          },
         )
 
         // Update layer image data
-        await this.runtimeDoc.updateOrCreateLayerBitmapCache(
-          this.activeLayerEntity.uid,
-          tmpctx.getImageData(0, 0, currentBitmap.width, currentBitmap.height)
+        await this.command.do(
+          new Commands.RasterUpdateBitmap(this.activeLayerEntity.uid, {
+            updater: (bitmap) => {
+              bitmap.set(
+                tmpctx.getImageData(
+                  0,
+                  0,
+                  currentBitmap.width,
+                  currentBitmap.height,
+                ).data,
+              )
+            },
+          }),
         )
       } else {
         return
@@ -534,7 +546,7 @@ export class Paplico extends Emitter<Events> {
               height: this.dstCanvas.height,
             },
             logger: RenderCycleLogger.current,
-          }
+          },
         )
       } finally {
         RenderCycleLogger.current.printLogs('onUIStrokeComplete')

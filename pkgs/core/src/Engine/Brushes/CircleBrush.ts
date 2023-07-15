@@ -57,7 +57,7 @@ export class CircleBrush implements IBrush {
         color.r * 255,
         color.g * 255,
         color.b * 255,
-        opacity
+        opacity,
       )}`
       ctx.lineCap = sp.lineCap
 
@@ -81,10 +81,10 @@ export class CircleBrush implements IBrush {
             point.in?.x ?? point.x,
             point.in?.y ?? point.y,
             point.x,
-            point.y
+            point.y,
           )
         },
-        { startOffset: 1 }
+        { startOffset: 1 },
       )
 
       if (closed) ctx.closePath()

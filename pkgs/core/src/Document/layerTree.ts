@@ -1,4 +1,4 @@
-import { PaplicoDocument } from './Document'
+import { type PaplicoDocument } from './Document'
 import { LayerNode } from './LayerNode'
 
 export const getLayerNodeAt = (document: PaplicoDocument, path: string[]) => {

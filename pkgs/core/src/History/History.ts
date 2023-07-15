@@ -11,8 +11,24 @@ type Events = {
 export class History extends Emitter<Events> {
   protected excutionLock = new AtomicResource({})
 
-  protected undoStack: ICommand[] = []
-  protected redoStack: ICommand[] = []
+  #undoStack: ICommand[] = []
+  #redoStack: ICommand[] = []
+
+  public get undoStack() {
+    return [...this.#undoStack]
+  }
+
+  public get redoStack() {
+    return [...this.#redoStack]
+  }
+
+  public canUndo() {
+    return this.#undoStack.length > 0
+  }
+
+  public canRedo() {
+    return this.#redoStack.length > 0
+  }
 
   public async do(document: RuntimeDocument, command: ICommand) {
     const lock = await this.excutionLock.ensure()
@@ -21,15 +37,15 @@ export class History extends Emitter<Events> {
       await command.do(document)
       rescue(() => this.emit('affect', { layerIds: command.effectedLayers }))
 
-      this.undoStack.push(command)
-      this.redoStack = []
+      this.#undoStack.push(command)
+      this.#redoStack = []
     } finally {
       this.excutionLock.release(lock)
     }
   }
 
   public async undo(document: RuntimeDocument) {
-    const command = this.undoStack.pop()
+    const command = this.#undoStack.pop()
     if (!command) return
 
     const lock = await this.excutionLock.ensure()
@@ -37,14 +53,14 @@ export class History extends Emitter<Events> {
     try {
       await command.undo(document)
       rescue(() => this.emit('affect', { layerIds: command.effectedLayers }))
-      this.redoStack.push(command)
+      this.#redoStack.push(command)
     } finally {
       this.excutionLock.release(lock)
     }
   }
 
   public async redo(document: RuntimeDocument) {
-    const command = this.redoStack.pop()
+    const command = this.#redoStack.pop()
     if (!command) return
 
     const lock = await this.excutionLock.ensure()
@@ -52,7 +68,7 @@ export class History extends Emitter<Events> {
     try {
       await command.redo(document)
       rescue(() => this.emit('affect', { layerIds: command.effectedLayers }))
-      this.undoStack.push(command)
+      this.#undoStack.push(command)
     } finally {
       this.excutionLock.release(lock)
     }

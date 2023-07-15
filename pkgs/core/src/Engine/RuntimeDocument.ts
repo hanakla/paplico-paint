@@ -8,6 +8,7 @@ const cancelIdle =
   typeof cancelIdleCallback !== 'undefined'
     ? cancelIdleCallback
     : (clearTimeout as (typeof window)['clearTimeout'])
+
 const requestIdle =
   typeof requestIdleCallback !== 'undefined'
     ? requestIdleCallback
@@ -55,6 +56,8 @@ export class RuntimeDocument {
     do: (command: ICommand) => this.history.do(this, command),
     undo: () => this.history.undo(this),
     redo: () => this.history.redo(this),
+    canUndo: () => this.history.canUndo(),
+    canRedo: () => this.history.canRedo(),
   }
 
   public resolveLayer(uid: string) {

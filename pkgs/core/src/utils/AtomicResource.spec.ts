@@ -40,4 +40,24 @@ describe('AtomicResource', () => {
       expect(ensureSpy).toHaveBeenCalledWith(1)
     }, 100)
   })
+
+  it('Duplicated request', async () => {
+    const atom = new AtomicResource(1)
+    const ensureSpy = vi.fn()
+    const ensureSpy2 = vi.fn()
+
+    const resource = await atom.ensure().then(ensureSpy)
+    const resource2Promise = atom.ensure().then(ensureSpy2)
+
+    await new Promise((r) => setTimeout(r))
+    expect(ensureSpy).toHaveBeenCalledTimes(1)
+    expect(ensureSpy2).toHaveBeenCalledTimes(0)
+
+    atom.release(resource)
+    await resource2Promise
+
+    expect(ensureSpy2).toHaveBeenCalledTimes(1)
+    expect(ensureSpy2).toHaveBeenCalledWith(1)
+    atom.release(await resource2Promise)
+  })
 })

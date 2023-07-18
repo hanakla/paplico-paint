@@ -8,19 +8,23 @@ export class AtomicResource<T> {
     owner: any
     abort?: AbortController
   } | null = null
+  private timeoutId: number = -1
 
-  constructor(private resource: T, private name?: string) {}
+  constructor(
+    private resource: T,
+    private name?: string,
+  ) {}
 
   public ensure({ owner }: { owner?: any } = {}): Promise<T> {
     const requestStack = new Error()
 
     const defer = deferred<T>()
     defer.promise.then(
-      () => (this.currentOwner = { owner, stack: requestStack })
+      () => (this.currentOwner = { owner, stack: requestStack }),
     )
 
     this.que.push(defer)
-    this.eatQueue()
+    queueMicrotask(() => this.eatQueue())
 
     return defer.promise
   }
@@ -40,22 +44,29 @@ export class AtomicResource<T> {
 
   public release(resource: T) {
     if (resource !== this.resource) {
-      throw new Error(`Incorrect resource released: ${this.name}}`, {
+      throw new Error(`Incorrect resource released: ${this.name}`, {
         cause: this.currentOwner,
       })
     }
 
     if (!this.locked) {
-      throw new Error(`Unused resource released: ${this.name}}`, {
+      throw new Error(`Unused resource released: ${this.name}`, {
         cause: this.currentOwner,
       })
     }
 
+    this.locked = false
     this.eatQueue()
   }
 
   private eatQueue() {
-    const [next] = this.que.splice(0, 1)
+    if (this.locked) {
+      clearTimeout(this.timeoutId)
+      this.timeoutId = window.setTimeout(() => this.eatQueue())
+      return
+    }
+
+    const next = this.que.shift()
 
     if (next) {
       this.locked = true

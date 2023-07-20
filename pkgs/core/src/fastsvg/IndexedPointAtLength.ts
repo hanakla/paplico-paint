@@ -23,6 +23,12 @@ type SubvertData = {
   fragStartPos: [number, number]
 }
 
+type AtResult = Readonly<{
+  length: number
+  pos: readonly [number, number]
+  latestSubvertIdx: number
+}>
+
 export const indexedPointAtLength = (path: string | Array<SVGDCommand>) => {
   return new IndexedPointAtLength(path)
 }
@@ -36,12 +42,18 @@ export class IndexedPointAtLength {
   public readonly _lengthAtSubvert: number[] = []
   public readonly _subvertIndex: SubvertData[] = []
 
-  constructor(path: string | Array<SVGDCommand>) {
-    this._path = Array.isArray(path) ? path : parseSVGPath(path)
-    this._path = abs(this._path)
-    this._path = zvhToL(this._path)
-    this._path = longhand(this._path)
+  public static atBatch(path: string | Array<SVGDCommand>, pos: number[]) {
+    const normPath = normalizePath(path)
+    const walk = IndexedPointAtLength.prototype._walk as any
 
+    return walk.call({ _path: normPath }, pos, {
+      warm: false,
+      fromSubvertIndex: null,
+    })
+  }
+
+  constructor(path: string | Array<SVGDCommand>) {
+    this._path = normalizePath(path)
     const warm = this._walk(null, { warm: true })
     this._length = warm.length
   }
@@ -56,6 +68,13 @@ export class IndexedPointAtLength {
 
   public at(pos: number, opts: AtOption = {}) {
     return this.atWithDetail(pos, opts).pos
+  }
+
+  /**
+   * @param pos sorted array of position
+   */
+  public atBatch(pos: number[]) {
+    return this._walk(pos)
   }
 
   public atWithDetail(pos: number, opts: AtOption = {}) {
@@ -74,30 +93,43 @@ export class IndexedPointAtLength {
     return new SequencialPointAtLength(this)
   }
 
+  protected _walk(pos: number[]): AtResult[]
   protected _walk(
     pos: number | null,
+    opts?: { warm?: boolean; fromSubvertIndex?: number },
+  ): AtResult
+  protected _walk(
+    pos: number | number[] | null,
     {
       warm,
-      fromSubvertIndex = 0,
+      fromSubvertIndex,
     }: {
       warm?: boolean
       fromSubvertIndex?: number
     } = {},
-  ): {
-    length: number
-    pos: [number, number]
-    latestSubvertIdx: number
-  } {
+  ): AtResult | AtResult[] {
     const { _subvertIndex, _lengthAtSubvert } = this
+
+    const isBatch = Array.isArray(pos)
+    const requests: (number | null)[] = isBatch ? pos : [pos]
+    const results: AtResult[] = Array(requests?.length ?? 0).fill(null)
+    let currentReqIdx = 0
+    let currentTargetPos = isBatch ? requests[currentReqIdx] : pos
+
+    if (isBatch && fromSubvertIndex != null) {
+      throw new Error('fromSubvertIndex is not supported in batch mode')
+    }
 
     let cur: [x: number, y: number] = [0, 0]
     let prev: [x: number, y: number, len: number] = [0, 0, 0]
     let tmpFragStart: [x: number, y: number] = [0, 0]
     let len = 0
 
-    const startSubvertData = _subvertIndex[fromSubvertIndex]
+    const startSubvertData = fromSubvertIndex
+      ? _subvertIndex[fromSubvertIndex]
+      : null
     const fromSvgVertIndex = warm ? 0 : startSubvertData?.svgVertIdx ?? 0
-    let currentSubvertIdx = fromSubvertIndex
+    let currentSubvertIdx = fromSubvertIndex ?? 0
 
     // Restore the state before fragment pos calculation
     cur[0] = startSubvertData?.prev[0] ?? cur[0]
@@ -130,12 +162,17 @@ export class IndexedPointAtLength {
           })
         }
 
-        if (pos === 0) {
-          return {
+        if (currentTargetPos === 0) {
+          results[currentReqIdx] = {
             length: len,
-            pos: cur,
+            pos: [...cur],
             latestSubvertIdx: currentSubvertIdx,
           }
+          currentReqIdx += 1
+          currentTargetPos = requests[currentReqIdx]
+
+          if (isBatch && currentReqIdx > requests.length) return results
+          if (!isBatch) return results[currentReqIdx - 1]
         }
       } else if (p[0] === 'C') {
         prev[0] = tmpFragStart[0] = startSubvertData?.fragStartPos[0] ?? cur[0]
@@ -165,19 +202,25 @@ export class IndexedPointAtLength {
             })
           }
 
-          if (typeof pos === 'number' && len >= pos) {
-            var dv = (len - pos) / (len - prev[2])
+          if (typeof currentTargetPos === 'number' && len >= currentTargetPos) {
+            var dv = (len - currentTargetPos) / (len - prev[2])
 
             var npos: [number, number] = [
               cur[0] * (1 - dv) + prev[0] * dv,
               cur[1] * (1 - dv) + prev[1] * dv,
             ]
 
-            return {
+            // returning
+            results[currentReqIdx] = {
               length: len,
-              pos: npos,
+              pos: [npos[0], npos[1]],
               latestSubvertIdx: currentSubvertIdx,
             }
+            currentReqIdx += 1
+            currentTargetPos = requests[currentReqIdx]
+
+            if (isBatch && currentReqIdx > requests.length) return results
+            if (!isBatch) return results[currentReqIdx - 1]
           }
 
           prev[0] = cur[0]
@@ -211,18 +254,25 @@ export class IndexedPointAtLength {
             })
           }
 
-          if (typeof pos === 'number' && len >= pos) {
-            var dv = (len - pos) / (len - prev[2])
+          if (typeof currentTargetPos === 'number' && len >= currentTargetPos) {
+            var dv = (len - currentTargetPos) / (len - prev[2])
 
             var npos: [number, number] = [
               cur[0] * (1 - dv) + prev[0] * dv,
               cur[1] * (1 - dv) + prev[1] * dv,
             ]
-            return {
+
+            // returning
+            results[currentReqIdx] = {
               length: len,
-              pos: npos,
+              pos: [npos[0], npos[1]],
               latestSubvertIdx: currentSubvertIdx,
             }
+            currentReqIdx += 1
+            currentTargetPos = requests[currentReqIdx]
+
+            if (isBatch && currentReqIdx > requests.length) return results
+            if (!isBatch) return results[currentReqIdx - 1]
           }
 
           prev[0] = cur[0]
@@ -251,23 +301,37 @@ export class IndexedPointAtLength {
           })
         }
 
-        if (typeof pos === 'number' && len >= pos) {
-          var dv = (len - pos) / (len - prev[2])
+        if (typeof currentTargetPos === 'number' && len >= currentTargetPos) {
+          var dv = (len - currentTargetPos) / (len - prev[2])
           var npos: [number, number] = [
             cur[0] * (1 - dv) + prev[0] * dv,
             cur[1] * (1 - dv) + prev[1] * dv,
           ]
 
-          return {
+          // returning
+          results[currentReqIdx] = {
             length: len,
-            pos: npos,
+            pos: [npos[0], npos[1]],
             latestSubvertIdx: currentSubvertIdx,
           }
+          currentReqIdx += 1
+          currentTargetPos = requests[currentReqIdx]
+
+          if (isBatch && currentReqIdx > requests.length) return results
+          if (!isBatch) return results[currentReqIdx - 1]
         }
 
         prev[0] = cur[0]
         prev[1] = cur[1]
         prev[2] = len
+      }
+    }
+
+    if (isBatch) {
+      if (currentReqIdx === requests.length) return results
+      else {
+        results.fill(results[currentReqIdx - 1], currentReqIdx, requests.length)
+        return results
       }
     }
 
@@ -436,6 +500,15 @@ export class SequencialPointAtLength {
 
     return result
   }
+}
+
+function normalizePath(path: string | SVGDCommand[]) {
+  let norm = Array.isArray(path) ? path : parseSVGPath(path)
+  norm = abs(norm)
+  norm = zvhToL(norm)
+  norm = longhand(norm)
+
+  return norm
 }
 
 // SEE: https://stackoverflow.com/questions/60343999/binary-search-in-typescript-vs-indexof-how-to-get-performance-properly

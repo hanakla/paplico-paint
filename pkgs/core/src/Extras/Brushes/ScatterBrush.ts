@@ -129,7 +129,7 @@ export class ScatterBrush implements IBrush {
         // })
 
         // this.textures[name] = await createImageBitmap(data)
-      })
+      }),
     )
   }
 
@@ -165,21 +165,6 @@ export class ScatterBrush implements IBrush {
       let res
       try {
         res = await new Promise<GetPointWorkerResponse>((r, reject) => {
-          abort.addEventListener(
-            'abort',
-            () => {
-              console.log('received abort')
-
-              this.worker!.postMessage({
-                type: 'aborted',
-                id,
-              } as const satisfies Payload)
-
-              this.worker!.removeEventListener('message', receiver)
-            },
-            { once: true }
-          )
-
           const receiver = (e: MessageEvent<WorkerResponse>) => {
             if (e.data.type === 'aborted' && e.data.id === id) {
               reject(new PaplicoAbortError())
@@ -191,6 +176,14 @@ export class ScatterBrush implements IBrush {
             this.worker!.removeEventListener('message', receiver)
           }
 
+          const onAbort = () => {
+            this.worker!.postMessage({
+              type: 'aborted',
+              id,
+            } as const satisfies Payload)
+          }
+
+          abort.addEventListener('abort', onAbort, { once: true })
           this.worker!.addEventListener('message', receiver)
 
           this.worker!.postMessage({
@@ -238,8 +231,8 @@ export class ScatterBrush implements IBrush {
               totalLength: res.totalLength,
               baseColor,
             }),
-            _color
-          )
+            _color,
+          ),
         )
       }
 
@@ -271,7 +264,7 @@ export class ScatterBrush implements IBrush {
   }
 
   public async render(
-    ctx: BrushContext<ScatterBrush.SpecificSetting>
+    ctx: BrushContext<ScatterBrush.SpecificSetting>,
   ): Promise<BrushLayoutData> {
     return this.renderWithWorker(ctx)
     // const interX = interpolateMapObject(points, (idx, arr) => arr[idx].x)

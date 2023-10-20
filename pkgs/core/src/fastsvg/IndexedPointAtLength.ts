@@ -127,14 +127,16 @@ export class IndexedPointAtLength {
     }
 
     // Restore the state before fragment pos calculation
-    const subdivIndexData = fromSubvertIndex
+    const indexedSubdivBeginState = fromSubvertIndex
       ? _subvertIndex[fromSubvertIndex]
       : null
-    const beginSvgVertIndex = warm ? 0 : subdivIndexData?.svgVertIdx ?? 0
+    const beginSvgVertIndex = warm
+      ? 0
+      : indexedSubdivBeginState?.svgVertIdx ?? 0
     let currentSubvertIdx = fromSubvertIndex ?? 0
 
-    Object.assign(cursor, subdivIndexData?.prev ?? cursor)
-    Object.assign(recentTailPos, subdivIndexData?.prev ?? recentTailPos)
+    Object.assign(cursor, indexedSubdivBeginState?.prev ?? cursor)
+    Object.assign(recentTailPos, indexedSubdivBeginState?.prev ?? recentTailPos)
 
     for (
       let svgVertIdx = beginSvgVertIndex;
@@ -145,8 +147,8 @@ export class IndexedPointAtLength {
 
       if (currentCommand[0] === 'M') {
         const recent = {
-          x: subdivIndexData?.fragStartPos.x ?? cursor.x,
-          y: subdivIndexData?.fragStartPos.y ?? cursor.y,
+          x: indexedSubdivBeginState?.fragStartPos.x ?? cursor.x,
+          y: indexedSubdivBeginState?.fragStartPos.y ?? cursor.y,
           len: cursor.len
         }
 
@@ -185,8 +187,8 @@ export class IndexedPointAtLength {
         }
       } else if (currentCommand[0] === 'C') {
         const vertHeadPos = {
-          x: subdivIndexData?.fragStartPos.x ?? recentTailPos.x,
-          y: subdivIndexData?.fragStartPos.y ?? recentTailPos.y
+          x: indexedSubdivBeginState?.fragStartPos.x ?? recentTailPos.x,
+          y: indexedSubdivBeginState?.fragStartPos.y ?? recentTailPos.y
         }
 
         const recent = {
@@ -195,7 +197,7 @@ export class IndexedPointAtLength {
           len: recentTailPos.len
         }
 
-        for (var j = subdivIndexData?.div ?? 0; j <= SUBDIVIDES; j++) {
+        for (var j = indexedSubdivBeginState?.div ?? 0; j <= SUBDIVIDES; j++) {
           var t = j / SUBDIVIDES
           var x = xof_C(vertHeadPos.x, currentCommand, t)
           var y = yof_C(vertHeadPos.y, currentCommand, t)
@@ -251,8 +253,8 @@ export class IndexedPointAtLength {
         }
       } else if (currentCommand[0] === 'Q') {
         const vertHeadPos = {
-          x: subdivIndexData?.fragStartPos.x ?? recentTailPos.x,
-          y: subdivIndexData?.fragStartPos.y ?? recentTailPos.y
+          x: indexedSubdivBeginState?.fragStartPos.x ?? recentTailPos.x,
+          y: indexedSubdivBeginState?.fragStartPos.y ?? recentTailPos.y
         }
 
         const recent = {
@@ -261,7 +263,7 @@ export class IndexedPointAtLength {
           len: cursor.len
         }
 
-        for (var j = subdivIndexData?.div ?? 0; j <= SUBDIVIDES; j++) {
+        for (var j = indexedSubdivBeginState?.div ?? 0; j <= SUBDIVIDES; j++) {
           const t = j / SUBDIVIDES
           const x = xof_Q(vertHeadPos.x, currentCommand, t)
           const y = yof_Q(vertHeadPos.y, currentCommand, t)
@@ -315,8 +317,8 @@ export class IndexedPointAtLength {
         }
       } else if (currentCommand[0] === 'L') {
         const vertHeadPos = {
-          x: subdivIndexData?.fragStartPos.x ?? recentTailPos.x,
-          y: subdivIndexData?.fragStartPos.y ?? recentTailPos.y
+          x: indexedSubdivBeginState?.fragStartPos.x ?? recentTailPos.x,
+          y: indexedSubdivBeginState?.fragStartPos.y ?? recentTailPos.y
         }
 
         const recent = {
@@ -325,7 +327,7 @@ export class IndexedPointAtLength {
           len: recentTailPos.len
         }
 
-        for (var j = subdivIndexData?.div ?? 0; j <= SUBDIVIDES; j++) {
+        for (var j = indexedSubdivBeginState?.div ?? 0; j <= SUBDIVIDES; j++) {
           var t = j / SUBDIVIDES
           var x = xof_L(vertHeadPos.x, currentCommand, t)
           var y = yof_L(vertHeadPos.y, currentCommand, t)

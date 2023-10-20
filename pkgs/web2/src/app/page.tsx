@@ -2,9 +2,10 @@
 
 import {
   Document,
+  Brushes,
   ExtraBrushes,
   Paplico,
-  StandardBrushes
+  Inks
 } from '@paplico/core-new'
 import { useRef } from 'react'
 import { useEffectOnce } from 'react-use'
@@ -16,41 +17,79 @@ export default function Index() {
   const canvasRef = useRef<HTMLCanvasElement>(null)
 
   useEffectOnce(() => {
-    const pap = (window.pap = new Paplico(canvasRef.current!))
-    pap.brushes.register(ExtraBrushes.ScatterBrush)
-    pap.uiCanvas.on('strokeComplete', stroke => {
-      console.log(stroke)
-    })
+    ;(async () => {
+      const pap = (window.pap = new Paplico(canvasRef.current!))
+      await pap.brushes.register(ExtraBrushes.ScatterBrush)
 
-    const doc = Document.createDocument({ width: 1000, height: 1000 })
-    const vector = Document.createRasterLayerEntity({
-      width: 1000,
-      height: 1000
-    })
+      pap.uiCanvas.on('strokeComplete', (stroke) => {
+        console.log(stroke)
+      })
 
-    doc.layerEntities.push(vector)
-    doc.layerTree.push({ layerUid: vector.uid, children: [] })
+      const doc = Document.createDocument({ width: 1000, height: 1000 })
+      // const vector = Document.createRasterLayerEntity({
+      //   width: 1000,
+      //   height: 1000,
+      // })
 
-    pap.loadDocument(doc)
+      const vector = Document.createVectorLayerEntity({})
+      vector.objects.push(
+        Document.createVectorObject({
+          path: Document.createVectorPath({
+            points: [
+              { x: 0, y: 0, begin: null, end: null },
+              { x: 1000, y: 1000, begin: null, end: null }
+            ]
+          }),
+          appearances: [
+            {
+              kind: 'stroke',
+              stroke: {
+                brushId: ExtraBrushes.ScatterBrush.id,
+                brushVersion: '0.0.1',
+                color: { r: 0, g: 0, b: 0 },
+                opacity: 1,
+                size: 30,
+                specific: {
+                  texture: 'pencil',
+                  noiseInfluence: 1,
+                  inOutInfluence: 0,
+                  inOutLength: 0
+                } satisfies ExtraBrushes.ScatterBrush.SpecificSetting
+              },
+              ink: {
+                inkId: Inks.RainbowInk.id,
+                inkVersion: Inks.RainbowInk.version,
+                specific: {} satisfies Inks.RainbowInk.SpecificSetting
+              }
+            }
+          ]
+        })
+      )
 
-    pap.enterLayer([vector.uid])
+      doc.layerEntities.push(vector)
+      doc.layerTree.push({ layerUid: vector.uid, children: [] })
 
-    // pap.strok
-    pap.strokeSetting = {
-      brushId: ExtraBrushes.ScatterBrush.id,
-      brushVersion: '0.0.1',
-      color: { r: 0, g: 0, b: 0 },
-      opacity: 1,
-      size: 10,
-      specific: {
-        texture: 'pencil',
-        noiseInfluence: 1,
-        inOutInfluence: 0,
-        inOutLength:0,
-      } satisfies ExtraBrushes.ScatterBrush.SpecificSetting
-    }
+      pap.loadDocument(doc)
+      pap.enterLayer([vector.uid])
+      pap.rerender()
 
-    console.log(pap)
+      // pap.strok
+      pap.strokeSetting = {
+        brushId: ExtraBrushes.ScatterBrush.id,
+        brushVersion: '0.0.1',
+        color: { r: 0, g: 0, b: 0 },
+        opacity: 1,
+        size: 30,
+        specific: {
+          texture: 'pencil',
+          noiseInfluence: 1,
+          inOutInfluence: 0,
+          inOutLength: 0
+        } satisfies ExtraBrushes.ScatterBrush.SpecificSetting
+      }
+
+      console.log(pap)
+    })()
   })
 
   return (
@@ -58,7 +97,7 @@ export default function Index() {
       css={css`
         width: 100%;
         height: 100%;
-        ${theming(o => [o.bg.surface3])}
+        ${theming((o) => [o.bg.surface3])}
       `}
     >
       <canvas

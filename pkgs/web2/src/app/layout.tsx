@@ -1,13 +1,16 @@
 'use client'
 
 import { ThemeProvider, createGlobalStyle } from 'styled-components'
+import { ServerStyleSheet, StyleSheetManager } from 'styled-components'
 import { light, dark } from '@charcoal-ui/theme'
 import {
   TokenInjector,
   prefersColorScheme,
-  themeSelector
+  themeSelector,
 } from '@charcoal-ui/styled'
 import reset from 'styled-reset'
+import React, { useState } from 'react'
+import { useServerInsertedHTML } from 'next/navigation'
 
 // export const metadata = {
 //   title: 'Next.js',
@@ -15,7 +18,7 @@ import reset from 'styled-reset'
 // }
 
 export default function RootLayout({
-  children
+  children,
 }: {
   children: React.ReactNode
 }) {
@@ -24,18 +27,20 @@ export default function RootLayout({
       <GlobalStyle />
 
       <body>
-        <ThemeProvider theme={light}>
-          <TokenInjector
-            theme={{
-              ':root': light,
-              [themeSelector('light')]: light,
-              [themeSelector('dark')]: dark,
-              [prefersColorScheme('dark')]: dark
-            }}
-            background="background1"
-          />
-          {children}
-        </ThemeProvider>
+        <StyledComponentsRegistry>
+          <ThemeProvider theme={light}>
+            <TokenInjector
+              theme={{
+                ':root': light,
+                [themeSelector('light')]: light,
+                [themeSelector('dark')]: dark,
+                [prefersColorScheme('dark')]: dark,
+              }}
+              background="background1"
+            />
+            {children}
+          </ThemeProvider>
+        </StyledComponentsRegistry>
       </body>
     </html>
   )
@@ -51,3 +56,23 @@ const GlobalStyle = createGlobalStyle`
     padding: 0;
   }
 `
+
+function StyledComponentsRegistry({ children }: { children: React.ReactNode }) {
+  // Only create stylesheet once with lazy initial state
+  // x-ref: https://reactjs.org/docs/hooks-reference.html#lazy-initial-state
+  const [styledComponentsStyleSheet] = useState(() => new ServerStyleSheet())
+
+  useServerInsertedHTML(() => {
+    const styles = styledComponentsStyleSheet.getStyleElement()
+    styledComponentsStyleSheet.instance.clearTag()
+    return <>{styles}</>
+  })
+
+  if (typeof window !== 'undefined') return <>{children}</>
+
+  return (
+    <StyleSheetManager sheet={styledComponentsStyleSheet.instance}>
+      {children}
+    </StyleSheetManager>
+  )
+}

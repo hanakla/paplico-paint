@@ -1,5 +1,8 @@
 /*
-This is fork of https://github.com/substack/point-at-length
+This is fork of below code
+  https://github.com/substack/point-at-length
+  https://unpkg.com/point-at-length@1.1.0/index.js
+
 For faster point-at-length searching
 */
 
@@ -27,6 +30,7 @@ type AtResult = Readonly<{
   length: number
   pos: readonly [number, number]
   latestSubvertIdx: number
+  _filled?: boolean
 }>
 
 export const indexedPointAtLength = (path: string | Array<SVGDCommand>) => {
@@ -48,7 +52,7 @@ export class IndexedPointAtLength {
 
     return walk.call({ _path: normPath }, pos, {
       warm: false,
-      fromSubvertIndex: null,
+      fromSubvertIndex: null
     })
   }
 
@@ -63,7 +67,14 @@ export class IndexedPointAtLength {
   }
 
   public lengthOfVertex(vertIdx: number) {
-    return this._subvertIndex.find((lenData) => lenData.svgVertIdx === vertIdx)
+    const idx = this._subvertIndex.findIndex(
+      (lenData) => lenData.svgVertIdx === vertIdx
+    )
+    if (idx === -1) {
+      throw new Error(`Vertex index out of bound: ${vertIdx}`)
+    }
+
+    return this._lengthAtSubvert[idx]
   }
 
   public at(pos: number, opts: AtOption = {}) {
@@ -85,7 +96,7 @@ export class IndexedPointAtLength {
     }
 
     return this._walk(pos, {
-      fromSubvertIndex: opts.fromSubvertIndex ?? nearPrevIdx,
+      fromSubvertIndex: opts.fromSubvertIndex ?? nearPrevIdx
     })
   }
 
@@ -96,17 +107,17 @@ export class IndexedPointAtLength {
   protected _walk(pos: number[]): AtResult[]
   protected _walk(
     pos: number | null,
-    opts?: { warm?: boolean; fromSubvertIndex?: number },
+    opts?: { warm?: boolean; fromSubvertIndex?: number }
   ): AtResult
   protected _walk(
     pos: number | number[] | null,
     {
       warm,
-      fromSubvertIndex,
+      fromSubvertIndex
     }: {
       warm?: boolean
       fromSubvertIndex?: number
-    } = {},
+    } = {}
   ): AtResult | AtResult[] {
     const { _subvertIndex, _lengthAtSubvert } = this
 
@@ -145,8 +156,8 @@ export class IndexedPointAtLength {
       var p = this._path[svgVertIdx]
 
       if (p[0] === 'M') {
-        cur[0] = p[1]
-        cur[1] = p[2]
+        cur[0] = tmpFragStart[0] = p[1]
+        cur[1] = tmpFragStart[1] = p[2]
 
         currentSubvertIdx++
         if (warm) {
@@ -158,7 +169,7 @@ export class IndexedPointAtLength {
             div: null,
             svgVertIdx,
             prev: [...prev],
-            fragStartPos: [...tmpFragStart],
+            fragStartPos: [...tmpFragStart]
           })
         }
 
@@ -166,7 +177,7 @@ export class IndexedPointAtLength {
           results[currentReqIdx] = {
             length: len,
             pos: [...cur],
-            latestSubvertIdx: currentSubvertIdx,
+            latestSubvertIdx: currentSubvertIdx
           }
           currentReqIdx += 1
           currentTargetPos = requests[currentReqIdx]
@@ -183,7 +194,7 @@ export class IndexedPointAtLength {
           var t = j / SUBDIVIDES
           var x = xof_C(p, t, tmpFragStart[0])
           var y = yof_C(p, t, tmpFragStart[1])
-          len += dist(cur[0], cur[1], x, y)
+          len += distance(cur[0], cur[1], x, y)
 
           cur[0] = x
           cur[1] = y
@@ -198,24 +209,26 @@ export class IndexedPointAtLength {
               div: j,
               svgVertIdx,
               prev: [...prev],
-              fragStartPos: [...tmpFragStart],
+              fragStartPos: [...tmpFragStart]
             })
           }
 
           if (typeof currentTargetPos === 'number' && len >= currentTargetPos) {
             var dv = (len - currentTargetPos) / (len - prev[2])
+            dv = Number.isNaN(dv) || !Number.isFinite(dv) ? 0 : dv
 
             var npos: [number, number] = [
               cur[0] * (1 - dv) + prev[0] * dv,
-              cur[1] * (1 - dv) + prev[1] * dv,
+              cur[1] * (1 - dv) + prev[1] * dv
             ]
 
             // returning
             results[currentReqIdx] = {
               length: len,
               pos: [npos[0], npos[1]],
-              latestSubvertIdx: currentSubvertIdx,
+              latestSubvertIdx: currentSubvertIdx
             }
+
             currentReqIdx += 1
             currentTargetPos = requests[currentReqIdx]
 
@@ -236,7 +249,7 @@ export class IndexedPointAtLength {
           var t = j / SUBDIVIDES
           var x = xof_Q(p, t, tmpFragStart[0])
           var y = yof_Q(p, t, tmpFragStart[1])
-          len += dist(cur[0], cur[1], x, y)
+          len += distance(cur[0], cur[1], x, y)
 
           cur[0] = x
           cur[1] = y
@@ -250,23 +263,24 @@ export class IndexedPointAtLength {
               div: j,
               svgVertIdx: svgVertIdx,
               prev: [...prev],
-              fragStartPos: [...tmpFragStart],
+              fragStartPos: [...tmpFragStart]
             })
           }
 
           if (typeof currentTargetPos === 'number' && len >= currentTargetPos) {
             var dv = (len - currentTargetPos) / (len - prev[2])
+            dv = Number.isNaN(dv) || !Number.isFinite(dv) ? 0 : dv
 
             var npos: [number, number] = [
               cur[0] * (1 - dv) + prev[0] * dv,
-              cur[1] * (1 - dv) + prev[1] * dv,
+              cur[1] * (1 - dv) + prev[1] * dv
             ]
 
             // returning
             results[currentReqIdx] = {
               length: len,
               pos: [npos[0], npos[1]],
-              latestSubvertIdx: currentSubvertIdx,
+              latestSubvertIdx: currentSubvertIdx
             }
             currentReqIdx += 1
             currentTargetPos = requests[currentReqIdx]
@@ -280,13 +294,9 @@ export class IndexedPointAtLength {
           prev[2] = len
         }
       } else if (p[0] === 'L') {
-        prev[0] = cur[0]
-        prev[1] = cur[1]
+        prev[0] = tmpFragStart[0] = startSubvertData?.fragStartPos[0] ?? cur[0]
+        prev[1] = tmpFragStart[1] = startSubvertData?.fragStartPos[1] ?? cur[1]
         prev[2] = len
-
-        len += dist(cur[0], cur[1], p[1], p[2])
-        cur[0] = p[1]
-        cur[1] = p[2]
 
         currentSubvertIdx++
         if (warm) {
@@ -297,40 +307,66 @@ export class IndexedPointAtLength {
             div: null,
             svgVertIdx: svgVertIdx,
             prev: [...prev],
-            fragStartPos: [...tmpFragStart],
+            fragStartPos: [...tmpFragStart]
           })
         }
 
-        if (typeof currentTargetPos === 'number' && len >= currentTargetPos) {
-          var dv = (len - currentTargetPos) / (len - prev[2])
-          var npos: [number, number] = [
-            cur[0] * (1 - dv) + prev[0] * dv,
-            cur[1] * (1 - dv) + prev[1] * dv,
-          ]
+        for (var j = startSubvertData?.div ?? 0; j <= SUBDIVIDES; j++) {
+          var t = j / SUBDIVIDES
+          var x = xof_L(p, t, tmpFragStart[0])
+          var y = yof_L(p, t, tmpFragStart[1])
+          len += distance(cur[0], cur[1], x, y)
 
-          // returning
-          results[currentReqIdx] = {
-            length: len,
-            pos: [npos[0], npos[1]],
-            latestSubvertIdx: currentSubvertIdx,
+          cur[0] = x
+          cur[1] = y
+
+          currentSubvertIdx++
+
+          if (warm) {
+            _lengthAtSubvert.push(len)
+            _subvertIndex.push({
+              pos: [...cur],
+
+              div: j,
+              svgVertIdx,
+              prev: [...prev],
+              fragStartPos: [...tmpFragStart]
+            })
           }
-          currentReqIdx += 1
-          currentTargetPos = requests[currentReqIdx]
 
-          if (isBatch && currentReqIdx > requests.length) return results
-          if (!isBatch) return results[currentReqIdx - 1]
+          if (typeof currentTargetPos === 'number' && len >= currentTargetPos) {
+            var dv = (len - currentTargetPos) / (len - prev[2])
+            dv = Number.isNaN(dv) || !Number.isFinite(dv) ? 0 : dv
+
+            var npos: [number, number] = [
+              cur[0] * (1 - dv) + prev[0] * dv,
+              cur[1] * (1 - dv) + prev[1] * dv
+            ]
+
+            // returning
+            results[currentReqIdx] = {
+              length: len,
+              pos: [npos[0], npos[1]],
+              latestSubvertIdx: currentSubvertIdx
+            }
+            currentReqIdx += 1
+            currentTargetPos = requests[currentReqIdx]
+
+            if (isBatch && currentReqIdx > requests.length) return results
+            if (!isBatch) return results[currentReqIdx - 1]
+          }
+
+          prev[0] = cur[0]
+          prev[1] = cur[1]
+          prev[2] = len
         }
-
-        prev[0] = cur[0]
-        prev[1] = cur[1]
-        prev[2] = len
       }
     }
 
     if (isBatch) {
       if (currentReqIdx === requests.length) return results
       else {
-        results.fill(results[currentReqIdx - 1], currentReqIdx, requests.length)
+        // results.fill(results[currentReqIdx - 1], currentReqIdx, requests.length)
         return results
       }
     }
@@ -338,7 +374,7 @@ export class IndexedPointAtLength {
     return {
       length: len,
       pos: cur,
-      latestSubvertIdx: currentSubvertIdx,
+      latestSubvertIdx: currentSubvertIdx
     }
 
     function xof_C(p: SVGDCommand, t: number, startX: number) {
@@ -358,7 +394,7 @@ export class IndexedPointAtLength {
         /* _pow ** 3 */
         // prettier-ignore
         (_ * _ * _) * startY +
-        3 * (_ * _)  * t * p[2] +
+        3 * (_ * _) * t * p[2] +
         3 * _ * (t * t) * p[4] +
         (t * t * t) * p[6]
       )
@@ -384,7 +420,15 @@ export class IndexedPointAtLength {
       )
     }
 
-    function dist(ax: number, ay: number, bx: number, by: number) {
+    function xof_L(p: SVGDCommand, t: number, startX: number) {
+      return startX + t * (p[1] - startX)
+    }
+
+    function yof_L(p: SVGDCommand, t: number, startY: number) {
+      return startY + t * (p[2] - startY)
+    }
+
+    function distance(ax: number, ay: number, bx: number, by: number) {
       var x = ax - bx
       var y = ay - by
 
@@ -408,7 +452,7 @@ function longhand(path: SVGDCommand[]) {
 
   const conversion: Record<string, { to: string; x: number } | undefined> = {
     S: { to: 'C', x: 3 },
-    T: { to: 'Q', x: 1 },
+    T: { to: 'Q', x: 1 }
   }
 
   for (var i = 0, len = path.length; i < len; i++) {
@@ -485,12 +529,12 @@ export class SequencialPointAtLength {
   public atWithDetail(len: number, { seek = true }: { seek?: boolean } = {}) {
     if (len < this.prevLen) {
       throw new Error(
-        'PointAtLength.sequencialReader.at: len must be larger than length of previous call',
+        'PointAtLength.sequencialReader.at: len must be larger than length of previous call'
       )
     }
 
     const result = this.pal.atWithDetail(len, {
-      fromSubvertIndex: this.nextHint?.latestSubvertIdx,
+      fromSubvertIndex: this.nextHint?.latestSubvertIdx
     })
 
     if (seek) {

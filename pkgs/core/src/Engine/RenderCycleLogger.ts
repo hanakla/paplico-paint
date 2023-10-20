@@ -8,7 +8,7 @@ type LogKind =
   | 'groupEnd'
 
 export class RenderCycleLogger {
-  public static enabled = true
+  public static enabled = false
 
   public static current = new RenderCycleLogger()
 
@@ -69,7 +69,7 @@ export class RenderCycleLogger {
       this.currentStack.push([
         'log',
         `Time: ${label}`,
-        `${performance.now() - start}ms`
+        `${performance.now() - start}ms`,
       ])
     }
   }

@@ -4,7 +4,7 @@ import { VectorPath, VectorPathPoint } from '@/Document/LayerEntity/VectorPath'
 import {
   IndexedPointAtLength,
   indexedPointAtLength,
-  SequencialPointAtLength,
+  SequencialPointAtLength
 } from './fastsvg/IndexedPointAtLength'
 import { pointsToSVGCommandArray, pointsToSVGPath } from './Engine/VectorUtils'
 import { ColorRGB, createVectorPath } from './Document'
@@ -21,7 +21,7 @@ export {
   interpolateMapObject,
   indexedPointAtLength,
   type IndexedPointAtLength,
-  pointsToSVGCommandArray,
+  pointsToSVGCommandArray
 }
 
 export const rgbToHexColor = (color: ColorRGB) => {
@@ -59,7 +59,9 @@ export const getRadianFromTangent = (
   vector.x /= magnitude
   vector.y /= magnitude
 
-  return Math.atan2(vector.x, vector.y)
+  const result = Math.atan2(vector.x, vector.y)
+
+  return Number.isNaN(result) ? 0 : result
 }
 
 type ScatteredPoint = VectorPathPoint & {
@@ -76,7 +78,7 @@ export const scatterPlot = (
     scatterRange,
     scatterScale = 0,
     useTangent = false,
-    divisions,
+    divisions
   }: {
     counts: number
     scatterRange: number
@@ -90,8 +92,7 @@ export const scatterPlot = (
 
   var end = stat.time('seqPal build')
   const seqPal = indexedPointAtLength(
-    pointsToSVGCommandArray(path.points, path.closed),
-    divisions
+    pointsToSVGCommandArray(path.points, path.closed)
   ).getSequencialReader()
   end()
 
@@ -130,19 +131,19 @@ export const scatterPlot = (
 
     var plotEnd = stat.time('plot')
     points.push({
-      in: null,
-      out: null,
+      end: null,
+      begin: null,
       x: x,
       y: y,
       deltaTime: getDeltaAt(frac),
       pressure: getPressureAt(frac),
       tilt: {
         x: getTiltXAt(frac),
-        y: getTiltYAt(frac),
+        y: getTiltYAt(frac)
       },
       rotate: degToRad(rotationRandom.nextFloat() * 360),
       scale:
-        1 + lerp(-scatterScale / 2, scatterScale / 2, scaleRandom.nextFloat()),
+        1 + lerp(-scatterScale / 2, scatterScale / 2, scaleRandom.nextFloat())
     })
     plotEnd()
   }
@@ -182,9 +183,9 @@ if (import.meta.vitest) {
           closed: false,
           randomSeed: 0,
           points: [
-            { x: 0, y: 0, in: null, out: null, pressure: 1 },
-            { x: 10, y: 10, in: null, out: null, pressure: 0 },
-          ],
+            { x: 0, y: 0, end: null, begin: null, pressure: 1 },
+            { x: 10, y: 10, end: null, begin: null, pressure: 0 }
+          ]
         }),
         { counts: 10, scatterRange: 0, scatterScale: 0, divisions: 50 }
       )
@@ -203,8 +204,8 @@ if (import.meta.vitest) {
           y: i,
           in: null,
           out: null,
-          pressure: 1,
-        })),
+          pressure: 1
+        }))
       })
 
       console.time('scatterPlot once')
@@ -212,7 +213,7 @@ if (import.meta.vitest) {
         counts: POINTS,
         scatterRange: 0,
         scatterScale: 0,
-        divisions: 50,
+        divisions: 50
       })
       console.timeEnd('scatterPlot once')
 

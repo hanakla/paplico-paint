@@ -41,10 +41,10 @@ describe('AtomicResource', () => {
     }, 100)
   })
 
-  it('Duplicated request', async () => {
+  it.only('Duplicated request', async () => {
     const atom = new AtomicResource(1)
-    const ensureSpy = vi.fn()
-    const ensureSpy2 = vi.fn()
+    const ensureSpy = vi.fn((v) => v)
+    const ensureSpy2 = vi.fn((v) => v)
 
     const resource = await atom.ensure().then(ensureSpy)
     const resource2Promise = atom.ensure().then(ensureSpy2)

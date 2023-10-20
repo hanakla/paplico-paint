@@ -15,11 +15,8 @@ export class Matrix4 {
   public translate(...vector: Vector3Tuple): this {
     const out = this.matrix,
       a = this.matrix.slice(),
-      v = vector
+      [x, y, z] = vector
 
-    let x = v[0],
-      y = v[1],
-      z = v[2]
     let a00, a01, a02, a03
     let a10, a11, a12, a13
     let a20, a21, a22, a23

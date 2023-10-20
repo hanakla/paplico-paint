@@ -25,13 +25,19 @@ export namespace PaplicoDocument {
 
 export class PaplicoDocument {
   public static deserialize(data: PaplicoDocument.SerializedSchema) {
-    return assign(new PaplicoDocument(), {
-      uid: data.uid,
-      meta: data.meta,
-      layerEntities: data.layersEntities,
-      layerTree: data.layerTree,
-      blobs: data.blobs,
-    })
+    return assign(
+      new PaplicoDocument({
+        width: data.meta.mainArtboard.width,
+        height: data.meta.mainArtboard.height
+      }),
+      {
+        uid: data.uid,
+        meta: data.meta,
+        layerEntities: data.layersEntities,
+        layerTree: data.layerTree,
+        blobs: data.blobs
+      }
+    )
   }
 
   public uid: string = ulid()
@@ -40,8 +46,8 @@ export class PaplicoDocument {
     title: '',
     mainArtboard: {
       width: 100,
-      height: 100,
-    },
+      height: 100
+    }
   }
 
   public layerEntities: LayerEntity[] = []
@@ -50,6 +56,32 @@ export class PaplicoDocument {
 
   public constructor({ width, height }: { width: number; height: number }) {
     this.meta.mainArtboard = { width, height }
+  }
+
+  public addLayer(
+    layer: LayerEntity,
+    [...nodePosition]: readonly number[] = [-1]
+  ) {
+    this.layerEntities.push(layer)
+
+    let parent: LayerNode[] = this.layerTree
+    let placePosition = nodePosition.pop()
+
+    if (placePosition == null) {
+      throw new Error(
+        `Document.addLayer: layer inserstion position (last element of nodePosition) is not specified`
+      )
+    }
+
+    for (const pos of nodePosition) {
+      parent = parent[pos].children
+    }
+
+    if (placePosition === -1) {
+      parent.push({ layerUid: layer.uid, children: [] })
+    } else {
+      parent.splice(placePosition, 0, { layerUid: layer.uid, children: [] })
+    }
   }
 
   public resolveLayerEntity(layerId: string) {
@@ -62,7 +94,7 @@ export class PaplicoDocument {
       meta: this.meta,
       layersEntities: this.layerEntities,
       layerTree: this.layerTree,
-      blobs: this.blobs,
+      blobs: this.blobs
     })
   }
 }

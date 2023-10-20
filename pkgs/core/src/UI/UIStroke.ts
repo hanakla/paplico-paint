@@ -43,10 +43,10 @@ export class UIStroke {
         in: null,
         out: null,
         pressure: p.pressure,
-        tilt: p.tilt,
+        tilt: p.tilt
       })),
       randomSeed: this.randomSeed,
-      closed: false,
+      closed: false
     }
   }
 
@@ -57,51 +57,51 @@ export class UIStroke {
    *  SEE: https://luncheon.github.io/simplify-svg-path/index.html
    */
   public toSimplefiedPath({
-    tolerance = 5,
+    tolerance = 5
   }: { tolerance?: number } = {}): VectorPath {
     const simplified = simplifySvgPath(
       this.points.map((p) => [p.x, p.y] as const),
       { closed: false, precision: 5, tolerance }
     )
 
-    const absoluted = abs(simplified)
-    const pal = indexedPointAtLength(simplified)
+    const absolutedPath = abs(simplified)
+    const simplifiedPal = indexedPointAtLength(simplified)
 
     const deltaMap = interpolateMap(this.points.map((p) => p.deltaTimeMs))
     const pressureMap = interpolateMap(this.points.map((p) => p.pressure))
     const tiltXMap = interpolateMap(this.points.map((p) => p.tilt?.x ?? 0))
     const tiltYMap = interpolateMap(this.points.map((p) => p.tilt?.y ?? 0))
 
-    const points = absoluted.map(([cmd, ...args], idx): VectorPathPoint => {
-      const next = absoluted[idx + 1]
-      const frac = pal.lengthOfVertex(idx)!.len / pal.totalLength
+    const points = absolutedPath.map(([cmd, ...args], idx): VectorPathPoint => {
+      const next = absolutedPath[idx + 1]
+      const frac = simplifiedPal.lengthOfVertex(idx) / simplifiedPal.totalLength
 
       switch (cmd) {
         case 'M':
           return {
             x: args[0],
             y: args[1],
-            in: null,
-            out: next ? { x: next[1], y: next[2] } : null,
+            begin: null,
+            end: next ? { x: next[1], y: next[2] } : null,
             pressure: pressureMap(frac),
             deltaTime: deltaMap(frac),
             tilt: {
               x: tiltXMap(frac),
-              y: tiltYMap(frac),
-            },
+              y: tiltYMap(frac)
+            }
           }
         case 'C':
           return {
             x: args[4],
             y: args[5],
-            in: { x: args[2], y: args[3] },
-            out: next ? { x: next[1], y: next[2] } : null,
+            end: { x: args[2], y: args[3] },
+            begin: next ? { x: next[1], y: next[2] } : null,
             pressure: pressureMap(frac),
             deltaTime: deltaMap(frac),
             tilt: {
               x: tiltXMap(frac),
-              y: tiltYMap(frac),
-            },
+              y: tiltYMap(frac)
+            }
           }
         default: {
           throw new Error(`Unknown command: ${cmd}`)
@@ -112,7 +112,7 @@ export class UIStroke {
     return {
       points,
       randomSeed: this.randomSeed,
-      closed: false,
+      closed: false
     }
   }
 }

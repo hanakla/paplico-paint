@@ -1,5 +1,9 @@
 import { createSeededRandom, hsvToRgb, rgbToHsv } from '@/Math'
-import { IInk, InkGenerator } from '../Ink'
+import { IInk, InkGenerator } from '../Engine/Ink'
+
+export declare namespace RainbowInk {
+  type SpecificSetting = {}
+}
 
 export class RainbowInk implements IInk {
   public static id = '@paplico/core/ink/rainbow'
@@ -24,7 +28,7 @@ export class RainbowInk implements IInk {
         const [r, g, b] = hsvToRgb(newH, s, v)
 
         return { r, g, b, a: baseColor.a }
-      },
+      }
     }
   }
 }

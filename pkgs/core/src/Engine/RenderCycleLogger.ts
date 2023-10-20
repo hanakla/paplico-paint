@@ -8,7 +8,7 @@ type LogKind =
   | 'groupEnd'
 
 export class RenderCycleLogger {
-  public static enabled = false
+  public static enabled = true
 
   public static current = new RenderCycleLogger()
 

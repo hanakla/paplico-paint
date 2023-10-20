@@ -18,8 +18,10 @@ import {
   calcVectorBoundingBox,
   mapPoints,
   multiplyPoint2D,
-  vectorTransformToMatrix,
+  vectorTransformToMatrix
 } from './VectorUtils'
+
+export type RenderPhase = 'stroking' | 'final'
 
 export class Renderer {
   protected atomicThreeRenderer: AtomicResource<WebGLRenderer>
@@ -39,7 +41,7 @@ export class Renderer {
       premultipliedAlpha: true,
       antialias: false,
       preserveDrawingBuffer: true,
-      canvas: createCanvas() as HTMLCanvasElement,
+      canvas: createCanvas() as HTMLCanvasElement
     })
     renderer.setClearColor(0xffffff, 0)
     this.atomicThreeRenderer = new AtomicResource(renderer)
@@ -58,6 +60,7 @@ export class Renderer {
       viewport: Viewport
       abort?: AbortSignal
       logger: RenderCycleLogger
+      phase: RenderPhase
     }
   ) {
     setCanvasSize(dest, options.viewport)
@@ -81,10 +84,10 @@ export class Renderer {
           obj.path.points,
           (point, prev) => {
             dstctx.bezierCurveTo(
-              prev!.out?.x ?? prev!.x,
-              prev!.out?.y ?? prev!.y,
-              point.in?.x ?? point.x,
-              point.in?.y ?? point.y,
+              point.begin?.x ?? prev!.x,
+              point.begin?.y ?? prev!.y,
+              point.end?.x ?? point.x,
+              point.end?.y ?? point.y,
               point.x,
               point.y
             )
@@ -101,7 +104,7 @@ export class Renderer {
               case 'fill': {
                 const {
                   color: { r, g, b },
-                  opacity,
+                  opacity
                 } = ap.fill
 
                 dstctx.globalAlpha = 1
@@ -129,7 +132,7 @@ export class Renderer {
 
                 for (const {
                   position,
-                  color: { r, g, b, a },
+                  color: { r, g, b, a }
                 } of colorPoints) {
                   gradient.addColorStop(
                     position,
@@ -156,9 +159,10 @@ export class Renderer {
               transform: {
                 position: addPoint2D(layer.transform.position, obj.position),
                 scale: multiplyPoint2D(layer.transform.scale, obj.scale),
-                rotation: layer.transform.rotate + obj.rotate,
+                rotation: layer.transform.rotate + obj.rotate
               },
-              logger: options.logger,
+              phase: options.phase,
+              logger: options.logger
             })
           }
         }
@@ -195,7 +199,8 @@ export class Renderer {
       inkSetting,
       transform,
       abort,
-      logger,
+      phase,
+      logger
     }: {
       inkSetting: InkSetting
       transform: {
@@ -204,6 +209,7 @@ export class Renderer {
         rotation: number
       }
       abort?: AbortSignal
+      phase: RenderPhase
       logger: RenderCycleLogger
     }
   ) {
@@ -244,9 +250,10 @@ export class Renderer {
         transform: {
           translate: { x: transform.position.x, y: transform.position.y },
           scale: { x: transform.scale.x, y: transform.scale.y },
-          rotate: transform.rotation,
+          rotate: transform.rotation
         },
-        logger,
+        phase,
+        logger
       })
     } finally {
       this.atomicThreeRenderer.release(renderer)

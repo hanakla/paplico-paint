@@ -66,7 +66,7 @@ export const imageSourceToBlob = async (
     const blob = await canvas.convertToBlob({ type: 'image/png' })
 
     const reader = new FileReader()
-    await new Promise<void>(r => {
+    await new Promise<void>((r) => {
       reader.onload = () => {
         blobUrl = URL.createObjectURL(blob)
         imageUrl = reader.result as string
@@ -78,7 +78,7 @@ export const imageSourceToBlob = async (
   } else {
     const blob = await new Promise<Blob>((r, j) =>
       (canvas as HTMLCanvasElement).toBlob(
-        b => (b ? r(b) : j(new Error())),
+        (b) => (b ? r(b) : j(new Error())),
         'image/png'
       )
     )
@@ -89,6 +89,8 @@ export const imageSourceToBlob = async (
 
   return { blobUrl, imageUrl }
 }
+
+globalThis.logImage = logImage
 
 export const installGlobally = () => {
   // if (typeof window === 'undefined') return

@@ -8,12 +8,12 @@ import { type SVGDCommand } from '@/fastsvg/IndexedPointAtLength'
 
 export const addPoint2D = (a: Point2D, b: Point2D) => ({
   x: a.x + b.x,
-  y: a.y + b.y,
+  y: a.y + b.y
 })
 
 export const multiplyPoint2D = (a: Point2D, b: Point2D) => ({
   x: a.x * b.x,
-  y: a.y * b.y,
+  y: a.y * b.y
 })
 
 export const vectorTransformToMatrix = (obj: VectorObject) => {
@@ -47,7 +47,7 @@ export const calcVectorBoundingBox = (obj: VectorObject) => {
     centerX: left + width / 2,
     centerY: top + height / 2,
     width,
-    height,
+    height
   }
 }
 
@@ -71,43 +71,23 @@ export function pointsToSVGCommandArray(
     ...mapPoints(
       [...points, ...(closed ? [start] : [])],
       (point, prev): SVGDCommand => {
-        if (prev!.out && point.in) {
+        if (point!.end || point.begin) {
           return [
             'C',
-            prev!.out.x,
-            prev!.out.y,
-            point.in.x,
-            point.in.y,
+            point.begin?.x ?? prev!.x,
+            point.begin?.y ?? prev!.y,
+            point.end?.x ?? point.x,
+            point.end?.y ?? point.y,
             point.x,
-            point.y,
+            point.y
           ]
-        } else if (prev!.out == null && point.in) {
-          return [
-            'C',
-            prev!.x,
-            prev!.y,
-            point.in.x,
-            point.in.y,
-            point.x,
-            point.y,
-          ]
-        } else if (prev!.out && point.in == null) {
-          return [
-            'C',
-            prev!.out.x,
-            prev!.out.y,
-            point.x,
-            point.y,
-            point.x,
-            point.y,
-          ]
-        } else {
+        } else if (point.end == null && point.begin == null) {
           return ['L', point.x, point.y]
         }
       },
       { startOffset: 1 }
     ),
-    ...(closed ? [['Z'] as const] : []),
+    ...(closed ? [['Z'] as ['Z']] : [])
   ]
 }
 
@@ -124,16 +104,16 @@ export function pointsToSVGPath(points: VectorPathPoint[], closed: boolean) {
     mapPoints(
       [...points, ...(closed ? [points[0]] : [])],
       (point, prev) => {
-        if (prev!.out && point.in) {
-          return `C ${prev!.out.x},${prev!.out.y} ${point.in.x},${point.in.y} ${
+        if (prev!.begin && point.end) {
+          return `C ${prev!.begin.x},${prev!.begin.y} ${point.end.x},${
+            point.end.y
+          } ${point.x} ${point.y}`
+        } else if (prev!.begin == null && point.end) {
+          return `C ${prev!.x},${prev!.y} ${point.end.x},${point.end.y} ${
             point.x
           } ${point.y}`
-        } else if (prev!.out == null && point.in) {
-          return `C ${prev!.x},${prev!.y} ${point.in.x},${point.in.y} ${
-            point.x
-          } ${point.y}`
-        } else if (prev!.out && point.in == null) {
-          return `C ${prev!.out.x},${prev!.out.y} ${point.x},${point.y} ${
+        } else if (prev!.begin && point.end == null) {
+          return `C ${prev!.begin.x},${prev!.begin.y} ${point.x},${point.y} ${
             point.x
           } ${point.y}`
         } else {
@@ -142,7 +122,7 @@ export function pointsToSVGPath(points: VectorPathPoint[], closed: boolean) {
       },
       { startOffset: 1 }
     ).join(' '),
-    closed ? 'Z' : '',
+    closed ? 'Z' : ''
   ].join(' ')
 }
 

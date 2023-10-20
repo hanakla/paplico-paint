@@ -5,7 +5,7 @@ import { rescue } from '@/utils/resque'
 import { BrushRegistry } from './BrushRegistry'
 import { createCanvas } from './CanvasFactory'
 import { RenderCycleLogger } from './RenderCycleLogger'
-import { Renderer } from './Renderer'
+import { RenderPhase, Renderer } from './Renderer'
 import { RuntimeDocument } from './RuntimeDocument'
 import { Viewport } from './types'
 
@@ -41,14 +41,17 @@ export class MixerPipeline {
       abort,
       viewport,
       override,
-      logger,
+      phase,
+      logger
     }: {
       abort?: AbortSignal
       viewport: Viewport
       override?: { [layerId: string]: HTMLCanvasElement | ImageBitmap }
+      phase: RenderPhase
       logger: RenderCycleLogger
     }
   ) {
+    console.log('Render starting')
     const tmp = createCanvas()
     const tmpctx = tmp.getContext('2d')!
     setCanvasSize(tmp, viewport)
@@ -72,6 +75,8 @@ export class MixerPipeline {
         layer.source.name,
         layer.source.layerType
       )
+
+      logger.time(`Render layer time: ${layer.source.uid}`)
 
       let image: ImageBitmap | HTMLCanvasElement | null | void
 
@@ -97,7 +102,8 @@ export class MixerPipeline {
           await render.renderVectorLayer(tmp, layer.source, {
             viewport,
             abort,
-            logger,
+            phase,
+            logger
           })
 
           image = await doc.updateOrCreateLayerBitmapCache(
@@ -109,6 +115,8 @@ export class MixerPipeline {
         // TODO
         continue
       }
+
+      logger.timeEnd(`Render layer time: ${layer.source.uid}`)
 
       const mode = layerCompositeModeToCanvasCompositeMode(
         layer.source.compositeMode
@@ -143,12 +151,12 @@ export class MixerPipeline {
 }
 
 const layerCompositeModeToCanvasCompositeMode = (mode: CompositeMode) =>
-  ((
-    {
+  (
+    ({
       normal: 'source-over',
       clipper: 'destination-in',
       multiply: 'multiply',
       overlay: 'overlay',
-      screen: 'screen',
-    } as { [k in CompositeMode]: GlobalCompositeOperation }
-  )[mode])
+      screen: 'screen'
+    }) as { [k in CompositeMode]: GlobalCompositeOperation }
+  )[mode]

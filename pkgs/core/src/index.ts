@@ -1,23 +1,31 @@
 /// <reference path="./declarations.d.ts" />
 
+import { AtomicResource } from './utils/AtomicResource'
+
 export * as Document from './Document'
 export {
   CanvasFactory,
   Pipeline,
   RuntimeDocument,
   createCustomBrush,
-  StandardBrushes,
+  Brushes,
   type BrushClass,
   type BrushContext,
   type IBrush,
-  type BrushLayoutData,
+  type BrushLayoutData
 } from './Engine/index'
+export { type ICommand } from './History/ICommand'
 export * as Commands from './History/Commands/index'
 export { Paplico as default, Paplico } from './Paplico'
 export { UICanvas, UIStroke, type UIStrokePoint } from './UI/index'
 export * as VectorProcess from './VectorProcess'
 export * as RasterProcess from './RasterProcess'
-export * as ExtraBrushes from './Extras/ExtraBrushes'
-export * as StrokeHelper from './StrokeHelper'
+export * as StrokingHelper from './StrokingHelper'
 export * as PaplicoMath from './Math/index'
 export { installGlobally as _installPapDebugGlobaly } from './utils/DebugHelper'
+export * as Inks from './Inks/index'
+export * as ExtraBrushes from './ExtraBrushes/index'
+
+export const _Dev = {
+  AtomicResource
+}

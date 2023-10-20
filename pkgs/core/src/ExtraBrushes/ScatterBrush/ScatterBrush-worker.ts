@@ -1,7 +1,7 @@
 import { pointsToSVGCommandArray } from '@/Engine/VectorUtils'
 import { type BrushLayoutData } from '@/index'
-import { getRadianFromTangent } from '@/StrokeHelper'
-import { Matrix4 } from '@/Math'
+import { getRadianFromTangent } from '@/StrokingHelper'
+import { Matrix4, mapLinear } from '@/Math'
 import { indexedPointAtLength } from '@/fastsvg/IndexedPointAtLength'
 import { type VectorPath } from '@/Document/LayerEntity/VectorPath'
 
@@ -27,6 +27,7 @@ export type GetPointWorkerResponse = {
   lengths: number[]
   totalLength: number
   bbox: { left: number; top: number; right: number; bottom: number } | null
+  _internals: any
 }
 
 export type WorkerResponse =
@@ -39,9 +40,7 @@ const queue: Payload[] = []
 const queueResult = new Map<string, WorkerResponse>()
 
 const handleMessage = (
-  handler: (
-    event: MessageEvent<Payload>,
-  ) => Promise<WorkerResponse | undefined>,
+  handler: (event: MessageEvent<Payload>) => Promise<WorkerResponse | undefined>
 ) => {
   return async (event: MessageEvent<Payload>) => {
     const result = await handler(event)
@@ -51,60 +50,62 @@ const handleMessage = (
   }
 }
 
-self.onmessage = handleMessage(async ({ data }) => {
-  switch (data.type) {
-    case 'warming': {
-      return { type: 'warming' }
-    }
+if (typeof process === 'undefined' || process.env.NODE_ENV !== 'test') {
+  self.onmessage = handleMessage(async ({ data }) => {
+    switch (data.type) {
+      case 'warming': {
+        return { type: 'warming' }
+      }
 
-    case 'aborted': {
-      console.log('receive aboterd on worker')
-      abortedTasks.add(data.id)
-      break
-    }
+      case 'aborted': {
+        // console.log('receive aboterd on worker')
+        abortedTasks.add(data.id)
+        break
+      }
 
-    case 'getPoints': {
-      queue.push(data)
+      case 'getPoints': {
+        queue.push(data)
 
-      return await new Promise((r) => {
-        setTimeout(function waitResult() {
-          const result = queueResult.get(data.id)
+        return await new Promise((r) => {
+          setTimeout(function waitResult() {
+            const result = queueResult.get(data.id)
 
-          if (result != null) {
-            queueResult.delete(data.id)
-            return r(result)
-          }
+            if (result != null) {
+              queueResult.delete(data.id)
+              return r(result)
+            }
 
-          setTimeout(waitResult)
+            setTimeout(waitResult)
+          })
         })
-      })
+      }
+
+      default:
+        break
+    }
+  })
+
+  setTimeout(async function processQueue() {
+    const task = queue.shift()
+
+    if (task == null || task.type !== 'getPoints') {
+      setTimeout(processQueue)
+      return
     }
 
-    default:
-      break
-  }
-})
+    try {
+      const res = await processInput(task)
+      queueResult.set(task.id, res)
+    } finally {
+      setTimeout(processQueue)
+    }
+  })
+}
 
-setTimeout(async function processQueue() {
-  const task = queue.shift()
-
-  if (task == null || task.type !== 'getPoints') {
-    setTimeout(processQueue)
-    return
-  }
-
-  try {
-    const res = await process(task)
-    queueResult.set(task.id, res)
-  } finally {
-    setTimeout(processQueue)
-  }
-})
-
-async function process(data: Payload): Promise<WorkerResponse> {
-  console.log('start process')
-  if (data.type !== 'getPoints')
+export async function processInput(data: Payload): Promise<WorkerResponse> {
+  if (data.type !== 'getPoints') {
     throw new Error(`Invalid payload type: ${data.type}}`)
+  }
 
   if (abortedTasks.has(data.id)) return { type: 'aborted', id: data.id }
 
@@ -116,17 +117,17 @@ async function process(data: Payload): Promise<WorkerResponse> {
     scatterRange,
     scatterScale,
     inOutInfluence,
-    inOutLength,
+    inOutLength
   } = data
 
-  const positions: number[][] = []
+  const positions: [number, number][] = []
   const lengths: number[] = []
   const matrices: (number[] | Float32Array)[] = []
   const bbox: BrushLayoutData['bbox'] = {
     left: 0,
     top: 0,
     right: 0,
-    bottom: 0,
+    bottom: 0
   }
 
   // const scattered = scatterPlot(path, {
@@ -135,12 +136,12 @@ async function process(data: Payload): Promise<WorkerResponse> {
   //   scatterScale: 1,
   // })
 
-  console.time('build pal')
+  // console.time('build pal')
 
   const pal = indexedPointAtLength(
-    pointsToSVGCommandArray(path.points, path.closed),
+    pointsToSVGCommandArray(path.points, path.closed)
   )
-  console.timeEnd('build pal')
+  // console.timeEnd('build pal')
   const totalLen = pal.totalLength
 
   if (totalLen === 0) {
@@ -150,11 +151,11 @@ async function process(data: Payload): Promise<WorkerResponse> {
       matrices: null,
       lengths: [],
       bbox: null,
-      totalLength: 0,
+      totalLength: 0
     }
   }
 
-  const step = 500 / totalLen
+  const step = 1
 
   let count = 0
   let times = 0
@@ -169,43 +170,53 @@ async function process(data: Payload): Promise<WorkerResponse> {
 
   const points = pal.atBatch(requestAts)
 
-  for (let idx = 0, l = points.length; idx < l; idx += 2) {
+  for (let idx = 0, l = points.length; idx < l; idx += 1) {
     // wait for tick (for receiving abort message from main thread)
     await Promise.resolve()
 
     if (abortedTasks.has(id)) {
-      console.info('aboterd on worker')
+      // console.info('aboterd on worker')
       abortedTasks.delete(id)
       return { id, type: 'aborted' }
     }
 
-    let start = performance.now()
     const len = points[idx].length
     const [x, y] = points[idx].pos //pal.at(len)
-    const next = (points[idx + 1] ?? points[idx]).pos //pal.at(len + 0.01, { seek: false })
-    times += performance.now() - start
+    const next = points[idx + 1]?.pos ?? points[idx]?.pos //pal.at(len + 0.01, { seek: false })
 
     const rad = getRadianFromTangent({ x, y }, { x: next[0], y: next[1] })
 
-    const ypos = y / destSize.height
+    // const ypos =
 
     // if len in inOutLength from start or end, scale by inOutInfluence
     // prettier-ignore
-    const inoutScale =
-      len <= inOutLength ? inOutInfluence * len / inOutLength
+    // const inoutScale = inOutLength === 0 ? 1
+    //   : len <= inOutLength ? inOutInfluence * len / inOutLength
+    //   : len >= totalLen - inOutLength ? inOutInfluence * (totalLen - len) / inOutLength
+    //   : 1;
+    const inoutScale = inOutLength === 0 ? 1
+      : len <= inOutLength ? inOutInfluence * len / inOutLength
       : len >= totalLen - inOutLength ? inOutInfluence * (totalLen - len) / inOutLength
-      : 1
+      : 1;
 
-    const matt4 = new Matrix4()
-      .translate(
-        x - destSize.width / 2,
-        (1 - ypos) * destSize.height - destSize.height / 2,
-        0,
-      )
-      .scale([brushSize * inoutScale, brushSize * inoutScale, 1])
-      .rotateZ(rad)
+    const matt4 = new Matrix4().translate(
+      // x,
+      // y,
+      mapLinear(
+        x,
+        [0, destSize.width],
+        [-destSize.width / 2, destSize.width / 2]
+      ),
+      mapLinear(
+        y,
+        [0, destSize.height],
+        [destSize.height / 2, -destSize.height / 2]
+      ),
+      0
+    )
+    // .scale([brushSize * inoutScale, brushSize * inoutScale, 1])
+    // .rotateZ(rad)
 
-    // _mat4.fromArray(matt4.toArray())
     matrices.push(matt4.toArray())
     lengths.push(len)
     positions.push([x, y])
@@ -219,7 +230,6 @@ async function process(data: Payload): Promise<WorkerResponse> {
   }
 
   if (abortedTasks.has(id)) {
-    console.log('aboterd on worker')
     abortedTasks.delete(id)
     return { id, type: 'aborted' }
   }
@@ -231,5 +241,9 @@ async function process(data: Payload): Promise<WorkerResponse> {
     lengths,
     totalLength: totalLen,
     matrices,
+    _internals: {
+      requestAts,
+      positions
+    }
   }
 }

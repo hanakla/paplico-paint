@@ -71,8 +71,8 @@ export class UICanvas extends Emitter<Events> {
         x: (offset.x * this.ctx.canvas.width) / this.ctx.canvas.clientWidth,
         y: (offset.y * this.ctx.canvas.height) / this.ctx.canvas.clientHeight,
         pressure: e.touches[0].force,
-        tilt: null,
-      },
+        tilt: null
+      }
     ])
   }
 
@@ -91,8 +91,8 @@ export class UICanvas extends Emitter<Events> {
         x: (offset.x * this.ctx.canvas.width) / this.ctx.canvas.clientWidth,
         y: (offset.y * this.ctx.canvas.height) / this.ctx.canvas.clientHeight,
         pressure: e.touches[0].force,
-        tilt: null,
-      },
+        tilt: null
+      }
     ])
   }
 
@@ -148,6 +148,24 @@ export class UICanvas extends Emitter<Events> {
 
     this.currentStroke = null
     this.emit('strokeComplete', s)
+
+    // const stroke = new UIStroke()
+    // stroke.markStartTime()
+    // stroke.addPoint({
+    //   x: 0,
+    //   y: 0,
+    //   pressure: 0,
+    //   tilt: { x: 0, y: 0 },
+    //   deltaTimeMs: 0
+    // })
+    // stroke.addPoint({
+    //   x: 1000,
+    //   y: 1000,
+    //   pressure: 0,
+    //   tilt: { x: 0, y: 0 },
+    //   deltaTimeMs: 1
+    // })
+    // this.emit('strokeComplete', stroke)
   }
 
   protected _getTouchOffset = (event: TouchEvent) => {
@@ -165,6 +183,21 @@ export class UICanvas extends Emitter<Events> {
     e: PointerEvent
   ): UIStrokePointRequired[] {
     if (e.getCoalescedEvents) {
+      const events = e.getCoalescedEvents()
+
+      if (events.length === 0)
+        return [
+          {
+            x:
+              (e.offsetX * this.ctx.canvas.width) / this.ctx.canvas.clientWidth,
+            y:
+              (e.offsetY * this.ctx.canvas.height) /
+              this.ctx.canvas.clientHeight,
+            pressure: e.pressure,
+            tilt: { x: e.tiltX, y: e.tiltY }
+          }
+        ]
+
       return e.getCoalescedEvents().map(
         (e): UIStrokePointRequired => ({
           x: (e.offsetX * this.ctx.canvas.width) / this.ctx.canvas.clientWidth,
@@ -174,17 +207,18 @@ export class UICanvas extends Emitter<Events> {
           tilt: { x: e.tiltX, y: e.tiltY },
           deltaTimeMs: this.currentStroke?.startTime
             ? e.timeStamp - this.currentStroke.startTime
-            : 0,
+            : 0
         })
       )
     } else {
       return [
         {
-          x: e.offsetX,
-          y: e.offsetY,
+          x: (e.offsetX * this.ctx.canvas.width) / this.ctx.canvas.clientWidth,
+          y:
+            (e.offsetY * this.ctx.canvas.height) / this.ctx.canvas.clientHeight,
           pressure: e.pressure,
-          tilt: { x: e.tiltX, y: e.tiltY },
-        },
+          tilt: { x: e.tiltX, y: e.tiltY }
+        }
       ]
     }
   }

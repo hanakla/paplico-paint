@@ -1,5 +1,5 @@
-import { BrushContext, IBrush, BrushLayoutData, StrokeHelper } from '@/index'
-import * as Textures from './ScatterTexture/index'
+import { BrushContext, BrushLayoutData, IBrush, StrokingHelper } from '@/index'
+import * as Textures from './textures/index'
 import { PaplicoAbortError } from '@/Errors'
 import { mergeToNew } from '@/utils/object'
 import {
@@ -8,22 +8,24 @@ import {
   Color,
   CustomBlending,
   Group,
+  InstancedMesh,
+  Matrix4 as ThreeMatrix4,
   MeshBasicMaterial,
   OneFactor,
   OneMinusSrcAlphaFactor,
   PlaneGeometry,
-  InstancedMesh,
-  Matrix4 as ThreeMatrix4,
-  Scene,
+  Scene
 } from 'three'
 
 import ScatterBrushWorker from './ScatterBrush-worker?worker&inline'
 import {
   type GetPointWorkerResponse,
-  type WorkerResponse,
   type Payload,
+  type WorkerResponse
 } from './ScatterBrush-worker'
 import { ColorRGBA } from '@/Document'
+import { Matrix4 } from '@/Math'
+import { clamp, mapLinear } from '@/utils/math'
 
 const _mat4 = new ThreeMatrix4()
 
@@ -69,7 +71,7 @@ export class ScatterBrush implements IBrush {
       inOutInfluence: 1,
       inOutLength: 100,
       pressureInfluence: 0.8,
-      noiseInfluence: 0,
+      noiseInfluence: 0
     }
   }
 
@@ -114,7 +116,7 @@ export class ScatterBrush implements IBrush {
           blendDst: OneMinusSrcAlphaFactor,
           blendSrcAlpha: OneFactor,
           blendDstAlpha: OneMinusSrcAlphaFactor,
-          blendEquation: AddEquation,
+          blendEquation: AddEquation
         })
 
         // this.materials[name] = new ShaderMaterial({
@@ -129,7 +131,7 @@ export class ScatterBrush implements IBrush {
         // })
 
         // this.textures[name] = await createImageBitmap(data)
-      }),
+      })
     )
   }
 
@@ -144,6 +146,7 @@ export class ScatterBrush implements IBrush {
     threeRenderer,
     threeCamera,
     destSize,
+    phase
   }: BrushContext<ScatterBrush.SpecificSetting>): Promise<BrushLayoutData> {
     const sp = mergeToNew(this.getInitialSpecificConfig(), specific)
     const baseColor: ColorRGBA = { ...color, a: opacity }
@@ -153,7 +156,7 @@ export class ScatterBrush implements IBrush {
       left: 0,
       top: 0,
       right: 0,
-      bottom: 0,
+      bottom: 0
     }
 
     for (const path of inputPath) {
@@ -179,7 +182,7 @@ export class ScatterBrush implements IBrush {
           const onAbort = () => {
             this.worker!.postMessage({
               type: 'aborted',
-              id,
+              id
             } as const satisfies Payload)
           }
 
@@ -196,15 +199,16 @@ export class ScatterBrush implements IBrush {
             scatterRange: sp.scatterRange ?? 0,
             inOutInfluence: sp.inOutInfluence ?? 0,
             inOutLength: sp.inOutLength ?? 0,
-            scatterScale: 1,
+            scatterScale: 1
           } satisfies Payload)
         })
       } catch (e) {
-        console.log(e)
+        // console.info(e)
         throw e
       }
 
       if (res.matrices == null) return { bbox }
+      // console.log({ res })
 
       const scene = new Scene()
       const material = this.materials[sp.texture]
@@ -218,22 +222,45 @@ export class ScatterBrush implements IBrush {
       mesh.matrixAutoUpdate = false
       mesh.instanceMatrix.needsUpdate = false
 
+      ctx.fillStyle = 'rgb(0,255,255)'
       for (let i = 0, l = res.matrices.length; i < l; i++) {
+        // render circle at res.position[i]
+        // ctx.beginPath()
+
+        // ctx.arc(
+        //   res._internals.positions[i][0],
+        //   res._internals.positions[i][1],
+        //   0.3,
+        //   0,
+        //   Math.PI * 2
+        // )
+        // ctx.closePath()
+        // ctx.fill()
+
         _mat4.fromArray(res.matrices[i])
         mesh.setMatrixAt(i, _mat4)
         mesh.setColorAt(
           i,
-          StrokeHelper.rgbToThreeRGB(
-            ink.getColor({
-              pointIndex: i,
-              points: path.points,
-              pointAtLength: res.lengths[i],
-              totalLength: res.totalLength,
-              baseColor,
-            }),
-            _color,
-          ),
+          StrokingHelper.rgbToThreeRGB(
+            // ink.getColor({
+            //   pointIndex: i,
+            //   points: path.points,
+            //   pointAtLength: res.lengths[i],
+            //   totalLength: res.totalLength,
+            //   baseColor
+            // }),
+            {
+              r: i / l,
+              g: 1 - i / l,
+              b: 0
+            },
+            _color
+          )
         )
+      }
+
+      if (phase === 'final') {
+        console.log({ inputPath })
       }
 
       if (res.bbox) {
@@ -258,13 +285,13 @@ export class ScatterBrush implements IBrush {
         left: bbox.left - destSize.width / 2,
         top: bbox.top - destSize.height / 2,
         right: bbox.right + destSize.width / 2,
-        bottom: bbox.bottom + destSize.height / 2,
-      },
+        bottom: bbox.bottom + destSize.height / 2
+      }
     }
   }
 
   public async render(
-    ctx: BrushContext<ScatterBrush.SpecificSetting>,
+    ctx: BrushContext<ScatterBrush.SpecificSetting>
   ): Promise<BrushLayoutData> {
     return this.renderWithWorker(ctx)
     // const interX = interpolateMapObject(points, (idx, arr) => arr[idx].x)
@@ -273,7 +300,7 @@ export class ScatterBrush implements IBrush {
     // for (let len = 0; len <= totalLen; len += step) {
     //   const t = len / totalLen
     //   const [x, y] = [interX(t), interY(t)]
-    //   const rad = StrokeHelper.getRadianFromTangent(
+    //   const rad = StrokingHelper.getRadianFromTangent(
     //     { x, y },
     //     { x: interX(t + 0.01), y: interY(t + 0.01) }
     //   )
@@ -341,11 +368,10 @@ if (import.meta.vitest) {
   describe('ScatterBrush', () => {
     it('Should convert pixel point to gl point', () => {
       const height = 200
-
       ;[
         [0, 100],
         [100, 0],
-        [200, -100],
+        [200, -100]
       ].forEach(([y, mapped]) => {
         const pos = y / height
         const result = (1 - pos) * height - height / 2

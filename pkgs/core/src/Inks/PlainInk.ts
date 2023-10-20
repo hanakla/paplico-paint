@@ -1,4 +1,8 @@
-import { IInk, InkGenerator } from '../Ink'
+import { IInk, InkGenerator } from '../Engine/Ink'
+
+export declare namespace PlainInk {
+  type SpecificSetting = {}
+}
 
 export class PlainInk implements IInk {
   public static id = '@paplico/core/ink/plain'
@@ -17,7 +21,7 @@ export class PlainInk implements IInk {
       },
       getColor({ pointIndex, points, baseColor }) {
         return baseColor
-      },
+      }
     }
   }
 }

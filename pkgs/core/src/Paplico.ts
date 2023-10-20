@@ -2,7 +2,7 @@ import immer, { Draft } from 'immer'
 
 import { MixerPipeline } from '@/Engine/MixerPipeline'
 import { BrushRegistry } from '@/Engine/BrushRegistry'
-import { createCanvas } from '@/Engine/CanvasFactory'
+import { createCanvas, getCanvasBytes } from '@/Engine/CanvasFactory'
 import { Renderer } from '@/Engine/Renderer'
 import { UICanvas } from '@/UI/UICanvas'
 import { UIStroke } from '@/UI/UIStroke'
@@ -11,7 +11,7 @@ import {
   LayerEntity,
   LayerNode,
   PaplicoDocument,
-  VectorObject,
+  VectorObject
 } from './Document'
 import { setCanvasSize } from '@/utils/canvas'
 import { RuntimeDocument } from './Engine/RuntimeDocument'
@@ -20,14 +20,14 @@ import { VectorFillSetting } from './Document/LayerEntity/VectorFillSetting'
 import { InkSetting as _InkSetting } from './Document/LayerEntity/InkSetting'
 import { deepClone } from './utils/object'
 import { VectorAppearance } from './Document/LayerEntity/VectorAppearance'
-import { CircleBrush } from './Engine/Brushes/CircleBrush'
+import { CircleBrush } from './Brushes/CircleBrush'
 import { Emitter } from './utils/Emitter'
 import { BrushClass } from './Engine/Brush'
 import { RenderCycleLogger } from './Engine/RenderCycleLogger'
-import { PlainInk } from './Engine/Inks/PlainInk'
+import { PlainInk } from './Inks/PlainInk'
 import { InkRegistry } from './Engine/InkRegistry'
-import { RainbowInk } from './Engine/Inks/RainbowInk'
-import { TextureReadInk } from './Engine/Inks/TextureReadInk'
+import { RainbowInk } from './Inks/RainbowInk'
+import { TextureReadInk } from './Inks/TextureReadInk'
 import { AtomicResource } from './utils/AtomicResource'
 import { PaplicoAbortError, PaplicoIgnoreableError } from './Errors'
 import { ICommand } from './History/ICommand'
@@ -58,6 +58,7 @@ export namespace Paplico {
 
 type Events = {
   stateChanged: Paplico.State
+  flushed: void
 }
 
 const singletonCall = <T extends (...args: any[]) => Promise<void>>(fn: T) => {
@@ -99,8 +100,6 @@ export class Paplico extends Emitter<Events> {
 
   protected dstCanvas: HTMLCanvasElement
   protected dstctx: CanvasRenderingContext2D
-  // protected tmp: HTMLCanvasElement
-  // protected tmpctx: CanvasRenderingContext2D
 
   protected document: PaplicoDocument | null = null
   protected runtimeDoc: RuntimeDocument | null = null
@@ -117,11 +116,11 @@ export class Paplico extends Emitter<Events> {
     currentInk: {
       inkId: RainbowInk.id,
       inkVersion: RainbowInk.version,
-      specific: {},
+      specific: {}
     },
     strokeComposition: 'normal',
     brushEntries: [],
-    busy: false,
+    busy: false
   }
 
   #activeLayerEntity: LayerEntity | null = null
@@ -140,7 +139,7 @@ export class Paplico extends Emitter<Events> {
     this.pipeline = new MixerPipeline({ brushRegistry: this.brushes, canvas })
     this.renderer = new Renderer({
       brushRegistry: this.brushes,
-      inkRegistry: this.inks,
+      inkRegistry: this.inks
     })
     this.uiCanvas = new UICanvas(canvas).activate()
 
@@ -154,6 +153,10 @@ export class Paplico extends Emitter<Events> {
     this.onUIStrokeChange = this.onUIStrokeChange.bind(this)
     this.onUIStrokeComplete = this.onUIStrokeComplete.bind(this)
     this.initilize()
+  }
+
+  public get stats() {
+    return { getCanvasBytes }
   }
 
   /** (Readonly) current editor states */
@@ -204,7 +207,7 @@ export class Paplico extends Emitter<Events> {
     undo: () => this.runtimeDoc?.command.undo(),
     redo: () => this.runtimeDoc?.command.redo(),
     canUndo: () => this.runtimeDoc?.command.canUndo() ?? false,
-    canRedo: () => this.runtimeDoc?.command.canRedo() ?? false,
+    canRedo: () => this.runtimeDoc?.command.canRedo() ?? false
   }
 
   public loadDocument(doc: PaplicoDocument) {
@@ -218,7 +221,7 @@ export class Paplico extends Emitter<Events> {
     doc.blobs.forEach((blob) => {
       this.runtimeDoc?.setBlobCache(
         blob.uid,
-        new Blob([blob.data], { type: blob.mimeType }),
+        new Blob([blob.data], { type: blob.mimeType })
       )
     })
   }
@@ -254,7 +257,7 @@ export class Paplico extends Emitter<Events> {
       d.activeLayer = {
         layerType: layer.layerType,
         layerUid: target!.layerUid,
-        pathToLayer: path,
+        pathToLayer: path
       }
     })
     this.#activeLayerEntity = layer
@@ -283,11 +286,37 @@ export class Paplico extends Emitter<Events> {
   }
 
   public set strokeComposition(
-    composition: Paplico.State['strokeComposition'],
+    composition: Paplico.State['strokeComposition']
   ) {
     this.setState((d) => {
       d.strokeComposition = composition
     })
+  }
+
+  public async rerender({ signal }: { signal?: AbortSignal } = {}) {
+    if (!this.runtimeDoc) return
+
+    try {
+      RenderCycleLogger.current.log('Refresh all layers')
+
+      const { dstctx } = this
+
+      await this.pipeline.fullyRender(dstctx, this.runtimeDoc, this.renderer, {
+        abort: signal,
+        viewport: {
+          top: 0,
+          left: 0,
+          width: this.dstCanvas.width,
+          height: this.dstCanvas.height
+        },
+        phase: 'final',
+        logger: RenderCycleLogger.current
+      })
+
+      this.emit('flushed')
+    } finally {
+      RenderCycleLogger.current.printLogs('rerender()')
+    }
   }
 
   protected async onUIStrokeChange(stroke: UIStroke) {
@@ -298,10 +327,7 @@ export class Paplico extends Emitter<Events> {
     const renderLogger = RenderCycleLogger.createNext()
 
     this.lastRenderAborter?.abort()
-    const aborter =
-      Math.random() > 0.5
-        ? (this.lastRenderAborter = new AbortController())
-        : this.beforeCommitAborter
+    const aborter = (this.lastRenderAborter = new AbortController())
 
     const tmpctx = await this.tmpctxResource.ensure()
     const dstctx = this.dstctx
@@ -323,7 +349,7 @@ export class Paplico extends Emitter<Events> {
           tmpctx.canvas,
           {
             ...this.activeLayerEntity,
-            objects: [...this.activeLayerEntity.objects, obj],
+            objects: [...this.activeLayerEntity.objects, obj]
           },
           {
             abort: aborter.signal,
@@ -331,17 +357,18 @@ export class Paplico extends Emitter<Events> {
               top: 0,
               left: 0,
               width: this.dstCanvas.width,
-              height: this.dstCanvas.height,
+              height: this.dstCanvas.height
             },
-            logger: renderLogger,
-          },
+            phase: 'stroking',
+            logger: renderLogger
+          }
         )
       } else if (this.activeLayerEntity.layerType === 'raster') {
         if (!this.strokeSetting) return
 
         const currentBitmap =
           (await this.runtimeDoc.getOrCreateLayerBitmapCache(
-            this.activeLayerEntity.uid,
+            this.activeLayerEntity.uid
           ))!
 
         setCanvasSize(tmpctx.canvas, currentBitmap.width, currentBitmap.height)
@@ -362,10 +389,11 @@ export class Paplico extends Emitter<Events> {
             transform: {
               position: { x: 0, y: 0 },
               scale: { x: 1, y: 1 },
-              rotation: 0,
+              rotation: 0
             },
-            logger: renderLogger,
-          },
+            phase: 'stroking',
+            logger: renderLogger
+          }
         )
       } else {
         return
@@ -393,11 +421,14 @@ export class Paplico extends Emitter<Events> {
               top: 0,
               left: 0,
               width: this.dstCanvas.width,
-              height: this.dstCanvas.height,
+              height: this.dstCanvas.height
             },
-            logger: renderLogger,
-          },
+            phase: 'stroking',
+            logger: renderLogger
+          }
         )
+
+        this.emit('flushed')
       } finally {
         tmpctx.clearRect(0, 0, tmpctx.canvas.width, tmpctx.canvas.height)
         renderLogger.printLogs('onUIStrokeChange')
@@ -406,7 +437,7 @@ export class Paplico extends Emitter<Events> {
       if (!(e instanceof PaplicoIgnoreableError)) {
         throw e
       } else {
-        console.info('ignoreable error', e)
+        // console.info('ignoreable error', e)
       }
     } finally {
       this.tmpctxResource.release(tmpctx)
@@ -445,10 +476,12 @@ export class Paplico extends Emitter<Events> {
       tmpctx.clearRect(0, 0, tmpctx.canvas.width, tmpctx.canvas.height)
 
       RenderCycleLogger.current.time('toSimplefiedPath')
+
       const path = stroke.toSimplefiedPath()
+      // const path = stroke.toPath()
       RenderCycleLogger.current.timeEnd('toSimplefiedPath')
       RenderCycleLogger.current.info(
-        `Path simplified: ${stroke.points.length} -> ${path.points.length}`,
+        `Path simplified: ${stroke.points.length} -> ${path.points.length}`
       )
 
       if (this.activeLayerEntity.layerType === 'vector') {
@@ -457,20 +490,19 @@ export class Paplico extends Emitter<Events> {
         await this.command.do(
           new Commands.VectorUpdateLayer(this.activeLayerEntity.uid, {
             updater: (layer) => {
-              console.log('ok')
               layer.objects.push(obj)
-            },
-          }),
+            }
+          })
         )
 
         // Update layer image data
         setCanvasSize(
           tmpctx.canvas,
           this.dstCanvas.width,
-          this.dstCanvas.height,
+          this.dstCanvas.height
         )
 
-        console.log('draw', this.activeLayerEntity)
+        // console.log('draw', this.activeLayerEntity)
 
         await this.renderer.renderVectorLayer(
           tmpctx.canvas,
@@ -481,23 +513,23 @@ export class Paplico extends Emitter<Events> {
               top: 0,
               left: 0,
               width: this.dstCanvas.width,
-              height: this.dstCanvas.height,
+              height: this.dstCanvas.height
             },
-            logger: RenderCycleLogger.current,
-          },
+            phase: 'final',
+            logger: RenderCycleLogger.current
+          }
         )
 
         await this.runtimeDoc.updateOrCreateLayerBitmapCache(
           this.activeLayerEntity.uid,
-          tmpctx.getImageData(0, 0, tmpctx.canvas.width, tmpctx.canvas.height),
+          tmpctx.getImageData(0, 0, tmpctx.canvas.width, tmpctx.canvas.height)
         )
       } else if (this.activeLayerEntity.layerType === 'raster') {
-        console.log(this.strokeSetting)
         if (!this.strokeSetting) return
 
         const currentBitmap =
           (await this.runtimeDoc.getOrCreateLayerBitmapCache(
-            this.activeLayerEntity.uid,
+            this.activeLayerEntity.uid
           ))!
 
         setCanvasSize(tmpctx.canvas, currentBitmap.width, currentBitmap.height)
@@ -517,10 +549,29 @@ export class Paplico extends Emitter<Events> {
             transform: {
               position: { x: 0, y: 0 },
               scale: { x: 1, y: 1 },
-              rotation: 0,
+              rotation: 0
             },
-            logger: RenderCycleLogger.current,
-          },
+            phase: 'final',
+            logger: RenderCycleLogger.current
+          }
+        )
+
+        console.log({ path })
+        await this.renderer.renderStroke(
+          tmpctx.canvas,
+          path,
+          { ...this.strokeSetting, brushId: CircleBrush.id },
+          {
+            inkSetting: this.#state.currentInk,
+            abort: aborter.signal,
+            transform: {
+              position: { x: 0, y: 0 },
+              scale: { x: 1, y: 1 },
+              rotation: 0
+            },
+            phase: 'final',
+            logger: RenderCycleLogger.current
+          }
         )
 
         // Update layer image data
@@ -532,11 +583,11 @@ export class Paplico extends Emitter<Events> {
                   0,
                   0,
                   currentBitmap.width,
-                  currentBitmap.height,
-                ).data,
+                  currentBitmap.height
+                ).data
               )
-            },
-          }),
+            }
+          })
         )
       } else {
         return
@@ -555,11 +606,14 @@ export class Paplico extends Emitter<Events> {
               top: 0,
               left: 0,
               width: this.dstCanvas.width,
-              height: this.dstCanvas.height,
+              height: this.dstCanvas.height
             },
-            logger: RenderCycleLogger.current,
-          },
+            phase: 'final',
+            logger: RenderCycleLogger.current
+          }
         )
+
+        this.emit('flushed')
       } finally {
         RenderCycleLogger.current.printLogs('onUIStrokeComplete')
       }
@@ -573,14 +627,14 @@ export class Paplico extends Emitter<Events> {
   }
 
   protected createVectorObjectByCurrentSettings(
-    stroke: UIStroke,
+    stroke: UIStroke
   ): VectorObject {
     const obj = createVectorObject({
       path: stroke.toPath(),
       appearances: [
         ...(this.state.currentFill
           ? ([
-              { kind: 'fill', fill: deepClone(this.state.currentFill) },
+              { kind: 'fill', fill: deepClone(this.state.currentFill) }
             ] satisfies VectorAppearance[])
           : []),
         ...(this.state.currentStroke
@@ -588,11 +642,11 @@ export class Paplico extends Emitter<Events> {
               {
                 kind: 'stroke',
                 stroke: deepClone(this.state.currentStroke),
-                ink: deepClone(this.state.currentInk),
-              },
+                ink: deepClone(this.state.currentInk)
+              }
             ] satisfies VectorAppearance[])
-          : []),
-      ],
+          : [])
+      ]
     })
 
     return obj
@@ -632,9 +686,9 @@ export class Paplico extends Emitter<Events> {
           top: 0,
           left: 0,
           width: this.dstCanvas.width,
-          height: this.dstCanvas.height,
+          height: this.dstCanvas.height
         },
-        logger: RenderCycleLogger.current,
+        logger: RenderCycleLogger.current
       })
     } catch (e) {
       if (!(e instanceof PaplicoIgnoreableError)) throw e

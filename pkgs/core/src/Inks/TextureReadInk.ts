@@ -1,9 +1,13 @@
 import { createSeededRandom, hsvToRgb, rgbToHsv } from '@/Math'
-import { setCanvasSize } from '@/StrokeHelper'
+import { setCanvasSize } from '@/StrokingHelper'
 import { freeingCanvas } from '@/utils/canvas'
-import { createCanvas } from '../CanvasFactory'
-import { IInk, InkGenerator } from '../Ink'
+import { createCanvas } from '../Engine/CanvasFactory'
+import { IInk, InkGenerator } from '../Engine/Ink'
 import { glitchNoise } from './texture/index'
+
+export declare namespace TextureReadInk {
+  type SpecificSetting = {}
+}
 
 export class TextureReadInk implements IInk {
   public static id = '@paplico/core/ink/TextureRead'
@@ -45,7 +49,7 @@ export class TextureReadInk implements IInk {
         points,
         baseColor,
         pointAtLength,
-        totalLength,
+        totalLength
       }) => {
         // const random = createSeededRandom(pointIndex)
 
@@ -62,7 +66,7 @@ export class TextureReadInk implements IInk {
         const [r, g, b] = hsvToRgb(h, s, v)
 
         return { r, g, b, a: baseColor.a }
-      },
+      }
     }
   }
 }

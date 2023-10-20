@@ -32,7 +32,7 @@ export class VectorUpdateLayer implements ICommand {
     this.options.updater(next)
 
     this.changesPatch = diff(original, next)!
-    console.log({ changesPatch: this.changesPatch, original, next })
+    // console.log({ changesPatch: this.changesPatch, original, next })
     patch(layer.source, this.changesPatch)
     document.invalidateLayerBitmapCache(this.layerId)
   }

@@ -1,8 +1,8 @@
 import { rgba } from 'polished'
 import { BrushContext, BrushLayoutData, IBrush } from '@/Engine/Brush'
 import { mergeToNew } from '@/utils/object'
-import { mapPoints } from '../VectorUtils'
-import { scatterPlot } from '@/StrokeHelper'
+import { mapPoints } from '../Engine/VectorUtils'
+import { scatterPlot } from '@/StrokingHelper'
 
 export declare namespace CircleBrush {
   type SpecificSetting = {
@@ -19,7 +19,7 @@ export class CircleBrush implements IBrush {
 
   public getInitialSpecificConfig(): CircleBrush.SpecificSetting {
     return {
-      lineCap: 'round',
+      lineCap: 'round'
     }
   }
 
@@ -31,7 +31,7 @@ export class CircleBrush implements IBrush {
     transform,
     // ink,
     brushSetting: { size, color, opacity, specific },
-    destSize,
+    destSize
   }: BrushContext<CircleBrush.SpecificSetting>): Promise<BrushLayoutData> {
     const sp = mergeToNew(this.getInitialSpecificConfig(), specific)
 
@@ -39,7 +39,7 @@ export class CircleBrush implements IBrush {
       left: 0,
       top: 0,
       right: 0,
-      bottom: 0,
+      bottom: 0
     }
 
     inputPath.forEach((path) => {
@@ -57,7 +57,7 @@ export class CircleBrush implements IBrush {
         color.r * 255,
         color.g * 255,
         color.b * 255,
-        opacity,
+        opacity
       )}`
       ctx.lineCap = sp.lineCap
 
@@ -72,20 +72,22 @@ export class CircleBrush implements IBrush {
 
       // console.log(scattered)
 
-      mapPoints(
-        path.points,
-        (point, prev) => {
-          ctx.bezierCurveTo(
-            prev!.out?.x ?? prev!.x,
-            prev!.out?.y ?? prev!.y,
-            point.in?.x ?? point.x,
-            point.in?.y ?? point.y,
-            point.x,
-            point.y,
-          )
-        },
-        { startOffset: 1 },
-      )
+      console.log('Circle brush: ', path.points)
+
+      // mapPoints(
+      //   path.points,
+      //   (point, prev) => {
+      //     ctx.bezierCurveTo(
+      //       prev!.begin?.x ?? prev!.x,
+      //       prev!.begin?.y ?? prev!.y,
+      //       point.end?.x ?? point.x,
+      //       point.end?.y ?? point.y,
+      //       point.x,
+      //       point.y
+      //     )
+      //   },
+      //   { startOffset: 1 }
+      // )
 
       if (closed) ctx.closePath()
 

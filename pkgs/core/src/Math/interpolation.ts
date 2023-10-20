@@ -1,7 +1,7 @@
 type Interpolator = (a: number, b: number, ratio: number) => number
 
 export const lerp = (a: number, b: number, t: number) => {
-  return (1 - t) * a + t * b
+  return a + (b - a) * t
 }
 
 const linearInterpolation = (a: number, b: number, ratio: number) => {

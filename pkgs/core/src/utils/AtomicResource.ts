@@ -12,16 +12,16 @@ export class AtomicResource<T> {
 
   constructor(
     private resource: T,
-    private name?: string,
+    private name?: string
   ) {}
 
   public ensure({ owner }: { owner?: any } = {}): Promise<T> {
     const requestStack = new Error()
 
     const defer = deferred<T>()
-    defer.promise.then(
-      () => (this.currentOwner = { owner, stack: requestStack }),
-    )
+    defer.promise.then(() => {
+      this.currentOwner = { owner, stack: requestStack }
+    })
 
     this.que.push(defer)
     queueMicrotask(() => this.eatQueue())
@@ -45,13 +45,13 @@ export class AtomicResource<T> {
   public release(resource: T) {
     if (resource !== this.resource) {
       throw new Error(`Incorrect resource released: ${this.name}`, {
-        cause: this.currentOwner,
+        cause: this.currentOwner
       })
     }
 
     if (!this.locked) {
       throw new Error(`Unused resource released: ${this.name}`, {
-        cause: this.currentOwner,
+        cause: this.currentOwner
       })
     }
 
@@ -62,7 +62,7 @@ export class AtomicResource<T> {
   private eatQueue() {
     if (this.locked) {
       clearTimeout(this.timeoutId)
-      this.timeoutId = window.setTimeout(() => this.eatQueue())
+      this.timeoutId = setTimeout(() => this.eatQueue()) as any
       return
     }
 

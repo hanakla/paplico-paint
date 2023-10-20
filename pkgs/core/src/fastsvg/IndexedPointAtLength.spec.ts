@@ -50,11 +50,13 @@ describe('IndexedPointAtLength', () => {
     const cached = indexedPointAtLength(input)
     const length = cached.totalLength
 
+    expect(length).toBeCloseTo(original.length(), 2)
+
     for (let i = 0; i < length; i += length / 500) {
       const origP = original.at(i)
       const point = cached.at(i)
-      expect(point[0], `pos: ${i}`).toBeCloseTo(origP[0], 2)
-      expect(point[1], `pos: ${i}`).toBeCloseTo(origP[1], 2)
+      expect(point[0], `pos x: ${i}`).toBeCloseTo(origP[0], 2)
+      expect(point[1], `pos y: ${i}`).toBeCloseTo(origP[1], 2)
     }
   })
 

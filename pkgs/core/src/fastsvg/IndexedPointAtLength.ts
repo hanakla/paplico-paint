@@ -22,8 +22,8 @@ type SubvertData = {
 
   div: number | null
   svgVertIdx: number
-  prev: [number, number, number]
-  fragStartPos: [number, number]
+  prev: { x: number; y: number; len: number }
+  fragStartPos: { x: number; y: number }
 }
 
 type AtResult = Readonly<{
@@ -48,18 +48,18 @@ export class IndexedPointAtLength {
 
   public static atBatch(path: string | Array<SVGDCommand>, pos: number[]) {
     const normPath = normalizePath(path)
-    const walk = IndexedPointAtLength.prototype._walk as any
+    const walk = IndexedPointAtLength.prototype._walk
 
     return walk.call({ _path: normPath }, pos, {
       warm: false,
-      fromSubvertIndex: null
+      fromSubvertIndex: undefined
     })
   }
 
   constructor(path: string | Array<SVGDCommand>) {
     this._path = normalizePath(path)
     const warm = this._walk(null, { warm: true })
-    this._length = warm.length
+    this._length = warm[0].length
   }
 
   public get totalLength() {
@@ -95,22 +95,17 @@ export class IndexedPointAtLength {
       nearPrevIdx = binarySearch(this._lengthAtSubvert, pos)
     }
 
-    return this._walk(pos, {
+    return this._walk([pos], {
       fromSubvertIndex: opts.fromSubvertIndex ?? nearPrevIdx
-    })
+    })[0]
   }
 
   public getSequencialReader() {
     return new SequencialPointAtLength(this)
   }
 
-  protected _walk(pos: number[]): AtResult[]
   protected _walk(
-    pos: number | null,
-    opts?: { warm?: boolean; fromSubvertIndex?: number }
-  ): AtResult
-  protected _walk(
-    pos: number | number[] | null,
+    requests: number[] | null,
     {
       warm,
       fromSubvertIndex
@@ -118,266 +113,286 @@ export class IndexedPointAtLength {
       warm?: boolean
       fromSubvertIndex?: number
     } = {}
-  ): AtResult | AtResult[] {
+  ): AtResult[] {
     const { _subvertIndex, _lengthAtSubvert } = this
 
-    const isBatch = Array.isArray(pos)
-    const requests: (number | null)[] = isBatch ? pos : [pos]
-    const results: AtResult[] = Array(requests?.length ?? 0).fill(null)
-    let currentReqIdx = 0
-    let currentTargetPos = isBatch ? requests[currentReqIdx] : pos
+    let searchingIdx = 0
+    const results: AtResult[] = []
 
-    if (isBatch && fromSubvertIndex != null) {
-      throw new Error('fromSubvertIndex is not supported in batch mode')
+    const cursor = { x: 0, y: 0, len: 0 }
+    let recentTailPos: Readonly<{ x: number; y: number; len: number }> = {
+      x: 0,
+      y: 0,
+      len: 0
     }
 
-    let cur: [x: number, y: number] = [0, 0]
-    let prev: [x: number, y: number, len: number] = [0, 0, 0]
-    let tmpFragStart: [x: number, y: number] = [0, 0]
-    let len = 0
-
-    const startSubvertData = fromSubvertIndex
+    // Restore the state before fragment pos calculation
+    const subdivIndexData = fromSubvertIndex
       ? _subvertIndex[fromSubvertIndex]
       : null
-    const fromSvgVertIndex = warm ? 0 : startSubvertData?.svgVertIdx ?? 0
+    const beginSvgVertIndex = warm ? 0 : subdivIndexData?.svgVertIdx ?? 0
     let currentSubvertIdx = fromSubvertIndex ?? 0
 
-    // Restore the state before fragment pos calculation
-    cur[0] = startSubvertData?.prev[0] ?? cur[0]
-    cur[1] = startSubvertData?.prev[1] ?? cur[1]
-    prev = startSubvertData ? [...startSubvertData.prev] : prev
-    len = startSubvertData?.prev[2] ?? len
+    Object.assign(cursor, subdivIndexData?.prev ?? cursor)
+    Object.assign(recentTailPos, subdivIndexData?.prev ?? recentTailPos)
 
     for (
-      let svgVertIdx = fromSvgVertIndex;
+      let svgVertIdx = beginSvgVertIndex;
       svgVertIdx < this._path.length;
       svgVertIdx++
     ) {
-      var p = this._path[svgVertIdx]
+      const currentCommand = this._path[svgVertIdx]
 
-      if (p[0] === 'M') {
-        cur[0] = tmpFragStart[0] = p[1]
-        cur[1] = tmpFragStart[1] = p[2]
+      if (currentCommand[0] === 'M') {
+        const recent = {
+          x: subdivIndexData?.fragStartPos.x ?? cursor.x,
+          y: subdivIndexData?.fragStartPos.y ?? cursor.y,
+          len: cursor.len
+        }
+
+        cursor.x = currentCommand[1]
+        cursor.y = currentCommand[2]
 
         currentSubvertIdx++
         if (warm) {
-          _lengthAtSubvert.push(len)
+          _lengthAtSubvert.push(cursor.len)
 
           _subvertIndex.push({
-            pos: [...cur],
+            pos: [cursor.x, cursor.y],
 
             div: null,
             svgVertIdx,
-            prev: [...prev],
-            fragStartPos: [...tmpFragStart]
+            prev: { ...recent },
+            fragStartPos: { x: cursor.x, y: cursor.y }
           })
         }
 
-        if (currentTargetPos === 0) {
-          results[currentReqIdx] = {
-            length: len,
-            pos: [...cur],
+        if (requests && requests[searchingIdx] === 0) {
+          results.push({
+            length: cursor.len,
+            pos: [cursor.x, cursor.y],
             latestSubvertIdx: currentSubvertIdx
-          }
-          currentReqIdx += 1
-          currentTargetPos = requests[currentReqIdx]
+          })
+          searchingIdx += 1
 
-          if (isBatch && currentReqIdx > requests.length) return results
-          if (!isBatch) return results[currentReqIdx - 1]
+          if (searchingIdx > requests.length) return results
         }
-      } else if (p[0] === 'C') {
-        prev[0] = tmpFragStart[0] = startSubvertData?.fragStartPos[0] ?? cur[0]
-        prev[1] = tmpFragStart[1] = startSubvertData?.fragStartPos[1] ?? cur[1]
-        prev[2] = len
 
-        for (var j = startSubvertData?.div ?? 0; j <= SUBDIVIDES; j++) {
+        recentTailPos = {
+          x: cursor.x,
+          y: cursor.y,
+          len: cursor.len
+        }
+      } else if (currentCommand[0] === 'C') {
+        const vertHeadPos = {
+          x: subdivIndexData?.fragStartPos.x ?? recentTailPos.x,
+          y: subdivIndexData?.fragStartPos.y ?? recentTailPos.y
+        }
+
+        const recent = {
+          x: vertHeadPos.x,
+          y: vertHeadPos.y,
+          len: recentTailPos.len
+        }
+
+        for (var j = subdivIndexData?.div ?? 0; j <= SUBDIVIDES; j++) {
           var t = j / SUBDIVIDES
-          var x = xof_C(p, t, tmpFragStart[0])
-          var y = yof_C(p, t, tmpFragStart[1])
-          len += distance(cur[0], cur[1], x, y)
+          var x = xof_C(vertHeadPos.x, currentCommand, t)
+          var y = yof_C(vertHeadPos.y, currentCommand, t)
+          cursor.len += distance(cursor.x, cursor.y, x, y)
 
-          cur[0] = x
-          cur[1] = y
+          cursor.x = x
+          cursor.y = y
 
           currentSubvertIdx++
 
           if (warm) {
-            _lengthAtSubvert.push(len)
+            _lengthAtSubvert.push(cursor.len)
             _subvertIndex.push({
-              pos: [...cur],
+              pos: [cursor.x, cursor.y],
 
               div: j,
               svgVertIdx,
-              prev: [...prev],
-              fragStartPos: [...tmpFragStart]
+              prev: { ...recent },
+              fragStartPos: { ...vertHeadPos }
             })
           }
 
-          if (typeof currentTargetPos === 'number' && len >= currentTargetPos) {
-            var dv = (len - currentTargetPos) / (len - prev[2])
-            dv = Number.isNaN(dv) || !Number.isFinite(dv) ? 0 : dv
+          if (requests && cursor.len >= requests[searchingIdx]) {
+            var dv =
+              (cursor.len - requests[searchingIdx]) / (cursor.len - recent.len)
 
             var npos: [number, number] = [
-              cur[0] * (1 - dv) + prev[0] * dv,
-              cur[1] * (1 - dv) + prev[1] * dv
+              cursor.x * (1 - dv) + recent.x * dv,
+              cursor.y * (1 - dv) + recent.y * dv
             ]
 
             // returning
-            results[currentReqIdx] = {
-              length: len,
+            results.push({
+              length: cursor.len,
               pos: [npos[0], npos[1]],
               latestSubvertIdx: currentSubvertIdx
-            }
+            })
 
-            currentReqIdx += 1
-            currentTargetPos = requests[currentReqIdx]
+            searchingIdx += 1
 
-            if (isBatch && currentReqIdx > requests.length) return results
-            if (!isBatch) return results[currentReqIdx - 1]
+            if (searchingIdx > requests.length) return results
           }
 
-          prev[0] = cur[0]
-          prev[1] = cur[1]
-          prev[2] = len
+          recent.x = cursor.x
+          recent.y = cursor.y
+          recent.len = cursor.len
         }
-      } else if (p[0] === 'Q') {
-        prev[0] = tmpFragStart[0] = startSubvertData?.fragStartPos[0] ?? cur[0]
-        prev[1] = tmpFragStart[1] = startSubvertData?.fragStartPos[1] ?? cur[1]
-        prev[2] = len
 
-        for (var j = startSubvertData?.div ?? 0; j <= SUBDIVIDES; j++) {
-          var t = j / SUBDIVIDES
-          var x = xof_Q(p, t, tmpFragStart[0])
-          var y = yof_Q(p, t, tmpFragStart[1])
-          len += distance(cur[0], cur[1], x, y)
+        recentTailPos = {
+          x: cursor.x,
+          y: cursor.y,
+          len: cursor.len
+        }
+      } else if (currentCommand[0] === 'Q') {
+        const vertHeadPos = {
+          x: subdivIndexData?.fragStartPos.x ?? recentTailPos.x,
+          y: subdivIndexData?.fragStartPos.y ?? recentTailPos.y
+        }
 
-          cur[0] = x
-          cur[1] = y
+        const recent = {
+          x: vertHeadPos.x,
+          y: vertHeadPos.y,
+          len: cursor.len
+        }
+
+        for (var j = subdivIndexData?.div ?? 0; j <= SUBDIVIDES; j++) {
+          const t = j / SUBDIVIDES
+          const x = xof_Q(vertHeadPos.x, currentCommand, t)
+          const y = yof_Q(vertHeadPos.y, currentCommand, t)
+          cursor.len += distance(cursor.x, cursor.y, x, y)
+
+          cursor.x = x
+          cursor.y = y
 
           currentSubvertIdx++
           if (warm) {
-            _lengthAtSubvert.push(len)
+            _lengthAtSubvert.push(cursor.len)
             _subvertIndex.push({
-              pos: [...cur],
+              pos: [cursor.x, cursor.y],
 
               div: j,
               svgVertIdx: svgVertIdx,
-              prev: [...prev],
-              fragStartPos: [...tmpFragStart]
+              prev: { ...recent },
+              fragStartPos: { ...vertHeadPos }
             })
           }
 
-          if (typeof currentTargetPos === 'number' && len >= currentTargetPos) {
-            var dv = (len - currentTargetPos) / (len - prev[2])
-            dv = Number.isNaN(dv) || !Number.isFinite(dv) ? 0 : dv
+          if (requests && cursor.len >= requests[searchingIdx]) {
+            var dv =
+              (cursor.len - requests[searchingIdx]) / (cursor.len - recent.len)
 
             var npos: [number, number] = [
-              cur[0] * (1 - dv) + prev[0] * dv,
-              cur[1] * (1 - dv) + prev[1] * dv
+              cursor.x * (1 - dv) + recent.x * dv,
+              cursor.y * (1 - dv) + recent.y * dv
             ]
 
             // returning
-            results[currentReqIdx] = {
-              length: len,
+            results.push({
+              length: cursor.len,
               pos: [npos[0], npos[1]],
               latestSubvertIdx: currentSubvertIdx
-            }
-            currentReqIdx += 1
-            currentTargetPos = requests[currentReqIdx]
+            })
+            searchingIdx += 1
 
-            if (isBatch && currentReqIdx > requests.length) return results
-            if (!isBatch) return results[currentReqIdx - 1]
+            if (searchingIdx > requests.length) return results
           }
 
-          prev[0] = cur[0]
-          prev[1] = cur[1]
-          prev[2] = len
-        }
-      } else if (p[0] === 'L') {
-        prev[0] = tmpFragStart[0] = startSubvertData?.fragStartPos[0] ?? cur[0]
-        prev[1] = tmpFragStart[1] = startSubvertData?.fragStartPos[1] ?? cur[1]
-        prev[2] = len
-
-        currentSubvertIdx++
-        if (warm) {
-          _lengthAtSubvert.push(len)
-          _subvertIndex.push({
-            pos: [...cur],
-
-            div: null,
-            svgVertIdx: svgVertIdx,
-            prev: [...prev],
-            fragStartPos: [...tmpFragStart]
-          })
+          recent.x = cursor.x
+          recent.y = cursor.y
+          recent.len = cursor.len
         }
 
-        for (var j = startSubvertData?.div ?? 0; j <= SUBDIVIDES; j++) {
+        recentTailPos = {
+          x: cursor.x,
+          y: cursor.y,
+          len: cursor.len
+        }
+      } else if (currentCommand[0] === 'L') {
+        const vertHeadPos = {
+          x: subdivIndexData?.fragStartPos.x ?? recentTailPos.x,
+          y: subdivIndexData?.fragStartPos.y ?? recentTailPos.y
+        }
+
+        const recent = {
+          x: vertHeadPos.x,
+          y: vertHeadPos.y,
+          len: recentTailPos.len
+        }
+
+        for (var j = subdivIndexData?.div ?? 0; j <= SUBDIVIDES; j++) {
           var t = j / SUBDIVIDES
-          var x = xof_L(p, t, tmpFragStart[0])
-          var y = yof_L(p, t, tmpFragStart[1])
-          len += distance(cur[0], cur[1], x, y)
+          var x = xof_L(vertHeadPos.x, currentCommand, t)
+          var y = yof_L(vertHeadPos.y, currentCommand, t)
+          cursor.len += distance(cursor.x, cursor.y, x, y)
 
-          cur[0] = x
-          cur[1] = y
+          cursor.x = x
+          cursor.y = y
 
           currentSubvertIdx++
 
           if (warm) {
-            _lengthAtSubvert.push(len)
+            _lengthAtSubvert.push(cursor.len)
             _subvertIndex.push({
-              pos: [...cur],
+              pos: [cursor.x, cursor.y],
 
               div: j,
               svgVertIdx,
-              prev: [...prev],
-              fragStartPos: [...tmpFragStart]
+              prev: { ...recent },
+              fragStartPos: { ...vertHeadPos }
             })
           }
 
-          if (typeof currentTargetPos === 'number' && len >= currentTargetPos) {
-            var dv = (len - currentTargetPos) / (len - prev[2])
+          if (requests && cursor.len >= requests[searchingIdx]) {
+            var dv =
+              (cursor.len - requests[searchingIdx]) / (cursor.len - recent.len)
             dv = Number.isNaN(dv) || !Number.isFinite(dv) ? 0 : dv
 
             var npos: [number, number] = [
-              cur[0] * (1 - dv) + prev[0] * dv,
-              cur[1] * (1 - dv) + prev[1] * dv
+              cursor.x * (1 - dv) + recent.x * dv,
+              cursor.y * (1 - dv) + recent.y * dv
             ]
 
             // returning
-            results[currentReqIdx] = {
-              length: len,
+            results.push({
+              length: cursor.len,
               pos: [npos[0], npos[1]],
               latestSubvertIdx: currentSubvertIdx
-            }
-            currentReqIdx += 1
-            currentTargetPos = requests[currentReqIdx]
+            })
+            searchingIdx += 1
 
-            if (isBatch && currentReqIdx > requests.length) return results
-            if (!isBatch) return results[currentReqIdx - 1]
+            if (searchingIdx > requests.length) return results
           }
 
-          prev[0] = cur[0]
-          prev[1] = cur[1]
-          prev[2] = len
+          recent.x = cursor.x
+          recent.y = cursor.y
+          recent.len = cursor.len
+        }
+
+        recentTailPos = {
+          x: cursor.x,
+          y: cursor.y,
+          len: cursor.len
         }
       }
     }
 
-    if (isBatch) {
-      if (currentReqIdx === requests.length) return results
-      else {
-        // results.fill(results[currentReqIdx - 1], currentReqIdx, requests.length)
-        return results
-      }
+    if (warm || (requests && cursor.len >= requests[searchingIdx])) {
+      results.push({
+        length: cursor.len,
+        pos: [cursor.x, cursor.y],
+        latestSubvertIdx: currentSubvertIdx
+      })
     }
 
-    return {
-      length: len,
-      pos: cur,
-      latestSubvertIdx: currentSubvertIdx
-    }
+    return results
 
-    function xof_C(p: SVGDCommand, t: number, startX: number) {
+    function xof_C(startX: number, p: SVGDCommand, t: number) {
       const _ = 1 - t
       return (
         // prettier-ignore
@@ -388,7 +403,7 @@ export class IndexedPointAtLength {
       )
     }
 
-    function yof_C(p: SVGDCommand, t: number, startY: number) {
+    function yof_C(startY: number, p: SVGDCommand, t: number) {
       const _ = 1 - t
       return (
         /* _pow ** 3 */
@@ -400,7 +415,7 @@ export class IndexedPointAtLength {
       )
     }
 
-    function xof_Q(p: SVGDCommand, t: number, startX: number) {
+    function xof_Q(startX: number, p: SVGDCommand, t: number) {
       const _ = 1 - t
       return (
         // prettier-ignore
@@ -410,7 +425,7 @@ export class IndexedPointAtLength {
       )
     }
 
-    function yof_Q(p: SVGDCommand, t: number, startY: number) {
+    function yof_Q(startY: number, p: SVGDCommand, t: number) {
       const _ = 1 - t
       return (
         // prettier-ignore
@@ -420,11 +435,11 @@ export class IndexedPointAtLength {
       )
     }
 
-    function xof_L(p: SVGDCommand, t: number, startX: number) {
+    function xof_L(startX: number, p: SVGDCommand, t: number) {
       return startX + t * (p[1] - startX)
     }
 
-    function yof_L(p: SVGDCommand, t: number, startY: number) {
+    function yof_L(startY: number, p: SVGDCommand, t: number) {
       return startY + t * (p[2] - startY)
     }
 

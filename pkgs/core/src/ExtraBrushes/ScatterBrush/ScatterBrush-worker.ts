@@ -40,7 +40,9 @@ const queue: Payload[] = []
 const queueResult = new Map<string, WorkerResponse>()
 
 const handleMessage = (
-  handler: (event: MessageEvent<Payload>) => Promise<WorkerResponse | undefined>
+  handler: (
+    event: MessageEvent<Payload>,
+  ) => Promise<WorkerResponse | undefined>,
 ) => {
   return async (event: MessageEvent<Payload>) => {
     const result = await handler(event)
@@ -117,7 +119,7 @@ export async function processInput(data: Payload): Promise<WorkerResponse> {
     scatterRange,
     scatterScale,
     inOutInfluence,
-    inOutLength
+    inOutLength,
   } = data
 
   const positions: [number, number][] = []
@@ -127,7 +129,7 @@ export async function processInput(data: Payload): Promise<WorkerResponse> {
     left: 0,
     top: 0,
     right: 0,
-    bottom: 0
+    bottom: 0,
   }
 
   // const scattered = scatterPlot(path, {
@@ -139,7 +141,7 @@ export async function processInput(data: Payload): Promise<WorkerResponse> {
   // console.time('build pal')
 
   const pal = indexedPointAtLength(
-    pointsToSVGCommandArray(path.points, path.closed)
+    pointsToSVGCommandArray(path.points, path.closed),
   )
   // console.timeEnd('build pal')
   const totalLen = pal.totalLength
@@ -151,7 +153,7 @@ export async function processInput(data: Payload): Promise<WorkerResponse> {
       matrices: null,
       lengths: [],
       bbox: null,
-      totalLength: 0
+      totalLength: 0,
     }
   }
 
@@ -167,7 +169,6 @@ export async function processInput(data: Payload): Promise<WorkerResponse> {
   }
 
   requestAts.push(totalLen)
-
   const points = pal.atBatch(requestAts)
 
   for (let idx = 0, l = points.length; idx < l; idx += 1) {
@@ -243,7 +244,7 @@ export async function processInput(data: Payload): Promise<WorkerResponse> {
     matrices,
     _internals: {
       requestAts,
-      positions
-    }
+      positions,
+    },
   }
 }

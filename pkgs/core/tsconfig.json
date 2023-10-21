@@ -11,7 +11,7 @@
     "isolatedModules": true,
     "skipLibCheck": true,
     "paths": {
-      "@/*": ["src/*", "dist/*"]
+      "@/*": ["src/*"]
     },
     "baseUrl": ".",
     "lib": ["ES2022", "DOM"],

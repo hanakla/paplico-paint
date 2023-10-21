@@ -71,8 +71,8 @@ export class UICanvas extends Emitter<Events> {
         x: (offset.x * this.ctx.canvas.width) / this.ctx.canvas.clientWidth,
         y: (offset.y * this.ctx.canvas.height) / this.ctx.canvas.clientHeight,
         pressure: e.touches[0].force,
-        tilt: null
-      }
+        tilt: null,
+      },
     ])
   }
 
@@ -91,8 +91,8 @@ export class UICanvas extends Emitter<Events> {
         x: (offset.x * this.ctx.canvas.width) / this.ctx.canvas.clientWidth,
         y: (offset.y * this.ctx.canvas.height) / this.ctx.canvas.clientHeight,
         pressure: e.touches[0].force,
-        tilt: null
-      }
+        tilt: null,
+      },
     ])
   }
 
@@ -180,7 +180,7 @@ export class UICanvas extends Emitter<Events> {
   }
 
   protected getPointsFromCoalescedEvent(
-    e: PointerEvent
+    e: PointerEvent,
   ): UIStrokePointRequired[] {
     if (e.getCoalescedEvents) {
       const events = e.getCoalescedEvents()
@@ -194,8 +194,8 @@ export class UICanvas extends Emitter<Events> {
               (e.offsetY * this.ctx.canvas.height) /
               this.ctx.canvas.clientHeight,
             pressure: e.pressure,
-            tilt: { x: e.tiltX, y: e.tiltY }
-          }
+            tilt: { x: e.tiltX, y: e.tiltY },
+          },
         ]
 
       return e.getCoalescedEvents().map(
@@ -207,8 +207,8 @@ export class UICanvas extends Emitter<Events> {
           tilt: { x: e.tiltX, y: e.tiltY },
           deltaTimeMs: this.currentStroke?.startTime
             ? e.timeStamp - this.currentStroke.startTime
-            : 0
-        })
+            : 0,
+        }),
       )
     } else {
       return [
@@ -217,8 +217,8 @@ export class UICanvas extends Emitter<Events> {
           y:
             (e.offsetY * this.ctx.canvas.height) / this.ctx.canvas.clientHeight,
           pressure: e.pressure,
-          tilt: { x: e.tiltX, y: e.tiltY }
-        }
+          tilt: { x: e.tiltX, y: e.tiltY },
+        },
       ]
     }
   }

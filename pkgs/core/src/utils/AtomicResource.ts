@@ -45,13 +45,13 @@ export class AtomicResource<T> {
   public release(resource: T) {
     if (resource !== this.resource) {
       throw new Error(`Incorrect resource released: ${this.name}`, {
-        cause: this.currentOwner
+        cause: this.currentOwner,
       })
     }
 
     if (!this.locked) {
       throw new Error(`Unused resource released: ${this.name}`, {
-        cause: this.currentOwner
+        cause: this.currentOwner,
       })
     }
 

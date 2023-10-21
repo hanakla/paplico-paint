@@ -9,7 +9,7 @@ describe('ScatterBrush-worker', () => {
     const request = [
       0, 0.01, 1, 1.01, 2, 2.01, 3, 3.01, 4, 4.01, 5, 5.01, 6, 6.01, 7, 7.01, 8,
       8.01, 9, 9.01, 10, 10.01, 11, 11.01, 12, 12.01, 13, 13.01, 14, 14.01,
-      14.142135623730951
+      14.142135623730951,
     ]
 
     const indexedResult = indexed.atBatch(request).map((p) => p.pos)
@@ -36,16 +36,16 @@ describe('ScatterBrush-worker', () => {
             x: 0,
             y: 0,
             end: null,
-            begin: null
+            begin: null,
           },
           {
             x: 10,
             y: 10,
             begin: null,
-            end: null
-          }
-        ]
-      }
+            end: null,
+          },
+        ],
+      },
     })
 
     result.type === 'getPoints' && console.log(result._internals)

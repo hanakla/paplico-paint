@@ -14,18 +14,15 @@ import {
   OneFactor,
   OneMinusSrcAlphaFactor,
   PlaneGeometry,
-  Scene
+  Scene,
 } from 'three'
-
 import ScatterBrushWorker from './ScatterBrush-worker?worker&inline'
 import {
   type GetPointWorkerResponse,
   type Payload,
-  type WorkerResponse
+  type WorkerResponse,
 } from './ScatterBrush-worker'
 import { ColorRGBA } from '@/Document'
-import { Matrix4 } from '@/Math'
-import { clamp, mapLinear } from '@/utils/math'
 
 const _mat4 = new ThreeMatrix4()
 
@@ -71,7 +68,7 @@ export class ScatterBrush implements IBrush {
       inOutInfluence: 1,
       inOutLength: 100,
       pressureInfluence: 0.8,
-      noiseInfluence: 0
+      noiseInfluence: 0,
     }
   }
 
@@ -116,7 +113,7 @@ export class ScatterBrush implements IBrush {
           blendDst: OneMinusSrcAlphaFactor,
           blendSrcAlpha: OneFactor,
           blendDstAlpha: OneMinusSrcAlphaFactor,
-          blendEquation: AddEquation
+          blendEquation: AddEquation,
         })
 
         // this.materials[name] = new ShaderMaterial({
@@ -131,7 +128,7 @@ export class ScatterBrush implements IBrush {
         // })
 
         // this.textures[name] = await createImageBitmap(data)
-      })
+      }),
     )
   }
 
@@ -146,7 +143,7 @@ export class ScatterBrush implements IBrush {
     threeRenderer,
     threeCamera,
     destSize,
-    phase
+    phase,
   }: BrushContext<ScatterBrush.SpecificSetting>): Promise<BrushLayoutData> {
     const sp = mergeToNew(this.getInitialSpecificConfig(), specific)
     const baseColor: ColorRGBA = { ...color, a: opacity }
@@ -156,7 +153,7 @@ export class ScatterBrush implements IBrush {
       left: 0,
       top: 0,
       right: 0,
-      bottom: 0
+      bottom: 0,
     }
 
     for (const path of inputPath) {
@@ -199,7 +196,7 @@ export class ScatterBrush implements IBrush {
             scatterRange: sp.scatterRange ?? 0,
             inOutInfluence: sp.inOutInfluence ?? 0,
             inOutLength: sp.inOutLength ?? 0,
-            scatterScale: 1
+            scatterScale: 1,
           } satisfies Payload)
         })
       } catch (e) {
@@ -230,9 +227,9 @@ export class ScatterBrush implements IBrush {
         // ctx.arc(
         //   res._internals.positions[i][0],
         //   res._internals.positions[i][1],
-        //   0.3,
+        //   1,
         //   0,
-        //   Math.PI * 2
+        //   Math.PI * 2,
         // )
         // ctx.closePath()
         // ctx.fill()
@@ -252,15 +249,11 @@ export class ScatterBrush implements IBrush {
             {
               r: i / l,
               g: 1 - i / l,
-              b: 0
+              b: 0,
             },
-            _color
-          )
+            _color,
+          ),
         )
-      }
-
-      if (phase === 'final') {
-        console.log({ inputPath })
       }
 
       if (res.bbox) {
@@ -285,13 +278,13 @@ export class ScatterBrush implements IBrush {
         left: bbox.left - destSize.width / 2,
         top: bbox.top - destSize.height / 2,
         right: bbox.right + destSize.width / 2,
-        bottom: bbox.bottom + destSize.height / 2
-      }
+        bottom: bbox.bottom + destSize.height / 2,
+      },
     }
   }
 
   public async render(
-    ctx: BrushContext<ScatterBrush.SpecificSetting>
+    ctx: BrushContext<ScatterBrush.SpecificSetting>,
   ): Promise<BrushLayoutData> {
     return this.renderWithWorker(ctx)
     // const interX = interpolateMapObject(points, (idx, arr) => arr[idx].x)
@@ -371,7 +364,7 @@ if (import.meta.vitest) {
       ;[
         [0, 100],
         [100, 0],
-        [200, -100]
+        [200, -100],
       ].forEach(([y, mapped]) => {
         const pos = y / height
         const result = (1 - pos) * height - height / 2

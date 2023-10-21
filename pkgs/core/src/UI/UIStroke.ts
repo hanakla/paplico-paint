@@ -112,7 +112,7 @@ export class UIStroke {
     return {
       points,
       randomSeed: this.randomSeed,
-      closed: false
+      closed: false,
     }
   }
 }

@@ -8,12 +8,12 @@ import { type SVGDCommand } from '@/fastsvg/IndexedPointAtLength'
 
 export const addPoint2D = (a: Point2D, b: Point2D) => ({
   x: a.x + b.x,
-  y: a.y + b.y
+  y: a.y + b.y,
 })
 
 export const multiplyPoint2D = (a: Point2D, b: Point2D) => ({
   x: a.x * b.x,
-  y: a.y * b.y
+  y: a.y * b.y,
 })
 
 export const vectorTransformToMatrix = (obj: VectorObject) => {
@@ -31,7 +31,7 @@ export const vectorTransformToMatrix = (obj: VectorObject) => {
 
 export const calcVectorBoundingBox = (obj: VectorObject) => {
   const bbox = pathBounds(
-    pointsToSVGCommandArray(obj.path.points, obj.path.closed)
+    pointsToSVGCommandArray(obj.path.points, obj.path.closed),
   )
   const left = bbox.left + obj.position.x
   const top = bbox.top + obj.position.y
@@ -47,18 +47,18 @@ export const calcVectorBoundingBox = (obj: VectorObject) => {
     centerX: left + width / 2,
     centerY: top + height / 2,
     width,
-    height
+    height,
   }
 }
 
 const memoized_pointsToSVGPath = shallowEqMemoize(
   (points) => points,
-  pointsToSVGPath
+  pointsToSVGPath,
 )
 
 export function pointsToSVGCommandArray(
   points: VectorPathPoint[],
-  closed: boolean
+  closed: boolean,
 ): SVGDCommand[] {
   const [start] = points
 
@@ -120,9 +120,9 @@ export function pointsToSVGPath(points: VectorPathPoint[], closed: boolean) {
           return `L ${point.x} ${point.y}`
         }
       },
-      { startOffset: 1 }
+      { startOffset: 1 },
     ).join(' '),
-    closed ? 'Z' : ''
+    closed ? 'Z' : '',
   ].join(' ')
 }
 
@@ -132,14 +132,14 @@ export function mapPoints<T extends VectorPathPoint, R>(
     point: T,
     prevPoint: VectorPathPoint | undefined,
     index: number,
-    points: T[]
+    points: T[],
   ) => R,
-  { startOffset = 0 }: { startOffset?: number } = {}
+  { startOffset = 0 }: { startOffset?: number } = {},
 ): R[] {
   // const result: T[] = [] as any
   return points
     .slice(startOffset)
     .map((point, idx) =>
-      proc(point, points[idx + startOffset - 1], idx, points)
+      proc(point, points[idx + startOffset - 1], idx, points),
     )
 }

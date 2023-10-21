@@ -1,12 +1,14 @@
 import immer, { Draft } from 'immer'
 
 import { MixerPipeline } from '@/Engine/MixerPipeline'
-import { BrushRegistry } from '@/Engine/BrushRegistry'
+import { BrushRegistry } from '@/Engine/Registry/BrushRegistry'
 import { createCanvas, getCanvasBytes } from '@/Engine/CanvasFactory'
 import { Renderer } from '@/Engine/Renderer'
 import { UICanvas } from '@/UI/UICanvas'
 import { UIStroke } from '@/UI/UIStroke'
 import {
+  createDocument,
+  createRasterLayerEntity,
   createVectorObject,
   LayerEntity,
   LayerNode,
@@ -30,8 +32,8 @@ import { RainbowInk } from './Inks/RainbowInk'
 import { TextureReadInk } from './Inks/TextureReadInk'
 import { AtomicResource } from './utils/AtomicResource'
 import { PaplicoAbortError, PaplicoIgnoreableError } from './Errors'
-import { ICommand } from './History/ICommand'
-import { Commands } from '.'
+import { ICommand } from '@/History/ICommand'
+import * as Commands from '@/History/Commands'
 import { AsyncQueue } from './utils/AsyncQueue'
 
 export namespace Paplico {
@@ -135,6 +137,30 @@ export class Paplico extends Emitter<Events> {
   }
 
   #activeLayerEntity: LayerEntity | null = null
+
+  public static createWithDocument(
+    canvas: HTMLCanvasElement,
+    opt: { width: number; height: number },
+  ) {
+    const pap = new Paplico(canvas)
+
+    const doc = createDocument({ width: opt.width, height: opt.height })
+    const layer = createRasterLayerEntity({
+      width: opt.width,
+      height: opt.height,
+    })
+
+    doc.layerEntities.push(layer)
+    doc.layerTree.push({
+      layerUid: layer.uid,
+      children: [],
+    })
+
+    pap.loadDocument(doc)
+    pap.enterLayer([layer.uid])
+
+    return pap
+  }
 
   constructor(canvas: HTMLCanvasElement) {
     super()

@@ -93,11 +93,23 @@ describe('IndexedPointAtLength', () => {
       const atResults: any[] = []
 
       for (let i = 0; i < length; i += length / 500) req.push(i)
-
       for (const at of req) atResults.push(pal.atWithDetail(at))
 
       const atBatchResults = pal.atBatch(req)
       expect(atBatchResults).toEqual(atResults)
+    })
+
+    it('.atBatch should be returns expected length', () => {
+      const pal = indexedPointAtLength(path)
+      const length = pal.totalLength
+
+      const req: number[] = Array.from(
+        { length: Math.floor(length) },
+        (_, i) => i,
+      )
+      const atBatchResults = pal.atBatch(req)
+
+      expect(atBatchResults).toHaveLength(Math.floor(length))
     })
 
     // it.only('.atBatch should be returns same result to .at (breaking case)', () => {

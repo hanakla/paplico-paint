@@ -206,10 +206,10 @@ export class IndexedPointAtLength {
           len: recentTailPos.len,
         }
 
-        for (var j = indexedSubdivBeginState?.div ?? 0; j <= SUBDIVIDES; j++) {
-          var t = j / SUBDIVIDES
-          var x = xof_C(vertHeadPos.x, currentCommand, t)
-          var y = yof_C(vertHeadPos.y, currentCommand, t)
+        for (let j = indexedSubdivBeginState?.div ?? 0; j <= SUBDIVIDES; j++) {
+          const t = j / SUBDIVIDES
+          const x = xof_C(vertHeadPos.x, currentCommand, t)
+          const y = yof_C(vertHeadPos.y, currentCommand, t)
           cursor.len += distance(cursor.x, cursor.y, x, y)
 
           cursor.x = x
@@ -231,22 +231,25 @@ export class IndexedPointAtLength {
           }
 
           if (requests && cursor.len >= requests[searchingIdx]) {
-            var dv =
-              (cursor.len - requests[searchingIdx]) / (cursor.len - recent.len)
+            while (requests[searchingIdx] <= cursor.len) {
+              const dv =
+                (cursor.len - requests[searchingIdx]) /
+                (cursor.len - recent.len)
 
-            var npos: [number, number] = [
-              cursor.x * (1 - dv) + recent.x * dv,
-              cursor.y * (1 - dv) + recent.y * dv,
-            ]
+              const npos: [number, number] = [
+                cursor.x * (1 - dv) + recent.x * dv,
+                cursor.y * (1 - dv) + recent.y * dv,
+              ]
 
-            // returning
-            results.push({
-              length: cursor.len,
-              pos: [npos[0], npos[1]],
-              latestSubvertIdx: currentSubvertIdx,
-            })
+              // returning
+              results.push({
+                length: cursor.len,
+                pos: [npos[0], npos[1]],
+                latestSubvertIdx: currentSubvertIdx,
+              })
 
-            searchingIdx += 1
+              searchingIdx += 1
+            }
 
             if (searchingIdx > requests.length) return results
           }
@@ -277,7 +280,7 @@ export class IndexedPointAtLength {
           len: cursor.len,
         }
 
-        for (var j = indexedSubdivBeginState?.div ?? 0; j <= SUBDIVIDES; j++) {
+        for (let j = indexedSubdivBeginState?.div ?? 0; j <= SUBDIVIDES; j++) {
           const t = j / SUBDIVIDES
           const x = xof_Q(vertHeadPos.x, currentCommand, t)
           const y = yof_Q(vertHeadPos.y, currentCommand, t)
@@ -300,21 +303,24 @@ export class IndexedPointAtLength {
           }
 
           if (requests && cursor.len >= requests[searchingIdx]) {
-            var dv =
-              (cursor.len - requests[searchingIdx]) / (cursor.len - recent.len)
+            while (requests[searchingIdx] <= cursor.len) {
+              const dv =
+                (cursor.len - requests[searchingIdx]) /
+                (cursor.len - recent.len)
 
-            var npos: [number, number] = [
-              cursor.x * (1 - dv) + recent.x * dv,
-              cursor.y * (1 - dv) + recent.y * dv,
-            ]
+              const npos: [number, number] = [
+                cursor.x * (1 - dv) + recent.x * dv,
+                cursor.y * (1 - dv) + recent.y * dv,
+              ]
 
-            // returning
-            results.push({
-              length: cursor.len,
-              pos: [npos[0], npos[1]],
-              latestSubvertIdx: currentSubvertIdx,
-            })
-            searchingIdx += 1
+              // returning
+              results.push({
+                length: cursor.len,
+                pos: [npos[0], npos[1]],
+                latestSubvertIdx: currentSubvertIdx,
+              })
+              searchingIdx += 1
+            }
 
             if (searchingIdx > requests.length) return results
           }
@@ -345,10 +351,10 @@ export class IndexedPointAtLength {
           len: recentTailPos.len,
         }
 
-        for (var j = indexedSubdivBeginState?.div ?? 0; j <= SUBDIVIDES; j++) {
-          var t = j / SUBDIVIDES
-          var x = xof_L(vertHeadPos.x, currentCommand, t)
-          var y = yof_L(vertHeadPos.y, currentCommand, t)
+        for (let j = indexedSubdivBeginState?.div ?? 0; j <= SUBDIVIDES; j++) {
+          const t = j / SUBDIVIDES
+          const x = xof_L(vertHeadPos.x, currentCommand, t)
+          const y = yof_L(vertHeadPos.y, currentCommand, t)
           cursor.len += distance(cursor.x, cursor.y, x, y)
 
           cursor.x = x
@@ -369,22 +375,24 @@ export class IndexedPointAtLength {
           }
 
           if (requests && cursor.len >= requests[searchingIdx]) {
-            var dv =
-              (cursor.len - requests[searchingIdx]) / (cursor.len - recent.len)
-            dv = Number.isNaN(dv) || !Number.isFinite(dv) ? 0 : dv
+            while (requests[searchingIdx] <= cursor.len) {
+              const dv =
+                (cursor.len - requests[searchingIdx]) /
+                (cursor.len - recent.len)
 
-            var npos: [number, number] = [
-              cursor.x * (1 - dv) + recent.x * dv,
-              cursor.y * (1 - dv) + recent.y * dv,
-            ]
+              const npos: [number, number] = [
+                cursor.x * (1 - dv) + recent.x * dv,
+                cursor.y * (1 - dv) + recent.y * dv,
+              ]
 
-            // returning
-            results.push({
-              length: cursor.len,
-              pos: [npos[0], npos[1]],
-              latestSubvertIdx: currentSubvertIdx,
-            })
-            searchingIdx += 1
+              // returning
+              results.push({
+                length: cursor.len,
+                pos: [npos[0], npos[1]],
+                latestSubvertIdx: currentSubvertIdx,
+              })
+              searchingIdx += 1
+            }
 
             if (searchingIdx > requests.length) return results
           }

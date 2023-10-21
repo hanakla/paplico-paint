@@ -5,258 +5,273 @@ import { pointsToSVGCommandArray } from '@/StrokingHelper'
 describe('IndexedPointAtLength', () => {
   const path = complexPath()
 
-  it('should be correctly sorted lengthCache and lengthCacheDetail', () => {
-    const cached = indexedPointAtLength(path)
-
-    expect(cached._lengthAtSubvert).toEqual(
-      [...cached._lengthAtSubvert].sort((a, b) => a - b)
-    )
-
-    expect(cached._lengthAtSubvert).toHaveLength(cached._subvertIndex.length)
-  })
-
-  it('should work with pointsToSVGCommandArray', () => {
-    const pal = indexedPointAtLength(
-      pointsToSVGCommandArray(
-        [
-          {
-            x: 0,
-            y: 0,
-            begin: null,
-            end: null
-          },
-          {
-            x: 1000,
-            y: 1000,
-            begin: { x: 333.3333333333333, y: 666.6666666666667 },
-            end: { x: 666.6666666666667, y: 666.6666666666667 }
-          }
-        ],
-        false
+  describe('.lengthOfVertex', () => {
+    it.each([
+      [1, 'M0,0 L10,10'],
+      [2, 'M0,0 L10,10 L20,20'],
+      [3, 'M0,0 C10,10 10,10 10,10'],
+    ])('should be returns equal value to totalLength: %d', (_, path) => {
+      const cached = indexedPointAtLength(path)
+      expect(cached.lengthOfVertex(cached.vertexCount - 1)).toEqual(
+        cached.totalLength,
       )
-    )
-
-    expect(pal.at(pal.totalLength)).toEqual([1000, 1000])
+    })
   })
 
-  it.each(
-    // prettier-ignore
-    [
-      [path],
-      [[['M', 0, 0],['L', 1000, 1000]] satisfies SVGDCommand[]]
-    ]
-  )('should be returns same result to point-at-length', (input) => {
-    const original = pal(input)
-    const cached = indexedPointAtLength(input)
-    const length = cached.totalLength
+  describe('.at / .atBatch', () => {
+    it('should be correctly sorted lengthCache and lengthCacheDetail', () => {
+      const cached = indexedPointAtLength(path)
 
-    expect(length).toBeCloseTo(original.length(), 2)
+      expect(cached._lengthAtSubvert).toEqual(
+        [...cached._lengthAtSubvert].sort((a, b) => a - b),
+      )
 
-    for (let i = 0; i < length; i += length / 500) {
-      const origP = original.at(i)
-      const point = cached.at(i)
-      expect(point[0], `pos x: ${i}`).toBeCloseTo(origP[0], 2)
-      expect(point[1], `pos y: ${i}`).toBeCloseTo(origP[1], 2)
-    }
-  })
+      expect(cached._lengthAtSubvert).toHaveLength(cached._subvertIndex.length)
+    })
 
-  it('noBinsearch should be returns same to binsearch result', () => {
-    const get = indexedPointAtLength(path)
-    const length = get.totalLength
+    it('should work with pointsToSVGCommandArray', () => {
+      const pal = indexedPointAtLength(
+        pointsToSVGCommandArray(
+          [
+            {
+              x: 0,
+              y: 0,
+              begin: null,
+              end: null,
+            },
+            {
+              x: 1000,
+              y: 1000,
+              begin: { x: 333.3333333333333, y: 666.6666666666667 },
+              end: { x: 666.6666666666667, y: 666.6666666666667 },
+            },
+          ],
+          false,
+        ),
+      )
 
-    for (let pos = 0, i = 0; pos < length; pos += length / 500, i++) {
-      const point = get.at(pos)
-      const nobin = get.at(pos, { noBinsearch: true })
-      expect(point, `pos: ${i}(${pos}): `).toEqual(nobin)
-    }
-  })
+      expect(pal.at(pal.totalLength)).toEqual([1000, 1000])
+    })
 
-  it('.atBatch should be returns same result to .at', () => {
-    const pal = indexedPointAtLength(path)
-    const length = pal.totalLength
+    it.each(
+      // prettier-ignore
+      [
+        [1, path],
+        [2, [['M', 0, 0],['L', 1000, 1000]] satisfies SVGDCommand[]]
+      ],
+    )('should be returns same result to point-at-length: %d', (_, input) => {
+      const original = pal(input)
+      const cached = indexedPointAtLength(input)
+      const length = cached.totalLength
 
-    const req: number[] = []
-    const atResults: any[] = []
+      expect(length).toBeCloseTo(original.length(), 2)
 
-    for (let i = 0; i < length; i += length / 500) req.push(i)
+      for (let i = 0; i < length; i += length / 500) {
+        const origP = original.at(i)
+        const point = cached.at(i)
+        expect(point[0], `pos x: ${i}`).toBeCloseTo(origP[0], 2)
+        expect(point[1], `pos y: ${i}`).toBeCloseTo(origP[1], 2)
+      }
+    })
 
-    for (const at of req) atResults.push(pal.atWithDetail(at))
+    it('noBinsearch should be returns same to binsearch result', () => {
+      const get = indexedPointAtLength(path)
+      const length = get.totalLength
 
-    const atBatchResults = pal.atBatch(req)
-    expect(atBatchResults).toEqual(atResults)
-  })
+      for (let pos = 0, i = 0; pos < length; pos += length / 500, i++) {
+        const point = get.at(pos)
+        const nobin = get.at(pos, { noBinsearch: true })
+        expect(point, `pos: ${i}(${pos}): `).toEqual(nobin)
+      }
+    })
 
-  // it.only('.atBatch should be returns same result to .at (breaking case)', () => {
-  //   const req = [
-  //     0, 0.01, 1, 1.01, 2, 2.01, 3, 3.01, 4, 4.01, 5, 5.01, 6, 6.01, 7, 7.01, 8,
-  //     8.01, 9, 9.01, 10, 10.01, 11, 11.01, 12, 12.01, 13, 13.01, 14, 14.01,
-  //     14.142135623730951
-  //   ]
-
-  //   const pal = indexedPointAtLength('M0,0 L10,10')
-  //   const atResults: any[] = []
-
-  //   console.log(pal._subvertIndex)
-
-  //   for (const at of req) atResults.push(pal.atWithDetail(at))
-
-  //   const atBatchResults = pal.atBatch(req)
-  //   expect(atBatchResults).toEqual(atResults)
-  // })
-
-  describe('getSequencialReader', () => {
-    it('should returns same result to .at()', () => {
+    it('.atBatch should be returns same result to .at', () => {
       const pal = indexedPointAtLength(path)
-      const seqPal = pal.getSequencialReader()
+      const length = pal.totalLength
 
-      expect(seqPal.at(0)).toEqual(pal.at(0))
-      expect(seqPal.at(50)).toEqual(pal.at(50))
-      expect(seqPal.at(100)).toEqual(pal.at(100))
-    })
-  })
+      const req: number[] = []
+      const atResults: any[] = []
 
-  describe('line', () => {
-    it('Should not return NaN', () => {
-      const line = 'M0,0 C 50,50 50,50 50,50 L100,100'
-      const cached = indexedPointAtLength(line)
+      for (let i = 0; i < length; i += length / 500) req.push(i)
 
-      expect(cached.totalLength).not.toBeNaN()
+      for (const at of req) atResults.push(pal.atWithDetail(at))
 
-      const pt = cached.at(0.5)
-      expect(pt[0]).not.toBeNaN()
-      expect(pt[1]).not.toBeNaN()
-    })
-  })
-
-  describe('performance', () => {
-    it('indexing time', () => {
-      const buildTime = time(() => {
-        indexedPointAtLength(path)
-      })
-
-      console.info(`Indexing time: ${buildTime}ms`)
+      const atBatchResults = pal.atBatch(req)
+      expect(atBatchResults).toEqual(atResults)
     })
 
-    it('methods', async () => {
-      const times = 5000
+    // it.only('.atBatch should be returns same result to .at (breaking case)', () => {
+    //   const req = [
+    //     0, 0.01, 1, 1.01, 2, 2.01, 3, 3.01, 4, 4.01, 5, 5.01, 6, 6.01, 7, 7.01, 8,
+    //     8.01, 9, 9.01, 10, 10.01, 11, 11.01, 12, 12.01, 13, 13.01, 14, 14.01,
+    //     14.142135623730951
+    //   ]
 
-      // Native
-      /*
-        function perf() {
-          const path = document.createElementNS(
-            'http://www.w3.org/2000/svg',
-            'path',
-          )
-          path.setAttribute('d', complexPath())
-          document.body.appendChild(path)
+    //   const pal = indexedPointAtLength('M0,0 L10,10')
+    //   const atResults: any[] = []
 
-          const totalLength = path.getTotalLength()
+    //   console.log(pal._subvertIndex)
 
-          let start = performance.now()
-          for (let i = 0; i < 5000; i++) {
-            path.getPointAtLength(totalLength * (i / 5000))
-          }
-          console.info(`Native 5000times: ${performance.now() - start}ms`)
+    //   for (const at of req) atResults.push(pal.atWithDetail(at))
 
-          function complexPath() {
-            return `
-              M713.328125,350.9140625
-              C713.328125,421.70197509723874,722.5525019789692,519.7390096746306,702.96484375,586.0859375
-              C689.6535495867756,631.1736893275031,672.9378693749323,660.0908042801916,645.3515625,699.60546875
-              C572.9328950136194,803.338069132086,445.2718097475105,920.0715451277504,307.859375,874.52734375
-              C267.5079968860733,861.1532172084883,251.47947704556285,849.462709960477,221.578125,821.66796875
-              C187.23374360529658,789.7432186101026,149.72388637999302,739.7489139317611,150.40234375,690.13671875
-              C151.39275500558068,617.7128956856633,222.88700788434312,542.0417626730251,276.9765625,501.7421875
-              C332.63319068717357,460.2750597441197,397.1507732887845,430.82221773673825,468.13671875,430.82421875
-              C573.9319424560133,430.8272009973208,708.1569369804935,504.6365528630434,747.40625,608.3046875
-              C766.638890836565,659.1033345662133,743.1364826668837,718.8025540325696,714.8125,760.23046875
-              C689.6409719303243,797.0474633952191,650.166027898789,840.9831943883817,610.78515625,863.91015625
-              C514.6072353221002,919.9035213717573,390.30850627882876,859.2751524956966,348.50390625,762.97265625
-              C304.818924083026,662.3384478560153,372.1360320022822,537.8353079876072,469.21875,497.15625
-              C516.3553204163127,477.40534766795787,576.9646817481793,479.3326861278903,620.09375,507.27734375
-              C630.3585461643299,513.9282227510977,664.5050392671657,546.2530862119378,655.2109375,562.05078125
-              C649.583119225819,571.6166929488836,605.8978497224218,568.2853908166342,601.48046875,567.76171875
-              C551.4944063045808,561.8359666387114,498.7583879849199,510.72380373961494,535.75,460.48828125
-              C557.2984759656335,431.2249188275348,588.3509107292192,408.23277148019474,618.80078125,389.23046875
-              C666.5052297832393,359.4604120271984,717.4627410794914,332.2675800126234,762.33203125,385.8984375
-              C769.4792672274979,394.4413048527307,776.0913720520524,403.57148806662565,781.24609375,413.4453125
-              C787.0551765415247,424.5725598983006,791.6151521353901,436.41203761084324,795.01171875,448.49609375
-              C819.2520844836557,534.7366930361188,761.7601352767597,618.8244270598826,691.8046875,663.58984375
-              C590.5064169848613,728.4119474419,434.5333072550254,731.1816518419369,355.05078125,630.15625
-              C298.1034327588257,557.773940902401,323.749512057543,408.29160561643636,427.23046875,395.54296875
-            `
-          }
-        }
-        perf()
-      */
+    //   const atBatchResults = pal.atBatch(req)
+    //   expect(atBatchResults).toEqual(atResults)
+    // })
 
-      const originalTime = time(() => {
-        const original = pal(path)
-        const totalLength = original.length()
-
-        for (let i = 0; i < times; i++) {
-          original.at(totalLength * (i / times))
-        }
-      })
-
-      const normalTime = time(() => {
-        const normal = indexedPointAtLength(path)
-
-        for (let i = 0; i < times; i++) {
-          normal.at(normal.totalLength * (i / times))
-        }
-      })
-
-      await sleep(200)
-
-      const batchTime = time(() => {
+    describe('getSequencialReader', () => {
+      it('should returns same result to .at()', () => {
         const pal = indexedPointAtLength(path)
+        const seqPal = pal.getSequencialReader()
 
-        const req: number[] = []
-        const len = pal.totalLength
+        expect(seqPal.at(0)).toEqual(pal.at(0))
+        expect(seqPal.at(50)).toEqual(pal.at(50))
+        expect(seqPal.at(100)).toEqual(pal.at(100))
+      })
+    })
 
-        for (let i = 0; i < times; i++) {
-          req.push(len * (i / times))
-        }
+    describe('line', () => {
+      it('Should not return NaN', () => {
+        const line = 'M0,0 C 50,50 50,50 50,50 L100,100'
+        const cached = indexedPointAtLength(line)
 
-        pal.atBatch(req)
+        expect(cached.totalLength).not.toBeNaN()
+
+        const pt = cached.at(0.5)
+        expect(pt[0]).not.toBeNaN()
+        expect(pt[1]).not.toBeNaN()
+      })
+    })
+
+    describe('performance', () => {
+      it('indexing time', () => {
+        const buildTime = time(() => {
+          indexedPointAtLength(path)
+        })
+
+        console.info(`Indexing time: ${buildTime}ms`)
       })
 
-      await sleep(200)
+      it('methods', async () => {
+        const times = 5000
 
-      const noBinsearchTime = time(() => {
-        const opt = { noBinsearch: true }
-        const normal = indexedPointAtLength(path)
+        // Native
+        /*
+          function perf() {
+            const path = document.createElementNS(
+              'http://www.w3.org/2000/svg',
+              'path',
+            )
+            path.setAttribute('d', complexPath())
+            document.body.appendChild(path)
 
-        for (let i = 0; i < times; i++) {
-          normal.at(normal.totalLength * (i / times), opt)
-        }
+            const totalLength = path.getTotalLength()
+
+            let start = performance.now()
+            for (let i = 0; i < 5000; i++) {
+              path.getPointAtLength(totalLength * (i / 5000))
+            }
+            console.info(`Native 5000times: ${performance.now() - start}ms`)
+
+            function complexPath() {
+              return `
+                M713.328125,350.9140625
+                C713.328125,421.70197509723874,722.5525019789692,519.7390096746306,702.96484375,586.0859375
+                C689.6535495867756,631.1736893275031,672.9378693749323,660.0908042801916,645.3515625,699.60546875
+                C572.9328950136194,803.338069132086,445.2718097475105,920.0715451277504,307.859375,874.52734375
+                C267.5079968860733,861.1532172084883,251.47947704556285,849.462709960477,221.578125,821.66796875
+                C187.23374360529658,789.7432186101026,149.72388637999302,739.7489139317611,150.40234375,690.13671875
+                C151.39275500558068,617.7128956856633,222.88700788434312,542.0417626730251,276.9765625,501.7421875
+                C332.63319068717357,460.2750597441197,397.1507732887845,430.82221773673825,468.13671875,430.82421875
+                C573.9319424560133,430.8272009973208,708.1569369804935,504.6365528630434,747.40625,608.3046875
+                C766.638890836565,659.1033345662133,743.1364826668837,718.8025540325696,714.8125,760.23046875
+                C689.6409719303243,797.0474633952191,650.166027898789,840.9831943883817,610.78515625,863.91015625
+                C514.6072353221002,919.9035213717573,390.30850627882876,859.2751524956966,348.50390625,762.97265625
+                C304.818924083026,662.3384478560153,372.1360320022822,537.8353079876072,469.21875,497.15625
+                C516.3553204163127,477.40534766795787,576.9646817481793,479.3326861278903,620.09375,507.27734375
+                C630.3585461643299,513.9282227510977,664.5050392671657,546.2530862119378,655.2109375,562.05078125
+                C649.583119225819,571.6166929488836,605.8978497224218,568.2853908166342,601.48046875,567.76171875
+                C551.4944063045808,561.8359666387114,498.7583879849199,510.72380373961494,535.75,460.48828125
+                C557.2984759656335,431.2249188275348,588.3509107292192,408.23277148019474,618.80078125,389.23046875
+                C666.5052297832393,359.4604120271984,717.4627410794914,332.2675800126234,762.33203125,385.8984375
+                C769.4792672274979,394.4413048527307,776.0913720520524,403.57148806662565,781.24609375,413.4453125
+                C787.0551765415247,424.5725598983006,791.6151521353901,436.41203761084324,795.01171875,448.49609375
+                C819.2520844836557,534.7366930361188,761.7601352767597,618.8244270598826,691.8046875,663.58984375
+                C590.5064169848613,728.4119474419,434.5333072550254,731.1816518419369,355.05078125,630.15625
+                C298.1034327588257,557.773940902401,323.749512057543,408.29160561643636,427.23046875,395.54296875
+              `
+            }
+          }
+          perf()
+        */
+
+        const originalTime = time(() => {
+          const original = pal(path)
+          const totalLength = original.length()
+
+          for (let i = 0; i < times; i++) {
+            original.at(totalLength * (i / times))
+          }
+        })
+
+        const normalTime = time(() => {
+          const normal = indexedPointAtLength(path)
+
+          for (let i = 0; i < times; i++) {
+            normal.at(normal.totalLength * (i / times))
+          }
+        })
+
+        await sleep(200)
+
+        const batchTime = time(() => {
+          const pal = indexedPointAtLength(path)
+
+          const req: number[] = []
+          const len = pal.totalLength
+
+          for (let i = 0; i < times; i++) {
+            req.push(len * (i / times))
+          }
+
+          pal.atBatch(req)
+        })
+
+        await sleep(200)
+
+        const noBinsearchTime = time(() => {
+          const opt = { noBinsearch: true }
+          const normal = indexedPointAtLength(path)
+
+          for (let i = 0; i < times; i++) {
+            normal.at(normal.totalLength * (i / times), opt)
+          }
+        })
+
+        await sleep(200)
+
+        const sequencialTime = time(() => {
+          const normal = indexedPointAtLength(path)
+          const sequencial = normal.getSequencialReader()
+          const opt = { seek: true }
+
+          for (let i = 0; i < times; i++) {
+            sequencial.at(sequencial.totalLength * (i / times), opt)
+          }
+        })
+
+        console.log(`original point-at-length ${times}times: ${originalTime}ms`)
+        console.log(
+          `normal(disable binsearch) ${times}times: ${noBinsearchTime}ms`,
+        )
+        console.log(`normal ${times}times: ${normalTime}ms`)
+        console.log(`batchTime ${times}points: ${batchTime}ms`)
+        console.log(`sequencial ${times}times: ${sequencialTime}ms`)
+        console.log(
+          `faster (normal vs cached): ${formatNumber(
+            normalTime - sequencialTime,
+          )}`,
+        )
       })
-
-      await sleep(200)
-
-      const sequencialTime = time(() => {
-        const normal = indexedPointAtLength(path)
-        const sequencial = normal.getSequencialReader()
-        const opt = { seek: true }
-
-        for (let i = 0; i < times; i++) {
-          sequencial.at(sequencial.totalLength * (i / times), opt)
-        }
-      })
-
-      console.log(`original point-at-length ${times}times: ${originalTime}ms`)
-      console.log(
-        `normal(disable binsearch) ${times}times: ${noBinsearchTime}ms`
-      )
-      console.log(`normal ${times}times: ${normalTime}ms`)
-      console.log(`batchTime ${times}points: ${batchTime}ms`)
-      console.log(`sequencial ${times}times: ${sequencialTime}ms`)
-      console.log(
-        `faster (normal vs cached): ${formatNumber(
-          normalTime - sequencialTime
-        )}`
-      )
     })
   })
 })

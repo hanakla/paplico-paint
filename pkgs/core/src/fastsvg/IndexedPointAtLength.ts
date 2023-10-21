@@ -17,13 +17,16 @@ type AtOption = {
   noBinsearch?: boolean
 }
 
+type Position2D = { x: number; y: number }
+type VertexPosition = { x: number; y: number; len: number }
+
 type SubvertData = {
-  pos: [number, number]
+  pos: Position2D
 
   div: number | null
   svgVertIdx: number
-  prev: { x: number; y: number; len: number }
-  fragStartPos: { x: number; y: number }
+  prev: VertexPosition
+  fragStartPos: Position2D
 }
 
 type AtResult = Readonly<{
@@ -44,6 +47,7 @@ export class IndexedPointAtLength {
   protected _length: number = 0
 
   public readonly _lengthAtSubvert: number[] = []
+  public readonly _lengthAtSVGVert: number[] = []
   public readonly _subvertIndex: SubvertData[] = []
 
   public static atBatch(path: string | Array<SVGDCommand>, pos: number[]) {
@@ -52,7 +56,7 @@ export class IndexedPointAtLength {
 
     return walk.call({ _path: normPath }, pos, {
       warm: false,
-      fromSubvertIndex: undefined
+      fromSubvertIndex: undefined,
     })
   }
 
@@ -66,15 +70,18 @@ export class IndexedPointAtLength {
     return this._length
   }
 
+  public get vertexCount() {
+    return this._path.length
+  }
+
   public lengthOfVertex(vertIdx: number) {
-    const idx = this._subvertIndex.findIndex(
-      (lenData) => lenData.svgVertIdx === vertIdx
-    )
-    if (idx === -1) {
+    const length = this._lengthAtSVGVert[vertIdx]
+
+    if (length == null) {
       throw new Error(`Vertex index out of bound: ${vertIdx}`)
     }
 
-    return this._lengthAtSubvert[idx]
+    return length
   }
 
   public at(pos: number, opts: AtOption = {}) {
@@ -96,7 +103,7 @@ export class IndexedPointAtLength {
     }
 
     return this._walk([pos], {
-      fromSubvertIndex: opts.fromSubvertIndex ?? nearPrevIdx
+      fromSubvertIndex: opts.fromSubvertIndex ?? nearPrevIdx,
     })[0]
   }
 
@@ -108,22 +115,22 @@ export class IndexedPointAtLength {
     requests: number[] | null,
     {
       warm,
-      fromSubvertIndex
+      fromSubvertIndex,
     }: {
       warm?: boolean
       fromSubvertIndex?: number
-    } = {}
+    } = {},
   ): AtResult[] {
-    const { _subvertIndex, _lengthAtSubvert } = this
+    const { _subvertIndex, _lengthAtSubvert, _lengthAtSVGVert } = this
 
     let searchingIdx = 0
     const results: AtResult[] = []
 
-    const cursor = { x: 0, y: 0, len: 0 }
-    let recentTailPos: Readonly<{ x: number; y: number; len: number }> = {
+    const cursor: VertexPosition = { x: 0, y: 0, len: 0 }
+    let recentTailPos: Readonly<VertexPosition> = {
       x: 0,
       y: 0,
-      len: 0
+      len: 0,
     }
 
     // Restore the state before fragment pos calculation
@@ -149,7 +156,7 @@ export class IndexedPointAtLength {
         const recent = {
           x: indexedSubdivBeginState?.fragStartPos.x ?? cursor.x,
           y: indexedSubdivBeginState?.fragStartPos.y ?? cursor.y,
-          len: cursor.len
+          len: cursor.len,
         }
 
         cursor.x = currentCommand[1]
@@ -160,20 +167,22 @@ export class IndexedPointAtLength {
           _lengthAtSubvert.push(cursor.len)
 
           _subvertIndex.push({
-            pos: [cursor.x, cursor.y],
+            pos: { ...cursor },
 
             div: null,
             svgVertIdx,
             prev: { ...recent },
-            fragStartPos: { x: cursor.x, y: cursor.y }
+            fragStartPos: { x: cursor.x, y: cursor.y },
           })
+
+          _lengthAtSVGVert.push(cursor.len)
         }
 
         if (requests && requests[searchingIdx] === 0) {
           results.push({
             length: cursor.len,
             pos: [cursor.x, cursor.y],
-            latestSubvertIdx: currentSubvertIdx
+            latestSubvertIdx: currentSubvertIdx,
           })
           searchingIdx += 1
 
@@ -183,18 +192,18 @@ export class IndexedPointAtLength {
         recentTailPos = {
           x: cursor.x,
           y: cursor.y,
-          len: cursor.len
+          len: cursor.len,
         }
       } else if (currentCommand[0] === 'C') {
         const vertHeadPos = {
           x: indexedSubdivBeginState?.fragStartPos.x ?? recentTailPos.x,
-          y: indexedSubdivBeginState?.fragStartPos.y ?? recentTailPos.y
+          y: indexedSubdivBeginState?.fragStartPos.y ?? recentTailPos.y,
         }
 
         const recent = {
           x: vertHeadPos.x,
           y: vertHeadPos.y,
-          len: recentTailPos.len
+          len: recentTailPos.len,
         }
 
         for (var j = indexedSubdivBeginState?.div ?? 0; j <= SUBDIVIDES; j++) {
@@ -210,13 +219,14 @@ export class IndexedPointAtLength {
 
           if (warm) {
             _lengthAtSubvert.push(cursor.len)
+
             _subvertIndex.push({
-              pos: [cursor.x, cursor.y],
+              pos: { x: cursor.x, y: cursor.y },
 
               div: j,
               svgVertIdx,
               prev: { ...recent },
-              fragStartPos: { ...vertHeadPos }
+              fragStartPos: { ...vertHeadPos },
             })
           }
 
@@ -226,14 +236,14 @@ export class IndexedPointAtLength {
 
             var npos: [number, number] = [
               cursor.x * (1 - dv) + recent.x * dv,
-              cursor.y * (1 - dv) + recent.y * dv
+              cursor.y * (1 - dv) + recent.y * dv,
             ]
 
             // returning
             results.push({
               length: cursor.len,
               pos: [npos[0], npos[1]],
-              latestSubvertIdx: currentSubvertIdx
+              latestSubvertIdx: currentSubvertIdx,
             })
 
             searchingIdx += 1
@@ -246,21 +256,25 @@ export class IndexedPointAtLength {
           recent.len = cursor.len
         }
 
+        if (warm) {
+          _lengthAtSVGVert.push(cursor.len)
+        }
+
         recentTailPos = {
           x: cursor.x,
           y: cursor.y,
-          len: cursor.len
+          len: cursor.len,
         }
       } else if (currentCommand[0] === 'Q') {
         const vertHeadPos = {
           x: indexedSubdivBeginState?.fragStartPos.x ?? recentTailPos.x,
-          y: indexedSubdivBeginState?.fragStartPos.y ?? recentTailPos.y
+          y: indexedSubdivBeginState?.fragStartPos.y ?? recentTailPos.y,
         }
 
         const recent = {
           x: vertHeadPos.x,
           y: vertHeadPos.y,
-          len: cursor.len
+          len: cursor.len,
         }
 
         for (var j = indexedSubdivBeginState?.div ?? 0; j <= SUBDIVIDES; j++) {
@@ -276,12 +290,12 @@ export class IndexedPointAtLength {
           if (warm) {
             _lengthAtSubvert.push(cursor.len)
             _subvertIndex.push({
-              pos: [cursor.x, cursor.y],
+              pos: { x: cursor.x, y: cursor.y },
 
               div: j,
               svgVertIdx: svgVertIdx,
               prev: { ...recent },
-              fragStartPos: { ...vertHeadPos }
+              fragStartPos: { ...vertHeadPos },
             })
           }
 
@@ -291,14 +305,14 @@ export class IndexedPointAtLength {
 
             var npos: [number, number] = [
               cursor.x * (1 - dv) + recent.x * dv,
-              cursor.y * (1 - dv) + recent.y * dv
+              cursor.y * (1 - dv) + recent.y * dv,
             ]
 
             // returning
             results.push({
               length: cursor.len,
               pos: [npos[0], npos[1]],
-              latestSubvertIdx: currentSubvertIdx
+              latestSubvertIdx: currentSubvertIdx,
             })
             searchingIdx += 1
 
@@ -310,21 +324,25 @@ export class IndexedPointAtLength {
           recent.len = cursor.len
         }
 
+        if (warm) {
+          _lengthAtSVGVert.push(cursor.len)
+        }
+
         recentTailPos = {
           x: cursor.x,
           y: cursor.y,
-          len: cursor.len
+          len: cursor.len,
         }
       } else if (currentCommand[0] === 'L') {
         const vertHeadPos = {
           x: indexedSubdivBeginState?.fragStartPos.x ?? recentTailPos.x,
-          y: indexedSubdivBeginState?.fragStartPos.y ?? recentTailPos.y
+          y: indexedSubdivBeginState?.fragStartPos.y ?? recentTailPos.y,
         }
 
         const recent = {
           x: vertHeadPos.x,
           y: vertHeadPos.y,
-          len: recentTailPos.len
+          len: recentTailPos.len,
         }
 
         for (var j = indexedSubdivBeginState?.div ?? 0; j <= SUBDIVIDES; j++) {
@@ -341,12 +359,12 @@ export class IndexedPointAtLength {
           if (warm) {
             _lengthAtSubvert.push(cursor.len)
             _subvertIndex.push({
-              pos: [cursor.x, cursor.y],
+              pos: { x: cursor.x, y: cursor.y },
 
               div: j,
               svgVertIdx,
               prev: { ...recent },
-              fragStartPos: { ...vertHeadPos }
+              fragStartPos: { ...vertHeadPos },
             })
           }
 
@@ -357,14 +375,14 @@ export class IndexedPointAtLength {
 
             var npos: [number, number] = [
               cursor.x * (1 - dv) + recent.x * dv,
-              cursor.y * (1 - dv) + recent.y * dv
+              cursor.y * (1 - dv) + recent.y * dv,
             ]
 
             // returning
             results.push({
               length: cursor.len,
               pos: [npos[0], npos[1]],
-              latestSubvertIdx: currentSubvertIdx
+              latestSubvertIdx: currentSubvertIdx,
             })
             searchingIdx += 1
 
@@ -376,10 +394,14 @@ export class IndexedPointAtLength {
           recent.len = cursor.len
         }
 
+        if (warm) {
+          _lengthAtSVGVert.push(cursor.len)
+        }
+
         recentTailPos = {
           x: cursor.x,
           y: cursor.y,
-          len: cursor.len
+          len: cursor.len,
         }
       }
     }
@@ -388,7 +410,7 @@ export class IndexedPointAtLength {
       results.push({
         length: cursor.len,
         pos: [cursor.x, cursor.y],
-        latestSubvertIdx: currentSubvertIdx
+        latestSubvertIdx: currentSubvertIdx,
       })
     }
 
@@ -469,7 +491,7 @@ function longhand(path: SVGDCommand[]) {
 
   const conversion: Record<string, { to: string; x: number } | undefined> = {
     S: { to: 'C', x: 3 },
-    T: { to: 'Q', x: 1 }
+    T: { to: 'Q', x: 1 },
   }
 
   for (var i = 0, len = path.length; i < len; i++) {
@@ -546,12 +568,12 @@ export class SequencialPointAtLength {
   public atWithDetail(len: number, { seek = true }: { seek?: boolean } = {}) {
     if (len < this.prevLen) {
       throw new Error(
-        'PointAtLength.sequencialReader.at: len must be larger than length of previous call'
+        'PointAtLength.sequencialReader.at: len must be larger than length of previous call',
       )
     }
 
     const result = this.pal.atWithDetail(len, {
-      fromSubvertIndex: this.nextHint?.latestSubvertIdx
+      fromSubvertIndex: this.nextHint?.latestSubvertIdx,
     })
 
     if (seek) {

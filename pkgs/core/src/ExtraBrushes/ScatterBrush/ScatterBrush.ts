@@ -162,12 +162,14 @@ export class ScatterBrush implements IBrush {
       // const { points, closed } = path
       const id = generateId()
 
-      let res
+      let res: GetPointWorkerResponse
       try {
         res = await new Promise<GetPointWorkerResponse>((r, reject) => {
           const receiver = (e: MessageEvent<WorkerResponse>) => {
             if (e.data.type === 'aborted' && e.data.id === id) {
               reject(new PaplicoAbortError())
+              this.worker!.removeEventListener('message', receiver)
+              return
             }
 
             if (e.data.type !== 'getPoints' || e.data.id !== id) return
@@ -179,8 +181,8 @@ export class ScatterBrush implements IBrush {
           const onAbort = () => {
             this.worker!.postMessage({
               type: 'aborted',
-              id
-            } as const satisfies Payload)
+              id,
+            } satisfies Payload)
           }
 
           abort.addEventListener('abort', onAbort, { once: true })

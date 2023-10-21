@@ -68,8 +68,7 @@ export function pointsToSVGCommandArray(
 
   return [
     ['M', start.x, start.y],
-    ...mapPoints(
-      [...points, ...(closed ? [start] : [])],
+    ...[...points, ...(closed ? [start] : [])].map(
       (point, prev): SVGDCommand => {
         if (point!.end || point.begin) {
           return [
@@ -79,15 +78,14 @@ export function pointsToSVGCommandArray(
             point.end?.x ?? point.x,
             point.end?.y ?? point.y,
             point.x,
-            point.y
+            point.y,
           ]
-        } else if (point.end == null && point.begin == null) {
+        } else {
           return ['L', point.x, point.y]
         }
       },
-      { startOffset: 1 }
     ),
-    ...(closed ? [['Z'] as ['Z']] : [])
+    ...(closed ? [['Z'] as ['Z']] : []),
   ]
 }
 

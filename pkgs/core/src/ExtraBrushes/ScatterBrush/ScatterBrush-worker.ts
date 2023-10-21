@@ -200,23 +200,24 @@ export async function processInput(data: Payload): Promise<WorkerResponse> {
       : len >= totalLen - inOutLength ? inOutInfluence * (totalLen - len) / inOutLength
       : 1;
 
-    const matt4 = new Matrix4().translate(
-      // x,
-      // y,
-      mapLinear(
-        x,
-        [0, destSize.width],
-        [-destSize.width / 2, destSize.width / 2]
-      ),
-      mapLinear(
-        y,
-        [0, destSize.height],
-        [destSize.height / 2, -destSize.height / 2]
-      ),
-      0
-    )
-    // .scale([brushSize * inoutScale, brushSize * inoutScale, 1])
-    // .rotateZ(rad)
+    const matt4 = new Matrix4()
+      .translate(
+        // x,
+        // y,
+        mapLinear(
+          x,
+          [0, destSize.width],
+          [-destSize.width / 2, destSize.width / 2],
+        ),
+        mapLinear(
+          y,
+          [0, destSize.height],
+          [destSize.height / 2, -destSize.height / 2],
+        ),
+        0,
+      )
+      .scale([brushSize * inoutScale, brushSize * inoutScale, 1])
+      .rotateZ(rad)
 
     matrices.push(matt4.toArray())
     lengths.push(len)

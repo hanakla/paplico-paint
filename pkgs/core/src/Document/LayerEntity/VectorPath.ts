@@ -9,14 +9,11 @@ export type VectorPathPoints = {
 }
 
 export type VectorPathPoint = {
-  /** Absolute position(x2, y2), control point for end of curve */
-  end: { x: number; y: number } | null
+  // SEE: https://svgwg.org/svg2-draft/paths.html#PathDataCubicBezierCommands
   /** Absolute position(x1, y1), control point for beginning of curve */
   begin: { x: number; y: number } | null
-  // c1x: number
-  // c1y: number
-  // c2x: number
-  // c2y: number
+  /** Absolute position(x2, y2), control point for end of curve */
+  end: { x: number; y: number } | null
 
   /** Absolute position on canvas */
   x: number

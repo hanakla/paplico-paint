@@ -590,24 +590,6 @@ export class Paplico extends Emitter<Events> {
           },
         )
 
-        console.log({ path })
-        await this.renderer.renderStroke(
-          tmpctx.canvas,
-          path,
-          { ...this.strokeSetting, brushId: CircleBrush.id },
-          {
-            inkSetting: this.#state.currentInk,
-            abort: aborter.signal,
-            transform: {
-              position: { x: 0, y: 0 },
-              scale: { x: 1, y: 1 },
-              rotation: 0,
-            },
-            phase: 'final',
-            logger: RenderCycleLogger.current,
-          },
-        )
-
         // Update layer image data
         await this.command.do(
           new Commands.RasterUpdateBitmap(this.activeLayerEntity.uid, {

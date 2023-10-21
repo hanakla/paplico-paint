@@ -148,24 +148,6 @@ export class UICanvas extends Emitter<Events> {
 
     this.currentStroke = null
     this.emit('strokeComplete', s)
-
-    // const stroke = new UIStroke()
-    // stroke.markStartTime()
-    // stroke.addPoint({
-    //   x: 0,
-    //   y: 0,
-    //   pressure: 0,
-    //   tilt: { x: 0, y: 0 },
-    //   deltaTimeMs: 0
-    // })
-    // stroke.addPoint({
-    //   x: 1000,
-    //   y: 1000,
-    //   pressure: 0,
-    //   tilt: { x: 0, y: 0 },
-    //   deltaTimeMs: 1
-    // })
-    // this.emit('strokeComplete', stroke)
   }
 
   protected _getTouchOffset = (event: TouchEvent) => {

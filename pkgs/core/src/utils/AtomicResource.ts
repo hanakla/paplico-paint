@@ -12,8 +12,12 @@ export class AtomicResource<T> {
 
   constructor(
     private resource: T,
-    private name?: string
+    private name?: string,
   ) {}
+
+  public clearQueue() {
+    this.que = []
+  }
 
   public ensure({ owner }: { owner?: any } = {}): Promise<T> {
     const requestStack = new Error()

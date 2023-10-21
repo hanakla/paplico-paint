@@ -18,7 +18,7 @@ import {
   calcVectorBoundingBox,
   mapPoints,
   multiplyPoint2D,
-  vectorTransformToMatrix
+  vectorTransformToMatrix,
 } from './VectorUtils'
 
 export type RenderPhase = 'stroking' | 'final'
@@ -41,7 +41,7 @@ export class Renderer {
       premultipliedAlpha: true,
       antialias: false,
       preserveDrawingBuffer: true,
-      canvas: createCanvas() as HTMLCanvasElement
+      canvas: createCanvas() as HTMLCanvasElement,
     })
     renderer.setClearColor(0xffffff, 0)
     this.atomicThreeRenderer = new AtomicResource(renderer)
@@ -61,7 +61,7 @@ export class Renderer {
       abort?: AbortSignal
       logger: RenderCycleLogger
       phase: RenderPhase
-    }
+    },
   ) {
     setCanvasSize(dest, options.viewport)
     const dstctx = dest.getContext('2d')!
@@ -89,10 +89,10 @@ export class Renderer {
               point.end?.x ?? point.x,
               point.end?.y ?? point.y,
               point.x,
-              point.y
+              point.y,
             )
           },
-          { startOffset: 1 }
+          { startOffset: 1 },
         )
         // }
 
@@ -104,7 +104,7 @@ export class Renderer {
               case 'fill': {
                 const {
                   color: { r, g, b },
-                  opacity
+                  opacity,
                 } = ap.fill
 
                 dstctx.globalAlpha = 1
@@ -127,16 +127,16 @@ export class Renderer {
                   centerX + start.x,
                   centerY + start.y,
                   centerX + end.x,
-                  centerY + end.y
+                  centerY + end.y,
                 )
 
                 for (const {
                   position,
-                  color: { r, g, b, a }
+                  color: { r, g, b, a },
                 } of colorPoints) {
                   gradient.addColorStop(
                     position,
-                    `rgba(${r * 255}, ${g * 255}, ${b * 255}, ${a}`
+                    `rgba(${r * 255}, ${g * 255}, ${b * 255}, ${a}`,
                   )
                 }
 
@@ -159,10 +159,10 @@ export class Renderer {
               transform: {
                 position: addPoint2D(layer.transform.position, obj.position),
                 scale: multiplyPoint2D(layer.transform.scale, obj.scale),
-                rotation: layer.transform.rotate + obj.rotate
+                rotation: layer.transform.rotate + obj.rotate,
               },
               phase: options.phase,
-              logger: options.logger
+              logger: options.logger,
             })
           }
         }
@@ -200,7 +200,7 @@ export class Renderer {
       transform,
       abort,
       phase,
-      logger
+      logger,
     }: {
       inkSetting: InkSetting
       transform: {
@@ -211,7 +211,7 @@ export class Renderer {
       abort?: AbortSignal
       phase: RenderPhase
       logger: RenderCycleLogger
-    }
+    },
   ) {
     const brush = this.brushRegistry.getInstance(strokeSetting.brushId)
     const ink = this.inkRegistry.getInstance(inkSetting.inkId)
@@ -250,10 +250,10 @@ export class Renderer {
         transform: {
           translate: { x: transform.position.x, y: transform.position.y },
           scale: { x: transform.scale.x, y: transform.scale.y },
-          rotate: transform.rotation
+          rotate: transform.rotation,
         },
         phase,
-        logger
+        logger,
       })
     } finally {
       this.atomicThreeRenderer.release(renderer)

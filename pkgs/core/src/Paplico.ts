@@ -42,6 +42,11 @@ export namespace Paplico {
 
   export type InkSetting = _InkSetting
 
+  export type Preferences = {
+    /** Simplify path tolerance, recommend to 0 to 6. 0 is no simplify */
+    strokeTrelance: number
+  }
+
   export type State = {
     activeLayer: {
       layerType: LayerEntity['layerType']
@@ -110,6 +115,10 @@ export class Paplico extends Emitter<Events> {
 
   protected rerenderQueue = new AsyncQueue()
   protected activeStrokeChangeAborters: AbortController[] = []
+
+  #preferences: Paplico.Preferences = {
+    strokeTrelance: 5,
+  }
 
   #state: Paplico.State = {
     activeLayer: null,
@@ -284,6 +293,16 @@ export class Paplico extends Emitter<Events> {
 
   public get fillSetting(): Paplico.FillSetting | null {
     return this.#state.currentFill
+  }
+
+  public set preferences(prefs: Paplico.Preferences) {
+    this.#preferences = immer(this.#preferences, (d) => {
+      Object.assign(d, prefs)
+    })
+  }
+
+  public get preferences(): Paplico.Preferences {
+    return this.#preferences
   }
 
   public set strokeComposition(
@@ -490,7 +509,9 @@ export class Paplico extends Emitter<Events> {
 
       RenderCycleLogger.current.time('toSimplefiedPath')
 
-      const path = stroke.toSimplefiedPath()
+      const path = stroke.toSimplifiedPath({
+        tolerance: this.#preferences.strokeTrelance,
+      })
       // const path = stroke.toPath()
       RenderCycleLogger.current.timeEnd('toSimplefiedPath')
       RenderCycleLogger.current.info(

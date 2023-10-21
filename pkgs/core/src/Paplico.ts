@@ -105,8 +105,6 @@ export class Paplico extends Emitter<Events> {
   protected document: PaplicoDocument | null = null
   protected runtimeDoc: RuntimeDocument | null = null
 
-  // protected activeLayerStatus: | null = null
-  protected lastRenderAborter: AbortController | null = null
   protected beforeCommitAborter: AbortController = new AbortController()
   protected tmpctxResource: AtomicResource<CanvasRenderingContext2D>
 
@@ -154,17 +152,9 @@ export class Paplico extends Emitter<Events> {
     const tmpctx = tmpCanvas.getContext('2d', { willReadFrequently: true })!
     this.tmpctxResource = new AtomicResource(tmpctx, 'Paplico#tmpctx')
 
-    this.onUIStrokeChange = async (...args) => {
-      this.rerenderQueue.push('render', () =>
-        Paplico.prototype.onUIStrokeChange.apply(this, args),
-      )
-    }
+    this.onUIStrokeChange = this.onUIStrokeChange.bind(this)
+    this.onUIStrokeComplete = this.onUIStrokeComplete.bind(this)
 
-    this.onUIStrokeComplete = async (...args) => {
-      this.rerenderQueue.push('render', () =>
-        Paplico.prototype.onUIStrokeComplete.apply(this, args),
-      )
-    }
     this.initilize()
   }
 
@@ -190,8 +180,6 @@ export class Paplico extends Emitter<Events> {
 
   private get activeLayerEntity(): LayerEntity | null {
     return this.#activeLayerEntity
-    // if (!this.#state.activeLayer) return null
-    // return this.document!.resolveLayerEntity(this.#state.activeLayer.layerUid)!
   }
 
   protected initilize() {
@@ -332,16 +320,26 @@ export class Paplico extends Emitter<Events> {
     }
   }
 
-  protected async onUIStrokeChange(stroke: UIStroke) {
+  protected async onUIStrokeChange(stroke: UIStroke): Promise<void> {
+    const aborter = new AbortController()
+    this.activeStrokeChangeAborters.push(aborter)
+
+    this.rerenderQueue.push('previewRender', async () => {
+      this.onUIStrokeChangeProcess.call(this, stroke, aborter)
+    })
+  }
+
+  protected async onUIStrokeChangeProcess(
+    stroke: UIStroke,
+    abort?: AbortController,
+  ): Promise<void> {
     if (!this.runtimeDoc) return
     if (!this.activeLayerEntity) return
     if (this.#state.busy) return
 
     const renderLogger = RenderCycleLogger.createNext()
 
-    // this.lastRenderAborter?.abort()
-    const aborter = (this.lastRenderAborter = new AbortController())
-    this.activeStrokeChangeAborters.push(aborter)
+    const aborter = abort ?? new AbortController()
 
     const tmpctx = await this.tmpctxResource.ensure()
     const dstctx = this.dstctx
@@ -460,8 +458,11 @@ export class Paplico extends Emitter<Events> {
 
   protected async onUIStrokeComplete(stroke: UIStroke) {
     RenderCycleLogger.createNext()
-
     RenderCycleLogger.current.log('start: stroke complete')
+
+    // Cancel all waiting stroke change render queue
+    this.activeStrokeChangeAborters.forEach((aborter) => aborter.abort())
+    this.activeStrokeChangeAborters = []
 
     if (!this.runtimeDoc) return
     if (!this.activeLayerEntity) return
@@ -472,9 +473,6 @@ export class Paplico extends Emitter<Events> {
 
     this.beforeCommitAborter?.abort()
     this.beforeCommitAborter = new AbortController()
-
-    // this.lastRenderAborter?.abort()
-    this.activeStrokeChangeAborters.forEach((a) => a.abort())
 
     // Not do this, commit is must be completion or failed
     // This aborter is not used

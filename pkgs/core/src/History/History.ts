@@ -14,6 +14,16 @@ export class History extends Emitter<Events> {
   #undoStack: ICommand[] = []
   #redoStack: ICommand[] = []
 
+  public dispose() {
+    this.mitt.all.clear()
+
+    this.#undoStack.forEach((c) => c.dispose?.())
+    this.#redoStack.forEach((c) => c.dispose?.())
+
+    this.#undoStack = []
+    this.#redoStack = []
+  }
+
   public get undoStack() {
     return [...this.#undoStack]
   }

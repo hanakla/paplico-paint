@@ -221,6 +221,8 @@ export class Paplico extends Emitter<Events> {
   }
 
   public loadDocument(doc: PaplicoDocument) {
+    this.runtimeDoc?.dispose()
+
     this.document = doc
     this.runtimeDoc = new RuntimeDocument(doc)
 

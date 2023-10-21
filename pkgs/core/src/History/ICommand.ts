@@ -7,6 +7,8 @@ export type CommandConstructor = {
 export interface ICommand {
   readonly name: string
 
+  dispose?(): void
+
   do(document: RuntimeDocument): Promise<void>
   undo(document: RuntimeDocument): Promise<void>
   redo(document: RuntimeDocument): Promise<void>

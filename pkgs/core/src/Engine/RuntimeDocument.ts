@@ -29,7 +29,6 @@ export class RuntimeDocument {
 
   public layerImageCache: Map<string, ImageBitmap> = new Map()
   public blobCaches: Map<string, WeakRef<any>> = new Map()
-  protected writebackCallbackIds = new Map<string, number>()
 
   protected layoutData = new Map<string, RuntimeDocument.LayoutData>()
   protected layerEntities = new Map<string, RuntimeLayerEntity>()
@@ -46,6 +45,17 @@ export class RuntimeDocument {
     })
 
     this.history = new History()
+  }
+
+  public dispose() {
+    this.updaterLock.clearQueue()
+
+    this.layerImageCache.forEach((bitmap) => bitmap.close())
+    this.layerImageCache.clear()
+    this.layoutData.clear()
+    this.layerEntities.clear()
+    this.blobCaches.clear()
+    this.history.dispose()
   }
 
   public get rootNodes() {

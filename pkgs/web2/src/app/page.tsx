@@ -21,10 +21,6 @@ export default function Index() {
       const pap = (window.pap = new Paplico(canvasRef.current!))
       await pap.brushes.register(ExtraBrushes.ScatterBrush)
 
-      pap.uiCanvas.on('strokeComplete', (stroke) => {
-        console.log(stroke)
-      })
-
       const doc = Document.createDocument({ width: 1000, height: 1000 })
       const raster = Document.createRasterLayerEntity({
         width: 1000,

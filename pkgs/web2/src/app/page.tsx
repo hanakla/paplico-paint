@@ -8,105 +8,74 @@ import {
   Inks,
 } from '@paplico/core-new'
 import { useRef } from 'react'
-import { useEffectOnce } from 'react-use'
+import { useEffectOnce, useUpdate } from 'react-use'
 import { css } from 'styled-components'
 import { theming } from '../utils/styled'
 import { checkerBoard } from '../utils/cssMixin'
+import { Listbox, ListboxItem } from '../components/Listbox'
+import useEvent from 'react-use-event-hook'
+import { EditorArea } from './fragments/EditorArea'
+import { usePaplico, usePaplicoInit } from '../domains/paplico'
 
 export default function Index() {
   const canvasRef = useRef<HTMLCanvasElement>(null)
+  const papRef = useRef<Paplico | null>(null)
 
-  useEffectOnce(() => {
-    ;(async () => {
-      const pap = (window.pap = new Paplico(canvasRef.current!))
-      await pap.brushes.register(ExtraBrushes.ScatterBrush)
+  usePaplicoInit(canvasRef)
 
-      const doc = Document.createDocument({ width: 1000, height: 1000 })
-      const raster = Document.createRasterLayerEntity({
-        width: 1000,
-        height: 1000,
-      })
+  const handleChangeBrush = useEvent((value: string[]) => {
+    const target = papRef.current.brushes.brushEntries.find(
+      (entry) => entry.id === value[0],
+    )
 
-      const vector = Document.createVectorLayerEntity({})
-      vector.objects.push(
-        Document.createVectorObject({
-          path: Document.createVectorPath({
-            points: [
-              { x: 0, y: 0, begin: null, end: null },
-              { x: 1000, y: 1000, begin: null, end: null },
-            ],
-          }),
-          appearances: [
-            {
-              kind: 'stroke',
-              stroke: {
-                brushId: ExtraBrushes.ScatterBrush.id,
-                brushVersion: '0.0.1',
-                color: { r: 0, g: 0, b: 0 },
-                opacity: 1,
-                size: 30,
-                specific: {
-                  texture: 'pencil',
-                  noiseInfluence: 1,
-                  inOutInfluence: 0,
-                  inOutLength: 0,
-                } satisfies ExtraBrushes.ScatterBrush.SpecificSetting,
-              },
-              ink: {
-                inkId: Inks.RainbowInk.id,
-                inkVersion: Inks.RainbowInk.version,
-                specific: {} satisfies Inks.RainbowInk.SpecificSetting,
-              },
-            },
-          ],
-        }),
-      )
-
-      doc.layerEntities.push(vector)
-      doc.layerEntities.push(raster)
-      doc.layerTree.push({ layerUid: vector.uid, children: [] })
-      doc.layerTree.push({ layerUid: raster.uid, children: [] })
-
-      pap.loadDocument(doc)
-      pap.enterLayer([raster.uid])
-      pap.rerender()
-
-      // pap.strok
-      pap.strokeSetting = {
-        brushId: ExtraBrushes.ScatterBrush.id,
-        brushVersion: '0.0.1',
-        color: { r: 0, g: 0, b: 0 },
-        opacity: 1,
-        size: 30,
-        specific: {
-          texture: 'pencil',
-          noiseInfluence: 1,
-          inOutInfluence: 0,
-          inOutLength: 0,
-        } satisfies ExtraBrushes.ScatterBrush.SpecificSetting,
-      }
-
-      console.log(pap)
-    })()
+    papRef.current.strokeSetting = {
+      ...papRef.current.strokeSetting,
+      brushId: target.id,
+      brushVersion: '0.0.1',
+      specific: {},
+    }
   })
 
   return (
     <div
       css={css`
+        position: relative;
+        display: flex;
+        justify-content: center;
+        align-items: center;
         width: 100%;
         height: 100%;
         ${theming((o) => [o.bg.surface3])}
       `}
     >
-      <canvas
+      <div>
+        <Listbox
+          value={papRef.current ? [papRef.current.strokeSetting.brushId] : []}
+          onChange={handleChangeBrush}
+        >
+          {papRef.current?.brushes.brushEntries.map((entry) => (
+            <ListboxItem value={entry.id}>{entry.id}</ListboxItem>
+          ))}
+        </Listbox>
+      </div>
+
+      <div
         css={css`
-          background-color: #fff;
-          ${checkerBoard({ size: 10, opacity: 0.1 })};
+          position: absolute;
+          top: 0;
+          left: 0;
+          width: 100%;
+          height: 100%;
         `}
-        ref={canvasRef}
-        width={1000}
-        height={1000}
-      />
+      >
+        <EditorArea
+          css={css`
+            width: 100%;
+            height: 100%;
+          `}
+          ref={canvasRef}
+        />
+      </div>
     </div>
   )
 }

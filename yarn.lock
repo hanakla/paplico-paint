@@ -6935,17 +6935,22 @@ __metadata:
   dependencies:
     "@charcoal-ui/styled": 3.1.0
     "@paplico/core-new": "workspace:^"
-    "@types/react": 18.2.14
+    "@types/react": 18.2.31
     "@types/react-dom": 18.0.11
+    "@use-gesture/react": ^10.3.0
     next: 13.4.9
     nextra: 2.9.0
     nextra-theme-docs: 2.9.0
     react: 18.2.0
     react-dom: 18.2.0
+    react-icons: ^4.11.0
     react-use: 17.4.0
+    react-use-event-hook: ^0.9.6
     styled-components: ^6.0.4
     styled-reset: 4.5.1
+    use-measure: ^0.3.0
     vitest: 0.33.0
+    zustand: ^4.4.4
   languageName: unknown
   linkType: soft
 
@@ -9212,14 +9217,14 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@types/react@npm:*, @types/react@npm:18.2.14, @types/react@npm:>=16":
-  version: 18.2.14
-  resolution: "@types/react@npm:18.2.14"
+"@types/react@npm:*, @types/react@npm:18.2.31, @types/react@npm:>=16":
+  version: 18.2.31
+  resolution: "@types/react@npm:18.2.31"
   dependencies:
     "@types/prop-types": "*"
     "@types/scheduler": "*"
     csstype: ^3.0.2
-  checksum: a6a5e8cc78f486b9020d1ad009aa6c56943c68c7c6376e0f8399e9cbcd950b7b8f5d73f00200f5379f5e58d31d57d8aed24357f301d8e86108cd438ce6c8b3dd
+  checksum: b11be8e39174d3303e308461400889e353e422d22b01d09795b2c35b7b99d5351716503d9ec5c58e4c2c871249603fa52840d45a34fb5901dd7a26e06129c716
   languageName: node
   linkType: hard
 
@@ -9235,13 +9240,13 @@ __metadata:
   linkType: hard
 
 "@types/react@npm:^16, @types/react@npm:^16.9.9":
-  version: 16.14.43
-  resolution: "@types/react@npm:16.14.43"
+  version: 16.14.50
+  resolution: "@types/react@npm:16.14.50"
   dependencies:
     "@types/prop-types": "*"
     "@types/scheduler": "*"
     csstype: ^3.0.2
-  checksum: 10ce3f8b80eadd66178a53845bddf264fa109fcfe0a615a0dce7e027dc426768573e87aee3eba7c53a2a867e159bba928bd86cac92ba93c5bd0152a63a49ccad
+  checksum: 98a862efb06e53f6a0cc6b5fade44ba6d85e94cdc8ade19437f77b942c818fac63b4fc395c0afbeea2b919f40e0940bef63d8bfd4d63b2bd7ac92662acf022f9
   languageName: node
   linkType: hard
 
@@ -9463,6 +9468,24 @@ __metadata:
   dependencies:
     "@types/yargs-parser": "*"
   checksum: f0673cbfc08e17239dc58952a88350d6c4db04a027a28a06fbad27d87b670e909f9cd9e66f9c64cebdd5071d1096261e33454a55868395f125297e5c50992ca8
+  languageName: node
+  linkType: hard
+
+"@use-gesture/core@npm:10.3.0":
+  version: 10.3.0
+  resolution: "@use-gesture/core@npm:10.3.0"
+  checksum: cd6782b0cf61ae2306ecee4bd3c30942251427c142e3fd3584778d86e1a93b27e087033246700b54c4ad7063aa78747dc793f0dbb7434925c306215fb18dee82
+  languageName: node
+  linkType: hard
+
+"@use-gesture/react@npm:^10.3.0":
+  version: 10.3.0
+  resolution: "@use-gesture/react@npm:10.3.0"
+  dependencies:
+    "@use-gesture/core": 10.3.0
+  peerDependencies:
+    react: ">= 16.8.0"
+  checksum: d43a2296e536ea8e4885ca082b7c554eabb0e19bb7f89b5db96e0511712c849db879de64c2746c94e3c9a5032e8918c90ace67fc023c754034d75b2ea3b727c4
   languageName: node
   linkType: hard
 
@@ -27091,6 +27114,15 @@ next@latest:
   languageName: node
   linkType: hard
 
+"react-icons@npm:^4.11.0":
+  version: 4.11.0
+  resolution: "react-icons@npm:4.11.0"
+  peerDependencies:
+    react: "*"
+  checksum: 7b8b80bbe2dabcc54b6c2129b7761a04b19caebe24389adc7683478ef41212b9ca0b53c63abcc06b3c01b94c84855ec5142b4c357e19c4aaaad9a4db23a3c485
+  languageName: node
+  linkType: hard
+
 "react-is@npm:^16.13.1, react-is@npm:^16.7.0, react-is@npm:^16.8.1":
   version: 16.13.1
   resolution: "react-is@npm:16.13.1"
@@ -27181,6 +27213,15 @@ next@latest:
   peerDependencies:
     react: ">=16.8.0"
   checksum: 392999a1abaa7e7b2ed71db275b7a3272639b9f5131af2e88ff74615044faa820b2b72ef5744e8170b62fd3fa808865e98215a7cabcf826eac998ea34adb1ebf
+  languageName: node
+  linkType: hard
+
+"react-use-event-hook@npm:^0.9.6":
+  version: 0.9.6
+  resolution: "react-use-event-hook@npm:0.9.6"
+  peerDependencies:
+    react: ">=16.8.0"
+  checksum: c6f00a9869cd0d77b26ecfbeefc2c0541f03bea77dbe8f09b925be2a77e050292069f46b19b462c107f940eebee66791bbcdc0142e4de33c49cfa908b552f186
   languageName: node
   linkType: hard
 
@@ -33723,6 +33764,26 @@ next@latest:
     react:
       optional: true
   checksum: 24db6bf063ce1fc8b2ee238f13211a88f43236541a716e5f6f706f613c671a45332465f9ed06d694f8c353da3d24c53ea668e5712a86aceda9ad74f6c433e8c0
+  languageName: node
+  linkType: hard
+
+"zustand@npm:^4.4.4":
+  version: 4.4.4
+  resolution: "zustand@npm:4.4.4"
+  dependencies:
+    use-sync-external-store: 1.2.0
+  peerDependencies:
+    "@types/react": ">=16.8"
+    immer: ">=9.0"
+    react: ">=16.8"
+  peerDependenciesMeta:
+    "@types/react":
+      optional: true
+    immer:
+      optional: true
+    react:
+      optional: true
+  checksum: 371fd842dc704ed5983c6d64a77994c9c91867338c742d162ac95c4252b5f98fc38aeb2d5a07f48311babed5ca7dbff2d2258301db0ae143d32897bcf3ae651b
   languageName: node
   linkType: hard
 

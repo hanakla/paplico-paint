@@ -67,7 +67,7 @@ export class Renderer {
       logger: RenderCycleLogger
       phase: RenderPhase
     },
-  ) {
+  ): Promise<void> {
     setCanvasSize(dest, options.viewport)
     const dstctx = dest.getContext('2d')!
 
@@ -181,7 +181,10 @@ export class Renderer {
 
   // protected async renderPath() {}
 
-  public async renderVectorObject(dest: HTMLCanvasElement, path: VectorPath) {
+  public async renderVectorObject(
+    dest: HTMLCanvasElement,
+    path: VectorPath,
+  ): Promise<void> {
     const dstctx = dest.getContext('2d')!
 
     // const brush = this.brushRegistry.getInstance('stroke')
@@ -219,7 +222,7 @@ export class Renderer {
       phase: RenderPhase
       logger: RenderCycleLogger
     },
-  ) {
+  ): Promise<void> {
     const brush = this.brushRegistry.getInstance(strokeSetting.brushId)
     const ink = this.inkRegistry.getInstance(inkSetting.inkId)
 

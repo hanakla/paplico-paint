@@ -72,35 +72,6 @@ type Events = {
   flushed: void
 }
 
-const singletonCall = <T extends (...args: any[]) => Promise<void>>(fn: T) => {
-  let last: Promise<void> | null = null
-  let tailingArgs: Parameters<T> | null = null
-
-  const execute = (...args: Parameters<T>) => {
-    if (last) {
-      tailingArgs = args
-      return last
-    }
-
-    try {
-      last = fn(...args)
-      return last
-    } finally {
-      if (tailingArgs) {
-        let args = tailingArgs
-        last = null
-        tailingArgs = null
-        execute(...args)
-      }
-
-      tailingArgs = null
-      last = null
-    }
-  }
-
-  return execute
-}
-
 export class Paplico extends Emitter<Events> {
   public brushes: BrushRegistry
   public inks: InkRegistry

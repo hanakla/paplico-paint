@@ -72,25 +72,24 @@ export class CircleBrush implements IBrush {
 
       // console.log(scattered)
 
-      console.log('Circle brush: ', path.points)
+      // console.log('Circle brush: ', path.points)
 
-      // mapPoints(
-      //   path.points,
-      //   (point, prev) => {
-      //     ctx.bezierCurveTo(
-      //       prev!.begin?.x ?? prev!.x,
-      //       prev!.begin?.y ?? prev!.y,
-      //       point.end?.x ?? point.x,
-      //       point.end?.y ?? point.y,
-      //       point.x,
-      //       point.y
-      //     )
-      //   },
-      //   { startOffset: 1 }
-      // )
+      mapPoints(
+        path.points,
+        (point, prev) => {
+          ctx.bezierCurveTo(
+            point!.begin?.x ?? prev!.x,
+            point!.begin?.y ?? prev!.y,
+            point.end?.x ?? point.x,
+            point.end?.y ?? point.y,
+            point.x,
+            point.y,
+          )
+        },
+        { startOffset: 1 },
+      )
 
       if (closed) ctx.closePath()
-
       ctx.stroke()
     })
 

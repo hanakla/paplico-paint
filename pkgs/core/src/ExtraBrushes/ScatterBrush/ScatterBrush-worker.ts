@@ -1,6 +1,10 @@
 import { pointsToSVGCommandArray } from '@/Engine/VectorUtils'
 import { type BrushLayoutData } from '@/index'
-import { getRadianFromTangent } from '@/StrokingHelper'
+import {
+  createStreamScatter,
+  getRadianFromTangent,
+  scatterPlot,
+} from '@/StrokingHelper'
 import { Matrix4, mapLinear } from '@/Math'
 import { indexedPointAtLength } from '@/fastsvg/IndexedPointAtLength'
 import { type VectorPath } from '@/Document/LayerEntity/VectorPath'
@@ -122,7 +126,7 @@ export async function processInput(data: Payload): Promise<WorkerResponse> {
     inOutLength,
   } = data
 
-  const positions: [number, number][] = []
+  // const positions: [number, number][] = []
   const lengths: number[] = []
   const matrices: (number[] | Float32Array)[] = []
   const bbox: BrushLayoutData['bbox'] = {
@@ -132,44 +136,39 @@ export async function processInput(data: Payload): Promise<WorkerResponse> {
     bottom: 0,
   }
 
-  // const scattered = scatterPlot(path, {
-  //   counts: path.points.length * 300,
-  //   scatterRange: 2,
-  //   scatterScale: 1,
-  // })
-
-  // console.time('build pal')
-
   const pal = indexedPointAtLength(
     pointsToSVGCommandArray(path.points, path.closed),
   )
-  // console.timeEnd('build pal')
+
   const totalLen = pal.totalLength
 
   if (totalLen === 0) {
     return {
       id,
       type: 'getPoints',
-      matrices: null,
+      matrices: [],
       lengths: [],
       bbox: null,
       totalLength: 0,
+      _internals: {},
     }
   }
 
   const step = 1
 
-  let count = 0
-  let times = 0
-  let requestAts: number[] = []
-
+  const requestAts: number[] = []
   for (let len = 0; len <= totalLen; len += step) {
     requestAts.push(len)
     requestAts.push(len + 0.01)
   }
-
   requestAts.push(totalLen)
+
   const points = pal.atBatch(requestAts)
+  const scatter = createStreamScatter(path, pal, {
+    counts: path.points.length * 300,
+    scatterRange,
+    scatterScale,
+  })
 
   for (let idx = 0, l = points.length; idx < l; idx += 1) {
     // wait for tick (for receiving abort message from main thread)
@@ -182,12 +181,13 @@ export async function processInput(data: Payload): Promise<WorkerResponse> {
     }
 
     const len = points[idx].length
-    const [x, y] = points[idx].pos //pal.at(len)
+    const frac = len / totalLen
+    let [x, y] = points[idx].pos //pal.at(len)
     const next = points[idx + 1]?.pos ?? points[idx]?.pos //pal.at(len + 0.01, { seek: false })
 
-    const rad = getRadianFromTangent({ x, y }, { x: next[0], y: next[1] })
-
-    // const ypos =
+    const rad = getRadianFromTangent(x, y, next[0], next[1])
+    const scatPoint = scatter.scatterPoint(x, y, frac)
+    // console.log({ x, y, xx: scatPoint.x, yy: scatPoint.y })
 
     // if len in inOutLength from start or end, scale by inOutInfluence
     // prettier-ignore
@@ -205,30 +205,32 @@ export async function processInput(data: Payload): Promise<WorkerResponse> {
         // x,
         // y,
         mapLinear(
-          x,
+          scatPoint.x,
           [0, destSize.width],
           [-destSize.width / 2, destSize.width / 2],
         ),
         mapLinear(
-          y,
+          scatPoint.y,
           [0, destSize.height],
           [destSize.height / 2, -destSize.height / 2],
         ),
         0,
       )
-      .scale([brushSize * inoutScale, brushSize * inoutScale, 1])
-      .rotateZ(rad)
+      .scale([
+        brushSize * inoutScale * scatPoint.scale,
+        brushSize * inoutScale * scatPoint.scale,
+        1,
+      ])
+      .rotateZ(rad + scatPoint.rotate)
 
     matrices.push(matt4.toArray())
     lengths.push(len)
-    positions.push([x, y])
+    // positions.push([x, y])
 
     bbox.left = Math.min(bbox.left, x)
     bbox.top = Math.min(bbox.top, y)
     bbox.right = Math.max(bbox.right, x)
     bbox.bottom = Math.max(bbox.bottom, y)
-
-    count++
   }
 
   if (abortedTasks.has(id)) {
@@ -245,7 +247,7 @@ export async function processInput(data: Payload): Promise<WorkerResponse> {
     matrices,
     _internals: {
       requestAts,
-      positions,
+      // positions,
     },
   }
 }

@@ -39,7 +39,7 @@ export declare namespace ScatterBrush {
     randomRotation: number
     /** 0..1, each particle scale randomize range */
     randomScale: number
-    /** Influence of stroke in / out weight. 0..1 */
+    /** Influence to stroke width by stroke in / out. 0..1 */
     inOutInfluence: number
     /** In / out length */
     inOutLength: number
@@ -241,18 +241,18 @@ export class ScatterBrush implements IBrush {
         mesh.setColorAt(
           i,
           StrokingHelper.rgbToThreeRGB(
-            // ink.getColor({
-            //   pointIndex: i,
-            //   points: path.points,
-            //   pointAtLength: res.lengths[i],
-            //   totalLength: res.totalLength,
-            //   baseColor
-            // }),
-            {
-              r: i / l,
-              g: 1 - i / l,
-              b: 0,
-            },
+            ink.getColor({
+              pointIndex: i,
+              points: path.points,
+              pointAtLength: res.lengths[i],
+              totalLength: res.totalLength,
+              baseColor,
+            }),
+            // {
+            //   r: i / l,
+            //   g: 1 - i / l,
+            //   b: 0,
+            // },
             _color,
           ),
         )

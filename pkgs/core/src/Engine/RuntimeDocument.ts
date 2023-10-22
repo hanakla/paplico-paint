@@ -3,6 +3,7 @@ import { AtomicResource } from '@/utils/AtomicResource'
 import { RuntimeLayerEntity } from './RuntimeDocument/RuntimeLayerEntity'
 import { History } from '@/History/History'
 import { ICommand } from '@/History/ICommand'
+import { PreviewStore } from '@/Engine/PreviewStore'
 
 const cancelIdle =
   typeof cancelIdleCallback !== 'undefined'
@@ -33,9 +34,13 @@ export class RuntimeDocument {
   protected layoutData = new Map<string, RuntimeDocument.LayoutData>()
   protected layerEntities = new Map<string, RuntimeLayerEntity>()
 
+  public previews: PreviewStore
+
   public updaterLock = new AtomicResource({}, 'RuntimeDocument#updateLock')
 
   constructor(document: PaplicoDocument) {
+    this.previews = new PreviewStore()
+
     this.document = document
     this.document.layerEntities.forEach((l) => {
       this.layerEntities.set(l.uid, {
@@ -55,6 +60,7 @@ export class RuntimeDocument {
     this.layoutData.clear()
     this.layerEntities.clear()
     this.blobCaches.clear()
+    this.previews.dispose()
     this.history.dispose()
   }
 
@@ -68,6 +74,10 @@ export class RuntimeDocument {
     redo: () => this.history.redo(this),
     canUndo: () => this.history.canUndo(),
     canRedo: () => this.history.canRedo(),
+  }
+
+  public getPreviewImage(layerUid: string) {
+    return this.previews.get(layerUid)
   }
 
   public resolveLayer(uid: string) {
@@ -128,10 +138,13 @@ export class RuntimeDocument {
           ? new ImageData(layer.bitmap, layer.width, layer.height)
           : new ImageData(layer.width, layer.height),
       )
+
       this.layerImageCache.set(layerUid, bitmap)
+      this.previews.generateAndSet(layerUid, bitmap)
     } else if (layer.layerType === 'vector') {
       bitmap = await createImageBitmap(new ImageData(size!.width, size!.height))
       this.layerImageCache.set(layerUid, bitmap)
+      this.previews.generateAndSet(layerUid, bitmap)
     }
 
     return bitmap
@@ -158,6 +171,7 @@ export class RuntimeDocument {
 
     const nextBitmap = await createImageBitmap(newBitmap)
     this.layerImageCache.set(layerUid, nextBitmap)
+    this.previews.generateAndSet(layerUid, nextBitmap)
 
     return nextBitmap
   }

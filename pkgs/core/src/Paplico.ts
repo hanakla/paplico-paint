@@ -36,6 +36,7 @@ import { ICommand } from '@/History/ICommand'
 import * as Commands from '@/History/Commands'
 import { AsyncQueue } from './utils/AsyncQueue'
 import { AppearanceRegistry } from '@/Engine/Registry/AppearanceRegistry'
+import { type PreviewStore } from './Engine/PreviewStore'
 
 export namespace Paplico {
   export type StrokeSetting<T extends Record<string, any> = any> =
@@ -67,6 +68,7 @@ export namespace Paplico {
 
 type Events = {
   stateChanged: Paplico.State
+  previewUpdated: Readonly<{ layerUid: string; url: string }>
   flushed: void
 }
 
@@ -195,7 +197,7 @@ export class Paplico extends Emitter<Events> {
     this.onUIStrokeChange = this.onUIStrokeChange.bind(this)
     this.onUIStrokeComplete = this.onUIStrokeComplete.bind(this)
 
-    this.initilize()
+    this.initialize()
   }
 
   public get stats() {
@@ -222,13 +224,12 @@ export class Paplico extends Emitter<Events> {
     return this.#activeLayerEntity
   }
 
-  protected initilize() {
+  protected initialize() {
     this.brushes.on('entriesChanged', () => {
       this.setState((d) => {
         d.brushEntries = this.brushes.brushEntries
       })
     })
-
     this.uiCanvas.on('strokeStart', (stroke) => {})
     this.uiCanvas.on('strokeChange', this.onUIStrokeChange)
     this.uiCanvas.on('strokeComplete', this.onUIStrokeComplete)
@@ -243,7 +244,16 @@ export class Paplico extends Emitter<Events> {
     this.uiCanvas.dispose()
   }
 
-  public command = {
+  public readonly previews = {
+    entries: () => {
+      return this.runtimeDoc?.previews.entries() ?? []
+    },
+    getForLayer: (layerUid: string) => {
+      return this.runtimeDoc?.getPreviewImage(layerUid)
+    },
+  }
+
+  public readonly command = {
     do: (command: ICommand) => this.runtimeDoc?.command.do(command),
     undo: () => this.runtimeDoc?.command.undo(),
     redo: () => this.runtimeDoc?.command.redo(),
@@ -256,6 +266,9 @@ export class Paplico extends Emitter<Events> {
 
     this.document = doc
     this.runtimeDoc = new RuntimeDocument(doc)
+    this.runtimeDoc.previews.on('updated', (updateEntry) => {
+      this.emit('previewUpdated', updateEntry)
+    })
 
     this.runtimeDoc.history.on('affect', ({ layerIds }) => {
       this.rerenderForHistoryAffection()

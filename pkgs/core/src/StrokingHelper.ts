@@ -4,7 +4,7 @@ import { VectorPath, VectorPathPoint } from '@/Document/LayerEntity/VectorPath'
 import {
   IndexedPointAtLength,
   indexedPointAtLength,
-  SequencialPointAtLength
+  SequencialPointAtLength,
 } from './fastsvg/IndexedPointAtLength'
 import { pointsToSVGCommandArray, pointsToSVGPath } from './Engine/VectorUtils'
 import { ColorRGB, createVectorPath } from './Document'
@@ -21,7 +21,7 @@ export {
   interpolateMapObject,
   indexedPointAtLength,
   type IndexedPointAtLength,
-  pointsToSVGCommandArray
+  pointsToSVGCommandArray,
 }
 
 export const rgbToHexColor = (color: ColorRGB) => {
@@ -184,10 +184,10 @@ if (import.meta.vitest) {
           randomSeed: 0,
           points: [
             { x: 0, y: 0, end: null, begin: null, pressure: 1 },
-            { x: 10, y: 10, end: null, begin: null, pressure: 0 }
-          ]
+            { x: 10, y: 10, end: null, begin: null, pressure: 0 },
+          ],
         }),
-        { counts: 10, scatterRange: 0, scatterScale: 0, divisions: 50 }
+        { counts: 10, scatterRange: 0, scatterScale: 0, divisions: 50 },
       )
 
       FuncStats.clearStats(scatterPlot)
@@ -204,8 +204,8 @@ if (import.meta.vitest) {
           y: i,
           in: null,
           out: null,
-          pressure: 1
-        }))
+          pressure: 1,
+        })),
       })
 
       console.time('scatterPlot once')
@@ -213,7 +213,7 @@ if (import.meta.vitest) {
         counts: POINTS,
         scatterRange: 0,
         scatterScale: 0,
-        divisions: 50
+        divisions: 50,
       })
       console.timeEnd('scatterPlot once')
 

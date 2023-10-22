@@ -19,7 +19,7 @@ export class CircleBrush implements IBrush {
 
   public getInitialSpecificConfig(): CircleBrush.SpecificSetting {
     return {
-      lineCap: 'round'
+      lineCap: 'round',
     }
   }
 
@@ -31,7 +31,7 @@ export class CircleBrush implements IBrush {
     transform,
     // ink,
     brushSetting: { size, color, opacity, specific },
-    destSize
+    destSize,
   }: BrushContext<CircleBrush.SpecificSetting>): Promise<BrushLayoutData> {
     const sp = mergeToNew(this.getInitialSpecificConfig(), specific)
 
@@ -39,7 +39,7 @@ export class CircleBrush implements IBrush {
       left: 0,
       top: 0,
       right: 0,
-      bottom: 0
+      bottom: 0,
     }
 
     inputPath.forEach((path) => {
@@ -57,7 +57,7 @@ export class CircleBrush implements IBrush {
         color.r * 255,
         color.g * 255,
         color.b * 255,
-        opacity
+        opacity,
       )}`
       ctx.lineCap = sp.lineCap
 

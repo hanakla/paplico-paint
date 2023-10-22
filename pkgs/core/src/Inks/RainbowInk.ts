@@ -21,14 +21,12 @@ export class RainbowInk implements IInk {
         return
       },
       getColor({ pointIndex, points, baseColor, pointAtLength, totalLength }) {
-        // const random = createSeededRandom(pointIndex)
-
         const [h, s, v] = rgbToHsv(baseColor.r, baseColor.g, baseColor.b)
         const newH = h + pointAtLength / totalLength
         const [r, g, b] = hsvToRgb(newH, s, v)
 
         return { r, g, b, a: baseColor.a }
-      }
+      },
     }
   }
 }

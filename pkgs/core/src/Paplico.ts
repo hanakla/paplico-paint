@@ -35,6 +35,7 @@ import { PaplicoAbortError, PaplicoIgnoreableError } from './Errors'
 import { ICommand } from '@/History/ICommand'
 import * as Commands from '@/History/Commands'
 import { AsyncQueue } from './utils/AsyncQueue'
+import { AppearanceRegistry } from '@/Engine/Registry/AppearanceRegistry'
 
 export namespace Paplico {
   export type StrokeSetting<T extends Record<string, any> = any> =
@@ -101,6 +102,7 @@ const singletonCall = <T extends (...args: any[]) => Promise<void>>(fn: T) => {
 export class Paplico extends Emitter<Events> {
   public brushes: BrushRegistry
   public inks: InkRegistry
+  public appearances: AppearanceRegistry
 
   public pipeline: MixerPipeline
   public renderer: Renderer
@@ -173,10 +175,13 @@ export class Paplico extends Emitter<Events> {
     this.inks.register(RainbowInk)
     this.inks.register(TextureReadInk)
 
+    this.appearances = new AppearanceRegistry()
+
     this.pipeline = new MixerPipeline({ brushRegistry: this.brushes, canvas })
     this.renderer = new Renderer({
       brushRegistry: this.brushes,
       inkRegistry: this.inks,
+      appearanceRegistry: this.appearances,
     })
     this.uiCanvas = new UICanvas(canvas).activate()
 

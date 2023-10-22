@@ -20,21 +20,26 @@ import {
   multiplyPoint2D,
   vectorTransformToMatrix,
 } from './VectorUtils'
+import { AppearanceRegistry } from './Registry/AppearanceRegistry'
 
 export type RenderPhase = 'stroking' | 'final'
 
 export class Renderer {
-  protected atomicThreeRenderer: AtomicResource<WebGLRenderer>
   protected brushRegistry: BrushRegistry
   protected inkRegistry: InkRegistry
+  protected appearanceRegistry: AppearanceRegistry
+
+  protected atomicThreeRenderer: AtomicResource<WebGLRenderer>
   protected camera: OrthographicCamera
 
   constructor(options: {
     brushRegistry: BrushRegistry
     inkRegistry: InkRegistry
+    appearanceRegistry: AppearanceRegistry
   }) {
     this.brushRegistry = options.brushRegistry
     this.inkRegistry = options.inkRegistry
+    this.appearanceRegistry = options.appearanceRegistry
 
     const renderer = new WebGLRenderer({
       alpha: true,
@@ -164,6 +169,8 @@ export class Renderer {
               phase: options.phase,
               logger: options.logger,
             })
+          } else if (ap.kind === 'external') {
+            console.warn('External appearance is not supported yet')
           }
         }
       })

@@ -40,6 +40,7 @@ import {
 } from '@/components/ColorPicker'
 import { LayerTreeView } from './Floatables/Layers'
 import { Tab, TabList, TabPage, TabRoot } from '@/components/TabBar'
+import { FillSettingPane } from './MainToolbar/FillSettingPane'
 
 type Props = {
   className?: string
@@ -192,12 +193,7 @@ export const MainToolbar = memo(
           }
           side="top"
         >
-          <TabRoot defaultPage="aaa">
-            <TabList>
-              <Tab pageId="aaa">AAA</Tab>
-              <Tab pageId="bbb">BBB</Tab>
-            </TabList>
-          </TabRoot>
+          <FillSettingPane />
         </Popover>
 
         <Popover

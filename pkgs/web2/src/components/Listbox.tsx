@@ -122,6 +122,10 @@ export const Listbox = memo(function Listbox({
       css={css`
         display: block;
         width: 100%;
+        background-color: #fff;
+        border-radius: 6px;
+        overflow: hidden;
+        border: 1px solid var(--gray-5);
       `}
       className={className}
       // onKeyDown={handleKeyDown}
@@ -164,14 +168,13 @@ export const ListboxItem = memo(function ListboxItem({
     [value],
   )
 
-  console.log()
-
   return (
     <li
       css={css`
         display: flex;
         align-content: center;
         padding: 8px 16px;
+        user-select: none;
       `}
       style={{
         backgroundColor: selected ? '#ddd' : 'transparent',

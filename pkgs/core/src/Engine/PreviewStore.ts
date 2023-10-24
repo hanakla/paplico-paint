@@ -8,11 +8,13 @@ type PreviewEntry = {
   url: string
 }
 
-type Events = {
-  updated: Readonly<{ layerUid: string; url: string }>
+export namespace PreviewStore {
+  export type Events = {
+    updated: Readonly<{ layerUid: string; url: string }>
+  }
 }
 
-export class PreviewStore extends Emitter<Events> {
+export class PreviewStore extends Emitter<PreviewStore.Events> {
   protected cache = new Map<string, PreviewEntry>()
 
   public dispose() {

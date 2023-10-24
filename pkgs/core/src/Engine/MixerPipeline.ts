@@ -26,10 +26,6 @@ export class MixerPipeline {
     this.canvas = options.canvas
   }
 
-  // public setDocument(doc: PaplicoDocument) {
-  //   this.runtimeDoc = new RuntimeDocument(doc)
-  // }
-
   public mix(
     dest: CanvasRenderingContext2D,
     input: CanvasRenderingContext2D,
@@ -68,7 +64,7 @@ export class MixerPipeline {
 
     logger.time('Render all layers time')
     try {
-      for (const node of doc.rootNodes) {
+      for (const node of doc.rootNodes.children) {
         const layer = doc.resolveLayer(node.layerUid)
 
         if (!layer) {

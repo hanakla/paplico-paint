@@ -33,6 +33,16 @@ export const rgbToThreeRGB = (color: ColorRGB, target: Color) => {
   return target
 }
 
+function tangent(x1: number, y1: number, x2: number, y2: number) {
+  const vector = { x: x2 - x1, y: y2 - y1 }
+  const magnitude = Math.hypot(x2 - x1, y2 - y1)
+
+  vector.x /= magnitude
+  vector.y /= magnitude
+
+  return vector
+}
+
 const getTangentAt = (pal: SequencialPointAtLength, t: number) => {
   const stat = FuncStats.start(scatterPlot)
 
@@ -49,18 +59,14 @@ const getTangentAt = (pal: SequencialPointAtLength, t: number) => {
   return vector
 }
 
-export const getRadianFromTangent = (
-  pt1: { x: number; y: number },
-  pt2: { x: number; y: number }
-) => {
-  const vector = { x: pt2.x - pt1.x, y: pt2.y - pt1.y }
-  const magnitude = Math.hypot(vector.x, vector.y)
-
-  vector.x /= magnitude
-  vector.y /= magnitude
-
+export function getRadianFromTangent(
+  x1: number,
+  y1: number,
+  x2: number,
+  y2: number,
+) {
+  const vector = tangent(x1, y1, x2, y2)
   const result = Math.atan2(vector.x, vector.y)
-
   return Number.isNaN(result) ? 0 : result
 }
 
@@ -71,52 +77,133 @@ type ScatteredPoint = VectorPathPoint & {
   rotate: number
 }
 
-export const scatterPlot = (
+export const createStreamScatter = (
   path: VectorPath,
+  pal: IndexedPointAtLength,
   {
-    counts,
     scatterRange,
     scatterScale = 0,
     useTangent = false,
-    divisions
   }: {
     counts: number
     scatterRange: number
     /** 0 is disabled to scaling */
     scatterScale: number
     useTangent?: boolean
-    divisions?: number
-  }
-): Array<ScatteredPoint> => {
-  const stat = FuncStats.start(scatterPlot)
+  },
+) => {
+  const stat = FuncStats.start(createStreamScatter)
 
-  var end = stat.time('seqPal build')
-  const seqPal = indexedPointAtLength(
-    pointsToSVGCommandArray(path.points, path.closed)
-  ).getSequencialReader()
-  end()
+  let timeEnd = stat.time('seqPal build')
+  // const seqPal = pal.getSequencialReader()
+  timeEnd()
 
   const posRandom = fastRandom(path.randomSeed)
   const rotationRandom = fastRandom(path.randomSeed + 0x5235dfac)
   const scaleRandom = fastRandom(path.randomSeed + 0x2435ffab)
 
-  end = stat.time('interpolateMap build')
+  timeEnd = stat.time('interpolateMap build')
+  const getPressureAt = interpolateMapObject(path.points, (idx, arr) => arr[idx].pressure ?? 1) // prettier-ignore
+  const getDeltaAt = interpolateMapObject(path.points, (idx, arr) => arr[idx].deltaTime ?? 0) // prettier-ignore
+  const getTiltXAt = interpolateMapObject(path.points, (idx, arr) => arr[idx].tilt?.x ?? 0) // prettier-ignore
+  const getTiltYAt = interpolateMapObject(path.points, (idx, arr) => arr[idx].tilt?.y ?? 0) // prettier-ignore
+  timeEnd()
+
+  const _scatterRange = (scatterRange /= 2)
+
+  return {
+    scatterPoint: (x: number, y: number, frac: number) => {
+      timeEnd = stat.time('scatter plot')
+
+      if (useTangent) {
+        const [p1, p2] = pal.atBatch([
+          pal.totalLength * frac,
+          pal.totalLength * (frac + 0.0001),
+        ])
+        const tan = tangent(p1.pos[0], p1.pos[1], p2.pos[0], p2.pos[1])
+        const rad = Math.atan2(tan.x, tan.y) + degToRad(90)
+
+        x += lerp(-_scatterRange, _scatterRange, Math.cos(rad))
+        y += lerp(-_scatterRange, _scatterRange, Math.sin(rad))
+      } else {
+        x += lerp(-_scatterRange, _scatterRange, posRandom.nextFloat())
+        y += lerp(-_scatterRange, _scatterRange, posRandom.nextFloat())
+      }
+
+      const plotEnd = stat.time('plot')
+
+      const result = {
+        x: x,
+        y: y,
+        deltaTime: getDeltaAt(frac),
+        pressure: getPressureAt(frac),
+        tilt: {
+          x: getTiltXAt(frac),
+          y: getTiltYAt(frac),
+        },
+        /** radians */
+        rotate: degToRad(rotationRandom.nextFloat() * 360),
+        scale:
+          1 +
+          lerp(-scatterScale / 2, scatterScale / 2, scaleRandom.nextFloat()),
+      }
+      plotEnd()
+      timeEnd()
+
+      stat.finish()
+      return result
+    },
+  }
+}
+
+/** @deprecated */
+export const scatterPlot = (
+  path: VectorPath,
+  pal: IndexedPointAtLength,
+  {
+    counts,
+    scatterRange,
+    scatterScale = 0,
+    useTangent = false,
+  }: {
+    counts: number
+    scatterRange: number
+    /** 0 is disabled to scaling */
+    scatterScale: number
+    useTangent?: boolean
+  },
+): Array<ScatteredPoint> => {
+  const stat = FuncStats.start(scatterPlot)
+
+  let timeEnd = stat.time('seqPal build')
+  const seqPal = pal.getSequencialReader()
+  timeEnd()
+
+  const posRandom = fastRandom(path.randomSeed)
+  const rotationRandom = fastRandom(path.randomSeed + 0x5235dfac)
+  const scaleRandom = fastRandom(path.randomSeed + 0x2435ffab)
+
+  timeEnd = stat.time('interpolateMap build')
   const getPressureAt = interpolateMapObject(path.points,  (idx, arr) => arr[idx].pressure ?? 1) // prettier-ignore
   const getDeltaAt = interpolateMapObject(path.points,  (idx, arr) => arr[idx].deltaTime ?? 0) // prettier-ignore
   const getTiltXAt = interpolateMapObject(path.points,  (idx, arr) => arr[idx].tilt?.x ?? 0) // prettier-ignore
   const getTiltYAt = interpolateMapObject(path.points,  (idx, arr) => arr[idx].tilt?.y ?? 0) // prettier-ignore
-  end()
+  timeEnd()
 
   scatterRange /= 2
 
-  end = stat.time('scatter plot')
+  timeEnd = stat.time('scatter plot')
+
+  const requests: number[] = []
+  for (let i = 0; i < counts; i++) requests.push(pal.totalLength * (i / counts))
+  const lengths = pal.atBatch(requests)
+
   const points: ScatteredPoint[] = []
   const perLength = 1 / (counts - 1)
   for (let i = 0; i < counts; i++) {
     const frac = i * perLength
 
-    let [x, y] = seqPal.at(seqPal.totalLength * frac)
-    // Number.isNaN(x) && console.log({ x, y, frac })
+    let [x, y] = lengths[i].pos
 
     if (useTangent) {
       const tan = getTangentAt(seqPal, frac)
@@ -129,7 +216,7 @@ export const scatterPlot = (
       y += lerp(-scatterRange, scatterRange, posRandom.nextFloat())
     }
 
-    var plotEnd = stat.time('plot')
+    const plotEnd = stat.time('plot')
     points.push({
       end: null,
       begin: null,
@@ -139,15 +226,15 @@ export const scatterPlot = (
       pressure: getPressureAt(frac),
       tilt: {
         x: getTiltXAt(frac),
-        y: getTiltYAt(frac)
+        y: getTiltYAt(frac),
       },
       rotate: degToRad(rotationRandom.nextFloat() * 360),
       scale:
-        1 + lerp(-scatterScale / 2, scatterScale / 2, scaleRandom.nextFloat())
+        1 + lerp(-scatterScale / 2, scatterScale / 2, scaleRandom.nextFloat()),
     })
     plotEnd()
   }
-  end()
+  timeEnd()
 
   stat.finish()
   return points

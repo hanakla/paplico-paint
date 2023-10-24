@@ -51,6 +51,7 @@ export class UICanvas extends Emitter<Events> {
     this.canvas.removeEventListener('pointerdown', this.handleMouseDown)
     this.canvas.removeEventListener('pointermove', this.handleMouseMove)
     this.canvas.removeEventListener('pointerup', this.handleMouseUp)
+    this.mitt.all.clear()
   }
 
   protected handleTouchStart(e: TouchEvent) {

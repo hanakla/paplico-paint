@@ -49,14 +49,13 @@ export type BrushLayoutData = {
 
 export interface BrushClass {
   readonly id: string
+  readonly version: string
   new (): IBrush
 }
 
 export interface IBrush {
-  id: string
-
   initialize(context: {}): Promise<void>
   render(brushContext: BrushContext<any>): Promise<BrushLayoutData>
 }
 
-export const createCustomBrush = <T extends BrushClass>(clazz: T) => clazz
+export const createBrush = <T extends BrushClass>(Class: T) => Class

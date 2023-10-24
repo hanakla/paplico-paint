@@ -2,7 +2,7 @@
 export function hsvToRgb(
   h: number,
   s: number,
-  v: number
+  v: number,
 ): [number, number, number] {
   let r: number, g: number, b: number
 
@@ -54,7 +54,7 @@ export function hsvToRgb(
 export function rgbToHsv(
   r: number,
   g: number,
-  b: number
+  b: number,
 ): [number, number, number] {
   // find the maximum and minimum values of the RGB components
   const max = Math.max(r, g, b)

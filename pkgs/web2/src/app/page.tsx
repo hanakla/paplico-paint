@@ -1,81 +1,55 @@
 'use client'
 
-import {
-  Document,
-  Brushes,
-  ExtraBrushes,
-  Paplico,
-  Inks,
-} from '@paplico/core-new'
-import { useRef } from 'react'
-import { useEffectOnce, useUpdate } from 'react-use'
+import { memo, useRef } from 'react'
 import { css } from 'styled-components'
-import { theming } from '../utils/styled'
-import { checkerBoard } from '../utils/cssMixin'
-import { Listbox, ListboxItem } from '../components/Listbox'
-import useEvent from 'react-use-event-hook'
 import { EditorArea } from './fragments/EditorArea'
-import { usePaplico, usePaplicoInit } from '../domains/paplico'
+import { usePaplicoInit } from '../domains/paplico'
+import { LeftSideBar } from './fragments/LeftSideBar'
+import { useIsMobileDevice } from '@/utils/hooks'
 
-export default function Index() {
+export default memo(function Index() {
   const canvasRef = useRef<HTMLCanvasElement>(null)
-  const papRef = useRef<Paplico | null>(null)
+  const isMobile = useIsMobileDevice()
 
   usePaplicoInit(canvasRef)
-
-  const handleChangeBrush = useEvent((value: string[]) => {
-    const target = papRef.current.brushes.brushEntries.find(
-      (entry) => entry.id === value[0],
-    )
-
-    papRef.current.strokeSetting = {
-      ...papRef.current.strokeSetting,
-      brushId: target.id,
-      brushVersion: '0.0.1',
-      specific: {},
-    }
-  })
 
   return (
     <div
       css={css`
         position: relative;
         display: flex;
-        justify-content: center;
-        align-items: center;
         width: 100%;
         height: 100%;
-        ${theming((o) => [o.bg.surface3])}
+        pointer-events: none;
       `}
     >
-      <div>
-        <Listbox
-          value={papRef.current ? [papRef.current.strokeSetting.brushId] : []}
-          onChange={handleChangeBrush}
-        >
-          {papRef.current?.brushes.brushEntries.map((entry) => (
-            <ListboxItem value={entry.id}>{entry.id}</ListboxItem>
-          ))}
-        </Listbox>
-      </div>
+      {!isMobile && (
+        <LeftSideBar
+          css={css`
+            position: relative;
+            z-index: 1;
+            pointer-events: auto;
+          `}
+        />
+      )}
 
       <div
         css={css`
-          position: absolute;
-          top: 0;
-          left: 0;
           width: 100%;
           height: 100%;
+          flex: 1;
+          overflow: hidden;
         `}
       >
         <EditorArea
           css={css`
             width: 100%;
             height: 100%;
+            pointer-events: auto;
           `}
           ref={canvasRef}
         />
       </div>
     </div>
   )
-}
+})

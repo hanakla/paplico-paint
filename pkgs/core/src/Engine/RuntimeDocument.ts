@@ -4,6 +4,7 @@ import { RuntimeLayerEntity } from './RuntimeDocument/RuntimeLayerEntity'
 import { History } from '@/History/History'
 import { ICommand } from '@/History/ICommand'
 import { PreviewStore } from '@/Engine/PreviewStore'
+import { Emitter } from '@/utils/Emitter'
 
 const cancelIdle =
   typeof cancelIdleCallback !== 'undefined'
@@ -24,7 +25,13 @@ export namespace RuntimeDocument {
   }
 }
 
-export class RuntimeDocument {
+export namespace RuntimeDocument {
+  export type Events = {
+    'preview:updated': PreviewStore.Events['updated']
+  }
+}
+
+export class RuntimeDocument extends Emitter<RuntimeDocument.Events> {
   public document: PaplicoDocument
   public history: History
 
@@ -39,7 +46,12 @@ export class RuntimeDocument {
   public updaterLock = new AtomicResource({}, 'RuntimeDocument#updateLock')
 
   constructor(document: PaplicoDocument) {
+    super()
+
     this.previews = new PreviewStore()
+    this.previews.on('updated', (entry) => {
+      this.emit('preview:updated', entry)
+    })
 
     this.document = document
     this.document.layerEntities.forEach((l) => {

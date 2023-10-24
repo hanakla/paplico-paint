@@ -5,10 +5,9 @@ import {
   Inks,
   Paplico,
 } from '@paplico/core-new'
-import { RefObject, useMemo, useRef } from 'react'
+import { RefObject, useRef } from 'react'
 import { useEffectOnce } from 'react-use'
 import { create } from 'zustand'
-import { useStableLatestRef } from '../utils/hooks'
 
 type CanvasTransform = {
   x: number
@@ -23,7 +22,7 @@ interface Store {
   canvasTransform: CanvasTransform
 
   initialize(engine: Paplico): void
-  setEngineState: (state: Paplico.State) => void
+  _setEngineState: (state: Paplico.State) => void
   setCanvasTransform: (
     translator: (prev: CanvasTransform) => CanvasTransform,
   ) => void
@@ -37,25 +36,29 @@ const useStore = create<Store>((set, get) => ({
   initialize: (engine: Paplico) => {
     set({ engine })
   },
-  setEngineState: (state) => set({ engineState: state }),
+  _setEngineState: (state) => set({ engineState: state }),
   setCanvasTransform: (translator) => {
     set({ canvasTransform: translator(get().canvasTransform) })
   },
 }))
+
+export const DEFAULT_BRUSH_ID = Brushes.CircleBrush.id
+export const DEFAULT_BRUSH_VERSION = '0.0.1'
 
 export function usePaplicoInit(canvasRef: RefObject<HTMLCanvasElement | null>) {
   const papRef = useRef<Paplico | null>(null)
   const store = useStore()
 
   useEffectOnce(() => {
+    let pap: Paplico
     ;(async () => {
-      const pap = (papRef.current = new Paplico(canvasRef.current!))
+      pap = papRef.current = new Paplico(canvasRef.current!)
       ;(window as any).pap = pap
 
       await pap.brushes.register(ExtraBrushes.ScatterBrush)
 
       pap.on('stateChanged', () => {
-        store.setEngineState(pap.state)
+        store._setEngineState(pap.state)
       })
 
       const doc = Document.createDocument({ width: 1000, height: 1000 })
@@ -99,14 +102,13 @@ export function usePaplicoInit(canvasRef: RefObject<HTMLCanvasElement | null>) {
         }),
       )
 
-      doc.layerEntities.push(vector)
-      doc.layerEntities.push(raster)
-      doc.layerTree.push({ layerUid: vector.uid, children: [] })
-      doc.layerTree.push({ layerUid: raster.uid, children: [] })
+      doc.addLayer(raster, [])
+      doc.addLayer(vector, [])
+      doc.addLayer(Document.createVectorLayerEntity({}), [])
 
       pap.loadDocument(doc)
-      pap.enterLayer([raster.uid])
-      // pap.enterLayer([vector.uid])
+      // pap.enterLayer([raster.uid])
+      pap.enterLayer([vector.uid])
       pap.rerender()
 
       // pap.strok
@@ -128,11 +130,13 @@ export function usePaplicoInit(canvasRef: RefObject<HTMLCanvasElement | null>) {
       }
 
       store.initialize(pap)
-
-      return () => {
-        pap.dispose()
-      }
     })()
+
+    return () => {
+      console.log('dispose')
+      console.log('dispose')
+      pap?.dispose()
+    }
   })
 }
 

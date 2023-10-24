@@ -4,11 +4,13 @@ import { rescue } from '@/utils/resque'
 import { RuntimeDocument } from '@/Engine/RuntimeDocument'
 import { AtomicResource } from '@/utils/AtomicResource'
 
-type Events = {
-  affect: { layerIds: string[] }
+export namespace History {
+  export type Events = {
+    affect: { layerIds: string[] }
+  }
 }
 
-export class History extends Emitter<Events> {
+export class History extends Emitter<History.Events> {
   protected excutionLock = new AtomicResource({})
 
   #undoStack: ICommand[] = []

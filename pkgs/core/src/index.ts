@@ -7,12 +7,12 @@ export {
   CanvasFactory,
   Pipeline,
   RuntimeDocument,
-  createCustomBrush,
+  createBrush,
   Brushes,
   type BrushClass,
   type BrushContext,
   type IBrush,
-  type BrushLayoutData
+  type BrushLayoutData,
 } from './Engine/index'
 export { type ICommand } from './History/ICommand'
 export * as Commands from './History/Commands/index'
@@ -27,5 +27,5 @@ export * as Inks from './Inks/index'
 export * as ExtraBrushes from './ExtraBrushes/index'
 
 export const _Dev = {
-  AtomicResource
+  AtomicResource,
 }

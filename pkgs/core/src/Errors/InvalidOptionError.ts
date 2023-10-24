@@ -1,3 +1,3 @@
-import { PaplicoIgnoreableError } from './PaplicoIgnoreableError'
+import { PaplicoError } from './PaplicoError'
 
-export class InvalidOptionError extends Error {}
+export class InvalidOptionError extends PaplicoError {}

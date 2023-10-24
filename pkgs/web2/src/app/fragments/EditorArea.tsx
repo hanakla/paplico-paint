@@ -1,10 +1,21 @@
-import { forwardRef, memo, useRef } from 'react'
+import {
+  forwardRef,
+  memo,
+  useRef,
+  useState,
+  ComponentProps,
+  useEffect,
+} from 'react'
 import { useGesture } from '@use-gesture/react'
 import { css } from 'styled-components'
 import { checkerBoard } from '../../utils/cssMixin'
 import { usePaplico } from '../../domains/paplico'
-import useMeasure from 'use-measure'
 import { useCombineRef } from '../../utils/hooks'
+import useEvent from 'react-use-event-hook'
+import { MainToolbar } from './MainToolbar'
+import useMeasure from 'use-measure'
+import { useEditorStore } from '@/domains/uiState'
+import { bindPaplico } from '@paplico/vector-editor'
 
 type Props = { className?: string }
 
@@ -13,18 +24,43 @@ export const EditorArea = memo(
     { className },
     canvasRef,
   ) {
-    const { papStore } = usePaplico()
+    const { pap, papStore } = usePaplico()
     const { canvasTransform } = papStore
 
     const rootRef = useRef<HTMLDivElement | null>(null)
+    const toolbarRef = useRef<HTMLDivElement | null>(null)
+    const vectorEditorRef = useRef<HTMLDivElement | null>(null)
     const transformRootRef = useCombineRef<HTMLDivElement | null>(rootRef)
     const combCanvasRef = useCombineRef<HTMLCanvasElement | null>(canvasRef)
-    // const canvasBBox = useMeasure(combCanvasRef)
+
+    const editorStore = useEditorStore()
+
+    const [toolbarPosition, setToolbarPosition] = useState<{
+      x: number
+      y: number
+    }>({
+      x: 0,
+      y: 0,
+    })
+
+    const handleChangeToolbarPosition = useEvent<
+      ComponentProps<typeof MainToolbar>['onPositionChanged']
+    >((delta) => {
+      editorStore.setToolbarPosition((prev) => ({
+        x: (prev?.x ?? 0) + delta.x,
+        y: (prev?.y ?? 0) + delta.y,
+      }))
+
+      setToolbarPosition((prev) => ({
+        x: prev.x + delta.x,
+        y: prev.y + delta.y,
+      }))
+    })
 
     useGesture(
       {
         onPinch: ({ delta: [d, r], origin: [x, y] }) => {
-          const c = combCanvasRef.current.getBoundingClientRect()
+          const c = combCanvasRef.current!.getBoundingClientRect()
 
           papStore.setCanvasTransform((prev) => {
             // 現在の変形を考慮しない、キャンバスに対するピンチの中心点を取得
@@ -86,23 +122,51 @@ export const EditorArea = memo(
       },
     )
 
+    const rootBBox = useMeasure(rootRef)
+    const toolbarBBox = useMeasure(toolbarRef)
+
+    useEffect(() => {
+      setToolbarPosition({
+        x: editorStore.toolbarPosition?.x ?? rootBBox.width / 2,
+        y: editorStore.toolbarPosition?.x ?? rootBBox.height - 65,
+      })
+    }, [rootBBox.width, rootBBox.height])
+
+    useEffect(() => {
+      if (!pap) return
+      bindPaplico(vectorEditorRef.current!, pap)
+    }, [pap])
+
     return (
       <div
         ref={rootRef}
         css={css`
+          position: relative;
           width: 100%;
           height: 100%;
           touch-action: none;
         `}
         className={className}
+        data-editorarea-root
       >
         <div
           ref={transformRootRef}
+          css={css`
+            position: relative;
+            touch-action: none;
+          `}
           style={{
             transformOrigin: /* center */ '50% 50%',
             transform: `scale(${canvasTransform.scale}) rotate(${canvasTransform.rotateDeg}deg) translate(${canvasTransform.x}px, ${canvasTransform.y}px)`,
           }}
         >
+          <div
+            ref={vectorEditorRef}
+            css={css`
+              position: absolute;
+              pointer-events: none;
+            `}
+          />
           <canvas
             ref={combCanvasRef}
             css={css`
@@ -120,6 +184,22 @@ export const EditorArea = memo(
             }
           />
         </div>
+
+        <MainToolbar
+          ref={toolbarRef}
+          x={Math.max(
+            toolbarBBox.width / 2,
+            Math.min(toolbarPosition.x, rootBBox.width - toolbarBBox.width / 2),
+          )}
+          y={Math.max(
+            toolbarBBox.height / 2,
+            Math.min(
+              toolbarPosition.y,
+              rootBBox.height - toolbarBBox.height / 2,
+            ),
+          )}
+          onPositionChanged={handleChangeToolbarPosition}
+        />
       </div>
     )
   }),

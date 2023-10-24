@@ -14,8 +14,9 @@ import {
   LayerNode,
   PaplicoDocument,
   VectorObject,
+  VectorPath,
 } from './Document'
-import { setCanvasSize } from '@/utils/canvas'
+import { freeingCanvas, setCanvasSize } from '@/utils/canvas'
 import { RuntimeDocument } from './Engine/RuntimeDocument'
 import { VectorStrokeSetting } from './Document/LayerEntity/VectorStrokeSetting'
 import { VectorFillSetting } from './Document/LayerEntity/VectorFillSetting'
@@ -36,7 +37,12 @@ import { ICommand } from '@/History/ICommand'
 import * as Commands from '@/History/Commands'
 import { AsyncQueue } from './utils/AsyncQueue'
 import { AppearanceRegistry } from '@/Engine/Registry/AppearanceRegistry'
-import { type PreviewStore } from './Engine/PreviewStore'
+import { SVGExporter } from './Engine/Exporters/SVGExporter'
+import { PNGExporter } from './Engine/Exporters/PNGExporter'
+import { IExporter } from './Engine/Exporters/IExporter'
+import { PSDExporter } from './Engine/Exporters/PSDExporter'
+import { type History } from '@/History/History'
+import { PreviewStore } from './Engine/PreviewStore'
 
 export namespace Paplico {
   export type StrokeSetting<T extends Record<string, any> = any> =
@@ -51,12 +57,14 @@ export namespace Paplico {
     strokeTrelance: number
   }
 
+  export type ActiveLayer = {
+    layerType: LayerEntity['layerType']
+    layerUid: string
+    pathToLayer: string[]
+  }
+
   export type State = {
-    activeLayer: {
-      layerType: LayerEntity['layerType']
-      layerUid: string
-      pathToLayer: string[]
-    } | null
+    activeLayer: ActiveLayer | null
     currentStroke: StrokeSetting | null
     currentFill: FillSetting | null
     currentInk: InkSetting
@@ -64,33 +72,63 @@ export namespace Paplico {
     brushEntries: BrushClass[]
     busy: boolean
   }
+
+  export type Events = {
+    stateChanged: Paplico.State
+    documentChanged: {
+      previous: PaplicoDocument | null
+      current: PaplicoDocument | null
+    }
+    activeLayerChanged: { current: Paplico.ActiveLayer | null }
+    flushed: void
+    'preview:updated': PreviewStore.Events['updated']
+    'history:affect': History.Events['affect']
+  }
 }
 
-type Events = {
-  stateChanged: Paplico.State
-  previewUpdated: Readonly<{ layerUid: string; url: string }>
-  flushed: void
-}
+const DEFAULT_FILL_SETTING = (): Readonly<Paplico.FillSetting> => ({
+  type: 'fill',
+  color: {
+    r: 0,
+    g: 0,
+    b: 0,
+  },
+  opacity: 1,
+})
 
-export class Paplico extends Emitter<Events> {
-  public brushes: BrushRegistry
-  public inks: InkRegistry
-  public appearances: AppearanceRegistry
+const DEFAULT_STROKE_SETTING = (): Readonly<Paplico.StrokeSetting> => ({
+  brushId: CircleBrush.id,
+  brushVersion: CircleBrush.version,
+  color: {
+    r: 0,
+    g: 0,
+    b: 0,
+  },
+  opacity: 1,
+  size: 10,
+  specific: {},
+})
 
-  public pipeline: MixerPipeline
-  public renderer: Renderer
-  public uiCanvas: UICanvas
+export class Paplico extends Emitter<Paplico.Events> {
+  public readonly brushes: BrushRegistry
+  public readonly inks: InkRegistry
+  public readonly appearances: AppearanceRegistry
 
-  protected dstCanvas: HTMLCanvasElement
-  protected dstctx: CanvasRenderingContext2D
+  public readonly pipeline: MixerPipeline
+  public readonly renderer: Renderer
+  public readonly uiCanvas: UICanvas
+
+  protected readonly dstCanvas: HTMLCanvasElement
+  protected readonly dstctx: CanvasRenderingContext2D
 
   protected document: PaplicoDocument | null = null
   protected runtimeDoc: RuntimeDocument | null = null
 
-  protected beforeCommitAborter: AbortController = new AbortController()
-  protected tmpctxResource: AtomicResource<CanvasRenderingContext2D>
+  protected readonly beforeCommitAborter: AbortController =
+    new AbortController()
+  protected readonly tmpctxResource: AtomicResource<CanvasRenderingContext2D>
 
-  protected rerenderQueue = new AsyncQueue()
+  protected readonly rerenderQueue = new AsyncQueue()
   protected activeStrokeChangeAborters: AbortController[] = []
 
   #preferences: Paplico.Preferences = {
@@ -126,7 +164,7 @@ export class Paplico extends Emitter<Events> {
     })
 
     doc.layerEntities.push(layer)
-    doc.layerTree.push({
+    doc.layerTree.children.push({
       layerUid: layer.uid,
       children: [],
     })
@@ -212,7 +250,13 @@ export class Paplico extends Emitter<Events> {
   }
 
   public dispose() {
+    this.tmpctxResource.clearQueue()
+    freeingCanvas(this.tmpctxResource.enjureForce().canvas)
+
     this.uiCanvas.dispose()
+    this.runtimeDoc?.dispose()
+    this.renderer.dispose()
+    this.mitt.all.clear()
   }
 
   public readonly previews = {
@@ -221,6 +265,58 @@ export class Paplico extends Emitter<Events> {
     },
     getForLayer: (layerUid: string) => {
       return this.runtimeDoc?.getPreviewImage(layerUid)
+    },
+  }
+
+  protected export(
+    exporter: IExporter,
+    options: IExporter.OptionsToRequest<IExporter.Options>,
+  ) {
+    if (!this.runtimeDoc) {
+      throw new Error(`Paplico.export: No document loaded`)
+    }
+
+    // SEE: https://html.spec.whatwg.org/multipage/canvas.html#serialising-bitmaps-to-a-file
+    const dpi = options.dpi ?? 96
+    const pixelRatio = dpi / 96
+
+    return exporter.export(
+      { paplico: this, runtimeDocument: this.runtimeDoc },
+      { ...options, pixelRatio, dpi },
+    )
+  }
+
+  public readonly exporters = {
+    svg: (
+      options: Partial<IExporter.OptionsToRequest<SVGExporter.Options>>,
+    ) => {
+      return this.export(new SVGExporter(), {
+        looseSVGOriginalStrict: false,
+        targetNodePath: undefined,
+        ...options,
+      })
+    },
+    png: (
+      options: Partial<IExporter.OptionsToRequest<PNGExporter.Options>>,
+    ) => {
+      return this.export(new PNGExporter(), {
+        targetNodePath: undefined,
+        ...options,
+      })
+    },
+    psd: (
+      options: Partial<IExporter.OptionsToRequest<PSDExporter.Options>>,
+    ) => {
+      return this.export(new PSDExporter(), {
+        targetNodePath: undefined,
+        ...options,
+      })
+    },
+    customFormat: (
+      exporter: IExporter,
+      options: IExporter.OptionsToRequest<IExporter.Options>,
+    ) => {
+      return this.export(exporter, options)
     },
   }
 
@@ -233,16 +329,18 @@ export class Paplico extends Emitter<Events> {
   }
 
   public loadDocument(doc: PaplicoDocument) {
+    const prevDocument = this.document
     this.runtimeDoc?.dispose()
 
     this.document = doc
     this.runtimeDoc = new RuntimeDocument(doc)
     this.runtimeDoc.previews.on('updated', (updateEntry) => {
-      this.emit('previewUpdated', updateEntry)
+      this.emit('preview:updated', updateEntry)
     })
 
-    this.runtimeDoc.history.on('affect', ({ layerIds }) => {
+    this.runtimeDoc.history.on('affect', (e) => {
       this.rerenderForHistoryAffection()
+      this.emit('history:affect', e)
     })
 
     doc.blobs.forEach((blob) => {
@@ -250,6 +348,11 @@ export class Paplico extends Emitter<Events> {
         blob.uid,
         new Blob([blob.data], { type: blob.mimeType }),
       )
+    })
+
+    this.emit('documentChanged', {
+      previous: prevDocument,
+      current: doc,
     })
   }
 
@@ -259,20 +362,16 @@ export class Paplico extends Emitter<Events> {
       return
     }
 
-    // Dig layer
-    let cursor = this.document.layerTree
-    let target: LayerNode | null = null
+    if (path.length === 0) {
+      this.setState((d) => {
+        d.activeLayer = null
+      })
 
-    for (const uid of path) {
-      let result = cursor.find((layer) => layer.layerUid === uid)
-      if (!result) break
-      if (result.layerUid === uid) {
-        target = result
-        break
-      }
-      cursor = result.children
+      this.emit('activeLayerChanged', { current: null })
+      return
     }
 
+    const target = this.document.resolveNodePath(path)
     if (!target) {
       console.warn(`Paplico.enterLayer: Layer not found: ${path.join('/')}`)
       return
@@ -280,48 +379,99 @@ export class Paplico extends Emitter<Events> {
 
     const layer = this.document.resolveLayerEntity(target.layerUid)!
 
-    this.#state = immer(this.#state, (d) => {
+    this.setState((d) => {
       d.activeLayer = {
         layerType: layer.layerType,
         layerUid: target!.layerUid,
         pathToLayer: path,
       }
+
+      this.#activeLayerEntity = layer
     })
-    this.#activeLayerEntity = layer
 
     console.info(`Enter layer: ${path.join('/')}`)
+    this.emit('activeLayerChanged', { current: this.#state.activeLayer })
   }
 
+  /** @deprecated */
   public set strokeSetting(setting: Paplico.StrokeSetting | null) {
     this.setState((d) => {
       d.currentStroke = setting
     })
   }
 
+  /** @deprecated */
   public get strokeSetting(): Paplico.StrokeSetting | null {
     return this.#state.currentStroke
   }
 
+  public getStrokeSetting(): Paplico.StrokeSetting | null {
+    return this.#state.currentStroke
+  }
+
+  public setStrokeSetting(setting: Partial<Paplico.StrokeSetting> | null) {
+    this.setState((d) => {
+      if (!setting) d.currentStroke = null
+      else
+        d.currentStroke = {
+          ...DEFAULT_STROKE_SETTING(),
+          ...d.currentStroke,
+          ...setting,
+        }
+    })
+  }
+
+  /** @deprecated */
   public set fillSetting(setting: Paplico.FillSetting | null) {
     this.setState((d) => {
       d.currentFill = setting
     })
   }
 
+  /** @deprecated */
   public get fillSetting(): Paplico.FillSetting | null {
     return this.#state.currentFill
   }
 
+  public getFillSetting(): Paplico.FillSetting | null {
+    return this.#state.currentFill
+  }
+
+  public setFillSetting(setting: Partial<Paplico.FillSetting> | null) {
+    return this.setState((d) => {
+      if (!setting) d.currentFill = null
+      else
+        d.currentFill = {
+          ...DEFAULT_FILL_SETTING(),
+          ...d.currentFill,
+          ...setting,
+        }
+    })
+  }
+
+  public getPreferences(): Paplico.Preferences {
+    return this.#preferences
+  }
+
+  public setPreferences(prefs: Partial<Paplico.Preferences>) {
+    this.#preferences = immer(this.#preferences, (d) => {
+      Object.assign(d, prefs)
+    })
+  }
+
+  /** @deprecated */
   public set preferences(prefs: Paplico.Preferences) {
     this.#preferences = immer(this.#preferences, (d) => {
       Object.assign(d, prefs)
     })
   }
 
+  /** @deprecated */
   public get preferences(): Paplico.Preferences {
     return this.#preferences
   }
 
+  /** @deprecated */
   public set strokeComposition(
     composition: Paplico.State['strokeComposition'],
   ) {
@@ -330,21 +480,38 @@ export class Paplico extends Emitter<Events> {
     })
   }
 
-  public async rerender({ signal }: { signal?: AbortSignal } = {}) {
+  public setStrokeCompositionMode(
+    composition: Paplico.State['strokeComposition'],
+  ) {
+    this.setState((d) => {
+      d.strokeComposition = composition
+    })
+  }
+
+  public async rerender({
+    destination,
+    pixelRatio = 1,
+    signal,
+  }: {
+    destination?: CanvasRenderingContext2D
+    pixelRatio?: number
+    signal?: AbortSignal
+  } = {}) {
     if (!this.runtimeDoc) return
 
     try {
       RenderCycleLogger.current.log('Refresh all layers')
 
-      const { dstctx } = this
+      const dstctx = destination ?? this.dstctx
+      const dstCanvas = dstctx.canvas
 
       await this.pipeline.fullyRender(dstctx, this.runtimeDoc, this.renderer, {
         abort: signal,
         viewport: {
           top: 0,
           left: 0,
-          width: this.dstCanvas.width,
-          height: this.dstCanvas.height,
+          width: dstCanvas.width,
+          height: dstCanvas.height,
         },
         phase: 'final',
         logger: RenderCycleLogger.current,
@@ -536,7 +703,7 @@ export class Paplico extends Emitter<Events> {
       )
 
       if (this.activeLayerEntity.layerType === 'vector') {
-        const obj = this.createVectorObjectByCurrentSettings(stroke)
+        const obj = this.createVectorObjectByCurrentSettings(path)
 
         await this.command.do(
           new Commands.VectorUpdateLayer(this.activeLayerEntity.uid, {
@@ -589,6 +756,7 @@ export class Paplico extends Emitter<Events> {
         tmpctx.clearRect(0, 0, tmpctx.canvas.width, tmpctx.canvas.height)
         tmpctx.drawImage(currentBitmap, 0, 0)
 
+        // console.log(this.#state.currentInk)
         // Write stroke to current layer
         await this.renderer.renderStroke(
           tmpctx.canvas,
@@ -660,10 +828,10 @@ export class Paplico extends Emitter<Events> {
   }
 
   protected createVectorObjectByCurrentSettings(
-    stroke: UIStroke,
+    path: VectorPath,
   ): VectorObject {
     const obj = createVectorObject({
-      path: stroke.toPath(),
+      path: path,
       appearances: [
         ...(this.state.currentFill
           ? ([

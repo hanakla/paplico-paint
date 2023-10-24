@@ -2,10 +2,10 @@ import { assign } from './object'
 
 export const saveAndRestoreCanvas = <
   C extends CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D,
-  T extends (ctx: C) => any
+  T extends (ctx: C) => any,
 >(
   ctx: C,
-  proc: T
+  proc: T,
 ) => {
   try {
     ctx.save()
@@ -20,8 +20,13 @@ export const saveAndRestoreCanvas = <
 export const setCanvasSize: {
   (
     canvas: HTMLCanvasElement | OffscreenCanvas,
-    widthOrSize: number | { width: number; height: number },
-    height?: number
+    size: { width: number; height: number },
+    _?: undefined,
+  ): void
+  (
+    canvas: HTMLCanvasElement | OffscreenCanvas,
+    width: number,
+    height: number,
   ): void
 } = (canvas, widthOrSize, height) => {
   if (typeof widthOrSize === 'object') {

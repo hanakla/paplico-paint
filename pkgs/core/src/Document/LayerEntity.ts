@@ -33,6 +33,11 @@ type Transform = {
 
 // export type LayerEntity =  | FilterLayer
 
+export type RootLayer = Omit<LayerEntityBase, 'uid'> & {
+  layerType: 'root'
+  uid: '__root__'
+}
+
 export type FilterLayer = LayerEntityBase & {
   layerType: 'filter'
   filters: LayerFilter[]
@@ -75,6 +80,7 @@ export type ArtboradLayer = LayerEntityBase & {
 }
 
 export type LayerEntity =
+  | RootLayer
   | FilterLayer
   | RasterLayer
   | VectorLayer

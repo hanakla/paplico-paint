@@ -1,6 +1,6 @@
 import { ulid } from '@/utils/ulid'
 import { assign, deepClone } from '@/utils/object'
-import { LayerEntity } from './LayerEntity'
+import { LayerEntity, RootLayer } from './LayerEntity'
 import { LayerNode } from './LayerNode'
 import { PaplicoBlob } from './PaplicoBlob'
 
@@ -18,7 +18,7 @@ export namespace PaplicoDocument {
     uid: string
     meta: Meta
     layersEntities: LayerEntity[]
-    layerTree: LayerNode[]
+    layerTree: LayerNode
     blobs: PaplicoBlob[]
   }
 }
@@ -28,15 +28,15 @@ export class PaplicoDocument {
     return assign(
       new PaplicoDocument({
         width: data.meta.mainArtboard.width,
-        height: data.meta.mainArtboard.height
+        height: data.meta.mainArtboard.height,
       }),
       {
         uid: data.uid,
         meta: data.meta,
         layerEntities: data.layersEntities,
         layerTree: data.layerTree,
-        blobs: data.blobs
-      }
+        blobs: data.blobs,
+      },
     )
   }
 
@@ -46,12 +46,12 @@ export class PaplicoDocument {
     title: '',
     mainArtboard: {
       width: 100,
-      height: 100
-    }
+      height: 100,
+    },
   }
 
   public layerEntities: LayerEntity[] = []
-  public layerTree: LayerNode[] = []
+  public layerTree: LayerNode = { layerUid: '__root__', children: [] }
   public blobs: PaplicoBlob[] = []
 
   public constructor({ width, height }: { width: number; height: number }) {
@@ -60,32 +60,74 @@ export class PaplicoDocument {
 
   public addLayer(
     layer: LayerEntity,
-    [...nodePosition]: readonly number[] = [-1]
+    pathToParent: readonly string[] = [],
+    positionInNode: number = -1,
   ) {
+    if (this.layerEntities.find((l) => l.uid === layer.uid)) {
+      return
+    }
+
     this.layerEntities.push(layer)
 
-    let parent: LayerNode[] = this.layerTree
-    let placePosition = nodePosition.pop()
-
-    if (placePosition == null) {
+    const parent = this.resolveNodePath(pathToParent)
+    if (!parent) {
       throw new Error(
-        `Document.addLayer: layer inserstion position (last element of nodePosition) is not specified`
+        `Document.addLayer: Parent node not found (uid: ${pathToParent.join(
+          ' > ',
+        )})`,
       )
     }
 
-    for (const pos of nodePosition) {
-      parent = parent[pos].children
-    }
-
-    if (placePosition === -1) {
-      parent.push({ layerUid: layer.uid, children: [] })
+    if (positionInNode === -1) {
+      parent?.children.push({ layerUid: layer.uid, children: [] })
     } else {
-      parent.splice(placePosition, 0, { layerUid: layer.uid, children: [] })
+      parent?.children.splice(positionInNode, 0, {
+        layerUid: layer.uid,
+        children: [],
+      })
     }
   }
 
-  public resolveLayerEntity(layerId: string) {
+  public resolveLayerEntity(layerId: string): LayerEntity | undefined {
+    if (layerId === '__root__') {
+      return {
+        layerType: 'root',
+        uid: '__root__',
+        name: 'root',
+        compositeMode: 'normal',
+        features: {},
+        lock: false,
+        opacity: 1,
+        visible: true,
+      } satisfies RootLayer
+    }
+
     return this.layerEntities.find((layer) => layer.uid === layerId)
+  }
+
+  public resolveNodePath(path: readonly string[]) {
+    if (path.length === 0) return this.layerTree
+    if (path[0] === '__root__') path = path.slice(1)
+    console.log({ path })
+
+    let cursor = this.layerTree
+    let target: LayerNode | null = null
+
+    for (const uid of path) {
+      let result = cursor.children.find((layer) => layer.layerUid === uid)
+      if (!result) break
+      if (result.layerUid === uid) {
+        target = result
+        break
+      }
+      cursor = result
+    }
+
+    if (!target) {
+      return null
+    }
+
+    return target
   }
 
   public serialize(): PaplicoDocument.SerializedSchema {
@@ -94,7 +136,7 @@ export class PaplicoDocument {
       meta: this.meta,
       layersEntities: this.layerEntities,
       layerTree: this.layerTree,
-      blobs: this.blobs
+      blobs: this.blobs,
     })
   }
 }

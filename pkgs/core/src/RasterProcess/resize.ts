@@ -23,10 +23,14 @@ type ResizeOption = {
     }
 )
 
+/**
+ * Resizing image
+ * @param data sourceImage
+ */
 export const resize = async (
   data: Uint8ClampedArray | ImageData,
-  { bufferCanvas, ...opt }: ResizeOption
-) => {
+  { bufferCanvas, ...opt }: ResizeOption,
+): Promise<ImageData> => {
   const image: ImageBitmap =
     data instanceof ImageData
       ? await createImageBitmap(data)
@@ -52,7 +56,8 @@ export const resize = async (
 }
 
 function calcDrawPosition(opt: ResizeOption) {
-  if (opt.method !== 'crop') throw new Error('Unexpected method in calcDrawPosition')
+  if (opt.method !== 'crop')
+    throw new Error('Unexpected method in calcDrawPosition')
 
   // prettier-ignore
   return {
@@ -71,29 +76,30 @@ if (import.meta.vitest) {
   const { describe, it, expect } = import.meta.vitest!
 
   describe('resize', () => {
-    it.each(
-      [
-        { x: 'left', y: 'top', expected: { x: 0, y: 0 } },
-        { x: 'left', y: 'center', expected: { x: 0, y: 45 } },
-        { x: 'left', y: 'bottom', expected: { x: 0, y: 90 } },
-        { x: 'center', y: 'top', expected: { x: 45, y: 0 } },
-        { x: 'center', y: 'center', expected: { x: 45, y: 45 } },
-        { x: 'center', y: 'bottom', expected: { x: 45, y: 90 } },
-        { x: 'right', y: 'top', expected: { x: 90, y: 0 } },
-        { x: 'right', y: 'center', expected: { x: 90, y: 45 } },
-        { x: 'right', y: 'bottom', expected: { x: 90, y: 90 } },
-      ] satisfies Array<CropPosition & {expected: { x: number, y: number}}>
-    )('crop by %p', (positon) => {
-      expect(
-        calcDrawPosition({
-          width: 10,
-          height: 10,
-          toWidth: 100,
-          toHeight: 100,
-          method: 'crop',
-          positon,
-        })
-      ).toMatchObject(positon.expected)
-    })
+    it.each([
+      { x: 'left', y: 'top', expected: { x: 0, y: 0 } },
+      { x: 'left', y: 'center', expected: { x: 0, y: 45 } },
+      { x: 'left', y: 'bottom', expected: { x: 0, y: 90 } },
+      { x: 'center', y: 'top', expected: { x: 45, y: 0 } },
+      { x: 'center', y: 'center', expected: { x: 45, y: 45 } },
+      { x: 'center', y: 'bottom', expected: { x: 45, y: 90 } },
+      { x: 'right', y: 'top', expected: { x: 90, y: 0 } },
+      { x: 'right', y: 'center', expected: { x: 90, y: 45 } },
+      { x: 'right', y: 'bottom', expected: { x: 90, y: 90 } },
+    ] satisfies Array<CropPosition & { expected: { x: number; y: number } }>)(
+      'crop by %p',
+      (positon) => {
+        expect(
+          calcDrawPosition({
+            width: 10,
+            height: 10,
+            toWidth: 100,
+            toHeight: 100,
+            method: 'crop',
+            positon,
+          }),
+        ).toMatchObject(positon.expected)
+      },
+    )
   })
 }

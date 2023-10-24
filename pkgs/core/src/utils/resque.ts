@@ -1,9 +1,11 @@
 type SuccessResult<T> = readonly [result: T, error: null] & {
+  success: true
   result: T
   error: null
 }
 
 type FailureResult<T> = readonly [result: null, error: Error] & {
+  success: false
   result: null
   error: Error
 }
@@ -16,15 +18,20 @@ interface ResqueOption<T extends ErrorConstructor = any> {
 interface Resque {
   <T>(proc: () => Promise<T>, option?: ResqueOption): Promise<Result<T>>
   <T>(proc: () => T, option?: ResqueOption): Result<T>
-  <T>(proc: () => T | Promise<T>, option?: ResqueOption):
-    | Promise<Result<T>>
-    | Result<T>
+  <T>(
+    proc: () => T | Promise<T>,
+    option?: ResqueOption,
+  ): Promise<Result<T>> | Result<T>
   isFailure(result: Result<any>): result is FailureResult<null>
   isSuccess(result: Result<any>): result is SuccessResult<any>
 }
 
 const createResult = (result: any = null, error: any = null): Result<any> =>
-  Object.assign([result, error] as const, { result, error })
+  Object.assign([result, error] as const, {
+    success: error == null,
+    result,
+    error,
+  })
 
 const isExpectedError = (actual: unknown, expects: any[]) => {
   if (expects.length === 0) return true
@@ -33,7 +40,7 @@ const isExpectedError = (actual: unknown, expects: any[]) => {
 
 export const rescue: Resque = <T extends Promise<any> | any>(
   proc: () => T,
-  { expects = [] }: ResqueOption = {}
+  { expects = [] }: ResqueOption = {},
 ): any => {
   try {
     const result = proc()

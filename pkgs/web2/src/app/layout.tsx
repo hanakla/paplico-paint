@@ -11,6 +11,9 @@ import {
 import reset from 'styled-reset'
 import React, { useState } from 'react'
 import { useServerInsertedHTML } from 'next/navigation'
+import '@radix-ui/themes/styles.css'
+import { Theme } from '@radix-ui/themes'
+import StyledComponentsRegistry from '@/lib/StyledComponentsRegistry'
 
 // export const metadata = {
 //   title: 'Next.js',
@@ -24,22 +27,24 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <GlobalStyle />
-
       <body>
         <StyledComponentsRegistry>
-          <ThemeProvider theme={light}>
-            <TokenInjector
-              theme={{
-                ':root': light,
-                [themeSelector('light')]: light,
-                [themeSelector('dark')]: dark,
-                [prefersColorScheme('dark')]: dark,
-              }}
-              background="background1"
-            />
-            {children}
-          </ThemeProvider>
+          <GlobalStyle />
+
+          <Theme style={{ width: '100%', height: '100%' }}>
+            <ThemeProvider theme={light} data-accent-color="mint">
+              <TokenInjector
+                theme={{
+                  ':root': light,
+                  [themeSelector('light')]: light,
+                  [themeSelector('dark')]: dark,
+                  [prefersColorScheme('dark')]: dark,
+                }}
+                background="background1"
+              />
+              {children}
+            </ThemeProvider>
+          </Theme>
         </StyledComponentsRegistry>
       </body>
     </html>
@@ -49,6 +54,10 @@ export default function RootLayout({
 const GlobalStyle = createGlobalStyle`
   ${reset}
 
+  *, *::before, *::after {
+    box-sizing: border-box;
+  }
+
   html, body {
     width: 100%;
     height: 100%;
@@ -57,24 +66,9 @@ const GlobalStyle = createGlobalStyle`
     touch-action: manipulation;
     overflow: hidden;
   }
+
+  :root {
+    --pap-sufrace-dropshadow: rgba(0,0,0,.2);
+    --pap-sufrace-dropshadow-size: 24px;
+  }
 `
-
-function StyledComponentsRegistry({ children }: { children: React.ReactNode }) {
-  // Only create stylesheet once with lazy initial state
-  // x-ref: https://reactjs.org/docs/hooks-reference.html#lazy-initial-state
-  const [styledComponentsStyleSheet] = useState(() => new ServerStyleSheet())
-
-  useServerInsertedHTML(() => {
-    const styles = styledComponentsStyleSheet.getStyleElement()
-    styledComponentsStyleSheet.instance.clearTag()
-    return <>{styles}</>
-  })
-
-  if (typeof window !== 'undefined') return <>{children}</>
-
-  return (
-    <StyleSheetManager sheet={styledComponentsStyleSheet.instance}>
-      {children}
-    </StyleSheetManager>
-  )
-}

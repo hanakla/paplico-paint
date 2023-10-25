@@ -16,7 +16,7 @@ export type VectorObject = {
   opacity: number
 
   /** Compositing first to last (last is foreground) */
-  appearances: VectorAppearance[]
+  filters: VectorAppearance[]
 
   path: VectorPath
 }

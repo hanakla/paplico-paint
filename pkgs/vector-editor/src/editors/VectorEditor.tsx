@@ -26,7 +26,7 @@ export const VectorEditor = memo(function VectorEditor({
   }, [engineState.activeLayer?.layerUid])
 
   const handleClickRoot = useCallback(() => {
-    editorStore.setSelectedObjectIds(() => [])
+    editorStore.setSelectedObjectIds(() => ({}))
   }, [])
 
   return (

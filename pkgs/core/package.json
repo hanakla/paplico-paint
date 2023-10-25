@@ -51,6 +51,7 @@
     "zod": "^3.19.1"
   },
   "peerDependencies": {
-    "ag-psd": "^17.0.6"
+    "ag-psd": "^17.0.6",
+    "react": "*"
   }
 }

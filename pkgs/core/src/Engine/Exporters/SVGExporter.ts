@@ -89,11 +89,11 @@ export class SVGExporter implements IExporter {
 
             const path = vectorPathToSVGDCommands(obj.path)
             const fill = findLast(
-              obj.appearances,
+              obj.filters,
               (a): a is VectorAppearanceFill => a.kind === 'fill',
             )
             const stroke = findLast(
-              obj.appearances,
+              obj.filters,
               (a): a is VectorAppearanceStroke => a.kind === 'stroke',
             )
 

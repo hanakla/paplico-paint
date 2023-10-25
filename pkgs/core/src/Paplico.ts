@@ -2,7 +2,11 @@ import immer, { Draft } from 'immer'
 
 import { MixerPipeline } from '@/Engine/MixerPipeline'
 import { BrushRegistry } from '@/Engine/Registry/BrushRegistry'
-import { createCanvas, getCanvasBytes } from '@/Engine/CanvasFactory'
+import {
+  createCanvas,
+  createContext2D,
+  getCanvasBytes,
+} from '@/Engine/CanvasFactory'
 import { Renderer } from '@/Engine/Renderer'
 import { UICanvas } from '@/UI/UICanvas'
 import { UIStroke } from '@/UI/UIStroke'
@@ -16,7 +20,12 @@ import {
   VectorObject,
   VectorPath,
 } from './Document'
-import { freeingCanvas, setCanvasSize } from '@/utils/canvas'
+import {
+  clearCanvas,
+  freeingCanvas,
+  saveAndRestoreCanvas,
+  setCanvasSize,
+} from '@/utils/canvas'
 import { RuntimeDocument } from './Engine/RuntimeDocument'
 import { VectorStrokeSetting } from './Document/LayerEntity/VectorStrokeSetting'
 import { VectorFillSetting } from './Document/LayerEntity/VectorFillSetting'
@@ -43,6 +52,9 @@ import { IExporter } from './Engine/Exporters/IExporter'
 import { PSDExporter } from './Engine/Exporters/PSDExporter'
 import { type History } from '@/History/History'
 import { PreviewStore } from './Engine/PreviewStore'
+import { logImage } from './utils/DebugHelper'
+import { NoneImpls, PaplicoComponents } from '@/UI/PaneUI/index'
+import { AbstractComponentRenderer } from './UI/PaneUI/AbstractComponent'
 
 export namespace Paplico {
   export type StrokeSetting<T extends Record<string, any> = any> =
@@ -124,12 +136,17 @@ export class Paplico extends Emitter<Paplico.Events> {
   protected document: PaplicoDocument | null = null
   protected runtimeDoc: RuntimeDocument | null = null
 
-  protected readonly beforeCommitAborter: AbortController =
-    new AbortController()
+  protected beforeCommitAborter: AbortController = new AbortController()
   protected readonly tmpctxResource: AtomicResource<CanvasRenderingContext2D>
+  protected readonly strokingCtxResource: AtomicResource<CanvasRenderingContext2D>
 
   protected readonly rerenderQueue = new AsyncQueue()
   protected activeStrokeChangeAborters: AbortController[] = []
+
+  protected readonly paneImpl: {
+    components: PaplicoComponents
+    h: AbstractComponentRenderer
+  }
 
   #preferences: Paplico.Preferences = {
     strokeTrelance: 5,
@@ -175,7 +192,13 @@ export class Paplico extends Emitter<Paplico.Events> {
     return pap
   }
 
-  constructor(canvas: HTMLCanvasElement) {
+  constructor(
+    canvas: HTMLCanvasElement,
+    opts: {
+      paneComponentImpls?: PaplicoComponents
+      paneCreateElement?: AbstractComponentRenderer
+    } = {},
+  ) {
     super()
 
     this.brushes = new BrushRegistry()
@@ -199,9 +222,25 @@ export class Paplico extends Emitter<Paplico.Events> {
     this.dstCanvas = canvas
     this.dstctx = canvas.getContext('2d')!
 
-    const tmpCanvas = createCanvas()
-    const tmpctx = tmpCanvas.getContext('2d', { willReadFrequently: true })!
-    this.tmpctxResource = new AtomicResource(tmpctx, 'Paplico#tmpctx')
+    this.tmpctxResource = new AtomicResource(
+      createContext2D({
+        willReadFrequently: true,
+        colorSpace: 'display-p3',
+      }),
+      'Paplico#tmpctx',
+    )
+
+    this.strokingCtxResource = new AtomicResource(
+      createContext2D({
+        colorSpace: 'display-p3',
+      }),
+      'Paplico#strokingCtx',
+    )
+
+    this.paneImpl = {
+      components: opts.paneComponentImpls ?? NoneImpls,
+      h: opts.paneCreateElement ?? (() => null),
+    }
 
     this.onUIStrokeChange = this.onUIStrokeChange.bind(this)
     this.onUIStrokeComplete = this.onUIStrokeComplete.bind(this)
@@ -489,10 +528,12 @@ export class Paplico extends Emitter<Paplico.Events> {
   }
 
   public async rerender({
+    layerOverrides,
     destination,
     pixelRatio = 1,
     signal,
   }: {
+    layerOverrides?: { [layerId: string]: HTMLCanvasElement | ImageBitmap }
     destination?: CanvasRenderingContext2D
     pixelRatio?: number
     signal?: AbortSignal
@@ -507,6 +548,7 @@ export class Paplico extends Emitter<Paplico.Events> {
 
       await this.pipeline.fullyRender(dstctx, this.runtimeDoc, this.renderer, {
         abort: signal,
+        override: layerOverrides,
         viewport: {
           top: 0,
           left: 0,
@@ -544,7 +586,11 @@ export class Paplico extends Emitter<Paplico.Events> {
 
     const aborter = abort ?? new AbortController()
 
-    const tmpctx = await this.tmpctxResource.ensure()
+    const [tmpctx, strkctx] = await Promise.all([
+      this.tmpctxResource.ensure(),
+      this.strokingCtxResource.ensure(),
+    ])
+
     const dstctx = this.dstctx
 
     try {
@@ -553,7 +599,7 @@ export class Paplico extends Emitter<Paplico.Events> {
       }
 
       // clear first, if clear after render, it will cause visually freeze
-      tmpctx.clearRect(0, 0, tmpctx.canvas.width, tmpctx.canvas.height)
+      clearCanvas(tmpctx)
 
       const path = stroke.toPath()
 
@@ -579,7 +625,7 @@ export class Paplico extends Emitter<Paplico.Events> {
           },
         )
       } else if (this.activeLayerEntity.layerType === 'raster') {
-        if (!this.strokeSetting) return
+        if (!this.#state.currentStroke) return
 
         const currentBitmap =
           (await this.runtimeDoc.getOrCreateLayerBitmapCache(
@@ -587,17 +633,21 @@ export class Paplico extends Emitter<Paplico.Events> {
           ))!
 
         setCanvasSize(tmpctx.canvas, currentBitmap.width, currentBitmap.height)
+        clearCanvas(tmpctx)
+
+        setCanvasSize(strkctx.canvas, currentBitmap.width, currentBitmap.height)
+        clearCanvas(strkctx)
 
         // Copy current layer image to tmpctx
-        tmpctx.clearRect(0, 0, tmpctx.canvas.width, tmpctx.canvas.height)
         tmpctx.drawImage(currentBitmap, 0, 0)
 
         renderLogger.log('render stroke')
+
         // Write stroke to current layer
         await this.renderer.renderStroke(
-          tmpctx.canvas,
+          strkctx.canvas,
           path,
-          this.strokeSetting,
+          this.#state.currentStroke!,
           {
             inkSetting: this.#state.currentInk,
             abort: aborter.signal,
@@ -610,6 +660,15 @@ export class Paplico extends Emitter<Paplico.Events> {
             logger: renderLogger,
           },
         )
+
+        saveAndRestoreCanvas(tmpctx, () => {
+          tmpctx.globalCompositeOperation =
+            this.#state.strokeComposition === 'normal'
+              ? 'source-over'
+              : 'destination-out'
+
+          tmpctx.drawImage(strkctx.canvas, 0, 0)
+        })
       } else {
         return
       }
@@ -645,7 +704,7 @@ export class Paplico extends Emitter<Paplico.Events> {
 
         this.emit('flushed')
       } finally {
-        tmpctx.clearRect(0, 0, tmpctx.canvas.width, tmpctx.canvas.height)
+        clearCanvas(tmpctx)
         renderLogger.printLogs('onUIStrokeChange')
       }
     } catch (e) {
@@ -656,6 +715,7 @@ export class Paplico extends Emitter<Paplico.Events> {
       }
     } finally {
       this.tmpctxResource.release(tmpctx)
+      this.strokingCtxResource.release(strkctx)
     }
   }
 
@@ -682,14 +742,18 @@ export class Paplico extends Emitter<Paplico.Events> {
     // const aborter = (this.lastRenderAborter = new AbortController())
     const aborter = new AbortController()
 
-    const tmpctx = await this.tmpctxResource.ensure()
+    const [tmpctx, strkctx] = await Promise.all([
+      this.tmpctxResource.ensure(),
+      this.strokingCtxResource.ensure(),
+    ])
+
     const dstctx = this.dstctx
 
     this.setState((d) => (d.busy = true))
 
     try {
       // clear first, if clear after render, it will cause visually freeze
-      tmpctx.clearRect(0, 0, tmpctx.canvas.width, tmpctx.canvas.height)
+      clearCanvas(tmpctx)
 
       RenderCycleLogger.current.time('toSimplefiedPath')
 
@@ -743,7 +807,7 @@ export class Paplico extends Emitter<Paplico.Events> {
           tmpctx.getImageData(0, 0, tmpctx.canvas.width, tmpctx.canvas.height),
         )
       } else if (this.activeLayerEntity.layerType === 'raster') {
-        if (!this.strokeSetting) return
+        if (!this.#state.currentStroke) return
 
         const currentBitmap =
           (await this.runtimeDoc.getOrCreateLayerBitmapCache(
@@ -751,17 +815,19 @@ export class Paplico extends Emitter<Paplico.Events> {
           ))!
 
         setCanvasSize(tmpctx.canvas, currentBitmap.width, currentBitmap.height)
+        clearCanvas(tmpctx)
+
+        setCanvasSize(strkctx.canvas, currentBitmap.width, currentBitmap.height)
+        clearCanvas(strkctx)
 
         // Copy current layer image to tmpctx
-        tmpctx.clearRect(0, 0, tmpctx.canvas.width, tmpctx.canvas.height)
         tmpctx.drawImage(currentBitmap, 0, 0)
 
-        // console.log(this.#state.currentInk)
         // Write stroke to current layer
         await this.renderer.renderStroke(
-          tmpctx.canvas,
+          strkctx.canvas,
           path,
-          this.strokeSetting,
+          this.#state.currentStroke!,
           {
             inkSetting: this.#state.currentInk,
             abort: aborter.signal,
@@ -774,6 +840,19 @@ export class Paplico extends Emitter<Paplico.Events> {
             logger: RenderCycleLogger.current,
           },
         )
+
+        saveAndRestoreCanvas(tmpctx, () => {
+          logImage(tmpctx)
+          logImage(strkctx)
+
+          tmpctx.globalCompositeOperation =
+            this.#state.strokeComposition === 'normal'
+              ? 'source-over'
+              : 'destination-out'
+
+          console.log(tmpctx.globalCompositeOperation)
+          tmpctx.drawImage(strkctx.canvas, 0, 0)
+        })
 
         // Update layer image data
         await this.command.do(
@@ -823,6 +902,8 @@ export class Paplico extends Emitter<Paplico.Events> {
     } finally {
       this.runtimeDoc.updaterLock.release(updateLock)
       this.tmpctxResource.release(tmpctx)
+      this.strokingCtxResource.release(strkctx)
+
       this.setState((d) => (d.busy = false))
     }
   }
@@ -832,7 +913,7 @@ export class Paplico extends Emitter<Paplico.Events> {
   ): VectorObject {
     const obj = createVectorObject({
       path: path,
-      appearances: [
+      filters: [
         ...(this.state.currentFill
           ? ([
               { kind: 'fill', fill: deepClone(this.state.currentFill) },

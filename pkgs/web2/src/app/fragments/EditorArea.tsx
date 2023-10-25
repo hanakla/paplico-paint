@@ -25,15 +25,14 @@ export const EditorArea = memo(
     canvasRef,
   ) {
     const { pap, papStore } = usePaplico()
-    const { canvasTransform } = papStore
+    const editorStore = useEditorStore()
+    const { canvasTransform } = editorStore
 
     const rootRef = useRef<HTMLDivElement | null>(null)
     const toolbarRef = useRef<HTMLDivElement | null>(null)
     const vectorEditorRef = useRef<HTMLDivElement | null>(null)
     const transformRootRef = useCombineRef<HTMLDivElement | null>(rootRef)
     const combCanvasRef = useCombineRef<HTMLCanvasElement | null>(canvasRef)
-
-    const editorStore = useEditorStore()
 
     const [toolbarPosition, setToolbarPosition] = useState<{
       x: number
@@ -62,7 +61,7 @@ export const EditorArea = memo(
         onPinch: ({ delta: [d, r], origin: [x, y] }) => {
           const c = combCanvasRef.current!.getBoundingClientRect()
 
-          papStore.setCanvasTransform((prev) => {
+          editorStore.setCanvasTransform((prev) => {
             // 現在の変形を考慮しない、キャンバスに対するピンチの中心点を取得
             const xOnCanvas = (x - c.left) / prev.scale - prev.x / prev.scale
             const yOnCanvas = (y - c.top) / prev.scale - prev.y / prev.scale
@@ -90,7 +89,7 @@ export const EditorArea = memo(
         onWheel: ({ event, delta, touches }) => {
           event.preventDefault()
 
-          papStore.setCanvasTransform((prev) => ({
+          editorStore.setCanvasTransform((prev) => ({
             ...prev,
             x: prev.x - delta[0],
             y: prev.y - delta[1],
@@ -100,7 +99,7 @@ export const EditorArea = memo(
         onDrag: (e) => {
           if (e.touches < 2) return
 
-          papStore.setCanvasTransform((prev) => ({
+          editorStore.setCanvasTransform((prev) => ({
             ...prev,
             x: prev.x + e.delta[0],
             y: prev.y + e.delta[1],
@@ -134,7 +133,12 @@ export const EditorArea = memo(
 
     useEffect(() => {
       if (!pap) return
-      bindPaplico(vectorEditorRef.current!, pap)
+      const handle = bindPaplico(vectorEditorRef.current!, pap)
+      papStore._setEditorHandle(handle)
+
+      return () => {
+        papStore._setEditorHandle(null)
+      }
     }, [pap])
 
     return (
@@ -151,6 +155,7 @@ export const EditorArea = memo(
       >
         <div
           ref={transformRootRef}
+          suppressHydrationWarning
           css={css`
             position: relative;
             touch-action: none;

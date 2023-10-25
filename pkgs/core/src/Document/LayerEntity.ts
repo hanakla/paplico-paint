@@ -21,6 +21,7 @@ export type LayerEntityBase = {
   opacity: number
 
   features: { [featureName: string]: Record<string, any> }
+  filters: LayerFilter[]
 }
 
 type Transform = {
@@ -40,7 +41,6 @@ export type RootLayer = Omit<LayerEntityBase, 'uid'> & {
 
 export type FilterLayer = LayerEntityBase & {
   layerType: 'filter'
-  filters: LayerFilter[]
 }
 
 export type RasterLayer = LayerEntityBase & {
@@ -71,7 +71,7 @@ export type GroupLayer = LayerEntityBase & {
 }
 
 export type TextLayer = LayerEntityBase & {
-  layerType: 'group'
+  layerType: 'text'
   // TODO
 }
 

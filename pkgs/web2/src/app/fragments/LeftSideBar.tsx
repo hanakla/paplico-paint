@@ -1,9 +1,7 @@
-import { memo, useState } from 'react'
-import { usePaplico } from '@/domains/paplico'
-import useEvent from 'react-use-event-hook'
+import { memo } from 'react'
 import { css } from 'styled-components'
 import { BrushSettingPane } from './Floatables/BrushSettingPane'
-import { LayerTreeView } from './Floatables/Layers'
+import { LayersPane } from './Floatables/LayersPane'
 
 type Props = {
   className?: string
@@ -21,7 +19,7 @@ export const LeftSideBar = memo(({ className }: Props) => {
       className={className}
     >
       <BrushSettingPane />
-      <LayerTreeView size="sm" />
+      <LayersPane size="sm" />
     </div>
   )
 })

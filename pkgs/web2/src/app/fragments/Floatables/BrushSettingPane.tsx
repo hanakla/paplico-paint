@@ -8,26 +8,25 @@ import useEvent from 'react-use-event-hook'
 import { css } from 'styled-components'
 
 export const BrushSettingPane = memo(function BrushSetting() {
-  const { pap, papStore } = usePaplico()
+  const { pap, editorHandle, papStore } = usePaplico()
 
   const handleChangeBrush = useEvent((value: string[]) => {
     const target = pap!.brushes.brushEntries.find(
       (entry) => entry.id === value[0],
     )
 
-    pap!.strokeSetting = {
-      ...pap!.strokeSetting,
+    pap!.setStrokeSetting({
       brushId: target.id,
       brushVersion: '0.0.1',
       specific: {},
-    }
+    })
   })
 
   const handleChangeBrushSize = useEvent(([value]: number[]) => {
-    pap!.strokeSetting = {
-      ...pap!.strokeSetting,
+    editorHandle?.showBrushSizePreview(value, { durationMs: 800 })
+    pap!.setStrokeSetting({
       size: value,
-    }
+    })
   })
 
   return (

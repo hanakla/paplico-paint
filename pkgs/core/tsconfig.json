@@ -15,6 +15,7 @@
     },
     "baseUrl": ".",
     "lib": ["ES2022", "DOM"],
+    "jsx": "react-jsx",
     "types": ["vitest/importMeta", "vitest/globals"]
   },
   "include": ["src/**/*"]

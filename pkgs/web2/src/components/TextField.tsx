@@ -7,22 +7,23 @@ import {
   KeyboardEvent,
   memo,
   ReactNode,
+  ComponentProps,
 } from 'react'
 import { css } from 'styled-components'
 // import { media } from '../utils/responsive'
 // import { ThemeProp, tm } from '../utils/theme'
-import { TextField as RTextField } from '@radix-ui/themes'
+import { TextField as _TextField } from '@radix-ui/themes'
 
 type Props = {
-  sizing?: 'md' | 'sm'
   preIcon?: ReactNode
   postIcon?: ReactNode
+
   onComplete?: (e: KeyboardEvent<HTMLInputElement>) => void
-} & DetailedHTMLProps<InputHTMLAttributes<HTMLInputElement>, HTMLInputElement>
+} & ComponentProps<typeof _TextField.Input>
 
 export const TextField = memo(
   forwardRef<HTMLInputElement, Props>(function TextField(
-    { sizing = 'md', preIcon, postIcon, onComplete, ...props },
+    { preIcon, postIcon, onComplete, ...props },
     ref,
   ) {
     const handleKeyDown = useFunk((e: KeyboardEvent<HTMLInputElement>) => {
@@ -31,11 +32,11 @@ export const TextField = memo(
     })
 
     return (
-      <RTextField.Root>
-        {preIcon && <RTextField.Slot>{preIcon}</RTextField.Slot>}
-        <RTextField.Input {...props} onKeyDown={handleKeyDown} />
-        {postIcon && <RTextField.Slot>{postIcon}</RTextField.Slot>}
-      </RTextField.Root>
+      <_TextField.Root>
+        {preIcon && <_TextField.Slot>{preIcon}</_TextField.Slot>}
+        <_TextField.Input ref={ref} {...props} onKeyDown={handleKeyDown} />
+        {postIcon && <_TextField.Slot>{postIcon}</_TextField.Slot>}
+      </_TextField.Root>
     )
 
     // return (

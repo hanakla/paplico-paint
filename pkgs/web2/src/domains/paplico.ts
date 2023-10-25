@@ -5,41 +5,38 @@ import {
   Inks,
   Paplico,
 } from '@paplico/core-new'
-import { RefObject, useRef } from 'react'
+import { PaplicoEditorHandle } from '@paplico/vector-editor'
+import { RefObject, useMemo, useRef } from 'react'
 import { useEffectOnce } from 'react-use'
 import { create } from 'zustand'
-
-type CanvasTransform = {
-  x: number
-  y: number
-  scale: number
-  rotateDeg: number
-}
 
 interface Store {
   engine: Paplico | null
   engineState: Paplico.State | null
-  canvasTransform: CanvasTransform
+  editorHandle: PaplicoEditorHandle | null
+  activeLayerEntity: Document.LayerEntity | null
 
   initialize(engine: Paplico): void
+  _setEditorHandle: (handle: PaplicoEditorHandle | null) => void
   _setEngineState: (state: Paplico.State) => void
-  setCanvasTransform: (
-    translator: (prev: CanvasTransform) => CanvasTransform,
-  ) => void
+  _setActiveLayerEntity: (layer: Document.LayerEntity | null) => void
 }
 
 const useStore = create<Store>((set, get) => ({
   engine: null,
   engineState: null,
-  canvasTransform: { x: 0, y: 0, scale: 1, rotateDeg: 0 },
+  activeLayerEntity: null,
+  editorHandle: null,
 
   initialize: (engine: Paplico) => {
     set({ engine })
   },
-  _setEngineState: (state) => set({ engineState: state }),
-  setCanvasTransform: (translator) => {
-    set({ canvasTransform: translator(get().canvasTransform) })
+
+  _setEditorHandle: (handle) => {
+    set({ editorHandle: handle })
   },
+  _setEngineState: (state) => set({ engineState: state }),
+  _setActiveLayerEntity: (layer) => set({ activeLayerEntity: layer }),
 }))
 
 export const DEFAULT_BRUSH_ID = Brushes.CircleBrush.id
@@ -59,6 +56,18 @@ export function usePaplicoInit(canvasRef: RefObject<HTMLCanvasElement | null>) {
 
       pap.on('stateChanged', () => {
         store._setEngineState(pap.state)
+      })
+
+      pap.on('activeLayerChanged', ({ current }) => {
+        if (!current) {
+          store._setActiveLayerEntity(null)
+          return
+        }
+
+        const layerEntity = pap.currentDocument!.resolveLayerEntity(
+          current.layerUid,
+        )
+        store._setActiveLayerEntity(layerEntity!)
       })
 
       const doc = Document.createDocument({ width: 1000, height: 1000 })
@@ -112,7 +121,7 @@ export function usePaplicoInit(canvasRef: RefObject<HTMLCanvasElement | null>) {
       pap.rerender()
 
       // pap.strok
-      pap.strokeSetting = {
+      pap.setStrokeSetting({
         brushId: Brushes.CircleBrush.id,
         brushVersion: '0.0.1',
         color: { r: 0, g: 0, b: 0 },
@@ -127,7 +136,7 @@ export function usePaplicoInit(canvasRef: RefObject<HTMLCanvasElement | null>) {
           inOutInfluence: 1,
           inOutLength: 0.2,
         } satisfies Brushes.CircleBrush.SpecificSetting,
-      }
+      })
 
       store.initialize(pap)
     })()
@@ -140,12 +149,15 @@ export function usePaplicoInit(canvasRef: RefObject<HTMLCanvasElement | null>) {
   })
 }
 
-export function usePaplico(canvasRef?: RefObject<HTMLCanvasElement | null>) {
+export function usePaplico() {
   const store = useStore()
 
-  return {
-    pap: store.engine,
-    // engineState: store.engineState,
-    papStore: store,
-  }
+  return useMemo(
+    () => ({
+      pap: store.engine,
+      editorHandle: store.editorHandle,
+      papStore: store,
+    }),
+    [store, store.engine, store.editorHandle],
+  )
 }

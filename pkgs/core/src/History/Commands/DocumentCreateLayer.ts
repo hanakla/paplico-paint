@@ -6,31 +6,31 @@ export class DocumentCreateLayer implements ICommand {
   public readonly name = 'DocumentCreateLayer'
 
   protected layer: LayerEntity
-  protected nodeAt: string[] = []
+  protected layerPath: string[] = []
+  protected indexAtSibling = -1
 
-  constructor(layer: LayerEntity, { nodeAt }: { nodeAt: string[] }) {
-    this.layer = layer
-    this.nodeAt = nodeAt
+  constructor(
+    addingLayer: LayerEntity,
+    {
+      layerPath,
+      indexAtSibling,
+    }: { layerPath: string[]; indexAtSibling: number },
+  ) {
+    this.layer = addingLayer
+    this.layerPath = layerPath
+    this.indexAtSibling = indexAtSibling
   }
 
   public async do(document: RuntimeDocument): Promise<void> {
-    document.document.layerEntities.push(this.layer)
-
-    const parent = getLayerNodeAt(document, this.nodeAt)
-    parent.push({
-      layerUid: this.layer.uid,
-      children: [],
-    })
+    document.document.addLayer(this.layer, this.layerPath, this.indexAtSibling)
   }
 
   public async undo(document: RuntimeDocument): Promise<void> {
-    document.document.layerEntities = document.document.layerEntities.filter(
-      (layer) => layer.uid !== this.layer.uid,
-    )
+    const parent = document.document.resolveNodePath(this.layerPath)
+    if (!parent) throw new Error('Parent not found')
 
-    const parent = getLayerNodeAt(document.document, this.nodeAt)
-    parent.splice(
-      parent.findIndex((node) => node.layerUid === this.layer.uid),
+    parent.children.splice(
+      parent.children.findIndex((node) => node.layerUid === this.layer.uid),
       1,
     )
   }

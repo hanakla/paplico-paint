@@ -40,7 +40,7 @@ export const ActionSheet = forwardRef<HTMLDivElement, Props>(
       onClose,
       ...props
     },
-    ref
+    ref,
   ) => {
     const theme = useTheme()
     const styles = useSpring({
@@ -164,7 +164,7 @@ export const ActionSheet = forwardRef<HTMLDivElement, Props>(
         </div>
       </ActionSheetContext.Provider>
     )
-  }
+  },
 )
 
 export const ActionSheetItemGroup = ({

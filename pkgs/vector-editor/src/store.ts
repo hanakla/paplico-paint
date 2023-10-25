@@ -33,6 +33,7 @@ export const useEngineStore = () => {
 export type EditorStore = {
   enabled: boolean
   canvasScale: number
+  brushSizePreview: { size: number; durationMs: number } | null
   selectedObjectIds: Record<string, true>
 
   setSelectedObjectIds: (
@@ -43,10 +44,12 @@ export const createEditorStore = () => {
   return createStore<EditorStore>((set, get) => ({
     enabled: false,
     canvasScale: 1,
+    brushSizePreview: null,
     selectedObjectIds: {},
 
-    setSelectedObjectIds: (updater) =>
-      set((prev) => ({ selectedObjectIds: updater(prev.selectedObjectIds) })),
+    setSelectedObjectIds: (updater) => {
+      set((prev) => ({ selectedObjectIds: updater(prev.selectedObjectIds) }))
+    },
   }))
 }
 export const useEditorStore = () => {

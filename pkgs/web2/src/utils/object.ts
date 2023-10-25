@@ -1,3 +1,6 @@
+export const assign = <T extends object>(obj: T, patch: Partial<T>) =>
+  Object.assign(obj, patch)
+
 export const shallowEquals = (prev: any, next: any) => {
   if (Object.is(prev, next)) return true
   if (typeof prev !== typeof next) return false

@@ -14,6 +14,7 @@ import { useServerInsertedHTML } from 'next/navigation'
 import '@radix-ui/themes/styles.css'
 import { Theme } from '@radix-ui/themes'
 import StyledComponentsRegistry from '@/lib/StyledComponentsRegistry'
+import { ModalProvider } from '@/components/Dialog'
 
 // export const metadata = {
 //   title: 'Next.js',
@@ -31,8 +32,8 @@ export default function RootLayout({
         <StyledComponentsRegistry>
           <GlobalStyle />
 
-          <Theme style={{ width: '100%', height: '100%' }}>
-            <ThemeProvider theme={light} data-accent-color="mint">
+          <Theme style={{ width: '100%', height: '100%' }} accentColor="lime">
+            <ThemeProvider theme={light}>
               <TokenInjector
                 theme={{
                   ':root': light,
@@ -42,7 +43,7 @@ export default function RootLayout({
                 }}
                 background="background1"
               />
-              {children}
+              <ModalProvider>{children}</ModalProvider>
             </ThemeProvider>
           </Theme>
         </StyledComponentsRegistry>

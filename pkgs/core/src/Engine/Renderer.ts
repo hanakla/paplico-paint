@@ -103,7 +103,7 @@ export class Renderer {
 
         if (obj.path.closed) dstctx.closePath()
 
-        for (const ap of obj.appearances) {
+        for (const ap of obj.filters) {
           if (ap.kind === 'fill') {
             switch (ap.fill.type) {
               case 'fill': {

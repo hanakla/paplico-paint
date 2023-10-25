@@ -1,4 +1,5 @@
 export type LayerFilter = {
+  uid: string
   filterId: string
   filterVersion: string
 

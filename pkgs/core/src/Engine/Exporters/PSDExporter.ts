@@ -71,7 +71,7 @@ export class PSDExporter implements IExporter {
           })
         }
 
-        throw new Error('PSDExporter: keepLayers is not supported yet')
+        // throw new Error('PSDExporter: keepLayers is not supported yet')
       } else {
         children.push({
           imageData: cx.getImageData(0, 0, cx.canvas.width, cx.canvas.height),

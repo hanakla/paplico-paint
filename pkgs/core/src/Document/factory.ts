@@ -88,7 +88,7 @@ export const createVectorObject = ({
   scale = { x: 1, y: 1 },
   rotate = 0,
   opacity = 1,
-  appearances = [],
+  filters: appearances = [],
   path = createVectorPath({}),
 }: Requires<
   Partial<Omit<VectorObject, 'uid' | 'type'>>,
@@ -103,7 +103,7 @@ export const createVectorObject = ({
   scale,
   rotate,
   opacity,
-  appearances,
+  filters: appearances,
   path,
 })
 

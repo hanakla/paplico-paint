@@ -2,6 +2,7 @@ import {
   DragHandleDots2Icon,
   FontBoldIcon,
   FontItalicIcon,
+  HamburgerMenuIcon,
   LayersIcon,
   StrikethroughIcon,
   TextAlignCenterIcon,
@@ -13,7 +14,15 @@ import { RxLayers } from 'react-icons/rx'
 import { BsBrushFill, BsEraserFill } from 'react-icons/bs'
 import { Document } from '@paplico/core-new'
 import * as Toolbar from '@radix-ui/react-toolbar'
-import { ChangeEvent, KeyboardEvent, forwardRef, memo, useMemo } from 'react'
+import {
+  ChangeEvent,
+  KeyboardEvent,
+  MouseEvent,
+  forwardRef,
+  memo,
+  useMemo,
+  useReducer,
+} from 'react'
 import { css, styled } from 'styled-components'
 // import useEvent from 'react-use-event-hook'
 import { useDrag } from '@use-gesture/react'
@@ -38,9 +47,17 @@ import {
   hsbaToRGBA,
   rgbaToHSBA,
 } from '@/components/ColorPicker'
-import { LayerTreeView } from './Floatables/Layers'
-import { Tab, TabList, TabPage, TabRoot } from '@/components/TabBar'
+import { LayersPane } from './Floatables/LayersPane'
 import { FillSettingPane } from './MainToolbar/FillSettingPane'
+import {
+  ActionSheet,
+  ActionSheetItem,
+  ActionSheetItemGroup,
+} from '@/components/ActionSheet'
+import { useToggle } from 'react-use'
+import { useModal } from '@/components/Dialog'
+import { FileSaveDialog } from './MainToolbar/FileSaveDialog'
+import { letDownload } from '@hanakla/arma'
 
 type Props = {
   className?: string
@@ -80,7 +97,11 @@ export const MainToolbar = memo(
     ref,
   ) {
     const { pap, papStore } = usePaplico()
+    const openModal = useModal()
+
     const rootRef = useCombineRef<HTMLDivElement | null>(ref)
+
+    const [menuOpened, toggleMenuOpened] = useToggle(false)
 
     const [strokeColorHSB, setStrokeColorHSB] = useState<ColorTypes.HSBA>(
       () => {
@@ -107,16 +128,55 @@ export const MainToolbar = memo(
     const handleChangeStrokeColor = useEvent<ColorChangeHandler>((color) => {
       setStrokeColorHSB(color.hsb)
 
-      pap!.strokeSetting = {
-        brushId: DEFAULT_BRUSH_ID,
-        brushVersion: DEFAULT_BRUSH_VERSION,
-        opacity: color.rgb.a ?? 1,
-        size: 1,
-        specific: {},
-
-        ...pap!.strokeSetting,
+      pap!.setStrokeSetting({
         color: rgbaToPapColor(color.rgb),
+      })
+    })
+
+    const handleClickOpenMenu = useEvent(() => {
+      console.log('open')
+      toggleMenuOpened(true)
+    })
+
+    const handleClickTool = useEvent((e: MouseEvent<HTMLElement>) => {
+      const type = e.currentTarget.dataset.type!
+
+      if (type === 'brush') {
+        pap?.setStrokeCompositionMode('normal')
+      } else if (type === 'eraser') {
+        pap?.setStrokeCompositionMode('erase')
       }
+    })
+
+    const handleClickSave = useEvent(async () => {
+      toggleMenuOpened(false)
+
+      const result = await openModal(FileSaveDialog, {})
+      if (!result) {
+        throw new Error('Failed to saving file')
+      }
+
+      let binary: Blob | null = null
+
+      switch (result.type) {
+        case 'paplic': {
+          // binary = await pap!.exporters.paplic({})
+          break
+        }
+        case 'png': {
+          binary = await pap!.exporters.png({})
+          break
+        }
+        case 'psd': {
+          binary = await pap!.exporters.psd({ keepLayers: true })
+          break
+        }
+      }
+      if (!binary) throw new Error('Failed to exporting into file')
+
+      const url = URL.createObjectURL(binary)
+      letDownload(url)
+      URL.revokeObjectURL(url)
     })
 
     const fillColor = useMemo(() => {}, [])
@@ -147,6 +207,17 @@ export const MainToolbar = memo(
         <span role="none" css={s.drag} {...bindDrag()}>
           <DragHandleDots2Icon width={28} height={28} />
         </span>
+        <div onClick={handleClickOpenMenu}>
+          <HamburgerMenuIcon width={28} height={28} />
+        </div>
+
+        <ActionSheet
+          opened={menuOpened}
+          fill={false}
+          onClose={() => toggleMenuOpened(false)}
+        >
+          <ActionSheetItem onClick={handleClickSave}>Save</ActionSheetItem>
+        </ActionSheet>
 
         <Popover
           trigger={
@@ -166,12 +237,12 @@ export const MainToolbar = memo(
               padding: 2px 0;
             `}
           >
-            <ToolItem>
+            <ToolItem onClick={handleClickTool} data-type="brush">
               <BsBrushFill css={s.toolIcon} size={28} />
               Brush
             </ToolItem>
 
-            <ToolItem>
+            <ToolItem onClick={handleClickTool} data-type="eraser">
               <BsEraserFill css={s.toolIcon} size={28} />
               Eraser
             </ToolItem>
@@ -260,7 +331,7 @@ export const MainToolbar = memo(
           }
           side="top"
         >
-          <LayerTreeView size="lg" />
+          <LayersPane size="lg" />
         </Popover>
 
         {/* <Toolbar.ToggleGroup type="multiple" aria-label="Text formatting">
@@ -356,7 +427,7 @@ const s = {
 
     svg {
       vertical-align: bottom;
-      color: var(--teal-8);
+      color: var(--accent-7);
     }
   `,
   drag: css`

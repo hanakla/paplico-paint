@@ -3,8 +3,8 @@ import { createRoot } from 'react-dom/client'
 import { EditorRoot } from './editors/EditorRoot'
 import { StoresContext, createEditorStore, createEngineStore } from './store'
 import { themeVariables } from './theme'
-import { createUseStyles } from 'react-jss'
-import { memo } from 'react'
+
+export type PaplicoEditorHandle = ReturnType<typeof bindPaplico>
 
 export function bindPaplico(
   attachTarget: HTMLElement,
@@ -58,6 +58,12 @@ export function bindPaplico(
      */
     setCanvasScaledScale: (scale: number) => {
       editorStore.setState({ canvasScale: scale })
+    },
+    showBrushSizePreview: (
+      size: number,
+      { durationMs = 1000 }: { durationMs?: number } = {},
+    ) => {
+      editorStore.setState({ brushSizePreview: { size, durationMs } })
     },
   }
 }

@@ -33,7 +33,7 @@ export class AtomicResource<T> {
     return defer.promise
   }
 
-  public enjureForce({ owner }: { owner?: any } = {}): T {
+  public ensureForce({ owner }: { owner?: any } = {}): T {
     const requestStack = new Error()
 
     this.locked = true
@@ -79,4 +79,28 @@ export class AtomicResource<T> {
       this.locked = false
     }
   }
+}
+
+export function chainedAtomicResource<T, U>(
+  depResource: AtomicResource<T>,
+  resource: U,
+) {
+  const atom = new AtomicResource<U>(resource)
+  let ensured: T | null = null
+
+  const originalEnsure = atom.ensure.bind(atom)
+  atom.ensure = async (...args) => {
+    ensured = await depResource.ensure()
+    return originalEnsure(...args)
+  }
+
+  const originalRelease = atom.release.bind(atom)
+  atom.release = (...args) => {
+    depResource.release(ensured!)
+    ensured = null
+
+    return originalRelease(...args)
+  }
+
+  return atom
 }

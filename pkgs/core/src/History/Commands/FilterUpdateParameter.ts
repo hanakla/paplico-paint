@@ -22,7 +22,7 @@ export class FilterUpdateParameter implements ICommand {
   }
 
   public async do(document: RuntimeDocument): Promise<void> {
-    const layer = document.resolveLayer(this.layerUid)?.source
+    const layer = document.resolveLayer(this.layerUid)?.source.deref()
     if (!layer) throw new Error('Layer not found')
     if (layer.layerType === 'artboard' || layer.layerType === 'root') return
 
@@ -39,7 +39,7 @@ export class FilterUpdateParameter implements ICommand {
   public async undo(document: RuntimeDocument): Promise<void> {
     if (!this.changesPatch) return
 
-    const layer = document.resolveLayer(this.layerUid)?.source
+    const layer = document.resolveLayer(this.layerUid)?.source.deref()
     if (!layer) throw new Error('Layer not found')
     if (layer.layerType === 'artboard' || layer.layerType === 'root') return
 

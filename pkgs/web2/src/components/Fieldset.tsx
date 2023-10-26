@@ -33,7 +33,13 @@ export const Fieldset = memo(function Fieldset({
         `}
       >
         <label htmlFor={htmlFor}>
-          <Text size={labelTextSize} weight="medium">
+          <Text
+            css={css`
+              display: flow-root;
+            `}
+            size={labelTextSize}
+            weight="medium"
+          >
             {label}
           </Text>
         </label>

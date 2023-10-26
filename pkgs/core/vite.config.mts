@@ -4,6 +4,7 @@ import { defineConfig } from 'vite'
 import tsConfigPaths from 'vite-tsconfig-paths'
 import { resolve } from 'path'
 import dts from 'vite-plugin-dts'
+import { externals } from 'rollup-plugin-node-externals'
 
 export default defineConfig({
   define: {
@@ -16,7 +17,7 @@ export default defineConfig({
     },
   },
   build: {
-    minify: false,
+    minify: true,
     emptyOutDir: false,
     lib: {
       entry: 'src/index.ts',
@@ -31,6 +32,13 @@ export default defineConfig({
     },
   },
   plugins: [
+    {
+      enforce: 'pre',
+      ...externals({
+        builtins: false,
+        exclude: ['mitt', 'three', 'abs-svg-path', 'is-ios', 'fast-random'],
+      }),
+    } as any,
     dts({
       rollupTypes: false,
     }),

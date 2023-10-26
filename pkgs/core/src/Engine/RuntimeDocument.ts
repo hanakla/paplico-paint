@@ -54,26 +54,19 @@ export class RuntimeDocument extends Emitter<RuntimeDocument.Events> {
     })
 
     this.document = document
-    this.document.layerEntities.forEach((l) => {
-      this.layerEntities.set(l.uid, {
-        lastUpdated: 0,
-        source: l,
-      })
-    })
-
     this.history = new History()
   }
 
   public dispose() {
+    this.mitt.all.clear()
     this.updaterLock.clearQueue()
 
+    this.previews.dispose()
+    this.history.dispose()
     this.layerImageCache.forEach((bitmap) => bitmap.close())
     this.layerImageCache.clear()
     this.layoutData.clear()
-    this.layerEntities.clear()
     this.blobCaches.clear()
-    this.previews.dispose()
-    this.history.dispose()
   }
 
   public get rootNodes() {
@@ -93,7 +86,19 @@ export class RuntimeDocument extends Emitter<RuntimeDocument.Events> {
   }
 
   public resolveLayer(uid: string) {
-    return this.layerEntities.get(uid)
+    let runtimeEntity = this.layerEntities.get(uid)
+    if (runtimeEntity) return runtimeEntity
+
+    const layer = this.document.resolveLayerEntity(uid)
+    if (!layer) return undefined
+
+    runtimeEntity = {
+      lastUpdated: 0,
+      source: new WeakRef(layer),
+    }
+
+    this.layerEntities.set(uid, runtimeEntity)
+    return runtimeEntity
   }
 
   /** Check valid bitmap cache in requested size availablity */
@@ -152,11 +157,11 @@ export class RuntimeDocument extends Emitter<RuntimeDocument.Events> {
       )
 
       this.layerImageCache.set(layerUid, bitmap)
-      this.previews.generateAndSet(layerUid, bitmap)
+      await this.previews.generateAndSet(layerUid, bitmap)
     } else if (layer.layerType === 'vector') {
       bitmap = await createImageBitmap(new ImageData(size!.width, size!.height))
       this.layerImageCache.set(layerUid, bitmap)
-      this.previews.generateAndSet(layerUid, bitmap)
+      await this.previews.generateAndSet(layerUid, bitmap)
     }
 
     return bitmap

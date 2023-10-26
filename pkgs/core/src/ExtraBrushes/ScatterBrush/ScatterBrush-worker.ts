@@ -1,8 +1,8 @@
-import { pointsToSVGCommandArray } from '@/Engine/VectorUtils'
 import { type BrushLayoutData } from '@/index'
 import {
   createStreamScatter,
   getRadianFromTangent,
+  pointsToSVGCommandArray,
   scatterPlot,
 } from '@/StrokingHelper'
 import { Matrix4, mapLinear } from '@/Math'

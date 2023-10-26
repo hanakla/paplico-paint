@@ -6,7 +6,7 @@ import {
 } from './AbstractComponent'
 import { PaneComponentProps } from './PaneComponentProps'
 
-export type { VComponent, VElement, VNode }
+export type { VComponent, VElement, VNode, PaneComponentProps }
 
 export interface PaplicoComponents {
   Fragment: VComponent<PaneComponentProps.Fragment>
@@ -18,22 +18,9 @@ export interface PaplicoComponents {
   BrowserDOM: VComponent<PaneComponentProps.BrowserDOM>
 }
 
-type SetState<T> = {
-  (state: Partial<T>, replace?: false): void
-  (state: T, replace: true): void
+export type PaneSetState<T> = {
+  (state: Partial<T>): void
   (state: (prev: T) => T): void
-}
-
-export type PaneContext<T> = {
-  components: PaplicoComponents
-  c: PaplicoComponents
-  state: T
-  setState: SetState<T>
-  h: <T extends VComponent<any>>(
-    Component: T,
-    props: VComponentProps<T>,
-    ...children: VNode[]
-  ) => any
 }
 
 export { ReactDOMImpls } from './ReactDOM/index'

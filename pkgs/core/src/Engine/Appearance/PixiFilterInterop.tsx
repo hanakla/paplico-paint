@@ -1,4 +1,4 @@
-import { FilterContext, FilterInitContext, IFilter } from '../Filter'
+import { FilterContext, FilterInitContext, IFilter } from '../_Filter'
 
 export abstract class AbstractPixiFilterInterop implements IFilter {
   abstract get id(): string

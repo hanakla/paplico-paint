@@ -15,6 +15,8 @@ export class UICanvas extends Emitter<Events> {
   public currentStroke: UIStroke | null = null
   protected ctx: CanvasRenderingContext2D
 
+  #enabled = true
+
   constructor(public canvas: HTMLCanvasElement) {
     super()
     this.ctx = canvas.getContext('2d')! // settle to 2d context
@@ -25,6 +27,14 @@ export class UICanvas extends Emitter<Events> {
     this.handleMouseDown = this.handleMouseDown.bind(this)
     this.handleMouseMove = this.handleMouseMove.bind(this)
     this.handleMouseUp = this.handleMouseUp.bind(this)
+  }
+
+  public get enabled() {
+    return this.#enabled
+  }
+
+  public set enabled(v: boolean) {
+    this.#enabled = v
   }
 
   public activate() {
@@ -119,6 +129,8 @@ export class UICanvas extends Emitter<Events> {
   }
 
   protected startStroke(input: UIStrokePointRequired[]) {
+    if (!this.#enabled) return
+
     const s = (this.currentStroke = new UIStroke())
     s.markStartTime()
     input.forEach((p) => s.addPoint(p))
@@ -127,6 +139,8 @@ export class UICanvas extends Emitter<Events> {
   }
 
   protected updateStroke(input: UIStrokePointRequired[]) {
+    if (!this.#enabled) return
+
     const s = this.currentStroke
     if (!s) return
 
@@ -136,6 +150,8 @@ export class UICanvas extends Emitter<Events> {
   }
 
   protected cancelStroke() {
+    if (!this.#enabled) return
+
     const s = this.currentStroke
     if (!s) return
 
@@ -144,6 +160,8 @@ export class UICanvas extends Emitter<Events> {
   }
 
   protected finishStroke() {
+    if (!this.#enabled) return
+
     const s = this.currentStroke
     if (!s) return
 

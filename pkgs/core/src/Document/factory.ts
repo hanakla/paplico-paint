@@ -5,6 +5,7 @@ import { PaplicoDocument } from './Document'
 import { FilterLayer, RasterLayer, VectorLayer } from './LayerEntity'
 import { VectorObject } from './LayerEntity/VectorObject'
 import { VectorPath } from './LayerEntity/VectorPath'
+import { LayerFilter } from './LayerFilter'
 
 type Requires<T, K extends keyof T> = Omit<T, K> & {
   [P in K]-?: T[P]
@@ -33,7 +34,7 @@ export const createRasterLayerEntity = ({
     rotate: 0,
     scale: { x: 1, y: 1 },
   },
-
+  filters = [],
   features = {},
 }: Requires<
   Partial<Omit<RasterLayer, 'uid' | 'layerType'>>,
@@ -50,6 +51,7 @@ export const createRasterLayerEntity = ({
   visible,
   transform,
   features,
+  filters,
   bitmap: new Uint8ClampedArray(width * height * 4),
 })
 
@@ -64,6 +66,7 @@ export const createVectorLayerEntity = ({
     scale: { x: 1, y: 1 },
     rotate: 0,
   },
+  filters = [],
   features = {},
 }: Partial<
   Omit<VectorLayer, 'uid' | 'layerType' | 'objects'>
@@ -77,6 +80,7 @@ export const createVectorLayerEntity = ({
   visible,
   transform,
   features,
+  filters,
   objects: [],
 })
 
@@ -84,11 +88,13 @@ export const createVectorObject = ({
   name = '',
   lock = false,
   visible = true,
-  position = { x: 0, y: 0 },
-  scale = { x: 1, y: 1 },
-  rotate = 0,
+  transform = {
+    position: { x: 0, y: 0 },
+    scale: { x: 1, y: 1 },
+    rotate: 0,
+  },
   opacity = 1,
-  filters: appearances = [],
+  filters = [],
   path = createVectorPath({}),
 }: Requires<
   Partial<Omit<VectorObject, 'uid' | 'type'>>,
@@ -99,11 +105,9 @@ export const createVectorObject = ({
   name,
   lock,
   visible,
-  position,
-  scale,
-  rotate,
+  transform,
   opacity,
-  filters: appearances,
+  filters,
   path,
 })
 
@@ -124,7 +128,7 @@ export const createFilterLayerEntity = ({
   opacity = 1,
   compositeMode = 'normal',
   features = {},
-  filters,
+  filters = [],
 }: Requires<
   Partial<Omit<FilterLayer, 'uid' | 'layerType'>>,
   'filters'
@@ -138,4 +142,22 @@ export const createFilterLayerEntity = ({
   compositeMode,
   features,
   filters,
+})
+
+export const createFilterEntry = ({
+  filterId,
+  filterVersion,
+  settings,
+  enabled = true,
+  opacity = 1,
+}: Requires<
+  Partial<Omit<LayerFilter, 'uid'>>,
+  'filterId' | 'filterVersion' | 'settings'
+>): LayerFilter => ({
+  uid: `layerFilter-${ulid()}`,
+  filterId,
+  filterVersion,
+  settings,
+  enabled,
+  opacity,
 })

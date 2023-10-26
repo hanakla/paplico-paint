@@ -37,7 +37,7 @@ export default defineConfig({
       ...externals({
         builtins: true,
       }),
-    },
+    } as any,
     dts({
       rollupTypes: false,
     }),

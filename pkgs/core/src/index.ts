@@ -8,7 +8,9 @@ export {
   Pipeline,
   RuntimeDocument,
   createBrush,
+  createFilter,
   Brushes,
+  PapFilter,
   type BrushClass,
   type BrushContext,
   type IBrush,
@@ -16,7 +18,9 @@ export {
 } from './Engine/index'
 export { type ICommand } from './History/ICommand'
 export * as Commands from './History/Commands/index'
+export * as Filters from './Filters/index'
 export { Paplico as default, Paplico } from './Paplico'
+export * as PaneUI from './UI/PaneUI/index'
 export { UICanvas, UIStroke, type UIStrokePoint } from './UI/index'
 export * as VectorProcess from './VectorProcess'
 export * as RasterProcess from './RasterProcess'

@@ -14,18 +14,17 @@ type Props = {
 }
 
 export const FloatablePane = memo(
-  forwardRef(function FloatablePane({
-    paneId: windowId,
-    title,
-    className,
-    children,
-  }: Props) {
+  forwardRef<HTMLDivElement, Props>(function FloatablePane(
+    { paneId, title, className, children },
+    ref,
+  ) {
     // const store = useFloatablePaneStore()
 
     const isFloating = false
 
     return (
       <div
+        ref={ref}
         css={css`
           padding: 8px 12px;
           border-radius: 8px;

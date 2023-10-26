@@ -1,12 +1,15 @@
+import { PaneUIImpls } from '@/components/FilterPane'
 import {
   Brushes,
   Document,
   ExtraBrushes,
+  Filters,
   Inks,
+  PaneUI,
   Paplico,
 } from '@paplico/core-new'
 import { PaplicoEditorHandle } from '@paplico/vector-editor'
-import { RefObject, useMemo, useRef } from 'react'
+import { RefObject, createElement, useMemo, useRef } from 'react'
 import { useEffectOnce } from 'react-use'
 import { create } from 'zustand'
 
@@ -49,7 +52,10 @@ export function usePaplicoInit(canvasRef: RefObject<HTMLCanvasElement | null>) {
   useEffectOnce(() => {
     let pap: Paplico
     ;(async () => {
-      pap = papRef.current = new Paplico(canvasRef.current!)
+      pap = papRef.current = new Paplico(canvasRef.current!, {
+        paneComponentImpls: PaneUIImpls,
+        paneCreateElement: createElement,
+      })
       ;(window as any).pap = pap
 
       await pap.brushes.register(ExtraBrushes.ScatterBrush)
@@ -76,7 +82,18 @@ export function usePaplicoInit(canvasRef: RefObject<HTMLCanvasElement | null>) {
         height: 1000,
       })
 
-      const vector = Document.createVectorLayerEntity({})
+      const vector = Document.createVectorLayerEntity({
+        filters: [
+          Document.createFilterEntry({
+            enabled: true,
+            opacity: 1,
+            filterId: Filters.TestFilter.metadata.id,
+            filterVersion: Filters.TestFilter.metadata.version,
+            settings: Filters.TestFilter.getInitialConfig(),
+          }),
+        ],
+      })
+
       vector.objects.push(
         Document.createVectorObject({
           path: Document.createVectorPath({
@@ -85,7 +102,7 @@ export function usePaplicoInit(canvasRef: RefObject<HTMLCanvasElement | null>) {
               { x: 1000, y: 1000, begin: null, end: null },
             ],
           }),
-          appearances: [
+          filters: [
             {
               kind: 'stroke',
               stroke: {
@@ -142,8 +159,6 @@ export function usePaplicoInit(canvasRef: RefObject<HTMLCanvasElement | null>) {
     })()
 
     return () => {
-      console.log('dispose')
-      console.log('dispose')
       pap?.dispose()
     }
   })

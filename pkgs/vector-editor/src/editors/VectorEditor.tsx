@@ -1,5 +1,5 @@
 import { useEditorStore, useEngineStore } from '@/store'
-import { memo, useCallback, useMemo } from 'react'
+import { memo, useCallback, useEffect, useMemo, useReducer } from 'react'
 import { PathObject } from './VectorEditor/PathObject'
 
 type Props = {
@@ -13,6 +13,7 @@ export const VectorEditor = memo(function VectorEditor({
 }: Props) {
   const { paplico, state: engineState } = useEngineStore()
   const editorStore = useEditorStore()
+  const rerender = useReducer((x) => x + 1, 0)[1]
 
   const layer = useMemo(() => {
     if (!engineState.activeLayer?.layerUid) return null
@@ -28,6 +29,13 @@ export const VectorEditor = memo(function VectorEditor({
   const handleClickRoot = useCallback(() => {
     editorStore.setSelectedObjectIds(() => ({}))
   }, [])
+
+  useEffect(() => {
+    paplico.on('history:affect', ({ layerIds }) => {
+      if (!layerIds.includes(engineState.activeLayer?.layerUid ?? '')) return
+      rerender()
+    })
+  })
 
   return (
     <svg
@@ -57,7 +65,7 @@ export const VectorEditor = memo(function VectorEditor({
       />
 
       {layer?.objects.map((object) => (
-        <PathObject key={object.uid} object={object} />
+        <PathObject key={object.uid} layerUid={layer.uid} object={object} />
       ))}
     </svg>
   )

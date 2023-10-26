@@ -1,7 +1,7 @@
-export type AbstractComponentRenderer = (
-  component: VComponent,
-  props: any,
-  children: VNode[],
+export type AbstractComponentRenderer = <T extends VComponent<any>>(
+  component: T,
+  props: VComponentProps<T>,
+  ...children: VNode[]
 ) => VNode
 
 export type StyleProp = {
@@ -21,7 +21,7 @@ export type VNode =
   | string
   | number
   | Iterable<VNode>
-  // | ReactPortal
+  // | { children?: VNode | undefined } // as Portal
   | boolean
   | null
   | undefined

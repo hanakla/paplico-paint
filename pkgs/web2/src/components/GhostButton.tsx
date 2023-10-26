@@ -11,6 +11,7 @@ export const GhostButton = memo(
     return (
       <button
         css={css`
+          display: block;
           appearance: none;
           background-color: transparent;
           border: none;

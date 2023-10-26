@@ -32,6 +32,7 @@ export const useEngineStore = () => {
 
 export type EditorStore = {
   enabled: boolean
+  currentType: 'raster' | 'vector' | 'none'
   canvasScale: number
   brushSizePreview: { size: number; durationMs: number } | null
   selectedObjectIds: Record<string, true>
@@ -43,6 +44,8 @@ export type EditorStore = {
 export const createEditorStore = () => {
   return createStore<EditorStore>((set, get) => ({
     enabled: false,
+    currentType: 'none',
+
     canvasScale: 1,
     brushSizePreview: null,
     selectedObjectIds: {},

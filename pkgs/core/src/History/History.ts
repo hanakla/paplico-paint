@@ -17,6 +17,7 @@ export class History extends Emitter<History.Events> {
   #redoStack: ICommand[] = []
 
   public dispose() {
+    this.excutionLock.clearQueue()
     this.mitt.all.clear()
 
     this.#undoStack.forEach((c) => c.dispose?.())

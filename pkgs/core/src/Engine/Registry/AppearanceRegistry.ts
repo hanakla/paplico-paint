@@ -1,24 +1,24 @@
 import { Emitter } from '@/utils/Emitter'
-import { AppearanceClass, IAppearance } from '../Appearance'
+import { FilterClass, IFilter } from '../Filter/Filter'
 
 type Events = {
   entriesChanged: void
 }
 
 export class AppearanceRegistry extends Emitter<Events> {
-  protected appearances: Map<string, AppearanceClass> = new Map()
-  protected instances: WeakMap<AppearanceClass, IAppearance> = new WeakMap()
+  protected filters: Map<string, FilterClass<any>> = new Map()
+  protected instances: WeakMap<FilterClass<any>, IFilter<any>> = new WeakMap()
 
-  public async register(Brush: AppearanceClass) {
+  public async register(Brush: FilterClass<any>) {
     try {
-      this.appearances.set(Brush.id, Brush)
+      this.filters.set(Brush.metadata.id, Brush)
 
-      const appear = new Brush()
-      await appear.initialize({ gl: this.gl })
+      const filter = new Brush()
+      await filter.initialize({})
 
-      this.instances.set(Brush, appear)
+      this.instances.set(Brush, filter)
     } catch (e) {
-      this.appearances.delete(Brush.id)
+      this.filters.delete(Brush.metadata.id)
       this.instances.delete(Brush)
       console.warn('Failed to register brush', Brush, e)
       throw e
@@ -27,14 +27,22 @@ export class AppearanceRegistry extends Emitter<Events> {
     this.emit('entriesChanged')
   }
 
-  public get appearanceEntries(): AppearanceClass[] {
-    return [...this.appearances.values()]
+  public get appearanceEntries(): FilterClass<any>[] {
+    return [...this.filters.values()]
   }
 
-  public getInstance(id: string): IAppearance | null {
-    const Class = this.appearances.get(id)
+  public getClass<T extends FilterClass<any> = FilterClass<any>>(
+    id: string,
+  ): T | null {
+    return (this.filters.get(id) as T | undefined) ?? null
+  }
+
+  public getInstance<T extends IFilter<any> = IFilter<any>>(
+    id: string,
+  ): T | null {
+    const Class = this.filters.get(id)
     if (!Class) return null
 
-    return this.instances.get(Class) ?? null
+    return (this.instances.get(Class) as T | undefined) ?? null
   }
 }

@@ -26,6 +26,7 @@
     "@types/gl-matrix": "^3.2.0",
     "@types/three": "^0.146.0",
     "point-at-length": "^1.1.0",
+    "rollup-plugin-node-externals": "^6.1.2",
     "typescript": "^5.0.4",
     "vite": "^4.4.9",
     "vite-plugin-dts": "^3.5.3",

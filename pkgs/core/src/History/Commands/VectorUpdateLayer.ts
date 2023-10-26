@@ -23,37 +23,36 @@ export class VectorUpdateLayer implements ICommand {
   }
 
   public async do(document: RuntimeDocument): Promise<void> {
-    const layer = document.resolveLayer(this.layerId)
+    const layer = document.resolveLayer(this.layerId)?.source.deref()
     if (!layer) throw new Error('Layer not found')
-    if (layer.source.layerType !== 'vector') return
+    if (layer.layerType !== 'vector') return
 
-    const original = deepClone(layer.source)
+    const original = deepClone(layer)
     const next = deepClone(original)
     this.options.updater(next)
 
-    this.changesPatch = diff(original, next)!
-    // console.log({ changesPatch: this.changesPatch, original, next })
-    patch(layer.source, this.changesPatch)
+    this.changesPatch = diff(original, next)
+    patch(layer, this.changesPatch!)
     document.invalidateLayerBitmapCache(this.layerId)
   }
 
   public async undo(document: RuntimeDocument): Promise<void> {
-    const layer = document.resolveLayer(this.layerId)
+    const layer = document.resolveLayer(this.layerId)?.source.deref()
     if (!layer) throw new Error('Layer not found')
-    if (layer.source.layerType !== 'vector') return
+    if (layer.layerType !== 'vector') return
     if (!this.changesPatch) return
 
-    unpatch(layer.source, this.changesPatch)
+    unpatch(layer, this.changesPatch)
     document.invalidateLayerBitmapCache(this.layerId)
   }
 
   public async redo(document: RuntimeDocument): Promise<void> {
-    const layer = document.resolveLayer(this.layerId)
+    const layer = document.resolveLayer(this.layerId)?.source.deref()
     if (!layer) throw new Error('Layer not found')
-    if (layer.source.layerType !== 'vector') return
+    if (layer.layerType !== 'vector') return
     if (!this.changesPatch) return
 
-    patch(layer.source, this.changesPatch)
+    patch(layer, this.changesPatch)
     document.invalidateLayerBitmapCache(this.layerId)
   }
 

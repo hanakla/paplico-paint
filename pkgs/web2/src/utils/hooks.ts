@@ -10,6 +10,7 @@ import {
 } from 'react'
 import { useIsomorphicLayoutEffect } from 'react-use'
 import { shallowEquals } from './object'
+import Mousetrap from 'mousetrap'
 
 const useBrowserEffect =
   typeof window !== 'undefined' ? useLayoutEffect : () => {}
@@ -120,4 +121,65 @@ export const useBufferedState = <T, S = T>(
   }, [originalValue])
 
   return [state as T, setState] as any
+}
+
+type MousetrapCallback = (
+  e: Mousetrap.ExtendedKeyboardEvent,
+  combo: string,
+) => void
+
+export const usetRegionalMouseTrap = (
+  ref: MutableRefObject<HTMLElement | null>,
+  handlerKey: string[] | null,
+  handlerCallback: MousetrapCallback,
+  evtType: 'keyup' | 'keydown' | undefined = undefined,
+) => {
+  const handlerRef = useStableLatestRef(handlerCallback)
+
+  useEffect(() => {
+    if (!ref.current) return
+    if (!handlerKey) return
+
+    const mt = new Mousetrap(ref.current)
+    mt.bind(
+      handlerKey,
+      (e, combo) => {
+        e.preventDefault()
+        e.stopPropagation()
+
+        handlerRef.current(e, combo)
+      },
+      evtType,
+    )
+
+    return () => {
+      mt.unbind(handlerKey)
+    }
+  }, [handlerKey, ref.current])
+}
+
+export const useGlobalMousetrap = (
+  handlerKey: string[] | null | undefined,
+  handlerCallback: MousetrapCallback,
+  evtType: 'keyup' | 'keydown' | undefined = undefined,
+) => {
+  const handlerRef = useStableLatestRef(handlerCallback)
+
+  useEffect(() => {
+    if (!handlerKey) return
+
+    Mousetrap.bind(
+      handlerKey,
+      (e, combo) => {
+        e.preventDefault()
+
+        handlerRef.current(e, combo)
+      },
+      evtType,
+    )
+
+    return () => {
+      Mousetrap.unbind(handlerKey)
+    }
+  }, [handlerKey])
 }

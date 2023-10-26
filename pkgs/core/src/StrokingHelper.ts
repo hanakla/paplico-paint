@@ -5,8 +5,8 @@ import {
   IndexedPointAtLength,
   indexedPointAtLength,
   SequencialPointAtLength,
+  SVGDCommand,
 } from './fastsvg/IndexedPointAtLength'
-import { pointsToSVGCommandArray, pointsToSVGPath } from './Engine/VectorUtils'
 import { ColorRGB, createVectorPath } from './Document'
 import { interpolateMap, interpolateMapObject, lerp } from './Math'
 import { FuncStats } from './utils/perfstats'
@@ -21,7 +21,6 @@ export {
   interpolateMapObject,
   indexedPointAtLength,
   type IndexedPointAtLength,
-  pointsToSVGCommandArray,
 }
 
 export const rgbToHexColor = (color: ColorRGB) => {
@@ -33,7 +32,7 @@ export const rgbToThreeRGB = (color: ColorRGB, target: Color) => {
   return target
 }
 
-function tangent(x1: number, y1: number, x2: number, y2: number) {
+export function getTangent(x1: number, y1: number, x2: number, y2: number) {
   const vector = { x: x2 - x1, y: y2 - y1 }
   const magnitude = Math.hypot(x2 - x1, y2 - y1)
 
@@ -43,29 +42,13 @@ function tangent(x1: number, y1: number, x2: number, y2: number) {
   return vector
 }
 
-const getTangentAt = (pal: SequencialPointAtLength, t: number) => {
-  const stat = FuncStats.start(scatterPlot)
-
-  const [x1, y1] = pal.at(pal.totalLength * t, { seek: true })
-  const [x2, y2] = pal.at(pal.totalLength * (t + 0.0001), { seek: false })
-
-  const vector = { x: x2 - x1, y: y2 - y1 }
-  const magnitude = Math.hypot(vector.x, vector.y)
-
-  vector.x /= magnitude
-  vector.y /= magnitude
-
-  stat.finish()
-  return vector
-}
-
 export function getRadianFromTangent(
   x1: number,
   y1: number,
   x2: number,
   y2: number,
 ) {
-  const vector = tangent(x1, y1, x2, y2)
+  const vector = getTangent(x1, y1, x2, y2)
   const result = Math.atan2(vector.x, vector.y)
   return Number.isNaN(result) ? 0 : result
 }
@@ -120,7 +103,7 @@ export const createStreamScatter = (
           pal.totalLength * frac,
           pal.totalLength * (frac + 0.0001),
         ])
-        const tan = tangent(p1.pos[0], p1.pos[1], p2.pos[0], p2.pos[1])
+        const tan = getTangent(p1.pos[0], p1.pos[1], p2.pos[0], p2.pos[1])
         const rad = Math.atan2(tan.x, tan.y) + degToRad(90)
 
         x += lerp(-_scatterRange, _scatterRange, Math.cos(rad))
@@ -154,6 +137,39 @@ export const createStreamScatter = (
       return result
     },
   }
+}
+
+export function pointsToSVGCommandArray(
+  points: VectorPathPoint[],
+  closed: boolean,
+): SVGDCommand[] {
+  const [start] = points
+
+  if (points.length === 1) {
+    return [['M', start.x, start.y]]
+  }
+
+  return [
+    ['M', start.x, start.y],
+    ...[...points, ...(closed ? [start] : [])].map(
+      (point, prev): SVGDCommand => {
+        if (point!.end || point.begin) {
+          return [
+            'C',
+            point.begin?.x ?? prev!.x,
+            point.begin?.y ?? prev!.y,
+            point.end?.x ?? point.x,
+            point.end?.y ?? point.y,
+            point.x,
+            point.y,
+          ]
+        } else {
+          return ['L', point.x, point.y]
+        }
+      },
+    ),
+    ...(closed ? [['Z'] as ['Z']] : []),
+  ]
 }
 
 /** @deprecated */
@@ -238,74 +254,15 @@ export const scatterPlot = (
 
   stat.finish()
   return points
-}
 
-if (import.meta.vitest) {
-  const { describe, it, expect } = import.meta.vitest!
+  function getTangentAt(pal: SequencialPointAtLength, t: number) {
+    const stat = FuncStats.start(scatterPlot)
 
-  describe('getTangentAt', () => {
-    it('should return the tangent at the given t', () => {
-      it('case1', () => {
-        const pal = indexedPointAtLength('M0,0 L100,0').getSequencialReader()
-        const tangent = getTangentAt(pal, 0.5)
+    const [x1, y1] = pal.at(pal.totalLength * t, { seek: true })
+    const [x2, y2] = pal.at(pal.totalLength * (t + 0.0001), { seek: false })
 
-        expect(tangent.x).toBe(1)
-        expect(tangent.y).toBe(0)
-      })
+    stat.finish()
 
-      it('case2', () => {
-        const pal = indexedPointAtLength('M0,0 L100,100').getSequencialReader()
-        const tangent = getTangentAt(pal, 0.5)
-
-        expect(tangent.x).toBeCloseTo(0.7071067811865475)
-        expect(tangent.y).toBeCloseTo(0.7071067811865475)
-      })
-    })
-  })
-
-  describe('scatterPlot', () => {
-    it('test', () => {
-      const result = scatterPlot(
-        createVectorPath({
-          closed: false,
-          randomSeed: 0,
-          points: [
-            { x: 0, y: 0, end: null, begin: null, pressure: 1 },
-            { x: 10, y: 10, end: null, begin: null, pressure: 0 },
-          ],
-        }),
-        { counts: 10, scatterRange: 0, scatterScale: 0, divisions: 50 },
-      )
-
-      FuncStats.clearStats(scatterPlot)
-    })
-
-    it('bench', () => {
-      const POINTS = 1000
-
-      const path = createVectorPath({
-        closed: false,
-        randomSeed: 0,
-        points: Array.from({ length: POINTS }, (_, i) => ({
-          x: i,
-          y: i,
-          in: null,
-          out: null,
-          pressure: 1,
-        })),
-      })
-
-      console.time('scatterPlot once')
-      scatterPlot(path, {
-        counts: POINTS,
-        scatterRange: 0,
-        scatterScale: 0,
-        divisions: 50,
-      })
-      console.timeEnd('scatterPlot once')
-
-      // FuncStats.getStats(scatterPlot)?.log()
-      // FuncStats.clearStats(scatterPlot)
-    })
-  })
+    return getTangent(x1, y1, x2, y2)
+  }
 }

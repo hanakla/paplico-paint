@@ -1,8 +1,25 @@
-import mitt, { type EventType } from 'mitt'
+import mitt, { WildcardHandler, Handler, type EventType } from 'mitt'
 
 export class Emitter<Events extends Record<EventType, unknown>> {
   protected mitt = mitt<Events>()
-  public on = this.mitt.on.bind(this.mitt)
+
+  public on<Key extends keyof Events>(
+    type: Key,
+    handler: Handler<Events[Key]>,
+  ): void
+  public on(type: '*', handler: WildcardHandler<Events>): void
+  public on<Key extends keyof Events>(
+    type: Key | '*',
+    handler: Handler<Events[Key]> | WildcardHandler<Events>,
+  ) {
+    const unlisten = () => {
+      this.off(type as any, handler as any)
+    }
+
+    this.mitt.on(type as any, handler as any)
+    return unlisten
+  }
+
   public off = this.mitt.off.bind(this.mitt)
   protected emit = this.mitt.emit.bind(this.mitt)
 }

@@ -1,5 +1,5 @@
 export * as CanvasFactory from './CanvasFactory'
-export { MixerPipeline as Pipeline } from './MixerPipeline'
+export { RenderPipeline as Pipeline } from './RenderPipeline'
 export { RuntimeDocument } from './RuntimeDocument'
 export * as Brushes from '../Brushes/index'
 export {
@@ -9,3 +9,6 @@ export {
   type BrushContext,
   type BrushLayoutData,
 } from './Brush'
+
+export { createFilter } from './Filter/Filter'
+export * as PapFilter from './Filter/PapFilter'

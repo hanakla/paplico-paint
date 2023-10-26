@@ -6,6 +6,7 @@ import { EditorArea } from './fragments/EditorArea'
 import { usePaplicoInit } from '../domains/paplico'
 import { LeftSideBar } from './fragments/LeftSideBar'
 import { useIsMobileDevice } from '@/utils/hooks'
+import { GlobalShortcutHandler } from './GlobalShortcutHandler'
 
 export default memo(function Index() {
   const canvasRef = useRef<HTMLCanvasElement>(null)
@@ -23,6 +24,7 @@ export default memo(function Index() {
         pointer-events: none;
       `}
     >
+      <GlobalShortcutHandler />
       {!isMobile && (
         <LeftSideBar
           css={css`

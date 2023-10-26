@@ -96,6 +96,7 @@ export class PaplicoDocument {
         name: 'root',
         compositeMode: 'normal',
         features: {},
+        filters: [],
         lock: false,
         opacity: 1,
         visible: true,
@@ -108,7 +109,6 @@ export class PaplicoDocument {
   public resolveNodePath(path: readonly string[]) {
     if (path.length === 0) return this.layerTree
     if (path[0] === '__root__') path = path.slice(1)
-    console.log({ path })
 
     let cursor = this.layerTree
     let target: LayerNode | null = null

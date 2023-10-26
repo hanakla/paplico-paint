@@ -5,14 +5,18 @@ import { VectorStrokeSetting } from '@/Document/LayerEntity/VectorStrokeSetting'
 import { PaplicoAbortError } from '@/Errors'
 import { UIStroke } from '@/UI/UIStroke'
 import { AtomicResource } from '@/utils/AtomicResource'
-import { saveAndRestoreCanvas, setCanvasSize } from '@/utils/canvas'
+import {
+  clearCanvas,
+  saveAndRestoreCanvas,
+  setCanvasSize,
+} from '@/utils/canvas'
 import { deepClone } from '@/utils/object'
 import { OrthographicCamera, WebGLRenderer } from 'three'
 import { BrushRegistry } from './Registry/BrushRegistry'
-import { createCanvas } from './CanvasFactory'
+import { createCanvas, createContext2D } from './CanvasFactory'
 import { InkRegistry } from './Registry/InkRegistry'
 import { RenderCycleLogger } from './RenderCycleLogger'
-import { Viewport } from './types'
+import { RenderPhase, Viewport } from './types'
 import {
   addPoint2D,
   calcVectorBoundingBox,
@@ -22,73 +26,67 @@ import {
 } from './VectorUtils'
 import { AppearanceRegistry } from './Registry/AppearanceRegistry'
 
-export type RenderPhase = 'stroking' | 'final'
-
-export class Renderer {
+export class VectorRenderer {
   protected brushRegistry: BrushRegistry
   protected inkRegistry: InkRegistry
-  protected appearanceRegistry: AppearanceRegistry
+  protected filterRegistry: AppearanceRegistry
 
-  protected atomicThreeRenderer: AtomicResource<WebGLRenderer>
+  protected glRendererResource: AtomicResource<WebGLRenderer>
+
   protected camera: OrthographicCamera
 
   constructor(options: {
     brushRegistry: BrushRegistry
     inkRegistry: InkRegistry
     appearanceRegistry: AppearanceRegistry
+    glRenderer: AtomicResource<WebGLRenderer>
   }) {
     this.brushRegistry = options.brushRegistry
     this.inkRegistry = options.inkRegistry
-    this.appearanceRegistry = options.appearanceRegistry
+    this.filterRegistry = options.appearanceRegistry
 
-    const renderer = new WebGLRenderer({
-      alpha: true,
-      premultipliedAlpha: true,
-      antialias: false,
-      preserveDrawingBuffer: true,
-      canvas: createCanvas() as HTMLCanvasElement,
-    })
-    renderer.setClearColor(0xffffff, 0)
-    this.atomicThreeRenderer = new AtomicResource(renderer)
-
+    this.glRendererResource = options.glRenderer
     this.camera = new OrthographicCamera(0, 0, 0, 0, 0, 1000)
   }
 
   public dispose() {
-    this.atomicThreeRenderer.enjureForce().dispose()
+    this.glRendererResource.ensureForce().dispose()
   }
 
   public async renderVectorLayer(
-    dest: HTMLCanvasElement,
+    output: HTMLCanvasElement,
     layer: VectorLayer,
     options: {
       viewport: Viewport
+      pixelRatio: number
       abort?: AbortSignal
       logger: RenderCycleLogger
       phase: RenderPhase
     },
   ): Promise<void> {
-    setCanvasSize(dest, options.viewport)
-    const dstctx = dest.getContext('2d')!
+    const { logger } = options
+
+    setCanvasSize(output, options.viewport)
+    const outcx = output.getContext('2d')!
 
     for (const obj of layer.objects) {
       if (obj.type === 'vectorGroup') continue
       if (!obj.visible) continue
 
-      await saveAndRestoreCanvas(dstctx, async () => {
-        dstctx.globalCompositeOperation = 'source-over'
+      await saveAndRestoreCanvas(outcx, async () => {
+        outcx.globalCompositeOperation = 'source-over'
 
         // if (o.fill) {
-        dstctx.transform(...vectorTransformToMatrix(obj))
-        dstctx.beginPath()
+        outcx.transform(...vectorTransformToMatrix(obj))
+        outcx.beginPath()
 
         const [start] = obj.path.points
-        dstctx.moveTo(start.x, start.y)
+        outcx.moveTo(start.x, start.y)
 
         mapPoints(
           obj.path.points,
           (point, prev) => {
-            dstctx.bezierCurveTo(
+            outcx.bezierCurveTo(
               point.begin?.x ?? prev!.x,
               point.begin?.y ?? prev!.y,
               point.end?.x ?? point.x,
@@ -101,7 +99,7 @@ export class Renderer {
         )
         // }
 
-        if (obj.path.closed) dstctx.closePath()
+        if (obj.path.closed) outcx.closePath()
 
         for (const ap of obj.filters) {
           if (ap.kind === 'fill') {
@@ -112,11 +110,11 @@ export class Renderer {
                   opacity,
                 } = ap.fill
 
-                dstctx.globalAlpha = 1
-                dstctx.fillStyle = `rgba(${r * 255}, ${g * 255}, ${
+                outcx.globalAlpha = 1
+                outcx.fillStyle = `rgba(${r * 255}, ${g * 255}, ${
                   b * 255
                 }, ${opacity})`
-                dstctx.fill()
+                outcx.fill()
                 break
               }
               case 'linear-gradient': {
@@ -128,7 +126,7 @@ export class Renderer {
                 const centerX = left + width / 2
                 const centerY = top + height / 2
 
-                const gradient = dstctx.createLinearGradient(
+                const gradient = outcx.createLinearGradient(
                   centerX + start.x,
                   centerY + start.y,
                   centerX + end.x,
@@ -145,9 +143,9 @@ export class Renderer {
                   )
                 }
 
-                dstctx.globalAlpha = opacity
-                dstctx.fillStyle = gradient
-                dstctx.fill()
+                outcx.globalAlpha = opacity
+                outcx.fillStyle = gradient
+                outcx.fill()
                 break
               }
             }
@@ -158,24 +156,42 @@ export class Renderer {
               throw new Error(`Unregistered brush ${ap.stroke.brushId}`)
             }
 
-            await this.renderStroke(dest, obj.path, ap.stroke, {
+            await this.renderStroke(output, obj.path, ap.stroke, {
               abort: options.abort,
               inkSetting: ap.ink,
               transform: {
-                position: addPoint2D(layer.transform.position, obj.position),
-                scale: multiplyPoint2D(layer.transform.scale, obj.scale),
-                rotation: layer.transform.rotate + obj.rotate,
+                position: addPoint2D(
+                  layer.transform.position,
+                  obj.transform.position,
+                ),
+                scale: multiplyPoint2D(
+                  layer.transform.scale,
+                  obj.transform.scale,
+                ),
+                rotation: layer.transform.rotate + obj.transform.rotate,
               },
               phase: options.phase,
               logger: options.logger,
             })
           } else if (ap.kind === 'external') {
-            console.warn('External appearance is not supported yet')
+            // console.log({ ap })
+            // const nextImage = await this.postProcess(output, ap, {
+            //   abort: options.abort,
+            //   filterDstCx,
+            //   viewport: options.viewport,
+            //   pixelRatio: options.pixelRatio,
+            //   logger,
+            //   phase: options.phase,
+            // })
+
+            if (nextImage == null) return
+
+            outcx.drawImage(nextImage, 0, 0)
           }
         }
       })
 
-      dstctx.resetTransform()
+      outcx.resetTransform()
     }
   }
 
@@ -229,7 +245,7 @@ export class Renderer {
     if (!brush) throw new Error(`Unregistered brush ${strokeSetting.brushId}`)
     if (!ink) throw new Error(`Unregistered ink ${inkSetting.inkId}`)
 
-    const renderer = await this.atomicThreeRenderer.ensure()
+    const renderer = await this.glRendererResource.ensure()
     const dstctx = dest.getContext('2d')!
     const { width, height } = dest
 
@@ -249,10 +265,10 @@ export class Renderer {
         abortIfNeeded: () => {
           if (abort?.aborted) throw new PaplicoAbortError()
         },
-        context: dstctx,
+        destContext: dstctx,
         threeRenderer: renderer,
         threeCamera: this.camera,
-        hintInput: null,
+
         brushSetting: deepClone(strokeSetting),
         ink: ink.getInkGenerator({}),
         path: [path],
@@ -266,17 +282,7 @@ export class Renderer {
         logger,
       })
     } finally {
-      this.atomicThreeRenderer.release(renderer)
+      this.glRendererResource.release(renderer)
     }
-
-    // const [start, ...points] = path.points
-
-    // dstctx.strokeStyle = '#000'
-    // dstctx.lineWidth = 2
-
-    // dstctx.beginPath()
-    // dstctx.moveTo(start.x, start.y)
-    // for (const point of points) dstctx.lineTo(point.x, point.y)
-    // dstctx.stroke()
   }
 }

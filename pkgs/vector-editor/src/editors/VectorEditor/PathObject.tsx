@@ -1,28 +1,57 @@
-import { Document } from '@paplico/core-new'
+import { Commands, Document } from '@paplico/core-new'
 import { MouseEvent, ReactNode, memo, useCallback, useMemo } from 'react'
 import { useDrag } from '@use-gesture/react'
-import { useEditorStore } from '@/store'
+import { useEditorStore, useEngineStore } from '@/store'
 import { createUseStyles } from 'react-jss'
 
 type Props = {
+  layerUid: string
   object: Document.VectorObject | Document.VectorGroup
 }
 
-export const PathObject = memo(function PathObject({ object }: Props) {
+export const PathObject = memo(function PathObject({
+  object,
+  layerUid,
+}: Props) {
   if (object.type === 'vectorGroup') return null
 
+  const { paplico } = useEngineStore()
   const editorStore = useEditorStore()
   const s = usePathStyle()
   const points = object.path.points
 
   const onClickPath = useCallback((e: MouseEvent) => {
     editorStore.setSelectedObjectIds((prev) => {
-      console.log('click path', e.shiftKey)
+      const inSelecton = prev[object.uid]
+
+      if (e.shiftKey && inSelecton) {
+        delete prev[object.uid]
+        return { ...prev }
+      }
+
       return e.shiftKey
         ? { ...prev, [object.uid]: true }
         : { [object.uid]: true }
     })
   }, [])
+
+  const bindDrag = useDrag(({ delta }) => {
+    paplico.command.do(
+      new Commands.VectorUpdateLayer(layerUid, {
+        updater: (layer) => {
+          console.log({ delta })
+          const target = layer.objects.find((obj) => obj.uid === object.uid)
+          if (!target) return
+
+          const prevPosition = target.transform.position
+          target.transform.position = {
+            x: prevPosition.x + delta[0],
+            y: prevPosition.y + delta[1],
+          }
+        },
+      }),
+    )
+  })
 
   const pathElement = useMemo(() => {
     const d = points
@@ -50,6 +79,7 @@ export const PathObject = memo(function PathObject({ object }: Props) {
           onClick={onClickPath}
           className={s.previewStroke}
           style={{ cursor: 'pointer' }}
+          {...bindDrag()}
         />
       </>
     )
@@ -100,6 +130,7 @@ export const PathObject = memo(function PathObject({ object }: Props) {
           ? 'painted'
           : 'stroke',
       }}
+      x={object.transform.position.x}
     >
       {pathElement}
       {pathElements}

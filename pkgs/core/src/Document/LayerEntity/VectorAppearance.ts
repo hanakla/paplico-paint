@@ -4,19 +4,22 @@ import { VectorExternalAppearanceSetting } from './VectorExternalAppearanceSetti
 import { InkSetting } from './InkSetting'
 
 export type VectorAppearanceStroke = {
+  uid: string
   kind: 'stroke'
   stroke: VectorStrokeSetting
   ink: InkSetting
 }
 
 export type VectorAppearanceFill = {
+  uid: string
   kind: 'fill'
   fill: VectorFillSetting
 }
 
 export type VectorAppearanceExternal = {
+  uid: string
   kind: 'external'
-  processor: VectorExternalAppearanceSetting
+  processor: VectorExternalAppearanceSetting<any>
 }
 
 export type VectorAppearance =

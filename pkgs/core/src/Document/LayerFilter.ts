@@ -1,4 +1,4 @@
-export type LayerFilter = {
+export type LayerFilter<T extends Record<string, any> = Record<string, any>> = {
   uid: string
   filterId: string
   filterVersion: string
@@ -7,5 +7,5 @@ export type LayerFilter = {
 
   /** 0..1 */
   opacity: number
-  settings: Record<string, any>
+  settings: T
 }

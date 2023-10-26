@@ -5,11 +5,15 @@
 // SEE: https://github.com/pixijs/filters/tree/main/filters/zoom-blur
 
 import { logImage } from '@/utils/DebugHelper'
-import { FilterContext, FilterInitContext, IFilter } from '@/Engine/Filter'
 // import { WebGLContext } from '@/Engine/'
-import { IAppearance, createAppearance } from '@/Engine/Appearance'
+import {
+  FilterInitContext,
+  IFilter,
+  createFilter,
+} from '@/Engine/Filter/Filter'
+import { PapFilter } from '..'
 
-declare namespace ZoomBlurAppearance {
+declare namespace ZoomBlurFilter {
   export type State = {
     strength: number
     /** 0..1 */
@@ -19,18 +23,27 @@ declare namespace ZoomBlurAppearance {
   }
 }
 
-export const ZoomBlurAppearance = createAppearance<ZoomBlurAppearance.State>(
-  class ZoomBlurAppearance extends AbsdtractPixiFilterInterop {
+export const ZoomBlurFilter = createFilter<ZoomBlurFilter.State>(
+  class ZoomBlurFilter extends AbsdtractPixiFilterInterop {
     public static readonly id = '@paplico/filters/zoom-blur'
     public static readonly version = '0.0.1'
     public static readonly apparanceName = 'Zoom Blur'
+
+    public static get initialConfig(): ZoomBlurFilter.State {
+      return {
+        strength: 0.5,
+        center: [0.5, 0.5],
+        innerRadius: 0,
+        radius: -1,
+      }
+    }
 
     public static renderPane({
       c,
       h,
       state,
       setState,
-    }: IAppearance.PaneContext<ZoomBlurAppearance.State>) {
+    }: PapFilter.PaneContext<ZoomBlurFilter.State>) {
       const onStrengthChange = (value: number) => {
         setState({ strength: value / 100 })
       }
@@ -72,40 +85,22 @@ export const ZoomBlurAppearance = createAppearance<ZoomBlurAppearance.State>(
               value: state.center[1] * 100,
               onChange: onCenterYChange,
             }),
-
-            h(c.Text, {}, 'Opacity'),
-            h(c.Slider, {
-              min: 0,
-              max: 100,
-              step: 1,
-              value: state.opacity * 100,
-              onChange: onOpacityChange,
-            }),
           ]),
         ]),
       ])
     }
 
     public get id() {
-      return ZoomBlurAppearance.id
+      return ZoomBlurFilter.id
     }
 
-    public get initialConfig(): ZoomBlurAppearance.State {
-      return {
-        strength: 0.5,
-        center: [0.5, 0.5],
-        innerRadius: 0,
-        radius: -1,
-      }
-    }
-
-    private program: WebGLContext.ProgramSet | null = null
+    private program: PapFilter.PapFilterProgram | null = null
 
     public async initialize({ gl }: FilterInitContext) {
       this.program = gl.createProgram(FRAGMENT_SHADER)
     }
 
-    public async render(ctx: FilterContext<ZoomBlurAppearance.State>) {
+    public async render(ctx: FilterContext<ZoomBlurFilter.State>) {
       const { gl, source, dest, settings, size } = ctx
 
       gl.applyProgram(

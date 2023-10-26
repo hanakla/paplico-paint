@@ -138,7 +138,7 @@ export const ScatterBrush = createBrush(
     protected async renderWithWorker({
       abort,
       abortIfNeeded,
-      context: ctx,
+      destContext: ctx,
       path: inputPath,
       transform,
       ink,

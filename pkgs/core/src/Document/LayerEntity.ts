@@ -24,7 +24,7 @@ export type LayerEntityBase = {
   filters: LayerFilter[]
 }
 
-type Transform = {
+export type LayerTransform = {
   position: Point2D
   scale: Point2D
   rotate: number
@@ -47,13 +47,13 @@ export type RasterLayer = LayerEntityBase & {
   layerType: 'raster'
   width: number
   height: number
-  transform: Transform
+  transform: LayerTransform
   bitmap: Uint8ClampedArray
 }
 
 export type VectorLayer = LayerEntityBase & {
   layerType: 'vector'
-  transform: Transform
+  transform: LayerTransform
 
   /** Compositing first to last (last is foreground) */
   objects: (VectorObject | VectorGroup)[]
@@ -62,12 +62,12 @@ export type VectorLayer = LayerEntityBase & {
 export type ReferenceLayer = LayerEntityBase & {
   layerType: 'reference'
   referencedLayerId: string
-  transform: Transform
+  transform: LayerTransform
 }
 
 export type GroupLayer = LayerEntityBase & {
   layerType: 'group'
-  transform: Transform
+  transform: LayerTransform
 }
 
 export type TextLayer = LayerEntityBase & {

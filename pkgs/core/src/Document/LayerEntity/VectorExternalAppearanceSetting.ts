@@ -1,5 +1,4 @@
-export type VectorExternalAppearanceSetting<T = unknown> = {
-  id: string
-  version: string
-  params: T
-}
+import { LayerFilter } from '../LayerFilter'
+
+export type VectorExternalAppearanceSetting<T extends Record<string, any>> =
+  LayerFilter<T>

@@ -4,6 +4,7 @@ import { createJSONStorage, persist } from 'zustand/middleware'
 export const FloatablePaneIds = {
   brushSettings: 'brushSettings',
   layers: 'layers',
+  filters: 'filters',
 }
 
 export type FloatablePaneIds =

@@ -19,33 +19,33 @@ export class RasterUpdateBitmap implements ICommand {
   }
 
   public async do(document: RuntimeDocument): Promise<void> {
-    const layer = document.resolveLayer(this.layerId)
+    const layer = document.resolveLayer(this.layerId)?.source.deref()
     if (!layer) throw new Error('Layer not found')
-    if (layer.source.layerType !== 'raster') return
+    if (layer.layerType !== 'raster') return
 
-    this.previous = new Uint8Array(layer.source.bitmap)
-    this.options.updater(layer.source.bitmap)
-    this.updated = new Uint8Array(layer.source.bitmap)
+    this.previous = new Uint8Array(layer.bitmap)
+    this.options.updater(layer.bitmap)
+    this.updated = new Uint8Array(layer.bitmap)
     document.invalidateLayerBitmapCache(this.layerId)
   }
 
   public async undo(document: RuntimeDocument): Promise<void> {
-    const layer = document.resolveLayer(this.layerId)
+    const layer = document.resolveLayer(this.layerId)?.source.deref()
     if (!layer) throw new Error('Layer not found')
-    if (layer.source.layerType !== 'raster') return
+    if (layer.layerType !== 'raster') return
     if (!this.previous) return
 
-    layer.source.bitmap.set(this.previous)
+    layer.bitmap.set(this.previous)
     document.invalidateLayerBitmapCache(this.layerId)
   }
 
   public async redo(document: RuntimeDocument): Promise<void> {
-    const layer = document.resolveLayer(this.layerId)
+    const layer = document.resolveLayer(this.layerId)?.source.deref()
     if (!layer) throw new Error('Layer not found')
-    if (layer.source.layerType !== 'raster') return
+    if (layer.layerType !== 'raster') return
     if (!this.updated) return
 
-    layer.source.bitmap.set(this.updated)
+    layer.bitmap.set(this.updated)
     document.invalidateLayerBitmapCache(this.layerId)
   }
 

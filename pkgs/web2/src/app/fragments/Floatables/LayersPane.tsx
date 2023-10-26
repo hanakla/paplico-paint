@@ -2,8 +2,9 @@ import { FloatablePane } from '@/components/FloatablePane'
 import { TreeView, TreeNodeBase } from '@/components/TreeView'
 import { FloatablePaneIds } from '@/domains/floatablePanes'
 import { usePaplico } from '@/domains/paplico'
-import { Document } from '@paplico/core-new'
+import { Commands, Document } from '@paplico/core-new'
 import React, {
+  ChangeEvent,
   MouseEvent,
   memo,
   useCallback,
@@ -39,8 +40,29 @@ type Props = {
 
 export const LayersPane = memo(function Layers({ size = 'sm' }: Props) {
   const { pap, papStore } = usePaplico()
+  const rerender = useUpdate()
 
   const activeLayer = papStore.activeLayerEntity
+
+  const handleChangeLayerName = useEvent((e: ChangeEvent<HTMLInputElement>) => {
+    if (!activeLayer) return
+
+    const name = e.currentTarget.value
+
+    pap?.command.do(
+      new Commands.LayerUpdateAttributes(activeLayer.uid, {
+        updater: (layer) => {
+          layer.name = name
+        },
+      }),
+    )
+  })
+
+  useEffect(() => {
+    return pap?.on('history:affect', ({ layerIds }) => {
+      if (layerIds.includes(activeLayer?.uid ?? '')) rerender()
+    })
+  }, [pap, activeLayer?.uid])
 
   return (
     <FloatablePane
@@ -58,7 +80,13 @@ export const LayersPane = memo(function Layers({ size = 'sm' }: Props) {
     >
       <Box
         css={css`
+          display: flex;
+          flex-flow: column;
+          gap: 4px;
           margin: 8px 0 12px;
+          padding: 8px;
+          background-color: var(--gray-3);
+          border-radius: 4px;
         `}
       >
         <Fieldset label="Layer name">
@@ -66,6 +94,7 @@ export const LayersPane = memo(function Layers({ size = 'sm' }: Props) {
             size="1"
             value={activeLayer?.name ?? ''}
             placeholder={'<Layer name>'}
+            onChange={handleChangeLayerName}
           />
         </Fieldset>
 
@@ -92,6 +121,9 @@ export const LayersPane = memo(function Layers({ size = 'sm' }: Props) {
           )}%`}
         >
           <Slider
+            css={css`
+              padding: 8px 0;
+            `}
             value={[activeLayer?.opacity ?? 1]}
             min={0}
             max={1}
@@ -159,8 +191,8 @@ const LayerTreeView = memo(
 
     const handleClickItem = useEvent((item: LayerNodes) => {
       if (item instanceof LayerTreeNode) {
-        console.log('hi')
         pap!.enterLayer(item.layerPath)
+        rerender()
       }
     })
 

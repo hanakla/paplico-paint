@@ -137,6 +137,7 @@ export const EditorArea = memo(
       papStore._setEditorHandle(handle)
 
       return () => {
+        handle.dispose()
         papStore._setEditorHandle(null)
       }
     }, [pap])
@@ -149,6 +150,7 @@ export const EditorArea = memo(
           width: 100%;
           height: 100%;
           touch-action: none;
+          background-color: var(--gray-3);
         `}
         className={className}
         data-editorarea-root

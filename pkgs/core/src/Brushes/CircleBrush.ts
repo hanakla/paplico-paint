@@ -29,7 +29,7 @@ export const CircleBrush = createBrush(
     public async initialize() {}
 
     public async render({
-      context: ctx,
+      destContext: ctx,
       path: inputPath,
       transform,
       // ink,

@@ -1,13 +1,13 @@
 import immer, { Draft } from 'immer'
 
-import { MixerPipeline } from '@/Engine/MixerPipeline'
+import { RenderPipeline } from '@/Engine/RenderPipeline'
 import { BrushRegistry } from '@/Engine/Registry/BrushRegistry'
 import {
   createCanvas,
   createContext2D,
   getCanvasBytes,
 } from '@/Engine/CanvasFactory'
-import { Renderer } from '@/Engine/Renderer'
+import { VectorRenderer } from '@/Engine/VectorRenderer'
 import { UICanvas } from '@/UI/UICanvas'
 import { UIStroke } from '@/UI/UIStroke'
 import {
@@ -15,6 +15,7 @@ import {
   createRasterLayerEntity,
   createVectorObject,
   LayerEntity,
+  LayerFilter,
   LayerNode,
   PaplicoDocument,
   VectorObject,
@@ -53,8 +54,10 @@ import { PSDExporter } from './Engine/Exporters/PSDExporter'
 import { type History } from '@/History/History'
 import { PreviewStore } from './Engine/PreviewStore'
 import { logImage } from './utils/DebugHelper'
-import { NoneImpls, PaplicoComponents } from '@/UI/PaneUI/index'
+import { NoneImpls, PaneSetState, PaplicoComponents } from '@/UI/PaneUI/index'
 import { AbstractComponentRenderer } from './UI/PaneUI/AbstractComponent'
+import { TestFilter } from './Filters'
+import { WebGLRenderer } from 'three'
 
 export namespace Paplico {
   export type StrokeSetting<T extends Record<string, any> = any> =
@@ -96,6 +99,11 @@ export namespace Paplico {
     'preview:updated': PreviewStore.Events['updated']
     'history:affect': History.Events['affect']
   }
+
+  export type _PaneImpl = {
+    components: PaplicoComponents
+    h: AbstractComponentRenderer
+  }
 }
 
 const DEFAULT_FILL_SETTING = (): Readonly<Paplico.FillSetting> => ({
@@ -124,14 +132,15 @@ const DEFAULT_STROKE_SETTING = (): Readonly<Paplico.StrokeSetting> => ({
 export class Paplico extends Emitter<Paplico.Events> {
   public readonly brushes: BrushRegistry
   public readonly inks: InkRegistry
-  public readonly appearances: AppearanceRegistry
+  public readonly filters: AppearanceRegistry
 
-  public readonly pipeline: MixerPipeline
-  public readonly renderer: Renderer
+  public readonly pipeline: RenderPipeline
+  public readonly renderer: VectorRenderer
   public readonly uiCanvas: UICanvas
 
   protected readonly dstCanvas: HTMLCanvasElement
   protected readonly dstctx: CanvasRenderingContext2D
+  protected readonly glRendererResource: AtomicResource<WebGLRenderer>
 
   protected document: PaplicoDocument | null = null
   protected runtimeDoc: RuntimeDocument | null = null
@@ -143,10 +152,7 @@ export class Paplico extends Emitter<Paplico.Events> {
   protected readonly rerenderQueue = new AsyncQueue()
   protected activeStrokeChangeAborters: AbortController[] = []
 
-  protected readonly paneImpl: {
-    components: PaplicoComponents
-    h: AbstractComponentRenderer
-  }
+  protected readonly paneImpl: Paplico._PaneImpl
 
   #preferences: Paplico.Preferences = {
     strokeTrelance: 5,
@@ -201,6 +207,11 @@ export class Paplico extends Emitter<Paplico.Events> {
   ) {
     super()
 
+    this.paneImpl = {
+      components: opts.paneComponentImpls ?? NoneImpls,
+      h: opts.paneCreateElement ?? (() => null),
+    }
+
     this.brushes = new BrushRegistry()
     this.brushes.register(CircleBrush)
 
@@ -209,13 +220,28 @@ export class Paplico extends Emitter<Paplico.Events> {
     this.inks.register(RainbowInk)
     this.inks.register(TextureReadInk)
 
-    this.appearances = new AppearanceRegistry()
+    this.filters = new AppearanceRegistry()
+    this.filters.register(TestFilter)
 
-    this.pipeline = new MixerPipeline({ brushRegistry: this.brushes, canvas })
-    this.renderer = new Renderer({
+    const renderer = new WebGLRenderer({
+      alpha: true,
+      premultipliedAlpha: true,
+      antialias: false,
+      preserveDrawingBuffer: true,
+      canvas: createCanvas() as HTMLCanvasElement,
+    })
+    renderer.setClearColor(0xffffff, 0)
+    this.glRendererResource = new AtomicResource(renderer, 'Paplico#glRenderer')
+
+    this.pipeline = new RenderPipeline({
+      filterRegistry: this.filters,
+      glRenderer: this.glRendererResource,
+    })
+    this.renderer = new VectorRenderer({
       brushRegistry: this.brushes,
       inkRegistry: this.inks,
-      appearanceRegistry: this.appearances,
+      appearanceRegistry: this.filters,
+      glRenderer: this.glRendererResource,
     })
     this.uiCanvas = new UICanvas(canvas).activate()
 
@@ -236,11 +262,6 @@ export class Paplico extends Emitter<Paplico.Events> {
       }),
       'Paplico#strokingCtx',
     )
-
-    this.paneImpl = {
-      components: opts.paneComponentImpls ?? NoneImpls,
-      h: opts.paneCreateElement ?? (() => null),
-    }
 
     this.onUIStrokeChange = this.onUIStrokeChange.bind(this)
     this.onUIStrokeComplete = this.onUIStrokeComplete.bind(this)
@@ -289,13 +310,18 @@ export class Paplico extends Emitter<Paplico.Events> {
   }
 
   public dispose() {
+    this.mitt.all.clear()
+
     this.tmpctxResource.clearQueue()
-    freeingCanvas(this.tmpctxResource.enjureForce().canvas)
+    freeingCanvas(this.tmpctxResource.ensureForce().canvas)
 
     this.uiCanvas.dispose()
     this.runtimeDoc?.dispose()
     this.renderer.dispose()
-    this.mitt.all.clear()
+    this.pipeline.dispose()
+
+    this.glRendererResource.clearQueue()
+    this.glRendererResource.ensureForce().dispose()
   }
 
   public readonly previews = {
@@ -367,6 +393,37 @@ export class Paplico extends Emitter<Paplico.Events> {
     canRedo: () => this.runtimeDoc?.command.canRedo() ?? false,
   }
 
+  public readonly paneUI = {
+    renderFilterPane: (layerUid: string, entry: LayerFilter<any>) => {
+      const Class = this.filters.getClass(entry.filterId)
+      if (!Class) return null
+
+      const setState: PaneSetState<any> = <T extends Record<string, any>>(
+        patchOrFn: Partial<T> | ((prev: T) => T),
+      ) => {
+        let cmd: ICommand
+
+        if (typeof patchOrFn === 'function') {
+          const next = patchOrFn({ ...entry.settings })
+          cmd = new Commands.FilterUpdateParameter(layerUid, entry.uid, next)
+        } else {
+          const next = { ...entry.settings, ...patchOrFn }
+          cmd = new Commands.FilterUpdateParameter(layerUid, entry.uid, next)
+        }
+
+        this.command.do(cmd)
+      }
+
+      return Class.renderPane({
+        c: this.paneImpl.components,
+        components: this.paneImpl.components,
+        h: this.paneImpl.h,
+        state: { ...entry.settings },
+        setState,
+      })
+    },
+  }
+
   public loadDocument(doc: PaplicoDocument) {
     const prevDocument = this.document
     this.runtimeDoc?.dispose()
@@ -432,18 +489,6 @@ export class Paplico extends Emitter<Paplico.Events> {
     this.emit('activeLayerChanged', { current: this.#state.activeLayer })
   }
 
-  /** @deprecated */
-  public set strokeSetting(setting: Paplico.StrokeSetting | null) {
-    this.setState((d) => {
-      d.currentStroke = setting
-    })
-  }
-
-  /** @deprecated */
-  public get strokeSetting(): Paplico.StrokeSetting | null {
-    return this.#state.currentStroke
-  }
-
   public getStrokeSetting(): Paplico.StrokeSetting | null {
     return this.#state.currentStroke
   }
@@ -458,18 +503,6 @@ export class Paplico extends Emitter<Paplico.Events> {
           ...setting,
         }
     })
-  }
-
-  /** @deprecated */
-  public set fillSetting(setting: Paplico.FillSetting | null) {
-    this.setState((d) => {
-      d.currentFill = setting
-    })
-  }
-
-  /** @deprecated */
-  public get fillSetting(): Paplico.FillSetting | null {
-    return this.#state.currentFill
   }
 
   public getFillSetting(): Paplico.FillSetting | null {
@@ -495,27 +528,6 @@ export class Paplico extends Emitter<Paplico.Events> {
   public setPreferences(prefs: Partial<Paplico.Preferences>) {
     this.#preferences = immer(this.#preferences, (d) => {
       Object.assign(d, prefs)
-    })
-  }
-
-  /** @deprecated */
-  public set preferences(prefs: Paplico.Preferences) {
-    this.#preferences = immer(this.#preferences, (d) => {
-      Object.assign(d, prefs)
-    })
-  }
-
-  /** @deprecated */
-  public get preferences(): Paplico.Preferences {
-    return this.#preferences
-  }
-
-  /** @deprecated */
-  public set strokeComposition(
-    composition: Paplico.State['strokeComposition'],
-  ) {
-    this.setState((d) => {
-      d.strokeComposition = composition
     })
   }
 
@@ -549,6 +561,7 @@ export class Paplico extends Emitter<Paplico.Events> {
       await this.pipeline.fullyRender(dstctx, this.runtimeDoc, this.renderer, {
         abort: signal,
         override: layerOverrides,
+        pixelRatio,
         viewport: {
           top: 0,
           left: 0,

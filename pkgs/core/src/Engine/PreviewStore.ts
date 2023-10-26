@@ -20,9 +20,7 @@ export class PreviewStore extends Emitter<PreviewStore.Events> {
   public dispose() {
     this.mitt.all.clear()
 
-    this.cache.forEach((entry) => {
-      requestIdleCallback(() => URL.revokeObjectURL(entry.url))
-    })
+    this.cache.forEach((entry) => URL.revokeObjectURL(entry.url))
     this.cache.clear()
   }
 

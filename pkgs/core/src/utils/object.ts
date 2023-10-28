@@ -17,7 +17,7 @@ export const assign = <T extends object>(obj: T, patch: Partial<T>) =>
 
 export const pick = <T extends object, K extends keyof T>(
   obj: T,
-  keys: readonly K[]
+  keys: readonly K[],
 ): { [KK in K]: T[KK] } => {
   return keys.reduce((acc, k) => {
     return hasOwnKey(obj, k) ? assign(acc, { [k]: obj[k] }) : acc

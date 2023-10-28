@@ -17,7 +17,7 @@ export default defineConfig({
     },
   },
   build: {
-    minify: true,
+    minify: false,
     emptyOutDir: false,
     lib: {
       entry: {

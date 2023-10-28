@@ -6,7 +6,7 @@ import {
   setCanvasSize,
 } from '@/utils/canvas'
 import { rescue } from '@/utils/resque'
-import { createContext2D } from './CanvasFactory'
+import { createCanvas, createContext2D } from './CanvasFactory'
 import { RenderCycleLogger } from './RenderCycleLogger'
 import { VectorObjectOverrides, VectorRenderer } from './VectorRenderer'
 import { DocumentContext } from './DocumentContext'
@@ -127,6 +127,8 @@ export class RenderPipeline {
         ) {
           const requestSize = { width: viewport.width, height: viewport.height }
 
+          const hasOverrideForThisLayer =
+            !!vectorObjectOverrides?.[sourceLayer.uid]
           const canUseBitmapCache =
             doc.hasLayerBitmapCache(sourceLayer.uid, requestSize) &&
             vectorObjectOverrides?.[sourceLayer.uid] == null
@@ -159,15 +161,24 @@ export class RenderPipeline {
 
             if (abort?.aborted) throw new PaplicoAbortError()
 
-            layerBitmap = await doc.updateOrCreateLayerBitmapCache(
-              sourceLayer.uid,
-              tmpVectorOutCx.getImageData(
-                0,
-                0,
-                viewport.width,
-                viewport.height,
-              ),
-            )
+            if (hasOverrideForThisLayer) {
+              // For perfomance, avoid getImageData when using override
+              const overrided = createContext2D()
+              setCanvasSize(overrided.canvas, viewport)
+              overrided.drawImage(tmpVectorOutCx.canvas, 0, 0)
+
+              layerBitmap = overrided.canvas
+            } else {
+              layerBitmap = await doc.updateOrCreateLayerBitmapCache(
+                sourceLayer.uid,
+                tmpVectorOutCx.getImageData(
+                  0,
+                  0,
+                  viewport.width,
+                  viewport.height,
+                ),
+              )
+            }
           }
         } else {
           // TODO
@@ -251,6 +262,10 @@ export class RenderPipeline {
         const result = rescue(() => {
           dblBufCx.drawImage(layerBitmap!, 0, 0)
         })
+
+        if (layerBitmap instanceof HTMLCanvasElement) {
+          freeingCanvas(layerBitmap)
+        }
 
         rescue.isFailure(result) &&
           logger.error('drawImage error', result.error)

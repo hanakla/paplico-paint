@@ -1,4 +1,4 @@
-export class AsyncQueue<T extends string> {
+export class RenderQueue<T extends string> {
   private queue: Map<string, (() => Promise<void>)[]> = new Map()
   private current: Promise<void> | null = null
 
@@ -6,7 +6,11 @@ export class AsyncQueue<T extends string> {
     return this.queue.get(line)?.length ?? 0
   }
 
-  public push(line: T, fn: () => Promise<void>) {
+  public push(
+    line: T,
+    fn: () => Promise<void>,
+    { maxQueue = 100 }: { maxQueue?: number } = {},
+  ) {
     const queueList = this.queue.get(line) ?? []
     this.queue.set(line, queueList)
 
@@ -16,12 +20,15 @@ export class AsyncQueue<T extends string> {
     const previous = this.current ?? Promise.resolve()
 
     previous.finally(() => {
+      // expired
+      if (!queueList.includes(fn)) return
+
       this.current = fn().finally(() => {
         this.current = null
-        this.queue.set(
-          line,
-          queueList.filter((f) => f !== fn),
-        )
+
+        // expiration old queues
+        queueList.splice(0, Math.max(0, queueList.length - maxQueue))
+        queueList.splice(queueList.indexOf(fn), 1)
       })
     })
   }

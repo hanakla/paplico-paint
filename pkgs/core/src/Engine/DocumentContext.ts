@@ -6,16 +6,6 @@ import { ICommand } from '@/History/ICommand'
 import { PreviewStore } from '@/Engine/PreviewStore'
 import { Emitter } from '@/utils/Emitter'
 
-const cancelIdle =
-  typeof cancelIdleCallback !== 'undefined'
-    ? cancelIdleCallback
-    : (clearTimeout as (typeof window)['clearTimeout'])
-
-const requestIdle =
-  typeof requestIdleCallback !== 'undefined'
-    ? requestIdleCallback
-    : (setTimeout as (typeof window)['setTimeout'])
-
 export namespace DocumentContext {
   export type LayoutData = {
     left: number

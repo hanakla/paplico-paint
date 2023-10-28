@@ -11,7 +11,7 @@ export const TestFilter = createFilter(
     public static metadata: PapFilter.FilterMetadata = {
       id: '@paplico/core/filters/test',
       version: '0.0.1',
-      filterName: 'Test Filter',
+      name: 'Test Filter',
     }
 
     public static getInitialConfig(): TestFilter.Options {

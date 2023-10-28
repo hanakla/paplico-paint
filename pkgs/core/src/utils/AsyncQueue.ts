@@ -1,12 +1,12 @@
-export class AsyncQueue {
+export class AsyncQueue<T extends string> {
   private queue: Map<string, (() => Promise<void>)[]> = new Map()
   private current: Promise<void> | null = null
 
-  public get length() {
-    return this.queue.size
+  public queueLength(line: T) {
+    return this.queue.get(line)?.length ?? 0
   }
 
-  public push(line: string, fn: () => Promise<void>) {
+  public push(line: T, fn: () => Promise<void>) {
     const queueList = this.queue.get(line) ?? []
     this.queue.set(line, queueList)
 

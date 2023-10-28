@@ -1,4 +1,3 @@
-// import type { Delta } from 'rc'
 import { diff, patch, unpatch, Delta } from '@paplico/jsondiffpatch'
 // ^-- Do not use star imports or named imports from jsondiffpatch-rc, it will break the build.
 

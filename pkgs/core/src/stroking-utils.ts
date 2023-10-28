@@ -1,3 +1,5 @@
+/** Utility functions for making custom brush */
+
 import fastRandom from 'fast-random'
 import { rgb } from 'polished'
 import { VectorPath, VectorPathPoint } from '@/Document/LayerEntity/VectorPath'
@@ -13,7 +15,6 @@ import { FuncStats } from './utils/perfstats'
 import { degToRad } from './utils/math'
 import { type Color } from 'three'
 
-export { setCanvasSize } from '@/utils/canvas'
 export { mapPoints } from './Engine/VectorUtils'
 
 export {

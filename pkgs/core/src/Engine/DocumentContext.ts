@@ -16,29 +16,27 @@ const requestIdle =
     ? requestIdleCallback
     : (setTimeout as (typeof window)['setTimeout'])
 
-export namespace RuntimeDocument {
+export namespace DocumentContext {
   export type LayoutData = {
     left: number
     top: number
     width: number
     height: number
   }
-}
 
-export namespace RuntimeDocument {
   export type Events = {
     'preview:updated': PreviewStore.Events['updated']
   }
 }
 
-export class RuntimeDocument extends Emitter<RuntimeDocument.Events> {
+export class DocumentContext extends Emitter<DocumentContext.Events> {
   public document: PaplicoDocument
   public history: History
 
   public layerImageCache: Map<string, ImageBitmap> = new Map()
   public blobCaches: Map<string, WeakRef<any>> = new Map()
 
-  protected layoutData = new Map<string, RuntimeDocument.LayoutData>()
+  protected layerMetrics = new Map<string, DocumentContext.LayoutData>()
   protected layerEntities = new Map<string, RuntimeLayerEntity>()
 
   public previews: PreviewStore
@@ -65,7 +63,7 @@ export class RuntimeDocument extends Emitter<RuntimeDocument.Events> {
     this.history.dispose()
     this.layerImageCache.forEach((bitmap) => bitmap.close())
     this.layerImageCache.clear()
-    this.layoutData.clear()
+    this.layerMetrics.clear()
     this.blobCaches.clear()
   }
 
@@ -203,20 +201,20 @@ export class RuntimeDocument extends Emitter<RuntimeDocument.Events> {
     return ref.deref() as T | undefined
   }
 
-  public setLayerLayoutData(
+  public updateLayerMetrics(
     layerUid: string,
-    data: RuntimeDocument.LayoutData,
+    data: DocumentContext.LayoutData,
   ) {
     const layer = this.document.layerEntities.find((l) => l.uid === layerUid)
     if (!layer) return
 
-    this.layoutData.set(layer?.uid, data)
+    this.layerMetrics.set(layer?.uid, data)
   }
 
-  public getLayerLayoutData(layerUid: string) {
+  public getLayerMetrics(layerUid: string) {
     const layer = this.document.layerEntities.find((l) => l.uid === layerUid)
     if (!layer) return
 
-    return this.layoutData.get(layer?.uid)
+    return this.layerMetrics.get(layer?.uid)
   }
 }

@@ -1,8 +1,21 @@
-import { WebGLRenderer, Camera } from 'three'
-import { VectorStrokeSetting, VectorPath } from '@/Document'
-import { RenderCycleLogger } from './RenderCycleLogger'
-import { InkGenerator } from './Ink'
-import { RenderPhase } from './types'
+import type { WebGLRenderer, Camera } from 'three'
+import type { VectorStrokeSetting, VectorPath } from '@/Document'
+import type { RenderCycleLogger } from '../RenderCycleLogger'
+import type { InkGenerator } from '../Ink'
+import type { RenderPhase } from '../types'
+import type { PaneSetState, PaplicoComponents } from '@/UI/PaneUI/index'
+import type {
+  AbstractComponentRenderer,
+  VNode,
+} from '@/UI/PaneUI/AbstractComponent'
+
+export type BrushPaneContext<T> = {
+  components: PaplicoComponents
+  c: PaplicoComponents
+  state: T
+  setState: PaneSetState<T>
+  h: AbstractComponentRenderer
+}
 
 export type BrushContext<T extends Record<string, any>> = {
   abort: AbortSignal
@@ -42,18 +55,25 @@ export type BrushLayoutData = {
   }
 }
 
-export interface BrushClass {
+export type BrushMetadata = {
   readonly id: string
   readonly version: string
+  readonly name?: string
+}
 
-  readonly initialConfig: any
+export interface BrushClass<T = any> {
+  readonly metadata: BrushMetadata
+
+  getInitialConfig(): any
+
+  renderPane(context: BrushPaneContext<T>): VNode
 
   new (): IBrush
 }
 
-export interface IBrush {
+export interface IBrush<T = any> {
   initialize(context: {}): Promise<void>
-  render(brushContext: BrushContext<any>): Promise<BrushLayoutData>
+  render(brushContext: BrushContext<T>): Promise<BrushLayoutData>
 }
 
-export const createBrush = <T extends BrushClass>(Class: T) => Class
+export const createBrush = <T extends BrushClass<any>>(Class: T) => Class

@@ -9,13 +9,14 @@ import {
 import { useGesture } from '@use-gesture/react'
 import { css } from 'styled-components'
 import { checkerBoard } from '../../utils/cssMixin'
-import { usePaplico } from '../../domains/paplico'
+import { usePaplico, usePaplicoStore } from '../../domains/paplico'
 import { useCombineRef } from '../../utils/hooks'
 import useEvent from 'react-use-event-hook'
 import { MainToolbar } from './MainToolbar'
 import useMeasure from 'use-measure'
 import { useEditorStore } from '@/domains/uiState'
 import { bindPaplico } from '@paplico/vector-editor'
+import { storePicker } from '@/utils/zutrand'
 
 type Props = { className?: string }
 
@@ -24,7 +25,9 @@ export const EditorArea = memo(
     { className },
     canvasRef,
   ) {
-    const { pap, papStore } = usePaplico()
+    const { pap } = usePaplico()
+    const papStore = usePaplicoStore(storePicker('_setEditorHandle'))
+
     const editorStore = useEditorStore()
     const { canvasTransform } = editorStore
 
@@ -79,7 +82,7 @@ export const EditorArea = memo(
             return {
               ...prev,
               scale: newScale,
-              rotate: prev.rotateDeg + r,
+              rotateDeg: prev.rotateDeg + r,
               x: newX,
               y: newY,
             }

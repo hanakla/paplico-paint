@@ -1,4 +1,4 @@
-import { usePaplico } from '@/domains/paplico'
+import { usePaplico, usePaplicoStore } from '@/domains/paplico'
 import { useEditorStore } from '@/domains/uiState'
 import { useGlobalMousetrap } from '@/utils/hooks'
 import { memo } from 'react'
@@ -6,9 +6,11 @@ import { memo } from 'react'
 import msgpack from 'msgpack5'
 import { letDownload } from '@hanakla/arma'
 import { Commands } from '@paplico/core-new'
+import { storePicker } from '@/utils/zutrand'
 
 export const GlobalShortcutHandler = memo(function GlobalShortcutHandler() {
-  const { pap, papStore, editorHandle } = usePaplico()
+  const { pap, editorHandle } = usePaplico()
+  const papStore = usePaplicoStore(storePicker('activeLayerEntity'))
   const { fileHandlers, setFileHandlerForDocument, getShortcuts } =
     useEditorStore()
 

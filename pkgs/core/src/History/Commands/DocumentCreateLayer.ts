@@ -1,6 +1,6 @@
-import { LayerEntity, getLayerNodeAt } from '@/Document'
+import { LayerEntity } from '@/Document'
 import { ICommand } from '../ICommand'
-import { RuntimeDocument } from '@/Engine'
+import { RuntimeDocument as PaplicoDocumentContext } from '@/Engine'
 
 export class DocumentCreateLayer implements ICommand {
   public readonly name = 'DocumentCreateLayer'
@@ -21,11 +21,11 @@ export class DocumentCreateLayer implements ICommand {
     this.indexAtSibling = indexAtSibling
   }
 
-  public async do(document: RuntimeDocument): Promise<void> {
+  public async do(document: PaplicoDocumentContext): Promise<void> {
     document.document.addLayer(this.layer, this.layerPath, this.indexAtSibling)
   }
 
-  public async undo(document: RuntimeDocument): Promise<void> {
+  public async undo(document: PaplicoDocumentContext): Promise<void> {
     const parent = document.document.resolveNodePath(this.layerPath)
     if (!parent) throw new Error('Parent not found')
 
@@ -35,7 +35,7 @@ export class DocumentCreateLayer implements ICommand {
     )
   }
 
-  public async redo(document: RuntimeDocument): Promise<void> {
+  public async redo(document: PaplicoDocumentContext): Promise<void> {
     return this.do(document)
   }
 

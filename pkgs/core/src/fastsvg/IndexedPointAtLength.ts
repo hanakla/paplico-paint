@@ -6,8 +6,7 @@ This is fork of below code
 For faster point-at-length searching
 */
 
-import { parseSVGPath } from './parse'
-import abs from 'abs-svg-path'
+import { absNormalizePath } from './absNormalizePath'
 
 export type SVGDCommand = [cmd: string, ...args: number[]]
 
@@ -51,7 +50,7 @@ export class IndexedPointAtLength {
   public readonly _subvertIndex: SubvertData[] = []
 
   public static atBatch(path: string | Array<SVGDCommand>, pos: number[]) {
-    const normPath = normalizePath(path)
+    const normPath = absNormalizePath(path)
     const walk = IndexedPointAtLength.prototype._walk
 
     return walk.call({ _path: normPath }, pos, {
@@ -61,7 +60,7 @@ export class IndexedPointAtLength {
   }
 
   constructor(path: string | Array<SVGDCommand>) {
-    this._path = normalizePath(path)
+    this._path = absNormalizePath(path)
     const warm = this._walk(null, { warm: true })
     this._length = warm[0].length
   }
@@ -490,75 +489,6 @@ export class IndexedPointAtLength {
   }
 }
 
-// Expand shorthand curve commands to full versions; mutates the path in place for efficiency
-// Requires commands have already been converted to absolute versions
-function longhand(path: SVGDCommand[]) {
-  let prev: SVGDCommand | null = null,
-    x1 = 0,
-    y1 = 0
-
-  const conversion: Record<string, { to: string; x: number } | undefined> = {
-    S: { to: 'C', x: 3 },
-    T: { to: 'Q', x: 1 },
-  }
-
-  for (var i = 0, len = path.length; i < len; i++) {
-    const cmd = path[i]
-    const convert = conversion[cmd[0]]
-
-    if (convert) {
-      cmd[0] = convert.to
-      if (prev) {
-        if (prev[0] === convert.to) {
-          x1 = 2 * (prev[convert.x + 2] as number) - (prev[convert.x] as number)
-          y1 =
-            2 * (prev[convert.x + 3] as number) -
-            (prev[convert.x + 1] as number)
-        } else {
-          x1 = prev[prev.length - 2] as number
-          y1 = prev[prev.length - 1] as number
-        }
-      }
-      cmd.splice(1, 0, x1, y1)
-    }
-
-    prev = cmd
-  }
-
-  return path
-}
-
-// Convert 'Z', 'V' and 'H' segments to 'L' segments
-function zvhToL(path: SVGDCommand[]) {
-  var ret: SVGDCommand[] = []
-  var startPoint: SVGDCommand = ['L', 0, 0]
-  var last_point
-
-  for (var i = 0, len = path.length; i < len; i++) {
-    var pt = path[i]
-    switch (pt[0]) {
-      case 'M':
-        startPoint = ['L', pt[1], pt[2]]
-        ret.push(pt)
-        break
-      case 'Z':
-        ret.push(startPoint)
-        break
-      case 'H':
-        last_point = ret[ret.length - 1] || ['L', 0, 0]
-        ret.push(['L', pt[1], last_point[last_point.length - 1] as number])
-        break
-      case 'V':
-        last_point = ret[ret.length - 1] || ['L', 0, 0]
-        ret.push(['L', last_point[last_point.length - 2] as number, pt[1]])
-        break
-      default:
-        ret.push(pt)
-    }
-  }
-  return ret
-}
-
 export class SequencialPointAtLength {
   public prevLen = -Infinity
   public nextHint: { latestSubvertIdx: number } | null = null
@@ -591,15 +521,6 @@ export class SequencialPointAtLength {
 
     return result
   }
-}
-
-function normalizePath(path: string | SVGDCommand[]) {
-  let norm = Array.isArray(path) ? path : parseSVGPath(path)
-  norm = abs(norm)
-  norm = zvhToL(norm)
-  norm = longhand(norm)
-
-  return norm
 }
 
 // SEE: https://stackoverflow.com/questions/60343999/binary-search-in-typescript-vs-indexof-how-to-get-performance-properly

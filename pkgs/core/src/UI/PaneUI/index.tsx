@@ -1,9 +1,4 @@
-import {
-  VComponent,
-  VComponentProps,
-  VElement,
-  VNode,
-} from './AbstractComponent'
+import { VComponent, VElement, VNode } from './AbstractComponent'
 import { PaneComponentProps } from './PaneComponentProps'
 
 export type { VComponent, VElement, VNode, PaneComponentProps }
@@ -12,8 +7,10 @@ export interface PaplicoComponents {
   Fragment: VComponent<PaneComponentProps.Fragment>
   View: VComponent<PaneComponentProps.View>
   Text: VComponent<PaneComponentProps.Text>
+  FieldSet: VComponent<PaneComponentProps.FieldSet>
   Slider: VComponent<PaneComponentProps.Slider>
   Button: VComponent<PaneComponentProps.Button>
+  SelectBox: VComponent<PaneComponentProps.SelectBox>
   TextInput: VComponent<PaneComponentProps.TextInput>
   BrowserDOM: VComponent<PaneComponentProps.BrowserDOM>
 }

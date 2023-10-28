@@ -2,6 +2,7 @@ import type { LayerFilter } from './LayerFilter'
 import type { VectorObject } from './LayerEntity/VectorObject'
 import type { VectorGroup } from './LayerEntity/VectorGroup'
 import { Point2D } from './Struct/Point2D'
+import { TextNode } from './LayerEntity/TextNode'
 
 export type CompositeMode =
   | 'normal'
@@ -72,7 +73,11 @@ export type GroupLayer = LayerEntityBase & {
 
 export type TextLayer = LayerEntityBase & {
   layerType: 'text'
-  // TODO
+  transform: LayerTransform
+  fontFamily: string
+  fontStyle?: string
+  fontSize: number
+  textNodes: TextNode[]
 }
 
 export type ArtboradLayer = LayerEntityBase & {

@@ -20,10 +20,15 @@ export default defineConfig({
     minify: true,
     emptyOutDir: false,
     lib: {
-      entry: 'src/index.ts',
+      entry: {
+        index: 'src/index.ts',
+        'stroking-utils': 'src/stroking-utils.ts',
+        extras: 'src/extras.ts',
+      },
       name: 'PapCore',
-      formats: ['es', 'umd'],
-      fileName: 'index',
+      formats: ['es', 'cjs'],
+      fileName: (format, entryName) =>
+        `${entryName}.${format === 'es' ? 'mjs' : 'js'}`,
     },
     rollupOptions: {
       output: {

@@ -1,6 +1,5 @@
 import { createSeededRandom, hsvToRgb, rgbToHsv } from '@/Math'
-import { setCanvasSize } from '@/StrokingHelper'
-import { freeingCanvas } from '@/utils/canvas'
+import { freeingCanvas, setCanvasSize } from '@/utils/canvas'
 import { createCanvas } from '../Engine/CanvasFactory'
 import { IInk, InkGenerator } from '../Engine/Ink'
 import { glitchNoise } from './texture/index'
@@ -49,7 +48,7 @@ export class TextureReadInk implements IInk {
         points,
         baseColor,
         pointAtLength,
-        totalLength
+        totalLength,
       }) => {
         // const random = createSeededRandom(pointIndex)
 
@@ -61,12 +60,12 @@ export class TextureReadInk implements IInk {
         const [h, s, v] = rgbToHsv(
           data[pos + 0] / 255,
           data[pos + 1] / 255,
-          data[pos + 2] / 255
+          data[pos + 2] / 255,
         )
         const [r, g, b] = hsvToRgb(h, s, v)
 
         return { r, g, b, a: baseColor.a }
-      }
+      },
     }
   }
 }

@@ -4,26 +4,39 @@ import {
   BrushLayoutData,
   IBrush,
   createBrush,
-} from '@/Engine/Brush'
+} from '@/Engine/Brush/Brush'
 import { mergeToNew } from '@/utils/object'
 import { mapPoints } from '../Engine/VectorUtils'
-import { scatterPlot } from '@/StrokingHelper'
+import { scatterPlot } from '@/stroking-utils'
+import { PapBrush } from '@/index'
 
 export declare namespace CircleBrush {
-  type SpecificSetting = {
+  type Settings = {
     lineCap: CanvasLineCap
   }
 }
 
 export const CircleBrush = createBrush(
   class CircleBrush implements IBrush {
-    public static readonly id = '@paplico/core/circle-brush'
-    public static readonly version = '0.0.1'
+    public static readonly metadata = {
+      id: '@paplico/core/circle-brush',
+      version: '0.0.1',
+      name: 'Circle Brush',
+    }
 
-    public getInitialSpecificConfig(): CircleBrush.SpecificSetting {
+    public static getInitialConfig(): CircleBrush.Settings {
       return {
         lineCap: 'round',
       }
+    }
+
+    public static renderPane({
+      c,
+      h,
+      state,
+      setState,
+    }: PapBrush.BrushPaneContext<CircleBrush.Settings>) {
+      return h(c.Text, {}, 'WIP')
     }
 
     public async initialize() {}
@@ -35,8 +48,8 @@ export const CircleBrush = createBrush(
       // ink,
       brushSetting: { size, color, opacity, specific },
       destSize,
-    }: BrushContext<CircleBrush.SpecificSetting>): Promise<BrushLayoutData> {
-      const sp = mergeToNew(this.getInitialSpecificConfig(), specific)
+    }: BrushContext<CircleBrush.Settings>): Promise<BrushLayoutData> {
+      const sp = mergeToNew(CircleBrush.getInitialConfig(), specific)
 
       const bbox: BrushLayoutData['bbox'] = {
         left: 0,

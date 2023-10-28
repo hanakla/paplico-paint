@@ -1,5 +1,6 @@
 'use client'
 
+import type {} from '@/lib/cssprop'
 import { ThemeProvider, createGlobalStyle } from 'styled-components'
 import { ServerStyleSheet, StyleSheetManager } from 'styled-components'
 import { light, dark } from '@charcoal-ui/theme'
@@ -66,6 +67,10 @@ const GlobalStyle = createGlobalStyle`
     padding: 0;
     touch-action: manipulation;
     overflow: hidden;
+
+    *:not(input, textarea){
+      user-select: none;
+    }
   }
 
   :root {

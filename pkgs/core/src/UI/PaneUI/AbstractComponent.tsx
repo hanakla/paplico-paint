@@ -1,6 +1,6 @@
 export type AbstractComponentRenderer = <T extends VComponent<any>>(
   component: T,
-  props: VComponentProps<T>,
+  props: { key?: string } & VComponentProps<T>,
   ...children: VNode[]
 ) => VNode
 

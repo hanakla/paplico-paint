@@ -1,7 +1,7 @@
 import { ICommand } from './ICommand'
 import { Emitter } from '@/utils/Emitter'
 import { rescue } from '@/utils/resque'
-import { RuntimeDocument } from '@/Engine/RuntimeDocument'
+import { DocumentContext } from '@/Engine/DocumentContext'
 import { AtomicResource } from '@/utils/AtomicResource'
 
 export namespace History {
@@ -43,7 +43,7 @@ export class History extends Emitter<History.Events> {
     return this.#redoStack.length > 0
   }
 
-  public async do(document: RuntimeDocument, command: ICommand) {
+  public async do(document: DocumentContext, command: ICommand) {
     const lock = await this.excutionLock.ensure()
 
     try {
@@ -57,7 +57,7 @@ export class History extends Emitter<History.Events> {
     }
   }
 
-  public async undo(document: RuntimeDocument) {
+  public async undo(document: DocumentContext) {
     const command = this.#undoStack.pop()
     if (!command) return
 
@@ -72,7 +72,7 @@ export class History extends Emitter<History.Events> {
     }
   }
 
-  public async redo(document: RuntimeDocument) {
+  public async redo(document: DocumentContext) {
     const command = this.#redoStack.pop()
     if (!command) return
 

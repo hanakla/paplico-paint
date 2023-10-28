@@ -41,15 +41,13 @@ export class UICanvas extends Emitter<Events> {
     const passive = { passive: true }
 
     // Touch Event is used in iOS because PointerEvent cannot be used as a basis for smooth paths.
-    if (isIOS) {
-      this.canvas.addEventListener('touchstart', this.handleTouchStart, passive)
-      this.canvas.addEventListener('touchmove', this.handleTouchMove, passive)
-      this.canvas.addEventListener('touchend', this.handleTouchEnd, passive)
-    } else {
-      this.canvas.addEventListener('pointerdown', this.handleMouseDown, passive)
-      this.canvas.addEventListener('pointermove', this.handleMouseMove, passive)
-      this.canvas.addEventListener('pointerup', this.handleMouseUp, passive)
-    }
+
+    this.canvas.addEventListener('touchstart', this.handleTouchStart, passive)
+    this.canvas.addEventListener('touchmove', this.handleTouchMove, passive)
+    this.canvas.addEventListener('touchend', this.handleTouchEnd, passive)
+    this.canvas.addEventListener('pointerdown', this.handleMouseDown, passive)
+    this.canvas.addEventListener('pointermove', this.handleMouseMove, passive)
+    this.canvas.addEventListener('pointerup', this.handleMouseUp, passive)
 
     return this
   }
@@ -183,35 +181,7 @@ export class UICanvas extends Emitter<Events> {
   protected getPointsFromCoalescedEvent(
     e: PointerEvent,
   ): UIStrokePointRequired[] {
-    if (e.getCoalescedEvents) {
-      const events = e.getCoalescedEvents()
-
-      if (events.length === 0)
-        return [
-          {
-            x:
-              (e.offsetX * this.ctx.canvas.width) / this.ctx.canvas.clientWidth,
-            y:
-              (e.offsetY * this.ctx.canvas.height) /
-              this.ctx.canvas.clientHeight,
-            pressure: e.pressure,
-            tilt: { x: e.tiltX, y: e.tiltY },
-          },
-        ]
-
-      return e.getCoalescedEvents().map(
-        (e): UIStrokePointRequired => ({
-          x: (e.offsetX * this.ctx.canvas.width) / this.ctx.canvas.clientWidth,
-          y:
-            (e.offsetY * this.ctx.canvas.height) / this.ctx.canvas.clientHeight,
-          pressure: e.pressure,
-          tilt: { x: e.tiltX, y: e.tiltY },
-          deltaTimeMs: this.currentStroke?.startTime
-            ? e.timeStamp - this.currentStroke.startTime
-            : 0,
-        }),
-      )
-    } else {
+    if (!e.getCoalescedEvents) {
       return [
         {
           x: (e.offsetX * this.ctx.canvas.width) / this.ctx.canvas.clientWidth,
@@ -222,6 +192,32 @@ export class UICanvas extends Emitter<Events> {
         },
       ]
     }
+
+    const events = e.getCoalescedEvents()
+
+    if (events.length === 0) {
+      return [
+        {
+          x: (e.offsetX * this.ctx.canvas.width) / this.ctx.canvas.clientWidth,
+          y:
+            (e.offsetY * this.ctx.canvas.height) / this.ctx.canvas.clientHeight,
+          pressure: e.pressure,
+          tilt: { x: e.tiltX, y: e.tiltY },
+        },
+      ]
+    }
+
+    return e.getCoalescedEvents().map(
+      (e): UIStrokePointRequired => ({
+        x: (e.offsetX * this.ctx.canvas.width) / this.ctx.canvas.clientWidth,
+        y: (e.offsetY * this.ctx.canvas.height) / this.ctx.canvas.clientHeight,
+        pressure: e.pressure,
+        tilt: { x: e.tiltX, y: e.tiltY },
+        deltaTimeMs: this.currentStroke?.startTime
+          ? e.timeStamp - this.currentStroke.startTime
+          : 0,
+      }),
+    )
   }
 
   public transformPoints() {}

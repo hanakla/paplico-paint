@@ -1,5 +1,5 @@
 import { VectorPath } from '@/Document'
-import { pointsToSVGCommandArray } from '@/StrokingHelper'
+import { pointsToSVGCommandArray } from '@/stroking-utils'
 
 export function getOrCreateSVGElement(id: string) {
   const svg =

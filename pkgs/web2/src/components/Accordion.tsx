@@ -44,7 +44,7 @@ export const AccordionTrigger = memo(
 )
 
 export const AccordionContent = memo(
-  ({ children }: { children?: ReactNode }) => {
+  ({ className, children }: { className?: string; children?: ReactNode }) => {
     return (
       <Accordion.Content
         css={css`
@@ -59,6 +59,7 @@ export const AccordionContent = memo(
             animation: ${slideUp} 100ms ease-out;
           }
         `}
+        className={className}
       >
         {children}
       </Accordion.Content>

@@ -1,5 +1,5 @@
-import { VectorObject, VectorPath } from '@/Document'
-import { VectorLayer } from '@/Document/LayerEntity'
+import { VectorGroup, VectorObject, VectorPath } from '@/Document'
+import { TextLayer, VectorLayer } from '@/Document/LayerEntity'
 import { InkSetting } from '@/Document/LayerEntity/InkSetting'
 import { VectorStrokeSetting } from '@/Document/LayerEntity/VectorStrokeSetting'
 import { PaplicoAbortError } from '@/Errors'
@@ -20,16 +20,30 @@ import { RenderPhase, Viewport } from './types'
 import {
   addPoint2D,
   calcVectorBoundingBox,
+  layerTransformToMatrix,
   mapPoints,
+  matrixToCanvasMatrix,
   multiplyPoint2D,
-  vectorTransformToMatrix,
+  svgCommandToVectoPath,
+  vectorObjectTransformToMatrix,
 } from './VectorUtils'
 import { AppearanceRegistry } from './Registry/AppearanceRegistry'
+import { FontRegistry } from './Registry/FontRegistry'
+import { parseSVGPath, pathCommandsToString } from '@/VectorProcess'
+import { createSVGPathByVectorPath } from '@/utils/svg'
+import { TextNode } from '@/Document/LayerEntity/TextNode'
+
+export type VectorObjectOverrides = {
+  [vectorLayerUid: string]: {
+    [vectorObjectId: string]: (base: VectorObject) => VectorObject
+  }
+}
 
 export class VectorRenderer {
   protected brushRegistry: BrushRegistry
   protected inkRegistry: InkRegistry
   protected filterRegistry: AppearanceRegistry
+  protected fontRegistry: FontRegistry
 
   protected glRendererResource: AtomicResource<WebGLRenderer>
 
@@ -39,11 +53,13 @@ export class VectorRenderer {
     brushRegistry: BrushRegistry
     inkRegistry: InkRegistry
     appearanceRegistry: AppearanceRegistry
+    fontRegistry: FontRegistry
     glRenderer: AtomicResource<WebGLRenderer>
   }) {
     this.brushRegistry = options.brushRegistry
     this.inkRegistry = options.inkRegistry
     this.filterRegistry = options.appearanceRegistry
+    this.fontRegistry = options.fontRegistry
 
     this.glRendererResource = options.glRenderer
     this.camera = new OrthographicCamera(0, 0, 0, 0, 0, 1000)
@@ -55,13 +71,14 @@ export class VectorRenderer {
 
   public async renderVectorLayer(
     output: HTMLCanvasElement,
-    layer: VectorLayer,
+    layer: VectorLayer | TextLayer,
     options: {
       viewport: Viewport
       pixelRatio: number
       abort?: AbortSignal
       logger: RenderCycleLogger
       phase: RenderPhase
+      objectOverrides?: VectorObjectOverrides
     },
   ): Promise<void> {
     const { logger } = options
@@ -69,15 +86,32 @@ export class VectorRenderer {
     setCanvasSize(output, options.viewport)
     const outcx = output.getContext('2d')!
 
-    for (const obj of layer.objects) {
+    let objects: (VectorObject | VectorGroup)[] = []
+    if (layer.layerType === 'text') {
+      objects = await this.generateTextVectorObject(layer)
+      console.log({ objects })
+    } else {
+      objects = layer.objects
+    }
+
+    for (let obj of objects) {
       if (obj.type === 'vectorGroup') continue
       if (!obj.visible) continue
+
+      if (options.objectOverrides?.[layer.uid]?.[obj.uid]) {
+        obj = options.objectOverrides?.[layer.uid]?.[obj.uid]!(deepClone(obj))
+      }
 
       await saveAndRestoreCanvas(outcx, async () => {
         outcx.globalCompositeOperation = 'source-over'
 
-        // if (o.fill) {
-        outcx.transform(...vectorTransformToMatrix(obj))
+        outcx.transform(
+          ...matrixToCanvasMatrix(
+            vectorObjectTransformToMatrix(obj).multiply(
+              layerTransformToMatrix(layer.transform),
+            ),
+          ),
+        )
         outcx.beginPath()
 
         const [start] = obj.path.points
@@ -97,7 +131,6 @@ export class VectorRenderer {
           },
           { startOffset: 1 },
         )
-        // }
 
         if (obj.path.closed) outcx.closePath()
 
@@ -174,19 +207,7 @@ export class VectorRenderer {
               logger: options.logger,
             })
           } else if (ap.kind === 'external') {
-            // console.log({ ap })
-            // const nextImage = await this.postProcess(output, ap, {
-            //   abort: options.abort,
-            //   filterDstCx,
-            //   viewport: options.viewport,
-            //   pixelRatio: options.pixelRatio,
-            //   logger,
-            //   phase: options.phase,
-            // })
-
-            if (nextImage == null) return
-
-            outcx.drawImage(nextImage, 0, 0)
+            continue
           }
         }
       })
@@ -196,6 +217,116 @@ export class VectorRenderer {
   }
 
   // protected async renderPath() {}
+
+  public async generateTextVectorObject(layer: TextLayer) {
+    if (!layer.visible) return []
+
+    const objects: VectorObject[] = []
+
+    let curX = 0
+    let curBaseline = 0
+
+    // Linebreak nomarlize
+    const lineBreakedNodes: TextNode[] = []
+    let currentNode: TextNode = { ...layer.textNodes[0], text: '' }
+
+    for (
+      let nodeIdx = 0, nodeLen = layer.textNodes.length;
+      nodeIdx < nodeLen;
+      nodeIdx++
+    ) {
+      let node = layer.textNodes[nodeIdx]
+
+      lineBreakedNodes.push(currentNode)
+      currentNode = { ...layer.textNodes[0], ...node, text: '' }
+
+      for (
+        let charIdx = 0, chars = [...node.text], charLen = chars.length;
+        charIdx < charLen;
+        charIdx++
+      ) {
+        if (chars[charIdx] === '\n') {
+          lineBreakedNodes.push(currentNode)
+          currentNode = { ...node, text: '' }
+          break
+        } else {
+          currentNode.text += chars[charIdx]
+        }
+      }
+    }
+
+    lineBreakedNodes.push(currentNode)
+
+    console.log({ lineBreakedNodes })
+    for (const node of lineBreakedNodes) {
+      const font = await this.fontRegistry.getFont(
+        node.fontFamily ?? layer.fontFamily,
+        node.fontStyle ?? layer.fontStyle,
+        { fallback: { family: 'Hiragino Sans' } },
+      )
+
+      if (!font) {
+        console.warn(
+          `Font not found: ${node.fontFamily ?? layer.fontFamily} ${
+            node.fontStyle ?? layer.fontStyle
+          }`,
+        )
+        continue
+      }
+
+      const glyphs = font.stringToGlyphs(node.text)
+
+      for (let glyph of glyphs) {
+        const fontSize = node.fontSize ?? layer.fontSize
+        // SEE: https://github.com/opentypejs/opentype.js/blob/8fbc2bad758e66e9a65da3bd2a0f9fd9c3d93dca/src/glyph.js#L349C5-L349C49
+        const scale = (1 / glyph.path.unitsPerEm) * fontSize
+
+        const path = glyph.getPath(
+          curX,
+          /* baseline */ glyph.yMin! * scale + curBaseline + 20,
+          fontSize,
+        )
+        curX += glyph.advanceWidth! * scale
+
+        const charPaths = svgCommandToVectoPath(path.toPathData(5))
+        for (let path of charPaths) {
+          objects.push({
+            uid: '__TEXT__',
+            type: 'vectorObject',
+            lock: false,
+            name: '',
+            opacity: 1,
+            path,
+            visible: true,
+            transform: {
+              position: {
+                x: node.position.x,
+                y: node.position.y,
+              },
+              scale: {
+                x: 1,
+                y: 1,
+              },
+              rotate: 0,
+            },
+            filters: [
+              {
+                uid: '__TEXT__',
+                kind: 'fill',
+                fill: {
+                  type: 'fill',
+                  color: { r: 0, g: 0, b: 0 },
+                  opacity: 1,
+                },
+              },
+            ],
+          })
+        }
+      }
+    }
+
+    return objects
+  }
 
   public async renderVectorObject(
     dest: HTMLCanvasElement,

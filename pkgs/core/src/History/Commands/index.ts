@@ -1,4 +1,5 @@
 export { DocumentCreateLayer } from './DocumentCreateLayer'
+export { DocumentRemoveLayer } from './DocumentRemoveLayer'
 export { RasterUpdateBitmap } from './RasterUpdateBitmap'
 export { VectorUpdateLayer } from './VectorUpdateLayer'
 export { FilterUpdateParameter } from './FilterUpdateParameter'

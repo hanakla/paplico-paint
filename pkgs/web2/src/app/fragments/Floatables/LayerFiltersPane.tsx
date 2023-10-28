@@ -8,8 +8,9 @@ import { DisplayContents } from '@/components/DisplayContents'
 import { DropdownMenu, DropdownMenuItem } from '@/components/DropdownMenu'
 import { FloatablePane } from '@/components/FloatablePane'
 import { FloatablePaneIds } from '@/domains/floatablePanes'
-import { usePaplico } from '@/domains/paplico'
+import { usePaplico, usePaplicoStore } from '@/domains/paplico'
 import { useEditorStore } from '@/domains/uiState'
+import { storePicker } from '@/utils/zutrand'
 import { Commands, Document } from '@paplico/core-new'
 
 import { Box, Button, ContextMenu } from '@radix-ui/themes'
@@ -20,8 +21,8 @@ import useEvent from 'react-use-event-hook'
 import styled, { css } from 'styled-components'
 
 export const LayerFiltersPane = memo(function LayerFiltersPane() {
-  const { papStore } = usePaplico()
-  const layer = papStore.activeLayerEntity
+  const papStore = usePaplicoStore(storePicker('activeLayerEntity'))
+  const activeLayer = papStore.activeLayerEntity
 
   return (
     <FloatablePane paneId={FloatablePaneIds.filters} title="Filters">
@@ -31,9 +32,9 @@ export const LayerFiltersPane = memo(function LayerFiltersPane() {
           border-radius: 4px;
         `}
       >
-        {!layer ? (
+        {!activeLayer ? (
           <NoLayerSelected />
-        ) : !isFilterAvailableType(layer) ? (
+        ) : !isFilterAvailableType(activeLayer) ? (
           <NoAvailable>Can't available for current layer</NoAvailable>
         ) : (
           <FilterList />
@@ -44,12 +45,19 @@ export const LayerFiltersPane = memo(function LayerFiltersPane() {
 })
 
 export const FilterList = memo(function FilterList() {
-  const { pap, papStore } = usePaplico()
+  const { pap } = usePaplico()
+  const papStore = usePaplicoStore(storePicker('activeLayerEntity'))
   const {
     getPaneExpandedFilterUids,
     setPaneExpandedFilterState,
     filterPaneExpandState,
-  } = useEditorStore()
+  } = useEditorStore(
+    storePicker(
+      'getPaneExpandedFilterUids',
+      'setPaneExpandedFilterState',
+      'filterPaneExpandState',
+    ),
+  )
 
   const layer = papStore.activeLayerEntity!
 
@@ -149,9 +157,6 @@ export const FilterList = memo(function FilterList() {
           <NoAvailable>No filters</NoAvailable>
         ) : (
           <AccordionRoot
-            css={css`
-              padding: 4px;
-            `}
             type="multiple"
             value={paneExpandedFilterUids}
             onValueChange={handleChangeExpandedFilters}
@@ -162,7 +167,7 @@ export const FilterList = memo(function FilterList() {
                   css={css`
                     display: flex;
                     align-items: center;
-                    padding: 4px;
+                    padding: 8px;
                     line-height: 1;
                   `}
                 >
@@ -177,7 +182,7 @@ export const FilterList = memo(function FilterList() {
                     )}
                   </span>
 
-                  <ContextMenu.Root siz>
+                  <ContextMenu.Root>
                     <ContextMenu.Trigger>
                       <DisplayContents>
                         <AccordionTrigger
@@ -188,7 +193,7 @@ export const FilterList = memo(function FilterList() {
                         >
                           {
                             pap?.filters.getClass(filter.filterId)?.metadata
-                              .filterName
+                              .name
                           }
                         </AccordionTrigger>
                       </DisplayContents>
@@ -205,10 +210,26 @@ export const FilterList = memo(function FilterList() {
                   </ContextMenu.Root>
                 </div>
 
-                <AccordionContent>
+                <AccordionContent
+                  css={css`
+                    position: relative;
+                    padding: 2px 8px 8px 0;
+                  `}
+                >
                   <div
                     css={css`
-                      margin-left: 16px;
+                      position: absolute;
+                      top: 0;
+                      bottom: 0;
+                      left: 14px;
+                      flex: 1;
+                      border-left: 1px solid var(--gray-8);
+                    `}
+                  />
+
+                  <div
+                    css={css`
+                      margin-left: 26px;
 
                       & :not(input, textarea, select) {
                         user-select: none;
@@ -253,7 +274,7 @@ export const FilterList = memo(function FilterList() {
               data-filter-id={Class.metadata.id}
               onClick={handleClickAddFilter}
             >
-              {Class.metadata.filterName}
+              {Class.metadata.name}
             </DropdownMenuItem>
           ))}
         </DropdownMenu>

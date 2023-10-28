@@ -1,6 +1,5 @@
-import { setCanvasSize } from '@/StrokingHelper'
 import { createContext2D } from './CanvasFactory'
-import { freeingCanvas } from '@/utils/canvas'
+import { freeingCanvas, setCanvasSize } from '@/utils/canvas'
 import { Emitter } from '@/utils/Emitter'
 
 type PreviewEntry = {

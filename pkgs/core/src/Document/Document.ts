@@ -64,6 +64,9 @@ export class PaplicoDocument {
     positionInNode: number = -1,
   ) {
     if (this.layerEntities.find((l) => l.uid === layer.uid)) {
+      console.warn(
+        `Document.addLayer: Layer already exists (uid: ${layer.uid})`,
+      )
       return
     }
 
@@ -86,6 +89,27 @@ export class PaplicoDocument {
         children: [],
       })
     }
+  }
+
+  public removeLayer(layerId: string) {
+    const path = this.findLayerNodePath(layerId)
+    const node = this.resolveNodePath(path!)
+    if (!path || !node) return null
+
+    const layer = this.layerEntities.find((l) => l.uid === layerId)
+    if (!layer) return null
+
+    this.layerEntities = this.layerEntities.filter((l) => l.uid !== layerId)
+
+    const parentPath = path.slice(0, -1)
+    const parent = this.resolveNodePath(parentPath)
+    if (!parent) throw new Error('WHATTT?????????')
+
+    parent.children = parent.children.filter(
+      (child) => child.layerUid !== layerId,
+    )
+
+    return { layer, node }
   }
 
   public resolveLayerEntity(layerId: string): LayerEntity | undefined {
@@ -128,6 +152,33 @@ export class PaplicoDocument {
     }
 
     return target
+  }
+
+  public findLayerNodePath(layerId: string): string[] | null {
+    if (layerId === '__root__') return ['__root__']
+
+    const path: string[] = []
+    const digNodes = (node: LayerNode): boolean => {
+      for (const child of node.children) {
+        if (child.layerUid === layerId) {
+          path.unshift(child.layerUid)
+          return true
+        }
+
+        if (digNodes(child)) {
+          path.unshift(child.layerUid)
+          return true
+        }
+      }
+
+      return false
+    }
+
+    if (digNodes(this.layerTree)) {
+      return path
+    }
+
+    return null
   }
 
   public serialize(): PaplicoDocument.SerializedSchema {

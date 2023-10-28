@@ -1,6 +1,6 @@
 import pal from 'point-at-length'
 import { SVGDCommand, indexedPointAtLength } from './IndexedPointAtLength'
-import { pointsToSVGCommandArray } from '@/StrokingHelper'
+import { pointsToSVGCommandArray } from '@/stroking-utils'
 
 describe('IndexedPointAtLength', () => {
   const path = complexPath()

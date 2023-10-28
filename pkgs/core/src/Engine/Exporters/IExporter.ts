@@ -1,10 +1,10 @@
-import { Paplico } from '@/Paplico'
-import { RuntimeDocument } from '../RuntimeDocument'
+import { Paplico } from '@/Engine/Paplico'
+import { DocumentContext } from '../DocumentContext'
 
 export namespace IExporter {
   export type Context = {
     paplico: Paplico
-    runtimeDocument: RuntimeDocument
+    runtimeDocument: DocumentContext
   }
 
   export type Options<T = {}> = T & {

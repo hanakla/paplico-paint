@@ -1,5 +1,5 @@
 import { memo, useCallback } from 'react'
-import { VNode } from '../UI/PaneUI/AbstractComponent'
+import { VNode } from '../AbstractComponent'
 
 export namespace Button {
   export type Props = {

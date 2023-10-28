@@ -8,11 +8,15 @@
   "exports": {
     ".": {
       "import": "./dist/index.mjs",
-      "require": "./dist/index.umd.js"
+      "require": "./dist/index.js"
+    },
+    "./stroking-utils": {
+      "import": "./dist/stroking-utils.mjs",
+      "require": "./dist/stroking-utils.js"
     },
     "./extras": {
       "import": "./dist/extras.mjs",
-      "require": "./dist/extras.umd.js"
+      "require": "./dist/extras.js"
     }
   },
   "scripts": {
@@ -24,17 +28,19 @@
   "devDependencies": {
     "@rollup/plugin-typescript": "^9.0.2",
     "@types/gl-matrix": "^3.2.0",
+    "@types/opentype.js": "^1.3.7",
     "@types/three": "^0.146.0",
     "point-at-length": "^1.1.0",
     "rollup-plugin-node-externals": "^6.1.2",
     "typescript": "^5.0.4",
-    "vite": "^4.4.9",
+    "vite": "^4.5.0",
     "vite-plugin-dts": "^3.5.3",
     "vite-tsconfig-paths": "^4.2.0",
     "vitest": "^0.34.3"
   },
   "dependencies": {
     "@luncheon/simplify-svg-path": "^0.2.0",
+    "@thednp/dommatrix": "^2.0.6",
     "abs-svg-path": "^0.1.1",
     "crypto-js": "^4.1.1",
     "fast-random": "^2.0.4",
@@ -46,6 +52,7 @@
     "math.gl": "^3.6.3",
     "matrixgl": "^2.0.0",
     "mitt": "^3.0.0",
+    "opentype.js": "^1.3.4",
     "polished": "^4.2.2",
     "three": "^0.146.0",
     "ulid": "^2.3.0",

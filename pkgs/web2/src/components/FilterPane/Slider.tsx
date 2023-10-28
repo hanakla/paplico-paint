@@ -3,6 +3,7 @@ import { Slider as _Slider } from '@radix-ui/themes'
 
 import { memo } from 'react'
 import useEvent from 'react-use-event-hook'
+import { css } from 'styled-components'
 
 export const Slider = memo(function Slider({
   style,
@@ -18,6 +19,9 @@ export const Slider = memo(function Slider({
 
   return (
     <_Slider
+      css={css`
+        height: 18px;
+      `}
       min={min}
       max={max}
       step={step}

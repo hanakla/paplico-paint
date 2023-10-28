@@ -1,4 +1,4 @@
-import { setCanvasSize } from '@/StrokingHelper'
+import { setCanvasSize } from '@/utils/canvas'
 import { createContext2D } from '../CanvasFactory'
 import { IExporter } from './IExporter'
 import { freeingCanvas } from '@/utils/canvas'

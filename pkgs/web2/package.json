@@ -3,6 +3,7 @@
   "packageManager": "yarn@3.3.0",
   "scripts": {
     "dev": "next dev -p 3002",
+    "dev:chat-server": "tsx watch ./chat-server/main.ts",
     "build": "next build",
     "start": "next start",
     "test": "yarn vitest"
@@ -32,6 +33,7 @@
     "nextra-theme-docs": "2.9.0",
     "polished": "^4.2.2",
     "react": "^18.2.0",
+    "react-contexify": "^6.0.0",
     "react-dom": "^18.2.0",
     "react-draggable-tree": "^0.7.0",
     "react-icons": "^4.11.0",
@@ -44,9 +46,14 @@
     "zustand": "^4.4.4"
   },
   "devDependencies": {
+    "@napi-rs/canvas": "^0.1.44",
     "@types/react": "18.2.31",
     "@types/react-dom": "18.0.11",
-    "vitest": "0.33.0"
+    "@types/ws": "^8.5.8",
+    "@welldone-software/why-did-you-render": "^7.0.1",
+    "tsx": "^3.14.0",
+    "vitest": "0.33.0",
+    "ws": "^8.14.2"
   },
   "resolutions": {
     "@types/react": "18.2.31"

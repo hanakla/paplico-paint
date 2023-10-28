@@ -1,8 +1,6 @@
-import { LayerEntity, LayerNode, VectorPath } from '@/Document'
-import {
+import { type VectorPath } from '@/Document'
+import type {
   AbstractComponentRenderer,
-  VComponent,
-  VComponentProps,
   VNode,
 } from '@/UI/PaneUI/AbstractComponent'
 import { FilterWebGLContext } from './FilterContextAbst'
@@ -66,7 +64,7 @@ export interface IFilter<T extends Record<string, any>> {
 export type FilterMetadata = {
   readonly id: string
   readonly version: string
-  readonly filterName?: string
+  readonly name?: string
 }
 
 export interface FilterClass<T extends Record<string, any>> {

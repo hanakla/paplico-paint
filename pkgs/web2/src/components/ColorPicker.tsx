@@ -1,3 +1,4 @@
+import { checkerBoard } from '@/utils/cssMixin'
 import { useStableLatestRef } from '@/utils/hooks'
 import { clamp } from '@/utils/math'
 import { shallowEquals } from '@/utils/object'
@@ -108,6 +109,7 @@ export const Hue = memo(function Hue({
       max={1}
       min={0}
       aria-label="Color hue"
+      color={hsba}
       onChange={handleOnChange}
       onChangeComplete={handleOnChangeComplete}
     />
@@ -139,7 +141,7 @@ const HueSlider = forwardRef<HTMLDivElement, SliderRendererProps>(
   ),
 )
 
-export const Saturation = memo(function Saturation({
+export const SatAndBright = memo(function HueSaturation({
   color,
   className,
   onChange,
@@ -300,6 +302,155 @@ export const Saturation = memo(function Saturation({
   )
 }, propsAreEquals)
 
+export const Saturation = memo(function Saturation({
+  color,
+  className,
+  onChange,
+  onChangeComplete,
+  Cursor = DefaultCursor,
+}: Props) {
+  const hsba = useMemo(
+    () => toHSBA(color),
+    [
+      (color as ColorTypes.RGBA).r,
+      (color as ColorTypes.RGBA).g,
+      color.b,
+      (color as ColorTypes.HSBA).h,
+      (color as ColorTypes.HSBA).s,
+      color.a,
+    ],
+  )
+
+  const saturation = hsba.s
+
+  const handleOnChange = useEvent(
+    (value: number, e: globalThis.PointerEvent | globalThis.KeyboardEvent) => {
+      const nextHsb = { ...hsba, s: value }
+      onChange?.({ rgb: hsbaToRGBA(nextHsb), hsb: nextHsb }, e)
+    },
+  )
+
+  const handleOnChangeComplete = useEvent(
+    (value: number, e: globalThis.PointerEvent | globalThis.KeyboardEvent) => {
+      const nextHsb = { ...hsba, s: value }
+      onChangeComplete?.({ rgb: hsbaToRGBA(nextHsb), hsb: nextHsb }, e)
+    },
+  )
+
+  return (
+    <SingleSlider
+      Component={SaturationSlider}
+      Cursor={Cursor}
+      className={className}
+      value={saturation}
+      max={1}
+      min={0}
+      aria-label="Color saturation"
+      color={hsba}
+      onChange={handleOnChange}
+      onChangeComplete={handleOnChangeComplete}
+    />
+  )
+}, propsAreEquals)
+
+const SaturationSlider = forwardRef<HTMLDivElement, SliderRendererProps>(
+  ({ color, ...props }, ref) => {
+    return (
+      <div
+        ref={ref}
+        css={css`
+          position: relative;
+          width: 100%;
+          height: 14px;
+        `}
+        {...props}
+        style={{
+          background: `linear-gradient(
+            to right,
+            hsl(${color.h}deg, 0%, 100%) 0%,
+            hsl(${color.h}deg, 100%, 50%) 100%
+          )`,
+          ...props.style,
+        }}
+      />
+    )
+  },
+)
+
+export const Brightness = memo(function Brightness({
+  color,
+  className,
+  onChange,
+  onChangeComplete,
+  Cursor = DefaultCursor,
+}: Props) {
+  const hsba = useMemo(
+    () => toHSBA(color),
+    [
+      (color as ColorTypes.RGBA).r,
+      (color as ColorTypes.RGBA).g,
+      color.b,
+      (color as ColorTypes.HSBA).h,
+      (color as ColorTypes.HSBA).s,
+      color.a,
+    ],
+  )
+
+  const brightness = hsba.b
+
+  const handleOnChange = useEvent(
+    (value: number, e: globalThis.PointerEvent | globalThis.KeyboardEvent) => {
+      const nextHsb = { ...hsba, b: value }
+      onChange?.({ rgb: hsbaToRGBA(nextHsb), hsb: nextHsb }, e)
+    },
+  )
+
+  const handleOnChangeComplete = useEvent(
+    (value: number, e: globalThis.PointerEvent | globalThis.KeyboardEvent) => {
+      const nextHsb = { ...hsba, b: value }
+      onChangeComplete?.({ rgb: hsbaToRGBA(nextHsb), hsb: nextHsb }, e)
+    },
+  )
+
+  return (
+    <SingleSlider
+      Component={BrightnessSlider}
+      Cursor={Cursor}
+      className={className}
+      value={brightness}
+      max={1}
+      min={0}
+      aria-label="Color brightness"
+      color={hsba}
+      onChange={handleOnChange}
+      onChangeComplete={handleOnChangeComplete}
+    />
+  )
+}, propsAreEquals)
+
+const BrightnessSlider = forwardRef<HTMLDivElement, SliderRendererProps>(
+  ({ color, ...props }, ref) => {
+    const hue = color.h
+
+    return (
+      <div
+        ref={ref}
+        css={css`
+          position: relative;
+          width: 100%;
+          height: 14px;
+          background: linear-gradient(
+            to right,
+            hsl(${hue}deg, 100%, 0%) 0%,
+            hsl(${hue}deg, 100%, 50%) 50%
+          );
+        `}
+        {...props}
+      />
+    )
+  },
+)
+
 export const Alpha = memo(function Alpha({
   color,
   className,
@@ -347,6 +498,7 @@ export const Alpha = memo(function Alpha({
       aria-valuemax={1}
       aria-valuemin={0}
       aria-valuenow={alpha}
+      color={hsba}
       onChange={handleOnChange}
       onChangeComplete={handleOnChangeComplete}
     />
@@ -354,7 +506,7 @@ export const Alpha = memo(function Alpha({
 })
 
 const AlphaSlider = forwardRef<HTMLDivElement, SliderRendererProps>(
-  (props, ref) => (
+  ({ children, ...props }, ref) => (
     <div
       ref={ref}
       css={css`
@@ -362,14 +514,42 @@ const AlphaSlider = forwardRef<HTMLDivElement, SliderRendererProps>(
         display: block;
         width: 100%;
         height: 14px;
-        background: linear-gradient(
-          to right,
-          rgba(0, 0, 0, 0) 0%,
-          rgba(0, 0, 0, 1) 100%
-        );
+        background-image: linear-gradient(
+            45deg,
+            rgba(0, 0, 0, 0.2) 25%,
+            transparent 25%,
+            transparent 75%,
+            rgba(0, 0, 0, 0.2) 75%
+          ),
+          linear-gradient(
+            45deg,
+            rgba(0, 0, 0, 0.2) 25%,
+            transparent 25%,
+            transparent 75%,
+            rgba(0, 0, 0, 0.2) 75%
+          );
+
+        background-size: 10px 10px;
+        background-position:
+          0 0,
+          5px 5px;
       `}
       {...props}
-    />
+    >
+      <div
+        css={css`
+          width: 100%;
+          height: 100%;
+          background: linear-gradient(
+            to right,
+            rgba(0, 0, 0, 0) 0%,
+            rgba(0, 0, 0, 1) 100%
+          );
+        `}
+      >
+        {children}
+      </div>
+    </div>
   ),
 )
 
@@ -383,6 +563,7 @@ type SliderRendererProps = {
   'aria-valuemin': number
   'aria-valuenow': number
   tabIndex: number
+  color: ColorTypes.HSBA
   children: ReactNode
 }
 
@@ -408,6 +589,7 @@ const SingleSlider = memo(function SingleSlider({
   min: number
   className?: string
   'aria-label': string
+  color: ColorTypes.HSBA
   onChange: (
     value: number,
     event: globalThis.PointerEvent | globalThis.KeyboardEvent,
@@ -484,9 +666,9 @@ const SingleSlider = memo(function SingleSlider({
       onPointerDown={handlePointerDown}
       onKeyDown={handleKeyDown}
       role="widget"
-      aria-aria-valuemax={max}
-      aria-aria-valuemin={min}
-      aria-aria-valuenow={value}
+      aria-valuemax={max}
+      aria-valuemin={min}
+      aria-valuenow={value}
       tabIndex={0}
       {...aria}
     >
@@ -505,11 +687,11 @@ const SingleSlider = memo(function SingleSlider({
       </div>
     </Component>
   )
-})
+}, propsAreEquals)
 
 function propsAreEquals(
-  { color: prevColor, ...prev }: Props,
-  { color: nextColor, ...next }: Props,
+  { color: prevColor, ...prev }: { color: ColorTypes.RGBA | ColorTypes.HSBA },
+  { color: nextColor, ...next }: { color: ColorTypes.RGBA | ColorTypes.HSBA },
 ) {
   return shallowEquals(prev, next) && shallowEquals(prevColor, nextColor)
 }

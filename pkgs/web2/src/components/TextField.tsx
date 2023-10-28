@@ -23,7 +23,7 @@ type Props = {
 
 export const TextField = memo(
   forwardRef<HTMLInputElement, Props>(function TextField(
-    { preIcon, postIcon, onComplete, ...props },
+    { preIcon, postIcon, onComplete, size, ...props },
     ref,
   ) {
     const handleKeyDown = useFunk((e: KeyboardEvent<HTMLInputElement>) => {
@@ -32,9 +32,14 @@ export const TextField = memo(
     })
 
     return (
-      <_TextField.Root>
+      <_TextField.Root size={size}>
         {preIcon && <_TextField.Slot>{preIcon}</_TextField.Slot>}
-        <_TextField.Input ref={ref} {...props} onKeyDown={handleKeyDown} />
+        <_TextField.Input
+          ref={ref}
+          {...props}
+          size={size}
+          onKeyDown={handleKeyDown}
+        />
         {postIcon && <_TextField.Slot>{postIcon}</_TextField.Slot>}
       </_TextField.Root>
     )

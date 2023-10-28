@@ -1,9 +1,14 @@
 import { pathBounds } from '@/fastsvg/pathBounds'
-
 import { type VectorObject } from '@/Document'
-import { type VectorPathPoint } from '@/Document/LayerEntity/VectorPath'
+import {
+  VectorPath,
+  type VectorPathPoint,
+} from '@/Document/LayerEntity/VectorPath'
 import { type Point2D } from '@/Document/Struct/Point2D'
-import { pointsToSVGCommandArray } from '@/StrokingHelper'
+import { pointsToSVGCommandArray } from '@/stroking-utils'
+import { absNormalizePath } from '@/fastsvg/absNormalizePath'
+import DOMMatrix from '@thednp/dommatrix'
+import { LayerTransform } from '@/Document/LayerEntity'
 
 export const addPoint2D = (a: Point2D, b: Point2D) => ({
   x: a.x + b.x,
@@ -15,17 +20,26 @@ export const multiplyPoint2D = (a: Point2D, b: Point2D) => ({
   y: a.y * b.y,
 })
 
-export const vectorTransformToMatrix = (obj: VectorObject) => {
-  const m = new DOMMatrix()
+export const matrixToCanvasMatrix = (m: DOMMatrix) => {
+  return [m.a, m.b, m.c, m.d, m.e, m.f] as const
+}
+
+export const layerTransformToMatrix = (trns: LayerTransform) => {
+  return new DOMMatrix()
+    .translate(trns.position.x, trns.position.y)
+    .scale(trns.scale.x, trns.scale.y)
+    .rotate(0, 0, trns.rotate)
+}
+
+export const vectorObjectTransformToMatrix = (obj: VectorObject) => {
   const bbx = calcVectorBoundingBox(obj)
 
-  m.translateSelf(bbx.width / 2, bbx.height / 2)
-  m.translateSelf(obj.transform.position.x, obj.transform.position.y)
-  m.scaleSelf(obj.transform.scale.x, obj.transform.scale.y)
-  m.rotateSelf(0, 0, obj.transform.rotate)
-  m.translateSelf(-bbx.width / 2, -bbx.height / 2)
-
-  return [m.a, m.b, m.c, m.d, m.e, m.f] as const
+  return new DOMMatrix()
+    .translate(bbx.width / 2, bbx.height / 2)
+    .translate(obj.transform.position.x, obj.transform.position.y)
+    .scale(obj.transform.scale.x, obj.transform.scale.y)
+    .rotate(0, 0, obj.transform.rotate)
+    .translate(-bbx.width / 2, -bbx.height / 2)
 }
 
 export const calcVectorBoundingBox = (obj: VectorObject) => {
@@ -48,6 +62,55 @@ export const calcVectorBoundingBox = (obj: VectorObject) => {
     width,
     height,
   }
+}
+
+export function svgCommandToVectoPath(path: string): VectorPath[] {
+  // FIXME: Boolean path
+  let norm = absNormalizePath(path)
+
+  const paths: VectorPath[] = []
+  let currentPath: VectorPath = {
+    points: [],
+    closed: false,
+    randomSeed: 0,
+  }
+
+  for (const [cmd, ...args] of norm) {
+    if (cmd === 'M') {
+      currentPath = {
+        points: [],
+        closed: false,
+        randomSeed: 0,
+      }
+      paths.push(currentPath)
+    } else if (cmd === 'L') {
+      currentPath.points.push({
+        x: args[0],
+        y: args[1],
+        begin: null,
+        end: null,
+      })
+    } else if (cmd === 'C') {
+      currentPath.points.push({
+        x: args[4],
+        y: args[5],
+        begin: {
+          x: args[0],
+          y: args[1],
+        },
+        end: {
+          x: args[2],
+          y: args[3],
+        },
+      })
+    } else if (cmd === 'Q') {
+      throw new Error('Quadratic Bezier is not supported')
+    } else if (cmd === 'Z') {
+      currentPath.closed = true
+    }
+  }
+
+  return paths
 }
 
 /** @deprecated */

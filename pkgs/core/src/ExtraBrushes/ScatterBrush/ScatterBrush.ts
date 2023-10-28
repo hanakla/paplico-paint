@@ -1,4 +1,4 @@
-import { BrushContext, BrushLayoutData, IBrush, StrokingHelper } from '@/index'
+import { PapBrush } from '@/index'
 import * as Textures from './textures/index'
 import { PaplicoAbortError } from '@/Errors'
 import { mergeToNew } from '@/utils/object'
@@ -22,15 +22,16 @@ import {
   type Payload,
   type WorkerResponse,
 } from './ScatterBrush-worker'
-import { createBrush } from '@/Engine/Brush'
+import { BrushMetadata, createBrush } from '@/Engine/Brush/Brush'
 import { ColorRGBA } from '@/Document'
+import * as StrokingUtils from '@/stroking-utils'
 
 const _mat4 = new ThreeMatrix4()
 
 const generateId = () => (Date.now() + Math.random()).toString(36)
 
 export declare namespace ScatterBrush {
-  export type SpecificSetting = Partial<{
+  export type Settings = {
     texture: keyof typeof Textures
     divisions: number
     scatterRange: number
@@ -48,19 +49,102 @@ export declare namespace ScatterBrush {
     pressureInfluence: number
     /** 0..1 */
     noiseInfluence: number
-  }>
+  }
 }
 
 export const ScatterBrush = createBrush(
-  class ScatterBrush implements IBrush {
-    public static readonly id = '@paplico/core/extras/scatter-brush'
-    public static readonly version = '0.0.1'
-
-    public get id() {
-      return ScatterBrush.id
+  class ScatterBrush implements PapBrush.IBrush {
+    public static readonly metadata: BrushMetadata = {
+      id: '@paplico/core/extras/scatter-brush',
+      version: '0.0.1',
+      name: 'Scatter Brush',
     }
 
-    public getInitialSpecificConfig(): ScatterBrush.SpecificSetting {
+    public static renderPane({
+      c,
+      h,
+      state,
+      setState,
+    }: PapBrush.BrushPaneContext<ScatterBrush.Settings>) {
+      return h(
+        c.View,
+        { flexFlow: 'column' },
+        // Texture
+        h(c.FieldSet, {
+          title: 'Texture',
+          input: h(c.SelectBox, {
+            placeholder: 'Select texture',
+            value: state.texture,
+            items: [
+              {
+                label: 'Pencil',
+                value: 'pencil',
+              },
+              {
+                label: 'Airbrush',
+                value: 'airBrushTexture',
+              },
+            ],
+            onChange: (value) =>
+              setState({ texture: value as keyof typeof Textures }),
+          }),
+        }),
+
+        // Scatter
+        h(c.FieldSet, {
+          title: 'Scatter',
+          displayValue: state.scatterRange,
+          input: h(c.Slider, {
+            min: 0,
+            max: 100,
+            step: 0.1,
+            value: state.scatterRange,
+            onChange: (value) => setState({ scatterRange: value }),
+          }),
+        }),
+
+        // in/out
+        h(c.FieldSet, {
+          title: 'In / Out',
+          displayValue: state.inOutInfluence,
+          input: h(c.Slider, {
+            min: 0,
+            max: 1,
+            step: 0.01,
+            value: state.inOutInfluence,
+            onChange: (value) => setState({ inOutInfluence: value }),
+          }),
+        }),
+
+        // in/out length
+        h(c.FieldSet, {
+          title: 'In / Out Length',
+          displayValue: state.inOutLength,
+          input: h(c.Slider, {
+            min: 0,
+            max: 200,
+            step: 0.1,
+            value: state.inOutLength,
+            onChange: (value) => setState({ inOutLength: value }),
+          }),
+        }),
+
+        // Pressure
+        h(c.FieldSet, {
+          title: 'Pressure influence',
+          displayValue: state.pressureInfluence,
+          input: h(c.Slider, {
+            min: 0,
+            max: 1,
+            step: 0.01,
+            value: state.pressureInfluence,
+            onChange: (value) => setState({ pressureInfluence: value }),
+          }),
+        }),
+      )
+    }
+
+    public static getInitialConfig(): ScatterBrush.Settings {
       return {
         texture: 'pencil',
         divisions: 1000,
@@ -73,6 +157,10 @@ export const ScatterBrush = createBrush(
         pressureInfluence: 0.8,
         noiseInfluence: 0,
       }
+    }
+
+    public get id() {
+      return ScatterBrush.metadata.id
     }
 
     protected worker: Worker | null = null
@@ -147,8 +235,8 @@ export const ScatterBrush = createBrush(
       threeCamera,
       destSize,
       phase,
-    }: BrushContext<ScatterBrush.SpecificSetting>): Promise<BrushLayoutData> {
-      const sp = mergeToNew(this.getInitialSpecificConfig(), specific)
+    }: BrushContext<ScatterBrush.Settings>): Promise<BrushLayoutData> {
+      const sp = mergeToNew(ScatterBrush.getInitialConfig(), specific)
       const baseColor: ColorRGBA = { ...color, a: opacity }
       const _color = new Color()
 
@@ -243,7 +331,7 @@ export const ScatterBrush = createBrush(
           mesh.setMatrixAt(i, _mat4)
           mesh.setColorAt(
             i,
-            StrokingHelper.rgbToThreeRGB(
+            StrokingUtils.rgbToThreeRGB(
               ink.getColor({
                 pointIndex: i,
                 points: path.points,
@@ -289,7 +377,7 @@ export const ScatterBrush = createBrush(
     }
 
     public async render(
-      ctx: BrushContext<ScatterBrush.SpecificSetting>,
+      ctx: BrushContext<ScatterBrush.Settings>,
     ): Promise<BrushLayoutData> {
       return this.renderWithWorker(ctx)
       // const interX = interpolateMapObject(points, (idx, arr) => arr[idx].x)

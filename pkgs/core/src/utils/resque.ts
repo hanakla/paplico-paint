@@ -65,6 +65,7 @@ export const rescue: Resque = <T extends Promise<any> | any>(
     if (!isExpectedError(e, expects)) {
       throw e
     }
+
     return createResult(null, e)
   }
 }

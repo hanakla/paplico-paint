@@ -2,14 +2,26 @@ import prand from 'pure-rand'
 
 import { ulid } from '@/utils/ulid'
 import { PaplicoDocument } from './Document'
-import { FilterLayer, RasterLayer, VectorLayer } from './LayerEntity'
+import { FilterLayer, RasterLayer, TextLayer, VectorLayer } from './LayerEntity'
 import { VectorObject } from './LayerEntity/VectorObject'
 import { VectorPath } from './LayerEntity/VectorPath'
 import { LayerFilter } from './LayerFilter'
+import {
+  VectorAppearance,
+  VectorAppearanceExternal,
+  VectorAppearanceFill,
+  VectorAppearanceStroke,
+} from './LayerEntity/VectorAppearance'
 
 type Requires<T, K extends keyof T> = Omit<T, K> & {
   [P in K]-?: T[P]
 }
+
+const DEFAULT_TRANSFORM = () => ({
+  position: { x: 0, y: 0 },
+  rotate: 0,
+  scale: { x: 1, y: 1 },
+})
 
 export const createDocument = ({
   width,
@@ -29,11 +41,7 @@ export const createRasterLayerEntity = ({
   opacity = 1,
   visible = true,
   compositeMode = 'normal',
-  transform = {
-    position: { x: 0, y: 0 },
-    rotate: 0,
-    scale: { x: 1, y: 1 },
-  },
+  transform = DEFAULT_TRANSFORM(),
   filters = [],
   features = {},
 }: Requires<
@@ -61,16 +69,11 @@ export const createVectorLayerEntity = ({
   opacity = 1,
   visible = true,
   compositeMode = 'normal',
-  transform = {
-    position: { x: 0, y: 0 },
-    scale: { x: 1, y: 1 },
-    rotate: 0,
-  },
+  transform = DEFAULT_TRANSFORM(),
   filters = [],
   features = {},
-}: Partial<
-  Omit<VectorLayer, 'uid' | 'layerType' | 'objects'>
->): VectorLayer => ({
+  objects = [],
+}: Partial<Omit<VectorLayer, 'uid' | 'layerType'>>): VectorLayer => ({
   uid: `vector-${ulid()}`,
   layerType: 'vector',
   name,
@@ -81,18 +84,14 @@ export const createVectorLayerEntity = ({
   transform,
   features,
   filters,
-  objects: [],
+  objects,
 })
 
 export const createVectorObject = ({
   name = '',
   lock = false,
   visible = true,
-  transform = {
-    position: { x: 0, y: 0 },
-    scale: { x: 1, y: 1 },
-    rotate: 0,
-  },
+  transform = DEFAULT_TRANSFORM(),
   opacity = 1,
   filters = [],
   path = createVectorPath({}),
@@ -120,6 +119,25 @@ export const createVectorPath = ({
   closed,
   randomSeed,
 })
+
+export const createVectorAppearance = ({
+  kind,
+  ...etc
+}:
+  | Requires<Partial<Omit<VectorAppearanceFill, 'uid'>>, 'kind' | 'fill'>
+  | Requires<
+      Partial<Omit<VectorAppearanceStroke, 'uid'>>,
+      'kind' | 'stroke' | 'ink'
+    >
+  | Requires<
+      Partial<Omit<VectorAppearanceExternal, 'uid'>>,
+      'kind' | 'processor'
+    >): VectorAppearance =>
+  ({
+    uid: `vectorAppearance-${ulid()}`,
+    kind,
+    ...etc,
+  }) as VectorAppearance
 
 export const createFilterLayerEntity = ({
   name = '',
@@ -160,4 +178,34 @@ export const createFilterEntry = ({
   settings,
   enabled,
   opacity,
+})
+
+export const createTextLayerEntity = ({
+  name = '',
+  lock = false,
+  visible = true,
+  transform = DEFAULT_TRANSFORM(),
+  opacity = 1,
+  compositeMode = 'normal',
+  fontFamily = 'sans-serif',
+  fontSize = 16,
+  fontStyle = 'normal',
+  textNodes = [],
+  features = {},
+  filters = [],
+}: Partial<Omit<TextLayer, 'uid' | 'layerType'>>): TextLayer => ({
+  uid: `text-${ulid()}`,
+  layerType: 'text',
+  name,
+  lock,
+  visible,
+  transform,
+  opacity,
+  compositeMode,
+  features,
+  filters,
+  fontFamily,
+  fontStyle,
+  fontSize,
+  textNodes,
 })

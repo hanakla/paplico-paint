@@ -20,6 +20,7 @@ import {
   MouseEvent,
   forwardRef,
   memo,
+  useEffect,
   useMemo,
   useReducer,
 } from 'react'
@@ -28,7 +29,7 @@ import { css, styled } from 'styled-components'
 import { useDrag } from '@use-gesture/react'
 import { useState } from 'react'
 import useMeasure from 'use-measure'
-import { useCombineRef } from '@/utils/hooks'
+import { useCombineRef, usePropsMemo } from '@/utils/hooks'
 import { Popover } from '@/components/Popover'
 import useEvent from 'react-use-event-hook'
 import { rgbToColorString } from 'polished'
@@ -37,12 +38,15 @@ import {
   DEFAULT_BRUSH_ID,
   DEFAULT_BRUSH_VERSION,
   usePaplico,
+  usePaplicoStore,
 } from '@/domains/paplico'
 import {
   Alpha,
+  Brightness,
   ColorChangeHandler,
   ColorTypes,
   Hue,
+  SatAndBright,
   Saturation,
   hsbaToRGBA,
   rgbaToHSBA,
@@ -54,10 +58,13 @@ import {
   ActionSheetItem,
   ActionSheetItemGroup,
 } from '@/components/ActionSheet'
-import { useToggle } from 'react-use'
+import { useIsomorphicLayoutEffect, useToggle } from 'react-use'
 import { useModal } from '@/components/Dialog'
 import { FileSaveDialog } from './MainToolbar/FileSaveDialog'
 import { letDownload } from '@hanakla/arma'
+import { Fieldset } from '@/components/Fieldset'
+import { storePicker } from '@/utils/zutrand'
+import { create } from 'zustand'
 
 type Props = {
   className?: string
@@ -91,27 +98,56 @@ function rgbaToPapColor(color: {
   }
 }
 
+type ToolbarStore = {
+  strokeColorHSB: ColorTypes.HSBA
+  strokeColorString: string
+
+  set: (state: Partial<ToolbarStore>) => void
+  get: () => ToolbarStore
+}
+
+const useToolbarStore = create<ToolbarStore>((set, get) => ({
+  strokeColorHSB: { h: 0, s: 0, b: 0 },
+  get strokeColorString() {
+    const color = hsbaToRGBA(get().strokeColorHSB)
+    return rgbToColorString({
+      red: color.r,
+      green: color.g,
+      blue: color.b,
+    })
+  },
+
+  set,
+  get,
+}))
+
 export const MainToolbar = memo(
   forwardRef<HTMLDivElement, Props>(function MainToolbar(
     { className, x, y, onPositionChanged },
     ref,
   ) {
-    const { pap, papStore } = usePaplico()
+    const { pap } = usePaplico()
+    const papStore = usePaplicoStore(storePicker('engineState'))
     const openModal = useModal()
+    const propsMemo = usePropsMemo()
 
     const rootRef = useCombineRef<HTMLDivElement | null>(ref)
 
     const [menuOpened, toggleMenuOpened] = useToggle(false)
 
-    const [strokeColorHSB, setStrokeColorHSB] = useState<ColorTypes.HSBA>(
-      () => {
-        return papStore.engineState?.currentStroke
+    const toolbarStore = useToolbarStore(
+      storePicker('set', 'strokeColorString'),
+    )
+
+    useIsomorphicLayoutEffect(() => {
+      toolbarStore.set({
+        strokeColorHSB: papStore.engineState?.currentStroke
           ? rgbaToHSBA(
               papColorToRGBA(papStore.engineState?.currentStroke.color),
             )
-          : { h: 0, s: 0, b: 0 }
-      },
-    )
+          : { h: 0, s: 0, b: 0 },
+      })
+    }, [])
 
     // const fillColorHSB = useMemo(() => {
     //   return papStore.engineState?.currentFill
@@ -124,14 +160,6 @@ export const MainToolbar = memo(
     })
 
     const bbox = useMeasure(rootRef)
-
-    const handleChangeStrokeColor = useEvent<ColorChangeHandler>((color) => {
-      setStrokeColorHSB(color.hsb)
-
-      pap!.setStrokeSetting({
-        color: rgbaToPapColor(color.rgb),
-      })
-    })
 
     const handleClickOpenMenu = useEvent(() => {
       console.log('open')
@@ -181,26 +209,18 @@ export const MainToolbar = memo(
 
     const fillColor = useMemo(() => {}, [])
 
-    const strokeColor = useMemo(() => {
-      const color = hsbaToRGBA(strokeColorHSB)
-      return {
-        rgba: color,
-        string: rgbToColorString({
-          red: color.r,
-          green: color.g,
-          blue: color.b,
-        }),
-      }
-    }, [strokeColorHSB])
-
     return (
       <Toolbar.Root
         css={s.toolbarRoot}
         ref={rootRef}
-        style={{
-          left: x - bbox.width / 2,
-          top: y - bbox.height / 2,
-        }}
+        style={propsMemo.memo(
+          'root-style',
+          {
+            left: x - bbox.width / 2,
+            top: y - bbox.height / 2,
+          },
+          [x, y],
+        )}
         aria-label="Formatting options"
         className={className}
       >
@@ -250,67 +270,28 @@ export const MainToolbar = memo(
         </Popover>
 
         <Popover
-          trigger={
-            <svg width={32} height={32} viewBox="0 0 32 32">
-              <circle
-                cx={16}
-                cy={16}
-                r={12}
-                stroke={strokeColor.string}
-                strokeWidth={2}
-                fill={strokeColor.string}
-              />
-            </svg>
-          }
+          trigger={propsMemo.memo(
+            'fillsetting-popover-trigger',
+            () => (
+              <svg width={32} height={32} viewBox="0 0 32 32">
+                <circle
+                  cx={16}
+                  cy={16}
+                  r={12}
+                  stroke={toolbarStore.strokeColorString}
+                  strokeWidth={2}
+                  fill={toolbarStore.strokeColorString}
+                />
+              </svg>
+            ),
+            [toolbarStore.strokeColorString],
+          )}
           side="top"
         >
           <FillSettingPane />
         </Popover>
 
-        <Popover
-          trigger={
-            <svg width={32} height={32} viewBox="0 0 32 32">
-              <line
-                stroke={strokeColor.string}
-                strokeWidth={2}
-                strokeLinecap="round"
-                x1={8}
-                y1={8}
-                x2={24}
-                y2={24}
-              />
-            </svg>
-          }
-          side="top"
-        >
-          <div
-            css={css`
-              display: flex;
-              flex-flow: column;
-              gap: 8px;
-            `}
-          >
-            <Saturation
-              css={css`
-                width: 100%;
-                aspect-ratio: 1;
-              `}
-              color={strokeColorHSB}
-              onChange={handleChangeStrokeColor}
-              onChangeComplete={handleChangeStrokeColor}
-            />
-            <Hue
-              color={strokeColorHSB}
-              onChange={handleChangeStrokeColor}
-              onChangeComplete={handleChangeStrokeColor}
-            />
-            <Alpha
-              color={strokeColorHSB}
-              onChange={handleChangeStrokeColor}
-              onChangeComplete={handleChangeStrokeColor}
-            />
-          </div>
-        </Popover>
+        <StrokeColorPopoverTrigger />
 
         <Popover
           trigger={
@@ -333,82 +314,98 @@ export const MainToolbar = memo(
         >
           <LayersPane size="lg" />
         </Popover>
-
-        {/* <Toolbar.ToggleGroup type="multiple" aria-label="Text formatting">
-          <Toolbar.ToggleItem
-            css={css`
-              ${s.item}
-            `}
-            value="bold"
-            aria-label="Bold"
-          >
-            <FontBoldIcon />
-          </Toolbar.ToggleItem>
-          <Toolbar.ToggleItem
-            css={css`
-              ${s.item}
-            `}
-            value="italic"
-            aria-label="Italic"
-          >
-            <FontItalicIcon />
-          </Toolbar.ToggleItem>
-          <Toolbar.ToggleItem
-            css={css`
-              ${s.item}
-            `}
-            value="strikethrough"
-            aria-label="Strike through"
-          >
-            <StrikethroughIcon />
-          </Toolbar.ToggleItem>
-        </Toolbar.ToggleGroup>
-        <Toolbar.Separator css={s.separator} />
-        <Toolbar.ToggleGroup
-          type="single"
-          defaultValue="center"
-          aria-label="Text alignment"
-        >
-          <Toolbar.ToggleItem
-            css={s.item}
-            value="left"
-            aria-label="Left aligned"
-          >
-            <TextAlignLeftIcon />
-          </Toolbar.ToggleItem>
-          <Toolbar.ToggleItem
-            css={s.item}
-            value="center"
-            aria-label="Center aligned"
-          >
-            <TextAlignCenterIcon />
-          </Toolbar.ToggleItem>
-          <Toolbar.ToggleItem
-            css={s.item}
-            value="right"
-            aria-label="Right aligned"
-          >
-            <TextAlignRightIcon />
-          </Toolbar.ToggleItem>
-        </Toolbar.ToggleGroup>
-        <Toolbar.Separator css={s.separator} />
-        <Toolbar.Link
-          className="ToolbarLink"
-          href="#"
-          target="_blank"
-          style={{ marginRight: 10 }}
-        >
-          Edited 2 hours ago
-        </Toolbar.Link>
-        <Toolbar.Button
-          className="ToolbarButton"
-          style={{ marginLeft: 'auto' }}
-        >
-          Share
-        </Toolbar.Button> */}
       </Toolbar.Root>
     )
   }),
+)
+
+const StrokeColorPopoverTrigger = memo(
+  function StrokeColorPopoverTrigger({}: {}) {
+    const { pap } = usePaplico()
+    const { strokeColorHSB, strokeColorString, set } = useToolbarStore(
+      storePicker('strokeColorHSB', 'strokeColorString', 'set'),
+    )
+    const propsMemo = usePropsMemo()
+
+    const handleChangeStrokeColor = useEvent<ColorChangeHandler>((color) => {
+      set({ strokeColorHSB: color.hsb })
+
+      pap!.setStrokeSetting({
+        color: rgbaToPapColor(color.rgb),
+      })
+    })
+
+    return (
+      <Popover
+        trigger={propsMemo.memo(
+          'strokecolor-popover-trigger',
+          () => (
+            <svg width={32} height={32} viewBox="0 0 32 32">
+              <line
+                stroke={strokeColorString}
+                strokeWidth={2}
+                strokeLinecap="round"
+                x1={8}
+                y1={8}
+                x2={24}
+                y2={24}
+              />
+            </svg>
+          ),
+          [strokeColorString],
+        )}
+        side="top"
+      >
+        <div
+          css={css`
+            display: flex;
+            flex-flow: column;
+            gap: 8px;
+          `}
+        >
+          <SatAndBright
+            css={css`
+              width: 100%;
+              aspect-ratio: 1;
+            `}
+            color={strokeColorHSB}
+            onChange={handleChangeStrokeColor}
+            onChangeComplete={handleChangeStrokeColor}
+          />
+          <Fieldset
+            label="Hue"
+            valueField={
+              <TextField size="1" value={Math.round(strokeColorHSB.h)} />
+            }
+          >
+            <Hue
+              color={strokeColorHSB}
+              onChange={handleChangeStrokeColor}
+              onChangeComplete={handleChangeStrokeColor}
+            />
+          </Fieldset>
+
+          <Saturation
+            color={strokeColorHSB}
+            onChange={handleChangeStrokeColor}
+            onChangeComplete={handleChangeStrokeColor}
+          />
+
+          <Brightness
+            color={strokeColorHSB}
+            onChange={handleChangeStrokeColor}
+            onChangeComplete={handleChangeStrokeColor}
+          />
+
+          <Alpha
+            color={strokeColorHSB}
+            onChange={handleChangeStrokeColor}
+            onChangeComplete={handleChangeStrokeColor}
+          />
+        </div>
+      </Popover>
+    )
+  },
 )
 
 const s = {

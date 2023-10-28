@@ -1,4 +1,4 @@
-import { CompositeMode } from '@/Document'
+import { CompositeMode, VectorObject } from '@/Document'
 import {
   clearCanvas,
   freeingCanvas,
@@ -8,8 +8,8 @@ import {
 import { rescue } from '@/utils/resque'
 import { createContext2D } from './CanvasFactory'
 import { RenderCycleLogger } from './RenderCycleLogger'
-import { VectorRenderer } from './VectorRenderer'
-import { RuntimeDocument } from './RuntimeDocument'
+import { VectorObjectOverrides, VectorRenderer } from './VectorRenderer'
+import { DocumentContext } from './DocumentContext'
 import { RenderPhase, Viewport } from './types'
 import { PaplicoAbortError } from '@/Errors'
 import { WebGLRenderer } from 'three'
@@ -55,12 +55,13 @@ export class RenderPipeline {
 
   public async fullyRender(
     dest: CanvasRenderingContext2D,
-    doc: RuntimeDocument,
+    doc: DocumentContext,
     renderer: VectorRenderer,
     {
       abort,
       viewport,
       override,
+      vectorObjectOverrides,
       pixelRatio,
       phase,
       logger,
@@ -68,6 +69,7 @@ export class RenderPipeline {
       abort?: AbortSignal
       viewport: Viewport
       override?: { [layerId: string]: HTMLCanvasElement | ImageBitmap }
+      vectorObjectOverrides?: VectorObjectOverrides
       pixelRatio: number
       phase: RenderPhase
       logger: RenderCycleLogger
@@ -119,11 +121,19 @@ export class RenderPipeline {
           layerBitmap = (await doc.getOrCreateLayerBitmapCache(
             sourceLayer.uid,
           ))!
-        } else if (sourceLayer.layerType === 'vector') {
+        } else if (
+          sourceLayer.layerType === 'vector' ||
+          sourceLayer.layerType === 'text'
+        ) {
           const requestSize = { width: viewport.width, height: viewport.height }
 
-          if (doc.hasLayerBitmapCache(sourceLayer.uid, requestSize)) {
+          const canUseBitmapCache =
+            doc.hasLayerBitmapCache(sourceLayer.uid, requestSize) &&
+            vectorObjectOverrides?.[sourceLayer.uid] == null
+
+          if (canUseBitmapCache) {
             logger.info('Use cached bitmap for vector layer', sourceLayer.uid)
+
             layerBitmap = (await doc.getOrCreateLayerBitmapCache(
               sourceLayer.uid,
               requestSize,
@@ -140,6 +150,7 @@ export class RenderPipeline {
               {
                 viewport,
                 pixelRatio,
+                objectOverrides: vectorObjectOverrides,
                 abort,
                 phase,
                 logger,

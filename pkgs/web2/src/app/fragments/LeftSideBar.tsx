@@ -16,6 +16,7 @@ export const LeftSideBar = memo(({ className }: Props) => {
         /* padding: 8px; */
         background-color: white;
         box-shadow: 0 0 24px rgba(0, 0, 0, 0.1);
+        overflow: auto;
       `}
       className={className}
     >

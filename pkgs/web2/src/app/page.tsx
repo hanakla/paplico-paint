@@ -1,6 +1,6 @@
 'use client'
 
-import { memo, useRef } from 'react'
+import { MutableRefObject, forwardRef, memo, useRef } from 'react'
 import { css } from 'styled-components'
 import { EditorArea } from './fragments/EditorArea'
 import { usePaplicoInit } from '../domains/paplico'
@@ -8,11 +8,18 @@ import { LeftSideBar } from './fragments/LeftSideBar'
 import { useIsMobileDevice } from '@/utils/hooks'
 import { GlobalShortcutHandler } from './GlobalShortcutHandler'
 
-export default memo(function Index() {
+type Props = {
+  // TODO
+  chatMode?: boolean
+}
+
+export default memo(function Page({ chatMode }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const isMobile = useIsMobileDevice()
 
-  usePaplicoInit(canvasRef)
+  // console.log('rerender')
+
+  usePaplicoInit(canvasRef, { chatMode })
 
   return (
     <div
@@ -25,6 +32,8 @@ export default memo(function Index() {
       `}
     >
       <GlobalShortcutHandler />
+      <PaplicoInit canvasRef={canvasRef} />
+
       {!isMobile && (
         <LeftSideBar
           css={css`
@@ -54,4 +63,15 @@ export default memo(function Index() {
       </div>
     </div>
   )
+})
+
+// For performance reasons, we don't want to re-render the entire app when
+const PaplicoInit = memo(function PaplicoInit({
+  canvasRef,
+}: {
+  canvasRef: MutableRefObject<HTMLCanvasElement | null>
+}) {
+  // usePaplicoInit(canvasRef)
+
+  return null
 })

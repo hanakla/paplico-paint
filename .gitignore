@@ -106,3 +106,5 @@ dist
 .DS_Store
 .yarn/cache
 .yarn/install-state.gz
+
+pkgs/web2/public/fonts

@@ -6,13 +6,17 @@ import { BrowserDOM } from './BrowserDOM'
 import { TextInput } from './TextInput'
 import { PaplicoComponents } from '..'
 import { Text } from './Text'
+import { FieldSet } from './FieldSet'
+import { SelectBox } from './SelectBox'
 
 export const ReactDOMImpls: PaplicoComponents = {
   Fragment,
   View,
   Text,
+  FieldSet,
   Slider,
   Button,
   TextInput,
+  SelectBox,
   BrowserDOM,
 }

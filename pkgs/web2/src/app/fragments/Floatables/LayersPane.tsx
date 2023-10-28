@@ -1,7 +1,7 @@
 import { FloatablePane } from '@/components/FloatablePane'
 import { TreeView, TreeNodeBase } from '@/components/TreeView'
 import { FloatablePaneIds } from '@/domains/floatablePanes'
-import { usePaplico } from '@/domains/paplico'
+import { usePaplico, usePaplicoStore } from '@/domains/paplico'
 import { Commands, Document } from '@paplico/core-new'
 import React, {
   ChangeEvent,
@@ -17,6 +17,7 @@ import useEvent from 'react-use-event-hook'
 import {
   LayerNodes,
   LayerTreeNode,
+  VectorObjectTreeNode,
   convertLayerNodeToTreeViewNode,
 } from './Layers.structs'
 import { RxPlus } from 'react-icons/rx'
@@ -33,14 +34,40 @@ import { Box, Button, Select, Slider } from '@radix-ui/themes'
 import { TextField } from '@/components/TextField'
 import { Fieldset } from '@/components/Fieldset'
 import { roundPrecision } from '@/utils/math'
+import { storePicker } from '@/utils/zutrand'
+import { usePropsMemo } from '@/utils/hooks'
+import {
+  ContextMenu,
+  ContextMenuItemClickHandler,
+  useContextMenu,
+} from '@/components/ContextMenu'
 
 type Props = {
   size?: 'sm' | 'lg'
 }
 
-export const LayersPane = memo(function Layers({ size = 'sm' }: Props) {
-  const { pap, papStore } = usePaplico()
+type LayerContextMenuEvent =
+  | {
+      kind: 'layer'
+      event: MouseEvent
+      layerUid: string
+    }
+  | {
+      kind: 'vectorObject'
+      event: MouseEvent
+      objectUid: string
+    }
+
+type LayerContextMenuParams = {
+  layerUid: string
+}
+
+export const LayersPane = memo(function LayersPane({ size = 'sm' }: Props) {
+  const { pap } = usePaplico()
+  const papStore = usePaplicoStore(storePicker('activeLayerEntity'))
   const rerender = useUpdate()
+  const propsMemo = usePropsMemo()
+  const layerItemMenu = useContextMenu<LayerContextMenuParams>()
 
   const activeLayer = papStore.activeLayerEntity
 
@@ -56,6 +83,17 @@ export const LayersPane = memo(function Layers({ size = 'sm' }: Props) {
         },
       }),
     )
+  })
+
+  const handleLayerItemContextMenu = useEvent((e: LayerContextMenuEvent) => {
+    if (e.kind !== 'layer') return
+
+    layerItemMenu.show({
+      event: e.event,
+      props: {
+        layerUid: e.layerUid,
+      },
+    })
   })
 
   useEffect(() => {
@@ -102,15 +140,23 @@ export const LayersPane = memo(function Layers({ size = 'sm' }: Props) {
           label="Blend mode"
           valueField={activeLayer?.compositeMode ?? '<Blend mode>'}
         >
-          <Select.Root size="1">
-            <Select.Trigger />
-            <Select.Content>
-              <Select.Item value="normal">Normal</Select.Item>
-              <Select.Item value="multiply">Multiply</Select.Item>
-              <Select.Item value="screen">Screen</Select.Item>
-              <Select.Item value="overlay">Overlay</Select.Item>
-            </Select.Content>
-          </Select.Root>
+          {propsMemo.memo(
+            'blendmode-fieldset-root',
+            () => (
+              <Select.Root size="1">
+                <>
+                  <Select.Trigger />
+                  <Select.Content>
+                    <Select.Item value="normal">Normal</Select.Item>
+                    <Select.Item value="multiply">Multiply</Select.Item>
+                    <Select.Item value="screen">Screen</Select.Item>
+                    <Select.Item value="overlay">Overlay</Select.Item>
+                  </Select.Content>
+                </>
+              </Select.Root>
+            ),
+            [],
+          )}
         </Fieldset>
 
         <Fieldset
@@ -136,11 +182,16 @@ export const LayersPane = memo(function Layers({ size = 'sm' }: Props) {
         css={css`
           background-color: var(--gray-3);
           min-height: 300px;
+          max-height: 600px;
           border-radius: 4px 4px 0 0;
         `}
       >
         {!!pap?.currentDocument && (
-          <LayerTreeView root={pap?.currentDocument?.layerTree} size={size} />
+          <LayerTreeView
+            root={pap?.currentDocument?.layerTree}
+            size={size}
+            onLayerItemContextMenu={handleLayerItemContextMenu}
+          />
         )}
       </ScrollArea>
       <div
@@ -171,17 +222,46 @@ export const LayersPane = memo(function Layers({ size = 'sm' }: Props) {
           <DropdownMenuItem>Vector Layer</DropdownMenuItem>
         </DropdownMenu>
       </div>
+
+      <LayerItemContextMenu id={layerItemMenu.id} />
     </FloatablePane>
   )
 })
 
+const LayerItemContextMenu = memo<{ id: string }>(
+  function LayerItemContextMenu({ id }) {
+    const { pap } = usePaplico()
+
+    const onClickRemove = useEvent<
+      ContextMenuItemClickHandler<LayerContextMenuParams>
+    >(({ props }) => {
+      pap?.command.do(new Commands.DocumentRemoveLayer(props.layerUid))
+    })
+
+    return (
+      <ContextMenu.Menu id={id}>
+        <ContextMenu.Item onClick={onClickRemove}>Remove</ContextMenu.Item>
+      </ContextMenu.Menu>
+    )
+  },
+)
+
 const LayerTreeView = memo(
-  ({ root, size }: Props & { root: Document.LayerNode }) => {
+  ({
+    root,
+    size,
+    onLayerItemContextMenu,
+  }: Props & {
+    root: Document.LayerNode
+    onLayerItemContextMenu: (e: LayerContextMenuEvent) => void
+  }) => {
     const pap = usePaplico().pap!
 
     const rerender = useUpdate()
-    const [tree, setTree] = useState<LayerTreeNode>(() =>
-      convertLayerNodeToTreeViewNode(pap!.currentDocument!, root),
+    const [tree, setTree] = useState<LayerTreeNode | null>(() =>
+      pap?.currentDocument
+        ? convertLayerNodeToTreeViewNode(pap.currentDocument, root)
+        : null,
     )
 
     const update = useCallback(() => {
@@ -191,7 +271,7 @@ const LayerTreeView = memo(
 
     const handleClickItem = useEvent((item: LayerNodes) => {
       if (item instanceof LayerTreeNode) {
-        pap!.enterLayer(item.layerPath)
+        pap!.setStrokingTargetLayer(item.layerPath)
         rerender()
       }
     })
@@ -233,6 +313,7 @@ const LayerTreeView = memo(
             size={size}
             onClick={handleClickItem}
             onChange={update}
+            onContextMenu={onLayerItemContextMenu}
           />
         )
       }
@@ -240,16 +321,24 @@ const LayerTreeView = memo(
 
     useEffect(() => {
       const changed = () => {
-        setTree(convertLayerNodeToTreeViewNode(pap!.currentDocument!, root))
+        setTree(
+          pap?.currentDocument
+            ? convertLayerNodeToTreeViewNode(pap.currentDocument, root)
+            : null,
+        )
       }
 
+      pap!.on('documentChanged', changed)
       pap!.on('activeLayerChanged', changed)
       pap!.on('history:affect', changed)
       return () => {
+        pap!.off('documentChanged', changed)
         pap!.off('activeLayerChanged', changed)
         pap!.off('history:affect', changed)
       }
-    }, [pap])
+    }, [pap?.currentDocument])
+
+    if (!tree) return null
 
     return (
       <TreeView<LayerNodes>
@@ -320,12 +409,15 @@ const LayerTreeRow = ({
   size,
   onChange,
   onClick,
+  onContextMenu,
 }: TreeView.RowRenderProps<LayerNodes> & {
   size: 'sm' | 'lg'
   onChange: () => void
   onClick: (item: LayerNodes) => void
+  onContextMenu: (entity: LayerContextMenuEvent) => void
 }) => {
-  const { pap, papStore } = usePaplico()
+  const { pap } = usePaplico()
+  const papStore = usePaplicoStore(storePicker('engineState'))
 
   const handleCollapseButtonClick = useEvent((e: MouseEvent) => {
     e.stopPropagation()
@@ -335,6 +427,18 @@ const LayerTreeRow = ({
 
   const handleClick = useEvent(() => {
     onClick(item)
+  })
+
+  const handleContextMenu = useEvent((e: MouseEvent) => {
+    if (item instanceof LayerTreeNode) {
+      onContextMenu({ kind: 'layer', event: e, layerUid: item.layer.uid })
+    } else if (item instanceof VectorObjectTreeNode) {
+      onContextMenu({
+        kind: 'vectorObject',
+        event: e,
+        objectUid: item.object.uid,
+      })
+    }
   })
 
   const layerImage = pap!.previews.getForLayer(item.key)
@@ -352,7 +456,6 @@ const LayerTreeRow = ({
           border-top: 1px solid var(--gray-8);
         }
       `}
-      onClick={handleClick}
       style={{
         background:
           item instanceof LayerTreeNode &&
@@ -360,6 +463,8 @@ const LayerTreeRow = ({
             ? 'var(--sky-5)'
             : 'transparent',
       }}
+      onClick={handleClick}
+      onContextMenu={handleContextMenu}
     >
       <span
         css={css`
@@ -408,9 +513,12 @@ const LayerTreeRow = ({
         ? emptyCoalease(
             item.layer.name,
             <PlaceholderString>
-              {item.layer.layerType === 'vector'
-                ? '<Vector Layer>'
-                : '<Normal Layer>'}
+              {
+                // prettier-ignore
+                item.layer.layerType === 'vector'? '<Vector Layer>'
+                : item.layer.layerType === 'text' ? '<Text Layer>'
+                : '<Normal Layer>'
+              }
             </PlaceholderString>,
           )
         : 'Vector Object'}

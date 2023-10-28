@@ -12,7 +12,10 @@ export function convertLayerNodeToTreeViewNode(
     [...path, node.layerUid],
     parent,
   )
-  const layer = (item.layer = document.resolveLayerEntity(node.layerUid)!)
+  const layer = document.resolveLayerEntity(node.layerUid)
+  if (!layer) return new (class extends Base<any> {})()
+
+  item.layer = layer
 
   item.children = [
     ...[...node.children].reverse().map((child) => {

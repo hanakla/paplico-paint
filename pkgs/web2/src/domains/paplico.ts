@@ -172,14 +172,14 @@ export function usePaplicoInit(
                 closed: true,
               }),
               filters: [
-                Document.createVectorAppearance({
-                  kind: 'fill',
-                  fill: {
-                    type: 'fill',
-                    color: { r: 0, g: 0, b: 1 },
-                    opacity: 1,
-                  },
-                }),
+                // Document.createVectorAppearance({
+                //   kind: 'fill',
+                //   fill: {
+                //     type: 'fill',
+                //     color: { r: 0, g: 0, b: 1 },
+                //     opacity: 1,
+                //   },
+                // }),
               ],
             }),
           ],

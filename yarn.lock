@@ -7131,6 +7131,7 @@ __metadata:
     "@types/react-dom": ^18.2.14
     "@use-gesture/react": ^10.3.0
     react-jss: ^10.10.0
+    react-use-measure: ^2.1.1
     rollup-plugin-node-externals: ^6.1.2
     typescript: ^5.0.4
     vite: ^4.4.9
@@ -29284,6 +29285,18 @@ next@latest:
   peerDependencies:
     react: ">= 16.8.0"
   checksum: 4436b9c4e6634c74884b6d8c8b22b57e280a3ec5b2167467f4405c56e7ca9a188771d0c043d17eb62d5d9d6e15c16ae2b7a370a187391ef1d1740361b8882b43
+  languageName: node
+  linkType: hard
+
+"react-use-measure@npm:^2.1.1":
+  version: 2.1.1
+  resolution: "react-use-measure@npm:2.1.1"
+  dependencies:
+    debounce: ^1.2.1
+  peerDependencies:
+    react: ">=16.13"
+    react-dom: ">=16.13"
+  checksum: b8e8939229d463c3c505f7b617925c0228efae0cd6f651371f463846417b06c9170be57df51293a61027c41770f8a090fdb8a08717c4e36290ccb496e0318f1f
   languageName: node
   linkType: hard
 

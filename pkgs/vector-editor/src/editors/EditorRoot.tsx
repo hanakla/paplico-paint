@@ -3,6 +3,8 @@ import { VectorEditor } from './VectorEditor'
 import { memo, useEffect, useMemo, useRef } from 'react'
 import { themeVariables } from '@/theme'
 import { createUseStyles } from 'react-jss'
+import useMeasure from 'react-use-measure'
+import { storePicker } from '@/utils/zutrand'
 
 type Props = {
   theme?: typeof themeVariables
@@ -12,8 +14,13 @@ export const EditorRoot = memo(function EditorRoot({
   theme = themeVariables,
 }: Props) {
   const { paplico } = useEngineStore()
-  const { brushSizePreview } = useEditorStore()
+  const { brushSizePreview, setEditorState } = useEditorStore(
+    storePicker('brushSizePreview', 'setEditorState'),
+  )
   const s = useStyles()
+
+  // const rootRef = useRef<SVGSVGElement | null>(null)
+  const [rootRef, bound] = useMeasure({ offsetSize: true })
 
   const useGlobalStyles = useMemo(() => {
     return createUseStyles({
@@ -67,8 +74,15 @@ export const EditorRoot = memo(function EditorRoot({
     })
   }, [brushSizePreview])
 
+  useEffect(() => {
+    setEditorState({
+      _rootBBox: bound,
+    })
+  }, [bound])
+
   return (
     <svg
+      ref={rootRef}
       width={size.width}
       height={size.height}
       viewBox={`0 0 ${size.width} ${size.height}`}
@@ -84,7 +98,7 @@ export const EditorRoot = memo(function EditorRoot({
         r={brushSizePreview?.size ?? 0}
       />
 
-      <VectorEditor width={size.width} height={size.height} />
+      <VectorEditor rootBBox={bound} width={size.width} height={size.height} />
     </svg>
   )
 })

@@ -1,10 +1,12 @@
 import { useEditorStore, useEngineStore } from '@/store'
 import { memo, useCallback, useEffect, useMemo, useReducer } from 'react'
 import { PathObject } from './VectorEditor/PathObject'
+import { RectReadOnly } from 'react-use-measure'
 
 type Props = {
   width: number
   height: number
+  rootBBox: RectReadOnly
 }
 
 export const VectorEditor = memo(function VectorEditor({

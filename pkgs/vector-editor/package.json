@@ -40,6 +40,7 @@
   "dependencies": {
     "@use-gesture/react": "^10.3.0",
     "react-jss": "^10.10.0",
+    "react-use-measure": "^2.1.1",
     "zustand": "^4.4.4"
   }
 }

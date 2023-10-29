@@ -25,8 +25,10 @@ export const EditorArea = memo(
     { className },
     canvasRef,
   ) {
-    const { pap } = usePaplico()
-    const papStore = usePaplicoStore(storePicker('_setEditorHandle'))
+    const { pap, editorHandle } = usePaplico()
+    const papStore = usePaplicoStore(
+      storePicker('_setEditorHandle', 'editorHandle'),
+    )
 
     const editorStore = useEditorStore()
     const { canvasTransform } = editorStore
@@ -78,6 +80,8 @@ export const EditorArea = memo(
             // 新しいオフセットを計算
             const newX = prev.x - offsetX
             const newY = prev.y - offsetY
+
+            editorHandle?.setCanvasScaledScale(newScale)
 
             return {
               ...prev,
@@ -138,6 +142,7 @@ export const EditorArea = memo(
       if (!pap) return
       const handle = bindPaplico(vectorEditorRef.current!, pap)
       papStore._setEditorHandle(handle)
+      handle.setCanvasScaledScale(canvasTransform.scale)
 
       return () => {
         handle.dispose()

@@ -17,6 +17,7 @@ export type Payload =
       type: 'getPoints'
       path: VectorPath
       destSize: { width: number; height: number }
+      pixelRatio: number
       brushSize: number
       scatterRange: number
       scatterScale: number
@@ -119,12 +120,19 @@ export async function processInput(data: Payload): Promise<WorkerResponse> {
     id,
     path,
     destSize,
+    pixelRatio,
     brushSize,
     scatterRange,
     scatterScale,
     inOutInfluence,
     inOutLength,
   } = data
+  console.log({ pixelRatio })
+  const originalWidth = destSize.width
+  const originalHeight = destSize.height
+
+  const destWidth = destSize.width * pixelRatio
+  const destHeight = destSize.height * pixelRatio
 
   // const positions: [number, number][] = []
   const lengths: number[] = []
@@ -136,9 +144,7 @@ export async function processInput(data: Payload): Promise<WorkerResponse> {
     bottom: 0,
   }
 
-  const pal = indexedPointAtLength(
-    pointsToSVGCommandArray(path.points, path.closed),
-  )
+  const pal = indexedPointAtLength(pointsToSVGCommandArray(path.points))
 
   const totalLen = pal.totalLength
 
@@ -170,7 +176,7 @@ export async function processInput(data: Payload): Promise<WorkerResponse> {
     scatterScale,
   })
 
-  for (let idx = 0, l = points.length; idx < l; idx += 1) {
+  for (let idx = 0, l = points.length; idx < l; idx += 2) {
     // wait for tick (for receiving abort message from main thread)
     await Promise.resolve()
 
@@ -206,19 +212,19 @@ export async function processInput(data: Payload): Promise<WorkerResponse> {
         // y,
         mapLinear(
           scatPoint.x,
-          [0, destSize.width],
-          [-destSize.width / 2, destSize.width / 2],
+          [0, originalWidth],
+          [-destWidth / 2, destWidth / 2],
         ),
         mapLinear(
           scatPoint.y,
-          [0, destSize.height],
-          [destSize.height / 2, -destSize.height / 2],
+          [0, originalHeight],
+          [destHeight / 2, -destHeight / 2],
         ),
         0,
       )
       .scale([
-        brushSize * inoutScale * scatPoint.scale,
-        brushSize * inoutScale * scatPoint.scale,
+        brushSize * inoutScale * scatPoint.scale * pixelRatio,
+        brushSize * inoutScale * scatPoint.scale * pixelRatio,
         1,
       ])
       .rotateZ(rad + scatPoint.rotate)

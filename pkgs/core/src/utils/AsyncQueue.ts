@@ -17,7 +17,7 @@ export class RenderQueue<T extends string> {
     queueList.push(fn)
 
     // const last = this.queue.at(-1)
-    const previous = this.current ?? Promise.resolve()
+    const previous = (this.current ??= Promise.resolve())
 
     previous.finally(() => {
       // expired

@@ -1,6 +1,6 @@
 import { createSeededRandom, hsvToRgb, rgbToHsv } from '@/Math'
 import { freeingCanvas, setCanvasSize } from '@/utils/canvas'
-import { createCanvas } from '../Engine/CanvasFactory'
+import { createCanvas, createImage } from '../Engine/CanvasFactory'
 import { IInk, InkGenerator } from '../Engine/Ink'
 import { glitchNoise } from './texture/index'
 
@@ -20,7 +20,7 @@ export class TextureReadInk implements IInk {
 
   public async initialize() {
     const img = await new Promise<HTMLImageElement>((resolve, reject) => {
-      const img = new Image()
+      const img = createImage()
       img.onload = () => resolve(img)
       img.onerror = (e) => reject(e)
       img.src = glitchNoise
@@ -49,12 +49,15 @@ export class TextureReadInk implements IInk {
         baseColor,
         pointAtLength,
         totalLength,
+        pixelRatio,
       }) => {
         // const random = createSeededRandom(pointIndex)
 
         // const baseHsv = rgbToHsv(baseColor.r, baseColor.g, baseColor.b)
 
-        const pos = Math.trunc((pointAtLength / totalLength) * bytes) % bytes
+        const pos =
+          Math.trunc((pointAtLength / totalLength) * (1 / pixelRatio) * bytes) %
+          bytes
         const data = this.texture.data
 
         const [h, s, v] = rgbToHsv(

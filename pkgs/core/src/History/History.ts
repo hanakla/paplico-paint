@@ -1,7 +1,7 @@
 import { ICommand } from './ICommand'
 import { Emitter } from '@/utils/Emitter'
 import { rescue } from '@/utils/resque'
-import { DocumentContext } from '@/Engine/DocumentContext'
+import { DocumentContext } from '@/Engine/DocumentContext/DocumentContext'
 import { AtomicResource } from '@/utils/AtomicResource'
 
 export namespace History {

@@ -1,5 +1,5 @@
 import { FloatablePane } from '@/components/FloatablePane'
-import { TreeView, TreeNodeBase } from '@/components/TreeView'
+import { TreeView } from '@/components/TreeView'
 import { FloatablePaneIds } from '@/domains/floatablePanes'
 import { usePaplico, usePaplicoStore } from '@/domains/paplico'
 import { Commands, Document } from '@paplico/core-new'
@@ -64,7 +64,7 @@ type LayerContextMenuParams = {
 
 export const LayersPane = memo(function LayersPane({ size = 'sm' }: Props) {
   const { pap } = usePaplico()
-  const papStore = usePaplicoStore(storePicker('activeLayerEntity'))
+  const papStore = usePaplicoStore(storePicker(['activeLayerEntity']))
   const rerender = useUpdate()
   const propsMemo = usePropsMemo()
   const layerItemMenu = useContextMenu<LayerContextMenuParams>()
@@ -81,6 +81,32 @@ export const LayersPane = memo(function LayersPane({ size = 'sm' }: Props) {
         updater: (layer) => {
           layer.name = name
         },
+      }),
+    )
+  })
+
+  const handleClickAddLayer = useEvent((e: MouseEvent<HTMLDivElement>) => {
+    if (!pap?.currentDocument) return
+
+    const type = e.currentTarget.dataset.layerType!
+
+    // prettier-ignore
+    const layer =
+      type === 'normal'
+        ? Document.createRasterLayerEntity({
+            width: pap?.currentDocument.meta.mainArtboard.width,
+            height: pap?.currentDocument.meta.mainArtboard.height,
+          })
+      : type === 'vector'
+        ? Document.createVectorLayerEntity({})
+      : null
+
+    if (!layer) return
+
+    pap.command.do(
+      new Commands.DocumentCreateLayer(layer, {
+        layerPath: [],
+        indexAtSibling: -1,
       }),
     )
   })
@@ -218,8 +244,18 @@ export const LayersPane = memo(function LayersPane({ size = 'sm' }: Props) {
             </Button>
           }
         >
-          <DropdownMenuItem>Normal Layer</DropdownMenuItem>
-          <DropdownMenuItem>Vector Layer</DropdownMenuItem>
+          <DropdownMenuItem
+            data-layer-type="normal"
+            onClick={handleClickAddLayer}
+          >
+            Normal Layer
+          </DropdownMenuItem>
+          <DropdownMenuItem
+            data-layer-type="vector"
+            onClick={handleClickAddLayer}
+          >
+            Vector Layer
+          </DropdownMenuItem>
         </DropdownMenu>
       </div>
 
@@ -417,7 +453,7 @@ const LayerTreeRow = ({
   onContextMenu: (entity: LayerContextMenuEvent) => void
 }) => {
   const { pap } = usePaplico()
-  const papStore = usePaplicoStore(storePicker('engineState'))
+  const papStore = usePaplicoStore(storePicker(['engineState']))
 
   const handleCollapseButtonClick = useEvent((e: MouseEvent) => {
     e.stopPropagation()

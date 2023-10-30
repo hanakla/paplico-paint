@@ -1,10 +1,13 @@
 import { PaplicoDocument } from '@/Document/Document'
 import { AtomicResource } from '@/utils/AtomicResource'
-import { RuntimeLayerEntity } from './RuntimeDocument/RuntimeLayerEntity'
+import { RuntimeLayerEntity } from './RuntimeLayerEntity'
 import { History } from '@/History/History'
 import { ICommand } from '@/History/ICommand'
-import { PreviewStore } from '@/Engine/PreviewStore'
+import { PreviewStore } from '@/Engine/DocumentContext/PreviewStore'
 import { Emitter } from '@/utils/Emitter'
+import { LayerMetrics } from './LayerMetrics'
+import { VectorGroup, VectorObject } from '@/Document'
+import { createImageBitmapImpl, createImageData } from '../CanvasFactory'
 
 export namespace DocumentContext {
   export type LayoutData = {
@@ -26,8 +29,10 @@ export class DocumentContext extends Emitter<DocumentContext.Events> {
   public layerImageCache: Map<string, ImageBitmap> = new Map()
   public blobCaches: Map<string, WeakRef<any>> = new Map()
 
-  protected layerMetrics = new Map<string, DocumentContext.LayoutData>()
+  public layerMetrics = new LayerMetrics(this)
+
   protected layerEntities = new Map<string, RuntimeLayerEntity>()
+  protected vectorObjectEntities = new Map<string, VectorObject | VectorGroup>()
 
   public previews: PreviewStore
 
@@ -51,13 +56,13 @@ export class DocumentContext extends Emitter<DocumentContext.Events> {
 
     this.previews.dispose()
     this.history.dispose()
+    this.layerMetrics.dispose()
     this.layerImageCache.forEach((bitmap) => bitmap.close())
     this.layerImageCache.clear()
-    this.layerMetrics.clear()
     this.blobCaches.clear()
   }
 
-  public get rootNodes() {
+  public get rootNode() {
     return this.document.layerTree
   }
 
@@ -89,6 +94,10 @@ export class DocumentContext extends Emitter<DocumentContext.Events> {
     return runtimeEntity
   }
 
+  public resolveVectorObject(uid: string) {
+    return this.document.resolveVectorObject(uid)
+  }
+
   /** Check valid bitmap cache in requested size availablity */
   public hasLayerBitmapCache(
     layerUid: string,
@@ -118,6 +127,12 @@ export class DocumentContext extends Emitter<DocumentContext.Events> {
     const layer = this.document.layerEntities.find((l) => l.uid === layerUid)
     if (!layer) return null
 
+    const runtimeEntity = this.layerEntities.get(layerUid) ?? {
+      lastUpdated: 0,
+      source: new WeakRef(layer),
+    }
+    this.layerEntities.set(layerUid, runtimeEntity)
+
     if (layer?.layerType !== 'raster' && !size) {
       throw new Error(
         'Cannot create bitmap cache without size when layer is not raster',
@@ -138,16 +153,24 @@ export class DocumentContext extends Emitter<DocumentContext.Events> {
     if (bitmap) return bitmap
 
     if (layer.layerType === 'raster') {
-      bitmap = await createImageBitmap(
+      bitmap = await createImageBitmapImpl(
         layer.bitmap
-          ? new ImageData(layer.bitmap, layer.width, layer.height)
-          : new ImageData(layer.width, layer.height),
+          ? createImageData(layer.bitmap, layer.width, layer.height)
+          : createImageData(layer.width, layer.height),
       )
+
+      runtimeEntity.lastUpdated = Date.now()
 
       this.layerImageCache.set(layerUid, bitmap)
       await this.previews.generateAndSet(layerUid, bitmap)
     } else if (layer.layerType === 'vector') {
-      bitmap = await createImageBitmap(new ImageData(size!.width, size!.height))
+      bitmap = await createImageBitmapImpl(
+        createImageData(size!.width, size!.height),
+      )
+
+      runtimeEntity.lastUpdated = Date.now()
+
+      this.layerEntities.set(layerUid, runtimeEntity)
       this.layerImageCache.set(layerUid, bitmap)
       await this.previews.generateAndSet(layerUid, bitmap)
     }
@@ -157,6 +180,11 @@ export class DocumentContext extends Emitter<DocumentContext.Events> {
 
   public invalidateLayerBitmapCache(layerUid: string) {
     this.layerImageCache.delete(layerUid)
+  }
+
+  public invalidateAllLayerBitmapCache() {
+    this.layerImageCache.forEach((bitmap) => bitmap.close())
+    this.layerImageCache.clear()
   }
 
   // public getLayerImageBitmap(layerUid: string) {}
@@ -174,7 +202,7 @@ export class DocumentContext extends Emitter<DocumentContext.Events> {
       layer.bitmap = newBitmap.data
     }
 
-    const nextBitmap = await createImageBitmap(newBitmap)
+    const nextBitmap = await createImageBitmapImpl(newBitmap)
     this.layerImageCache.set(layerUid, nextBitmap)
     this.previews.generateAndSet(layerUid, nextBitmap)
 
@@ -191,14 +219,22 @@ export class DocumentContext extends Emitter<DocumentContext.Events> {
     return ref.deref() as T | undefined
   }
 
-  public updateLayerMetrics(
-    layerUid: string,
-    data: DocumentContext.LayoutData,
-  ) {
-    const layer = this.document.layerEntities.find((l) => l.uid === layerUid)
-    if (!layer) return
+  public updateObjectMetrics(metrices: Record<string, LayerMetrics.BBoxSet>) {
+    const entries = Object.entries(metrices)
 
-    this.layerMetrics.set(layer?.uid, data)
+    for (let idx = 0, l = entries.length; idx < l; idx++) {
+      const [uid, data] = entries[idx]
+      this.layerMetrics.setEntityMetrice(uid, data.source, data.visually)
+    }
+  }
+
+  public updateLayerMetrics(metrices: Record<string, LayerMetrics.BBoxSet>) {
+    const entries = Object.entries(metrices)
+
+    for (let idx = 0, l = entries.length; idx < l; idx++) {
+      const [uid, data] = entries[idx]
+      this.layerMetrics.setEntityMetrice(uid, data.source, data.visually)
+    }
   }
 
   public getLayerMetrics(layerUid: string) {

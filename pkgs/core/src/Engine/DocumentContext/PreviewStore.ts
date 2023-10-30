@@ -1,5 +1,5 @@
-import { createContext2D } from './CanvasFactory'
-import { freeingCanvas, setCanvasSize } from '@/utils/canvas'
+import { createContext2D } from '../CanvasFactory'
+import { canvasToBlob, freeingCanvas, setCanvasSize } from '@/utils/canvas'
 import { Emitter } from '@/utils/Emitter'
 
 type PreviewEntry = {
@@ -35,12 +35,7 @@ export class PreviewStore extends Emitter<PreviewStore.Events> {
       setCanvasSize(x.canvas, 256, 256)
       x.drawImage(bitmap, 0, 0, 256, 256)
 
-      const blob = await new Promise<Blob | null>((resolve) => {
-        x.canvas.toBlob((blob) => {
-          resolve(blob)
-        }, 'image/png')
-      })
-
+      const blob = await canvasToBlob(x.canvas, 'image/png')
       if (!blob) throw new Error('Failed to generate thumbnail')
 
       const url = URL.createObjectURL(blob)

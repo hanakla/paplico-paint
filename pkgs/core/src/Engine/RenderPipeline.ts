@@ -6,10 +6,15 @@ import {
   setCanvasSize,
 } from '@/utils/canvas'
 import { rescue } from '@/utils/resque'
-import { createCanvas, createContext2D } from './CanvasFactory'
+import {
+  createCanvas,
+  createContext2D,
+  createImageBitmapImpl,
+  isCanvasElement,
+} from './CanvasFactory'
 import { RenderCycleLogger } from './RenderCycleLogger'
 import { VectorObjectOverrides, VectorRenderer } from './VectorRenderer'
-import { DocumentContext } from './DocumentContext'
+import { DocumentContext } from './DocumentContext/DocumentContext'
 import { RenderPhase, Viewport } from './types'
 import { PaplicoAbortError } from '@/Errors'
 import { WebGLRenderer } from 'three'
@@ -18,6 +23,11 @@ import { AppearanceRegistry } from '@/Engine/Registry/AppearanceRegistry'
 import { FilterWebGLContext } from './Filter/FilterContextAbst'
 import { ThreeFilterContext } from './Filter/ThreeFilterContext'
 import { deepClone } from '@/utils/object'
+import {
+  createBBox,
+  createEmptyBBox,
+  type LayerMetrics,
+} from './DocumentContext/LayerMetrics'
 
 export class RenderPipeline {
   protected filterRegistry: AppearanceRegistry
@@ -74,23 +84,28 @@ export class RenderPipeline {
       phase: RenderPhase
       logger: RenderCycleLogger
     },
-  ): Promise<void> {
+  ): Promise<
+    | {
+        /** Newer calcurated bboxes, not all */
+        layerBBoxes: Record<string, LayerMetrics.BBoxSet>
+        /** Newer calcurated bboxes, not all */
+        objectBBoxes: Record<string, LayerMetrics.BBoxSet>
+      }
+    | undefined
+  > {
     const dblBufCx = createContext2D()
     const tmpcx = createContext2D({ willReadFrequently: true })
     setCanvasSize(dblBufCx.canvas, viewport)
     setCanvasSize(tmpcx.canvas, viewport)
-
     // const filterDstCx = createContext2D()
 
+    const layerMetrics: Record<string, LayerMetrics.BBoxSet> = {}
+    const objectMetrics: Record<string, LayerMetrics.BBoxSet> = {}
+
     logger.group('MixerPipeline.fullyRender')
-
-    // logger.log('Destination canvas', dest.canvas)
-    // clearCanvas(dest)
-    // logger.log('Clear dest canvas')
-
     logger.time('Render all layers time')
     try {
-      for (const node of doc.rootNodes.children) {
+      for (const node of doc.rootNode.children) {
         // Use tmpVectorOutCx for vector layer rendering
         const tmpVectorOutCx = tmpcx
 
@@ -121,6 +136,16 @@ export class RenderPipeline {
           layerBitmap = (await doc.getOrCreateLayerBitmapCache(
             sourceLayer.uid,
           ))!
+
+          layerMetrics[sourceLayer.uid] ??= {
+            source: createBBox({
+              left: sourceLayer.transform.position.x,
+              top: sourceLayer.transform.position.y,
+              width: layerBitmap.width,
+              height: layerBitmap.height,
+            }),
+            visually: createEmptyBBox(),
+          }
         } else if (
           sourceLayer.layerType === 'vector' ||
           sourceLayer.layerType === 'text'
@@ -146,7 +171,7 @@ export class RenderPipeline {
               sourceLayer.uid,
             )
 
-            await renderer.renderVectorLayer(
+            const { layerBBox, objectsBBox } = await renderer.renderVectorLayer(
               tmpVectorOutCx.canvas,
               sourceLayer,
               {
@@ -158,6 +183,11 @@ export class RenderPipeline {
                 logger,
               },
             )
+
+            layerMetrics[sourceLayer.uid] = layerBBox
+            for (const [uid, bbox] of Object.entries(objectsBBox)) {
+              objectMetrics[uid] = bbox
+            }
 
             if (abort?.aborted) throw new PaplicoAbortError()
 
@@ -221,7 +251,7 @@ export class RenderPipeline {
                 clearCanvas(filterDstCx)
                 setCanvasSize(filterDstCx.canvas, viewport)
 
-                console.log('apply filter', instance.id)
+                // FIXME: Return bboxes
                 await instance.applyRasterFilter?.(layerBitmap!, filterDstCx, {
                   abort: abort ?? new AbortController().signal,
                   abortIfNeeded: () => {
@@ -241,7 +271,7 @@ export class RenderPipeline {
               logger.timeEnd(`Apply filter time: ${instance.id}`)
 
               if (layerBitmap instanceof ImageBitmap) layerBitmap.close()
-              layerBitmap = await createImageBitmap(filterDstCx.canvas)
+              layerBitmap = await createImageBitmapImpl(filterDstCx.canvas)
             }
           } finally {
             this.papGLContext.release(papglcx)
@@ -263,7 +293,7 @@ export class RenderPipeline {
           dblBufCx.drawImage(layerBitmap!, 0, 0)
         })
 
-        if (layerBitmap instanceof HTMLCanvasElement) {
+        if (isCanvasElement(layerBitmap)) {
           freeingCanvas(layerBitmap)
         }
 
@@ -273,6 +303,8 @@ export class RenderPipeline {
 
       clearCanvas(dest)
       dest.drawImage(dblBufCx.canvas!, 0, 0)
+
+      return { layerBBoxes: layerMetrics, objectBBoxes: objectMetrics }
     } finally {
       freeingCanvas(tmpcx.canvas)
 

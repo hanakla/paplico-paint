@@ -1,16 +1,12 @@
 import { useEditorStore, useEngineStore } from '@/store'
 import { memo, useCallback, useEffect, useMemo, useReducer } from 'react'
-import { PathObject } from './VectorEditor/PathObject'
 
 type Props = {
   width: number
   height: number
 }
 
-export const VectorEditor = memo(function VectorEditor({
-  width,
-  height,
-}: Props) {
+export const TextEditor = memo(function TextEditor({ width, height }: Props) {
   const { paplico, state: engineState } = useEngineStore()
   const editorStore = useEditorStore()
   const rerender = useReducer((x) => x + 1, 0)[1]
@@ -25,6 +21,11 @@ export const VectorEditor = memo(function VectorEditor({
 
     return entity
   }, [engineState.activeLayer?.layerUid])
+
+  const metrics = useMemo(() => {
+    if (!layer?.uid) return null
+    paplico.runtimeDoc?.layerMetrics.getLayerMetrics(layer!.uid)
+  }, [layer?.uid])
 
   const handleClickRoot = useCallback(() => {
     editorStore.setSelectedObjectIds(() => ({}))
@@ -49,7 +50,7 @@ export const VectorEditor = memo(function VectorEditor({
         // engineState.activeLayer?.layerType === 'vector' ? 'none' : 'none',
       }}
       tabIndex={-1}
-      id="--paplico-vector-editor-vector"
+      id="--paplico-vector-editor-text"
     ></svg>
   )
 })

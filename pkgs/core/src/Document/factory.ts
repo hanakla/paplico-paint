@@ -4,7 +4,7 @@ import { ulid } from '@/utils/ulid'
 import { PaplicoDocument } from './Document'
 import { FilterLayer, RasterLayer, TextLayer, VectorLayer } from './LayerEntity'
 import { VectorObject } from './LayerEntity/VectorObject'
-import { VectorPath } from './LayerEntity/VectorPath'
+import { TypeStrictVectorPathPoint, VectorPath } from './LayerEntity/VectorPath'
 import { LayerFilter } from './LayerFilter'
 import {
   VectorAppearance,
@@ -111,12 +111,14 @@ export const createVectorObject = ({
 })
 
 export const createVectorPath = ({
-  closed = false,
   randomSeed = prand.mersenne(Math.random()).next()[0],
+  fillRule = 'nonzero',
   points = [],
-}: Partial<VectorPath>): VectorPath => ({
+}: Partial<Omit<VectorPath, 'points'>> & {
+  points?: TypeStrictVectorPathPoint[]
+}): VectorPath => ({
   points,
-  closed,
+  fillRule,
   randomSeed,
 })
 

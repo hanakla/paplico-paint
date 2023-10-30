@@ -1,4 +1,4 @@
-import { setCanvasSize } from '@/utils/canvas'
+import { canvasToBlob, setCanvasSize } from '@/utils/canvas'
 import { createContext2D } from '../CanvasFactory'
 import { IExporter } from './IExporter'
 import { freeingCanvas } from '@/utils/canvas'
@@ -19,9 +19,7 @@ export class PNGExporter implements IExporter {
 
     try {
       await paplico.rerender({ destination: cx, pixelRatio })
-      return new Promise((resolve) => {
-        cx.canvas.toBlob((blob) => resolve(blob!), 'image/png')
-      })
+      return canvasToBlob(cx.canvas, 'image/png', 1)
     } finally {
       freeingCanvas(cx.canvas)
     }

@@ -36,10 +36,9 @@ describe('getTangentAt', () => {
 describe('scatterPlot', () => {
   it('test', () => {
     const path = createVectorPath({
-      closed: false,
       randomSeed: 0,
       points: [
-        { x: 0, y: 0, end: null, begin: null, pressure: 1 },
+        { isMoveTo: true, x: 0, y: 0 },
         { x: 10, y: 10, end: null, begin: null, pressure: 0 },
       ],
     })

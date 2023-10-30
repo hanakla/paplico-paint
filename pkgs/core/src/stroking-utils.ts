@@ -142,7 +142,7 @@ export const createStreamScatter = (
 
 export function pointsToSVGCommandArray(
   points: VectorPathPoint[],
-  closed: boolean,
+  closed: boolean = false,
 ): SVGDCommand[] {
   const [start] = points
 

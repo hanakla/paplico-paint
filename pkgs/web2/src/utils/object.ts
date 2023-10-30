@@ -31,3 +31,21 @@ export const shallowEquals = (prev: any, next: any) => {
 
   return false
 }
+
+export const pick = <
+  T extends object | null | undefined,
+  K extends keyof Exclude<T, null | undefined>,
+>(
+  obj: T,
+  keys: K[],
+): T extends null | undefined
+  ? { [KK in K]: null }
+  : Pick<Exclude<T, null | undefined>, K> => {
+  const result = {} as any
+
+  for (const key of keys) {
+    result[key] = (obj as any)?.[key] ?? null
+  }
+
+  return result
+}

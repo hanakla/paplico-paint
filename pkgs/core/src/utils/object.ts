@@ -34,7 +34,6 @@ export const mergeToNew: Merger = (...obj: any[]) => {
   return Object.assign({}, ...obj)
 }
 
-/** @deprecated use @paplico/shared */
 export const shallowEquals = (prev: any, next: any) => {
   if (Object.is(prev, next)) return true
   if (typeof prev !== typeof next) return false

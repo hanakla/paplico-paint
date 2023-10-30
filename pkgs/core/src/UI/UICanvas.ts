@@ -42,9 +42,9 @@ export class UICanvas extends Emitter<Events> {
 
     // Touch Event is used in iOS because PointerEvent cannot be used as a basis for smooth paths.
 
-    this.canvas.addEventListener('touchstart', this.handleTouchStart, passive)
-    this.canvas.addEventListener('touchmove', this.handleTouchMove, passive)
-    this.canvas.addEventListener('touchend', this.handleTouchEnd, passive)
+    // this.canvas.addEventListener('touchstart', this.handleTouchStart, passive)
+    // this.canvas.addEventListener('touchmove', this.handleTouchMove, passive)
+    // this.canvas.addEventListener('touchend', this.handleTouchEnd, passive)
     this.canvas.addEventListener('pointerdown', this.handleMouseDown, passive)
     this.canvas.addEventListener('pointermove', this.handleMouseMove, passive)
     this.canvas.addEventListener('pointerup', this.handleMouseUp, passive)

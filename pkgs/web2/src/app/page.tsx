@@ -7,6 +7,7 @@ import { usePaplicoInit } from '../domains/paplico'
 import { LeftSideBar } from './fragments/LeftSideBar'
 import { useIsMobileDevice } from '@/utils/hooks'
 import { GlobalShortcutHandler } from './GlobalShortcutHandler'
+import { useEffectOnce } from 'react-use'
 
 type Props = {
   // TODO
@@ -20,6 +21,15 @@ export default memo(function Page({ chatMode }: Props) {
   // console.log('rerender')
 
   usePaplicoInit(canvasRef, { chatMode })
+
+  useEffectOnce(() => {
+    if (process.env.NODE_ENV === 'development') return
+
+    window.addEventListener('beforeunload', (e) => {
+      e.preventDefault()
+      e.returnValue = 'a?'
+    })
+  })
 
   return (
     <div

@@ -5,6 +5,8 @@ import { themeVariables } from '@/theme'
 import { createUseStyles } from 'react-jss'
 import useMeasure from 'react-use-measure'
 import { storePicker } from '@/utils/zutrand'
+import { MetricsView } from './MetricsView'
+import { TextEditor } from './TextEditor'
 
 type Props = {
   theme?: typeof themeVariables
@@ -97,8 +99,9 @@ export const EditorRoot = memo(function EditorRoot({
         cy={size.height / 2}
         r={brushSizePreview?.size ?? 0}
       />
-
+      <MetricsView width={size.width} height={size.height} />
       <VectorEditor rootBBox={bound} width={size.width} height={size.height} />
+      <TextEditor width={size.width} height={size.height} />
     </svg>
   )
 })

@@ -1,0 +1,22 @@
+{
+  "private": true,
+  "name": "@paplico/node-canvas-example",
+  "version": "0.0.0",
+  "license": "MIT",
+  "main": "dist/index.js",
+  "module": "dist/index.es.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "start": "tsx ./src/index.ts"
+  },
+  "devDependencies": {
+    "@types/three": "^0.146.0",
+    "tsx": "^3.14.0",
+    "typescript": "^5.0.4"
+  },
+  "dependencies": {
+    "@paplico/core": "*",
+    "canvas": "^2.11.2",
+    "node-canvas-webgl": "^0.3.0"
+  }
+}

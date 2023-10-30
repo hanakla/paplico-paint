@@ -12,7 +12,7 @@ export function getOrCreateSVGElement(id: string) {
 }
 
 export function createSVGPathByVectorPath(input: VectorPath) {
-  const commands = pointsToSVGCommandArray(input.points, input.closed)
+  const commands = pointsToSVGCommandArray(input.points)
 
   const path = document.createElementNS('http://www.w3.org/2000/svg', 'path')
   path.setAttribute('d', commands.map((f) => f.join(' ')).join(' '))

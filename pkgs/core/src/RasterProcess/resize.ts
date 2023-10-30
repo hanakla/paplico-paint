@@ -1,4 +1,8 @@
-import { createCanvas } from '@/Engine/CanvasFactory'
+import {
+  createCanvas,
+  createImageBitmapImpl,
+  createImageData,
+} from '@/Engine/CanvasFactory'
 import { freeingCanvas, setCanvasSize } from '@/utils/canvas'
 import { unreachable } from '@/utils/unreachable'
 
@@ -33,8 +37,10 @@ export const resize = async (
 ): Promise<ImageData> => {
   const image: ImageBitmap =
     data instanceof ImageData
-      ? await createImageBitmap(data)
-      : await createImageBitmap(new ImageData(data, opt.width, opt.height))
+      ? await createImageBitmapImpl(data)
+      : await createImageBitmapImpl(
+          createImageData(data, opt.width, opt.height),
+        )
 
   const canv = bufferCanvas ?? createCanvas()
   setCanvasSize(canv, opt.toWidth, opt.toHeight)

@@ -13,6 +13,7 @@ import { PaplicoEditorHandle } from '@paplico/vector-editor'
 import { RefObject, createElement, useEffect, useMemo, useRef } from 'react'
 import { useEffectOnce } from 'react-use'
 import { create } from 'zustand'
+import { PaplicoChatWebSocketBackend, paplicoChat } from '@paplico/chat/client'
 
 interface Store {
   engine: Paplico | null
@@ -52,7 +53,7 @@ export function usePaplicoInit(
 ) {
   const papRef = useRef<Paplico | null>(null)
   const store = useStore(
-    storePicker('_setEngineState', '_setActiveLayerEntity', 'initialize'),
+    storePicker(['_setEngineState', '_setActiveLayerEntity', 'initialize']),
   )
 
   useEffectOnce(() => {
@@ -107,7 +108,7 @@ export function usePaplicoInit(
 
       const text = Document.createTextLayerEntity({
         transform: {
-          position: { x: 10, y: 120 },
+          position: { x: 16, y: 16 },
           scale: { x: 1, y: 1 },
           rotate: 0,
         },
@@ -128,12 +129,12 @@ export function usePaplicoInit(
         Document.createVectorObject({
           path: Document.createVectorPath({
             points: [
-              { x: 0, y: 0, begin: null, end: null },
+              { isMoveTo: true, x: 0, y: 0, begin: null, end: null },
               { x: 1000, y: 1000, begin: null, end: null },
             ],
           }),
           filters: [
-            {
+            Document.createVectorAppearance({
               kind: 'stroke',
               stroke: {
                 brushId: ExtraBrushes.ScatterBrush.metadata.id,
@@ -149,11 +150,11 @@ export function usePaplicoInit(
                 } satisfies ExtraBrushes.ScatterBrush.Settings,
               },
               ink: {
-                inkId: Inks.RainbowInk.id,
-                inkVersion: Inks.RainbowInk.version,
-                specific: {} satisfies Inks.RainbowInk.SpecificSetting,
+                inkId: Inks.TextureReadInk.id,
+                inkVersion: Inks.TextureReadInk.version,
+                specific: {} satisfies Inks.TextureReadInk.SpecificSetting,
               },
-            },
+            }),
           ],
         }),
       )
@@ -164,10 +165,11 @@ export function usePaplicoInit(
             Document.createVectorObject({
               path: Document.createVectorPath({
                 points: [
-                  { x: 0, y: 0, begin: null, end: null },
+                  { isMoveTo: true, x: 0, y: 0, begin: null, end: null },
                   { x: 1000, y: 0, begin: null, end: null },
                   { x: 1000, y: 1000, begin: null, end: null },
                   { x: 0, y: 1000, begin: null, end: null },
+                  { isClose: true, x: 0, y: 0, begin: null, end: null },
                 ],
                 closed: true,
               }),
@@ -227,7 +229,7 @@ export function usePaplicoInit(
 }
 
 export function usePaplico() {
-  const store = useStore(storePicker('engine', 'editorHandle'))
+  const store = useStore(storePicker(['engine', 'editorHandle']))
 
   return useMemo(
     () => ({
@@ -243,75 +245,21 @@ export const usePaplicoStore = useStore
 function usePaplicoChat(papRef: RefObject<Paplico | null>, enabled: boolean) {
   useEffect(() => {
     if (!enabled) return
-
     if (!papRef.current) {
-      console.info('Waiting for paplico to initialize...')
+      console.info('Chat: Waiting for initialize paplico')
       return
     }
 
-    const pap = papRef.current
-    pap.loadDocument(null)
-
-    console.info('⚡ Starting chat mode')
-
-    const ws = new WebSocket(`ws://${location.hostname}:3003/chat-server`)
-
-    pap.on('strokePreComplete', (e) => {
-      ws.send(
-        JSON.stringify({
-          type: 'strokeComplete',
-          uiStroke: e.stroke,
-          strokeSettings: pap.state.currentStroke,
-          targetLayerUid: pap.state.activeLayer!.layerUid,
-        }),
-      )
+    const chat = paplicoChat(papRef.current, {
+      backend: new PaplicoChatWebSocketBackend({
+        wsUrl: 'ws://localhost:41234/pap-chat',
+      }),
     })
 
-    ws.addEventListener('open', () => {
-      ws.send(JSON.stringify({ type: 'join' }))
-    })
-
-    ws.addEventListener('message', (e) => {
-      const message = JSON.parse(e.data)
-
-      switch (message.type) {
-        case 'joined': {
-          const { roomId, layerIds } = message
-
-          const doc = Document.createDocument({ width: 1000, height: 1000 })
-          pap.loadDocument(doc)
-
-          layerIds.forEach((layerId: string, idx: number) => {
-            const layer = Document.createRasterLayerEntity({
-              width: 1000,
-              height: 1000,
-              name: `Layer${idx + 1}`,
-            })
-
-            layer.uid = layerId
-            doc.addLayer(layer)
-          })
-
-          pap.loadDocument(doc)
-          pap.setStrokingTargetLayer([layerIds[0]])
-
-          console.info(`⚡ Joined room: ${roomId}`)
-          break
-        }
-        case 'strokeComplete': {
-          console.log('⚡ receive strokeComplete')
-          const { uiStroke, targetLayerUid, strokeSettings } = message
-          pap.putStrokeComplete(Object.assign(new UIStroke(), uiStroke), {
-            targetLayerUid,
-            strokeSettings: strokeSettings,
-          })
-          break
-        }
-      }
-    })
+    chat.joinRoom('__TEST__')
 
     return () => {
-      ws.close()
+      chat.dispose()
     }
   }, [papRef.current])
 }

@@ -23,6 +23,7 @@ export interface InkGenerator {
     pointAtLength: number
     totalLength: number
     baseColor: ColorRGBA
+    pixelRatio: number
   }): ColorRGBA
 
   applyTexture(
@@ -30,6 +31,6 @@ export interface InkGenerator {
     context: {
       threeRenderer: WebGLRenderer
       threeCamera: Camera
-    }
+    },
   ): void
 }

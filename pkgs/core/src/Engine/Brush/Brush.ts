@@ -17,7 +17,7 @@ export type BrushPaneContext<T> = {
   h: AbstractComponentRenderer
 }
 
-export type BrushContext<T extends Record<string, any>> = {
+export type BrushContext<T extends Record<string | symbol, any>, M> = {
   abort: AbortSignal
   abortIfNeeded: () => never | void
 
@@ -37,6 +37,7 @@ export type BrushContext<T extends Record<string, any>> = {
   brushSetting: VectorStrokeSetting<T | null>
   /** Expected destination canvas size */
   destSize: { width: number; height: number }
+  pixelRatio: number
   /**
    * Hint for mixing color, it's contains back layers buffer of rendering stroke.
    * This canvas is readonly.
@@ -44,6 +45,12 @@ export type BrushContext<T extends Record<string, any>> = {
   // hintInput: CanvasImageSource | null
   phase: RenderPhase
   logger: RenderCycleLogger
+
+  useMemoForPath: (
+    vectorPath: VectorPath,
+    factory: () => Promise<M>,
+    deps: (number | boolean | string | null | undefined)[],
+  ) => Promise<M>
 }
 
 export type BrushLayoutData = {
@@ -71,9 +78,12 @@ export interface BrushClass<T = any> {
   new (): IBrush
 }
 
-export interface IBrush<T = any> {
+export interface IBrush<
+  Settings extends Record<string | symbol, any> = Record<string | symbol, any>,
+  Memo = any,
+> {
   initialize(context: {}): Promise<void>
-  render(brushContext: BrushContext<T>): Promise<BrushLayoutData>
+  render(brushContext: BrushContext<Settings, Memo>): Promise<BrushLayoutData>
 }
 
 export const createBrush = <T extends BrushClass<any>>(Class: T) => Class

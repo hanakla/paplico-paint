@@ -21,7 +21,7 @@ import useEvent from 'react-use-event-hook'
 import styled, { css } from 'styled-components'
 
 export const LayerFiltersPane = memo(function LayerFiltersPane() {
-  const papStore = usePaplicoStore(storePicker('activeLayerEntity'))
+  const papStore = usePaplicoStore(storePicker(['activeLayerEntity']))
   const activeLayer = papStore.activeLayerEntity
 
   return (
@@ -46,17 +46,17 @@ export const LayerFiltersPane = memo(function LayerFiltersPane() {
 
 export const FilterList = memo(function FilterList() {
   const { pap } = usePaplico()
-  const papStore = usePaplicoStore(storePicker('activeLayerEntity'))
+  const papStore = usePaplicoStore(storePicker(['activeLayerEntity']))
   const {
     getPaneExpandedFilterUids,
     setPaneExpandedFilterState,
     filterPaneExpandState,
   } = useEditorStore(
-    storePicker(
+    storePicker([
       'getPaneExpandedFilterUids',
       'setPaneExpandedFilterState',
       'filterPaneExpandState',
-    ),
+    ]),
   )
 
   const layer = papStore.activeLayerEntity!

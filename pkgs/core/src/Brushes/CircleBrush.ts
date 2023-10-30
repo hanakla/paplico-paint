@@ -58,56 +58,48 @@ export const CircleBrush = createBrush(
         bottom: 0,
       }
 
-      inputPath.forEach((path) => {
-        const { points, closed } = path
-        const [start] = points
+      ctx.translate(destSize.width / 2, destSize.height / 2)
+      ctx.translate(transform.translate.x, transform.translate.y)
+      ctx.scale(transform.scale.x, transform.scale.y)
+      ctx.rotate(transform.rotate)
+      ctx.translate(-destSize.width / 2, -destSize.height / 2)
 
-        ctx.translate(destSize.width / 2, destSize.height / 2)
-        ctx.translate(transform.translate.x, transform.translate.y)
-        ctx.scale(transform.scale.x, transform.scale.y)
-        ctx.rotate(transform.rotate)
-        ctx.translate(-destSize.width / 2, -destSize.height / 2)
+      ctx.lineWidth = size
+      ctx.strokeStyle = `${rgba(
+        color.r * 255,
+        color.g * 255,
+        color.b * 255,
+        opacity,
+      )}`
+      ctx.lineCap = sp.lineCap
 
-        ctx.lineWidth = size
-        ctx.strokeStyle = `${rgba(
-          color.r * 255,
-          color.g * 255,
-          color.b * 255,
-          opacity,
-        )}`
-        ctx.lineCap = sp.lineCap
+      for (const path of inputPath) {
+        for (let idx = 0, l = path.points.length; idx < l; idx++) {
+          const pt = path.points[idx]
+          const prev = path.points[idx - 1]
 
-        ctx.beginPath()
-        ctx.moveTo(start.x, start.y)
+          if (pt.isMoveTo) {
+            ctx.moveTo(pt.x, pt.y)
+          } else if (pt.isClose) {
+            ctx.closePath()
+          } else {
+            if (!prev) {
+              throw new Error('Unexpected point, previouse point is nukk')
+            }
 
-        // const scattered = scatterPlot(path, {
-        //   counts: path.points.length,
-        //   scatterRange: 2,
-        //   scatterScale: 1,
-        // })
-
-        // console.log(scattered)
-
-        // console.log('Circle brush: ', path.points)
-
-        mapPoints(
-          path.points,
-          (point, prev) => {
             ctx.bezierCurveTo(
-              point!.begin?.x ?? prev!.x,
-              point!.begin?.y ?? prev!.y,
-              point.end?.x ?? point.x,
-              point.end?.y ?? point.y,
-              point.x,
-              point.y,
+              pt!.begin?.x ?? prev!.x,
+              pt!.begin?.y ?? prev!.y,
+              pt.end?.x ?? pt.x,
+              pt.end?.y ?? pt.y,
+              pt.x,
+              pt.y,
             )
-          },
-          { startOffset: 1 },
-        )
+          }
+        }
+      }
 
-        if (closed) ctx.closePath()
-        ctx.stroke()
-      })
+      ctx.stroke()
 
       return { bbox }
     }

@@ -136,7 +136,7 @@ export class FontRegistry extends Emitter<{}> {
         style?: string
       }
     } = {},
-  ) {
+  ): Promise<Font | null> {
     let [entry] =
       this.queryFont(family, style) ??
       this.queryFont(fallback.family, fallback.style)
@@ -146,6 +146,8 @@ export class FontRegistry extends Emitter<{}> {
     if (entry.type === 'binary') {
       return entry.font
     } else if (entry.type === 'local') {
+      if (entry.font) return entry.font
+
       const blob = await entry.blob()
       const font = parse(await blob.arrayBuffer())
       entry.font = font

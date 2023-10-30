@@ -1,5 +1,5 @@
 import { Paplico } from '@/Engine/Paplico'
-import { DocumentContext } from '../DocumentContext'
+import { DocumentContext } from '../DocumentContext/DocumentContext'
 
 export namespace IExporter {
   export type Context = {

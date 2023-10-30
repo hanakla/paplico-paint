@@ -43,9 +43,7 @@ export const vectorObjectTransformToMatrix = (obj: VectorObject) => {
 }
 
 export const calcVectorBoundingBox = (obj: VectorObject) => {
-  const bbox = pathBounds(
-    pointsToSVGCommandArray(obj.path.points, obj.path.closed),
-  )
+  const bbox = pathBounds(pointsToSVGCommandArray(obj.path.points))
   const left = bbox.left + obj.transform.position.x
   const top = bbox.top + obj.transform.position.y
   const width = Math.abs(bbox.right - bbox.left)
@@ -64,25 +62,36 @@ export const calcVectorBoundingBox = (obj: VectorObject) => {
   }
 }
 
-export function svgCommandToVectoPath(path: string): VectorPath[] {
+export function svgCommandToVectoPath(
+  path: string,
+  splitByM: boolean = false,
+): VectorPath[] {
   // FIXME: Boolean path
   let norm = absNormalizePath(path)
 
   const paths: VectorPath[] = []
   let currentPath: VectorPath = {
     points: [],
-    closed: false,
     randomSeed: 0,
   }
 
   for (const [cmd, ...args] of norm) {
     if (cmd === 'M') {
-      currentPath = {
-        points: [],
-        closed: false,
-        randomSeed: 0,
+      if (splitByM) {
+        paths.push(currentPath)
+        currentPath = {
+          points: [],
+          randomSeed: 0,
+        }
       }
-      paths.push(currentPath)
+
+      currentPath.points.push({
+        isMoveTo: true,
+        x: args[0],
+        y: args[1],
+        begin: null,
+        end: null,
+      })
     } else if (cmd === 'L') {
       currentPath.points.push({
         x: args[0],
@@ -106,46 +115,60 @@ export function svgCommandToVectoPath(path: string): VectorPath[] {
     } else if (cmd === 'Q') {
       throw new Error('Quadratic Bezier is not supported')
     } else if (cmd === 'Z') {
-      currentPath.closed = true
+      currentPath.points.push({
+        isClose: true,
+        x: 0,
+        y: 0,
+        begin: null,
+        end: null,
+      })
     }
   }
+
+  paths.push(currentPath)
 
   return paths
 }
 
 /** @deprecated */
 export function pointsToSVGPath(points: VectorPathPoint[], closed: boolean) {
-  const [start] = points
+  const [start, ...another] = points
 
   if (points.length === 1) {
     return `M${start.x},${start.y}`
   }
 
-  return [
-    `M${start.x},${start.y}`,
-    mapPoints(
-      [...points, ...(closed ? [points[0]] : [])],
-      (point, prev) => {
-        if (prev!.begin && point.end) {
-          return `C ${prev!.begin.x},${prev!.begin.y} ${point.end.x},${
-            point.end.y
-          } ${point.x} ${point.y}`
-        } else if (prev!.begin == null && point.end) {
-          return `C ${prev!.x},${prev!.y} ${point.end.x},${point.end.y} ${
-            point.x
-          } ${point.y}`
-        } else if (prev!.begin && point.end == null) {
-          return `C ${prev!.begin.x},${prev!.begin.y} ${point.x},${point.y} ${
-            point.x
-          } ${point.y}`
-        } else {
-          return `L ${point.x} ${point.y}`
-        }
-      },
-      { startOffset: 1 },
-    ).join(' '),
-    closed ? 'Z' : '',
-  ].join(' ')
+  const result = points.map((point, idx) => {
+    const prev = points[idx - 1]
+
+    if (point.isMoveTo) {
+      return `M${point.x},${point.y}`
+    } else if (point.isClose) {
+      return 'Z'
+    } else {
+      if (prev!.begin && point.end) {
+        return `C ${prev!.begin.x},${prev!.begin.y} ${point.end.x},${
+          point.end.y
+        } ${point.x} ${point.y}`
+      } else if (prev!.begin == null && point.end) {
+        return `C ${prev!.x},${prev!.y} ${point.end.x},${point.end.y} ${
+          point.x
+        } ${point.y}`
+      } else if (prev!.begin && point.end == null) {
+        return `C ${prev!.begin.x},${prev!.begin.y} ${point.x},${point.y} ${
+          point.x
+        } ${point.y}`
+      } else {
+        return `L ${point.x} ${point.y}`
+      }
+    }
+  })
+
+  if (closed) {
+    result.push('Z')
+  }
+
+  return result.join(' ')
 }
 
 export function mapPoints<T extends VectorPathPoint, R>(

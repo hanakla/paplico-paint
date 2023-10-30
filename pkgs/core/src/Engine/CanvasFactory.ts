@@ -1,6 +1,38 @@
-type Factory = () => { getContext: HTMLCanvasElement['getContext'] }
+type ImageDataConstructorLike = {
+  (sw: number, sh: number, settings?: ImageDataSettings): ImageData
+  (
+    data: Uint8ClampedArray,
+    sw: number,
+    sh?: number,
+    settings?: ImageDataSettings,
+  ): ImageData
+}
 
-let canvasFactory: Factory = () => document.createElement('canvas')
+type ImageFactory = () => HTMLImageElement
+type CanvasFactory = () => { getContext: HTMLCanvasElement['getContext'] }
+
+let imageDataFactory: {
+  (sw: number, sh: number, settings?: ImageDataSettings): ImageData
+  (
+    data: Uint8ClampedArray,
+    sw: number,
+    sh?: number,
+    settings?: ImageDataSettings,
+  ): ImageData
+} = (...args: any[]) => {
+  // @ts-expect-error
+  return new ImageData(...args)
+}
+
+let imageBitMapFactory: typeof createImageBitmap = async (...args: any[]) => {
+  // @ts-expect-error
+  return createImageBitmap(...args)
+}
+let imageFactory: ImageFactory = () => new Image()
+let canvasFactory: CanvasFactory = () => document.createElement('canvas')
+let CanvasClass: any =
+  typeof HTMLCanvasElement !== 'undefined' ? HTMLCanvasElement : void 0
+
 let createdCanvases: Set<WeakRef<HTMLCanvasElement>> = new Set()
 
 export const activeCanvasesCount = () => {
@@ -13,8 +45,46 @@ export const getCanvasBytes = () => {
     .reduce((v, c) => v + (c?.width ?? 0) * (c?.height ?? 0) * 4, 0)
 }
 
-export const setCanvasFactory = (fn: Factory) => {
-  canvasFactory = fn
+export const setCanvasImpls = (
+  impls: {
+    createImageBitmap?: typeof createImageBitmap
+    createImageData?: typeof createImageData
+    createImage?: ImageFactory
+    createCanvas?: CanvasFactory
+    CanvasClass?: any
+  } = {},
+) => {
+  if (impls.createImageBitmap != null) {
+    imageBitMapFactory = impls.createImageBitmap
+  }
+  if (impls.createImageData != null) {
+    imageDataFactory = impls.createImageData
+  }
+  if (impls.createImage != null) {
+    imageFactory = impls.createImage
+  }
+  if (impls.createCanvas != null) {
+    canvasFactory = impls.createCanvas
+  }
+  if (impls.CanvasClass != null) {
+    CanvasClass = impls.CanvasClass
+  }
+}
+
+export const createImageBitmapImpl: typeof createImageBitmap = (
+  ...args: any[]
+) => {
+  // @ts-expect-error
+  return imageBitMapFactory(...args)
+}
+
+export const createImageData: ImageDataConstructorLike = (...args: any[]) => {
+  // @ts-expect-error
+  return imageDataFactory(...args)
+}
+
+export const createImage = () => {
+  return imageFactory()
 }
 
 export const createCanvas = () => {
@@ -28,3 +98,7 @@ export const createWebGLContext = (options?: WebGLContextAttributes) =>
 
 export const createContext2D = (settings?: CanvasRenderingContext2DSettings) =>
   canvasFactory().getContext('2d', settings)!
+
+export const isCanvasElement = (v: any): v is HTMLCanvasElement => {
+  return v instanceof CanvasClass
+}

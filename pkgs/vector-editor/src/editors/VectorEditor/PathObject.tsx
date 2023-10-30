@@ -14,7 +14,6 @@ import { useEditorStore, useEngineStore } from '@/store'
 import { createUseStyles } from 'react-jss'
 import { useMemoRevailidatable, usePropsMemo } from '@/utils/hooks'
 import { unstable_batchedUpdates } from 'react-dom'
-import { useStore } from 'zustand'
 import { storePicker } from '@/utils/zutrand'
 
 type Props = {
@@ -34,11 +33,11 @@ export const PathObject = memo(function PathObject({
   if (object.type === 'vectorGroup') return null
 
   const { paplico } = useEngineStore()
-  const rerender = useReducer((x) => x + 1, 0)[1]
   const s = usePathStyle()
   const propsMemo = usePropsMemo()
 
   const points = object.path.points
+  const elementScale = 1 / canvasScale
 
   const [pointOverride, setPointOverride] = useState<{
     idx: number
@@ -285,7 +284,7 @@ export const PathObject = memo(function PathObject({
         <MemoPath
           stroke="transparent"
           d={d}
-          strokeWidth={3}
+          strokeWidth={3 * elementScale}
           onClick={onClickPath}
           className={s.previewStroke}
           style={{ cursor: 'pointer', touchAction: 'none' }}
@@ -301,6 +300,7 @@ export const PathObject = memo(function PathObject({
       pathFragmentElements,
       beginAnchorElements,
       endAnchorElements,
+      anchorLineElements,
     },
     revalidateDetailElements,
   ] = useMemoRevailidatable(() => {
@@ -308,7 +308,9 @@ export const PathObject = memo(function PathObject({
     const pathFragmentElements: ReactNode[] = []
     const beginAnchorElements: ReactNode[] = []
     const endAnchorElements: ReactNode[] = []
+    const anchorLineElements: ReactNode[] = []
 
+    let currentStartPt: (typeof points)[0] | null = null
     points.forEach((pt, idx, list) => {
       if (!selectedObjectIds[object.uid]) return
 
@@ -332,12 +334,21 @@ export const PathObject = memo(function PathObject({
           stroke="#4e7fff"
           paintOrder="stroke fill"
           fill="#fff"
+          r={2}
           className={s.disableTouchAction}
           {...bindDragPoint()}
           data-object-uid={object.uid}
           data-point-idx={idx}
         />,
       )
+
+      if (pt.isMoveTo) {
+        currentStartPt = pt
+      }
+
+      if (pt.isClose) {
+        return
+      }
 
       if (idx !== 0) {
         const prev = list[idx - 1]
@@ -393,17 +404,23 @@ export const PathObject = memo(function PathObject({
 
         // beginning of curve control point
         if (prev && pt.begin) {
-          beginAnchorElements.push(
+          anchorLineElements.push(
             <MemoLine
+              key={'begin-line' + idx}
               className={s.poitoToAnchorLine}
+              strokeWidth={1 * elementScale}
               data-begin-line
               x1={prev.x + prevOvrOffsetX}
               y1={prev.y + prevOvrOffsetY}
               x2={pt.begin.x + prevOvrOffsetX + beginOvrX}
               y2={pt.begin.y + prevOvrOffsetY + beginOvrY}
             />,
+          )
+
+          beginAnchorElements.push(
             <MemoCircle
-              r="3"
+              key={'begin-control' + idx}
+              r={3 * elementScale}
               cx={pt.begin.x + prevOvrOffsetX + beginOvrX}
               cy={pt.begin.y + prevOvrOffsetY + beginOvrY}
               paintOrder="stroke fill"
@@ -419,10 +436,12 @@ export const PathObject = memo(function PathObject({
 
         // end of curve control point
         if (pt.end) {
-          endAnchorElements.push(
+          anchorLineElements.push(
             <MemoLine
+              key={'end-line' + idx}
               className={s.poitoToAnchorLine}
               data-end-line
+              strokeWidth={1 * elementScale}
               x1={pt.x + ptOvrOffsetX}
               y1={pt.y + ptOvrOffsetY}
               x2={pt.end.x + ptOvrOffsetX + endOvrX}
@@ -432,8 +451,12 @@ export const PathObject = memo(function PathObject({
                 (endAnchorOverride?.idx === idx ? endAnchorOverride.y : 0)
               }
             />,
+          )
+
+          endAnchorElements.push(
             <MemoCircle
-              r="3"
+              key={'end-control' + idx}
+              r={3 * elementScale}
               cx={pt.end.x + ptOvrOffsetX + endOvrX}
               cy={pt.end.y + ptOvrOffsetY + endOvrY}
               paintOrder="stroke"
@@ -449,6 +472,7 @@ export const PathObject = memo(function PathObject({
     })
 
     return {
+      anchorLineElements,
       pointElements,
       pathFragmentElements,
       beginAnchorElements,
@@ -474,15 +498,16 @@ export const PathObject = memo(function PathObject({
         'object-children',
         () => (
           <>
+            {anchorLineElements}
             {pathElement}
             {pathFragmentElements}
-
+            {pointElements}
             {beginAnchorElements}
             {endAnchorElements}
-            {pointElements}
           </>
         ),
         [
+          anchorLineElements,
           pathElement,
           pathFragmentElements,
           pointElements,

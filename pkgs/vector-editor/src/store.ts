@@ -26,9 +26,13 @@ export const createEngineStore = () => {
     _setEngineState: (state) => set({ state }),
   }))
 }
-export const useEngineStore = () => {
+export const useEngineStore: BoundedUseStore<StoreApi<EngineStore>> = <
+  T extends (s: EditorStore) => unknown,
+>(
+  selector?: T,
+) => {
   const { engine } = useContext(StoresContext)!
-  return useStore(engine)
+  return useStore(engine, selector as any) as any
 }
 
 export type EditorStore = {

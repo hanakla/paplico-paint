@@ -6,7 +6,13 @@ import { RuntimeDocument } from '@/Engine'
 import { deepClone } from '@/utils/object'
 import { VectorLayer } from '@/Document/LayerEntity'
 
-type Options = { updater: (layer: VectorLayer) => void }
+type Options = {
+  /**
+   * objects can no be modified by this command for performance reason.
+   * use `VectorUpdateObject` instead.
+   */
+  updater: (layer: Omit<VectorLayer, 'objects'>) => void
+}
 
 export class VectorUpdateLayer implements ICommand {
   public readonly name = 'VectorUpdateLayer'

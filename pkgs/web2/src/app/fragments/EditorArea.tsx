@@ -10,7 +10,7 @@ import { useGesture } from '@use-gesture/react'
 import { css } from 'styled-components'
 import { checkerBoard } from '../../utils/cssMixin'
 import { usePaplico, usePaplicoStore } from '../../domains/paplico'
-import { useCombineRef } from '../../utils/hooks'
+import { useCombineRef, usePropsMemo } from '../../utils/hooks'
 import useEvent from 'react-use-event-hook'
 import { MainToolbar } from './MainToolbar'
 import useMeasure from 'use-measure'
@@ -27,8 +27,9 @@ export const EditorArea = memo(
   ) {
     const { pap, editorHandle } = usePaplico()
     const papStore = usePaplicoStore(
-      storePicker('_setEditorHandle', 'editorHandle'),
+      storePicker(['_setEditorHandle', 'editorHandle']),
     )
+    const propsMemo = usePropsMemo()
 
     const editorStore = useEditorStore()
     const { canvasTransform } = editorStore
@@ -154,13 +155,15 @@ export const EditorArea = memo(
       <div
         ref={rootRef}
         css={css`
-          position: relative;
-          width: 100%;
-          height: 100%;
           touch-action: none;
           background-color: var(--gray-3);
         `}
         className={className}
+        style={{
+          position: 'relative',
+          width: '100%',
+          height: '100%',
+        }}
         data-editorarea-root
       >
         <div
@@ -188,15 +191,15 @@ export const EditorArea = memo(
               background-color: #fff;
               ${checkerBoard({ size: 10, opacity: 0.1 })};
             `}
-            width={1000}
-            height={1000}
-            style={
-              {
-                // aspectRatio: papRef.current?.currentDocument
-                //   ? `${papRef.current.currentDocument.meta.mainArtboard.width}/${papRef.current.currentDocument.meta.mainArtboard.height}`
-                //   : '1',
-              }
-            }
+            width={(pap?.currentDocument?.meta.mainArtboard.width ?? 1) * 1.5}
+            height={(pap?.currentDocument?.meta.mainArtboard.height ?? 1) * 1.5}
+            style={{
+              width: pap?.currentDocument?.meta.mainArtboard.width ?? 1,
+              height: pap?.currentDocument?.meta.mainArtboard.height ?? 1,
+              // aspectRatio: papRef.current?.currentDocument
+              //   ? `${papRef.current.currentDocument.meta.mainArtboard.width}/${papRef.current.currentDocument.meta.mainArtboard.height}`
+              //   : '1',
+            }}
           />
         </div>
 
@@ -219,3 +222,5 @@ export const EditorArea = memo(
     )
   }),
 )
+
+const MemoizedMainToolbar = memo(MainToolbar)

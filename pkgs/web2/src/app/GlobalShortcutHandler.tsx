@@ -10,7 +10,7 @@ import { storePicker } from '@/utils/zutrand'
 
 export const GlobalShortcutHandler = memo(function GlobalShortcutHandler() {
   const { pap, editorHandle } = usePaplico()
-  const papStore = usePaplicoStore(storePicker('activeLayerEntity'))
+  const papStore = usePaplicoStore(storePicker(['activeLayerEntity']))
   const { fileHandlers, setFileHandlerForDocument, getShortcuts } =
     useEditorStore()
 

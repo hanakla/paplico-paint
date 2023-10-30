@@ -1,4 +1,4 @@
-import immer, { Draft } from 'immer'
+import { produce as immer, Draft } from 'immer'
 import { RenderPipeline } from '@/Engine/RenderPipeline'
 import { BrushRegistry } from '@/Engine/Registry/BrushRegistry'
 import {
@@ -12,6 +12,7 @@ import { UIStroke } from '@/UI/UIStroke'
 import {
   createDocument,
   createRasterLayerEntity,
+  createVectorAppearance,
   createVectorObject,
   LayerEntity,
   PaplicoDocument,
@@ -24,7 +25,7 @@ import {
   saveAndRestoreCanvas,
   setCanvasSize,
 } from '@/utils/canvas'
-import { DocumentContext } from './DocumentContext'
+import { DocumentContext } from './DocumentContext/DocumentContext'
 import { VectorStrokeSetting } from '../Document/LayerEntity/VectorStrokeSetting'
 import { VectorFillSetting } from '../Document/LayerEntity/VectorFillSetting'
 import { InkSetting as _InkSetting } from '../Document/LayerEntity/InkSetting'
@@ -49,7 +50,7 @@ import { PNGExporter } from './Exporters/PNGExporter'
 import { IExporter } from './Exporters/IExporter'
 import { PSDExporter } from './Exporters/PSDExporter'
 import { type History } from '@/History/History'
-import { PreviewStore } from './PreviewStore'
+import { PreviewStore } from './DocumentContext/PreviewStore'
 import { logImage } from '../utils/DebugHelper'
 import {
   NoneImpls,
@@ -62,6 +63,7 @@ import { WebGLRenderer } from 'three'
 import { PaneUIRenderings } from './PaneUIRenderings'
 import { FontRegistry } from './Registry/FontRegistry'
 import { rescue } from '@/utils/resque'
+import { LayerMetrics } from './DocumentContext/LayerMetrics'
 
 export namespace Paplico {
   export type StrokeSetting<T extends Record<string, any> = any> =
@@ -74,6 +76,8 @@ export namespace Paplico {
   export type Preferences = {
     /** Simplify path tolerance, recommend to 0 to 6. 0 is no simplify */
     strokeTrelance: number
+    /** Pixel ratio for rendering, default to 1 */
+    pixelRatio: number
   }
 
   export type ActiveLayer = {
@@ -115,11 +119,13 @@ export namespace Paplico {
     'preview:updated': PreviewStore.Events['updated']
     'history:affect': History.Events['affect']
     'document:layerUpdated': { layerEntityUid: string }
+    'document:metrics:update': void
   }
 
   export type RenderOptions = {
     layerOverrides?: { [layerId: string]: HTMLCanvasElement | ImageBitmap }
     vectorObjectOverrides?: VectorObjectOverrides
+    clearCache?: boolean
     destination?: CanvasRenderingContext2D
     pixelRatio?: number
     signal?: AbortSignal
@@ -185,6 +191,7 @@ export class Paplico extends Emitter<Paplico.Events> {
 
   #preferences: Paplico.Preferences = {
     strokeTrelance: 5,
+    pixelRatio: 1,
   }
 
   #state: Paplico.State = {
@@ -485,6 +492,10 @@ export class Paplico extends Emitter<Paplico.Events> {
       this.emit('preview:updated', updateEntry)
     })
 
+    this.runtimeDoc.layerMetrics.on('update', () => {
+      this.emit('document:metrics:update')
+    })
+
     this.runtimeDoc.history.on('affect', (e) => {
       this.rerenderForHistoryAffection()
 
@@ -615,7 +626,7 @@ export class Paplico extends Emitter<Paplico.Events> {
       async () => {
         this.rerender(options)
       },
-      { maxQueue: 10 },
+      { maxQueue: 5 },
     )
 
     // this.idleRerenderTimerId = setTimeout(checkIdle, 1)
@@ -625,7 +636,8 @@ export class Paplico extends Emitter<Paplico.Events> {
     layerOverrides,
     vectorObjectOverrides,
     destination,
-    pixelRatio = 1,
+    pixelRatio = this.#preferences.pixelRatio,
+    clearCache,
     signal,
   }: Paplico.RenderOptions = {}) {
     if (!this.runtimeDoc) return
@@ -659,20 +671,37 @@ export class Paplico extends Emitter<Paplico.Events> {
 
       this.setState((d) => (d.busy = true))
 
-      await this.pipeline.fullyRender(dstctx, runtimeDoc, this.vectorRenderer, {
-        abort: combineAborder.signal,
-        override: layerOverrides,
-        vectorObjectOverrides: vectorObjectOverrides,
-        pixelRatio,
-        viewport: {
-          top: 0,
-          left: 0,
-          width: dstCanvas.width,
-          height: dstCanvas.height,
+      if (clearCache) {
+        this.runtimeDoc.invalidateAllLayerBitmapCache()
+      }
+
+      const metrices = await this.pipeline.fullyRender(
+        dstctx,
+        runtimeDoc,
+        this.vectorRenderer,
+        {
+          abort: combineAborder.signal,
+          override: layerOverrides,
+          vectorObjectOverrides: vectorObjectOverrides,
+          pixelRatio,
+          viewport: {
+            top: 0,
+            left: 0,
+            width: dstCanvas.width,
+            height: dstCanvas.height,
+          },
+          phase: 'final',
+          logger: RenderCycleLogger.current,
         },
-        phase: 'final',
-        logger: RenderCycleLogger.current,
-      })
+      )
+
+      if (metrices) {
+        this.processMetrics(
+          runtimeDoc,
+          metrices?.layerBBoxes,
+          metrices?.objectBBoxes,
+        )
+      }
 
       this.emit('flushed')
     } catch (e) {
@@ -693,7 +722,10 @@ export class Paplico extends Emitter<Paplico.Events> {
     {
       targetLayerUid,
       strokeSettings,
-    }: { targetLayerUid?: string; strokeSettings?: Paplico.StrokeSetting },
+    }: {
+      targetLayerUid?: string
+      strokeSettings?: Paplico.StrokeSetting | null
+    },
   ) {
     // save current states
     const prev = this.#state.activeLayer
@@ -724,7 +756,7 @@ export class Paplico extends Emitter<Paplico.Events> {
     }
 
     // set strokeSettings temporary
-    if (strokeSettings) {
+    if (strokeSettings !== undefined) {
       this.setState(
         (d) => {
           d.currentStroke = strokeSettings
@@ -758,7 +790,7 @@ export class Paplico extends Emitter<Paplico.Events> {
       async () => {
         this.onUIStrokeChangeProcess.call(this, stroke, aborter)
       },
-      { maxQueue: 10 },
+      { maxQueue: 5 },
     )
   }
 
@@ -796,9 +828,9 @@ export class Paplico extends Emitter<Paplico.Events> {
       const path = stroke.toPath()
 
       if (activeLayerEntity.layerType === 'vector') {
-        const obj = this.createVectorObjectByCurrentSettings(stroke)
+        const obj = this.createVectorObjectByCurrentSettings(path)
 
-        await this.vectorRenderer.renderVectorLayer(
+        const metrics = await this.vectorRenderer.renderVectorLayer(
           tmpctx.canvas,
           {
             ...activeLayerEntity,
@@ -806,7 +838,7 @@ export class Paplico extends Emitter<Paplico.Events> {
           },
           {
             abort: aborter.signal,
-            pixelRatio: 1,
+            pixelRatio: this.#preferences.pixelRatio,
             viewport: {
               top: 0,
               left: 0,
@@ -816,6 +848,12 @@ export class Paplico extends Emitter<Paplico.Events> {
             phase: 'stroking',
             logger: renderLogger,
           },
+        )
+
+        this.processMetrics(
+          runtimeDoc,
+          { [activeLayerEntity.uid]: metrics.layerBBox },
+          metrics.objectsBBox,
         )
       } else if (activeLayerEntity.layerType === 'raster') {
         if (!currentStroke) return
@@ -876,6 +914,7 @@ export class Paplico extends Emitter<Paplico.Events> {
           throw new PaplicoAbortError()
         }
 
+        // Ignore metrices for preview
         await this.pipeline.fullyRender(
           dstctx,
           this.runtimeDoc,
@@ -883,7 +922,7 @@ export class Paplico extends Emitter<Paplico.Events> {
           {
             override: { [activeLayerEntity.uid]: tmpctx.canvas },
             abort: aborter.signal,
-            pixelRatio: 1,
+            pixelRatio: this.#preferences.pixelRatio,
             viewport: {
               top: 0,
               left: 0,
@@ -984,12 +1023,12 @@ export class Paplico extends Emitter<Paplico.Events> {
 
         // console.log('draw', activeLayerEntity)
 
-        await this.vectorRenderer.renderVectorLayer(
+        const metrices = await this.vectorRenderer.renderVectorLayer(
           tmpctx.canvas,
           activeLayerEntity,
           {
             abort: aborter.signal,
-            pixelRatio: 1,
+            pixelRatio: this.#preferences.pixelRatio,
             viewport: {
               top: 0,
               left: 0,
@@ -999,6 +1038,14 @@ export class Paplico extends Emitter<Paplico.Events> {
             phase: 'final',
             logger: RenderCycleLogger.current,
           },
+        )
+
+        this.processMetrics(
+          runtimeDoc,
+          {
+            [activeLayerEntity.uid]: metrices.layerBBox,
+          },
+          metrices.objectsBBox,
         )
 
         await runtimeDoc.updateOrCreateLayerBitmapCache(
@@ -1034,15 +1081,13 @@ export class Paplico extends Emitter<Paplico.Events> {
               scale: { x: 1, y: 1 },
               rotation: 0,
             },
+            pixelRatio: this.#preferences.pixelRatio,
             phase: 'final',
             logger: RenderCycleLogger.current,
           },
         )
 
         saveAndRestoreCanvas(tmpctx, () => {
-          logImage(tmpctx)
-          logImage(strkctx)
-
           tmpctx.globalCompositeOperation =
             this.#state.strokeComposition === 'normal'
               ? 'source-over'
@@ -1074,13 +1119,13 @@ export class Paplico extends Emitter<Paplico.Events> {
       try {
         RenderCycleLogger.current.log('Refresh all layers')
 
-        await this.pipeline.fullyRender(
+        const result = await this.pipeline.fullyRender(
           dstctx,
           runtimeDoc,
           this.vectorRenderer,
           {
             // abort: aborter.signal,
-            pixelRatio: 1,
+            pixelRatio: this.#preferences.pixelRatio,
             viewport: {
               top: 0,
               left: 0,
@@ -1091,6 +1136,14 @@ export class Paplico extends Emitter<Paplico.Events> {
             logger: RenderCycleLogger.current,
           },
         )
+
+        if (result) {
+          this.processMetrics(
+            runtimeDoc,
+            result.layerBBoxes,
+            result.objectBBoxes,
+          )
+        }
 
         this.emit('flushed')
       } finally {
@@ -1114,23 +1167,35 @@ export class Paplico extends Emitter<Paplico.Events> {
       path: path,
       filters: [
         ...(this.state.currentFill
-          ? ([
-              { kind: 'fill', fill: deepClone(this.state.currentFill) },
-            ] satisfies VectorAppearance[])
+          ? [
+              createVectorAppearance({
+                kind: 'fill',
+                fill: deepClone(this.state.currentFill),
+              }),
+            ]
           : []),
         ...(this.state.currentStroke
-          ? ([
-              {
+          ? [
+              createVectorAppearance({
                 kind: 'stroke',
                 stroke: deepClone(this.state.currentStroke),
                 ink: deepClone(this.state.currentInk),
-              },
-            ] satisfies VectorAppearance[])
+              }),
+            ]
           : []),
       ],
     })
 
     return obj
+  }
+
+  protected processMetrics(
+    runtimeDoc: DocumentContext,
+    layerMetrics: Record<string, LayerMetrics.BBoxSet>,
+    objectMetrics: Record<string, LayerMetrics.BBoxSet>,
+  ) {
+    runtimeDoc.updateLayerMetrics(layerMetrics)
+    runtimeDoc.updateObjectMetrics(objectMetrics)
   }
 
   protected async rerenderForHistoryAffection() {
@@ -1139,7 +1204,7 @@ export class Paplico extends Emitter<Paplico.Events> {
       async () => {
         this.rerender()
       },
-      { maxQueue: 10 },
+      { maxQueue: 5 },
     )
   }
 

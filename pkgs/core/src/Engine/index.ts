@@ -1,6 +1,6 @@
 export * as CanvasFactory from './CanvasFactory'
 export { RenderPipeline } from './RenderPipeline'
-export { DocumentContext as RuntimeDocument } from './DocumentContext'
+export { DocumentContext as RuntimeDocument } from './DocumentContext/DocumentContext'
 
 export { createBrush } from './Brush/Brush'
 export * as PapBrush from './Brush/PapBrush'

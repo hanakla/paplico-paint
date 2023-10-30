@@ -1,4 +1,4 @@
-import { DocumentContext } from '@/Engine/DocumentContext'
+import { DocumentContext } from '@/Engine/DocumentContext/DocumentContext'
 
 export type CommandConstructor = {
   new (...args: any[]): ICommand

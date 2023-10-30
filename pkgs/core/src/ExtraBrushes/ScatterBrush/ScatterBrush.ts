@@ -22,9 +22,16 @@ import {
   type Payload,
   type WorkerResponse,
 } from './ScatterBrush-worker'
-import { BrushMetadata, createBrush } from '@/Engine/Brush/Brush'
+import {
+  BrushContext,
+  BrushLayoutData,
+  BrushMetadata,
+  createBrush,
+} from '@/Engine/Brush/Brush'
 import { ColorRGBA } from '@/Document'
 import * as StrokingUtils from '@/stroking-utils'
+import { PaplicoError } from '@/Errors/PaplicoError'
+import { createImage } from '@/Engine/CanvasFactory'
 
 const _mat4 = new ThreeMatrix4()
 
@@ -50,6 +57,8 @@ export declare namespace ScatterBrush {
     /** 0..1 */
     noiseInfluence: number
   }
+
+  export type MemoData = GetPointWorkerResponse
 }
 
 export const ScatterBrush = createBrush(
@@ -173,7 +182,7 @@ export const ScatterBrush = createBrush(
       await Promise.all(
         Object.entries(Textures).map(async ([name, url]) => {
           const img = await new Promise<HTMLImageElement>((resolve, reject) => {
-            const img = new Image()
+            const img = createImage()
             img.onload = () => resolve(img)
             img.onerror = (e) => reject(e)
             img.src = url
@@ -223,19 +232,30 @@ export const ScatterBrush = createBrush(
       )
     }
 
+    public async render(
+      ctx: BrushContext<ScatterBrush.Settings, ScatterBrush.MemoData>,
+    ): Promise<BrushLayoutData> {
+      return this.renderWithWorker(ctx)
+    }
+
     protected async renderWithWorker({
       abort,
       abortIfNeeded,
       destContext: ctx,
       path: inputPath,
       transform,
+      pixelRatio,
       ink,
       brushSetting: { size, color, opacity, specific },
       threeRenderer,
       threeCamera,
       destSize,
       phase,
-    }: BrushContext<ScatterBrush.Settings>): Promise<BrushLayoutData> {
+      useMemoForPath,
+    }: BrushContext<
+      ScatterBrush.Settings,
+      ScatterBrush.MemoData
+    >): Promise<BrushLayoutData> {
       const sp = mergeToNew(ScatterBrush.getInitialConfig(), specific)
       const baseColor: ColorRGBA = { ...color, a: opacity }
       const _color = new Color()
@@ -253,52 +273,61 @@ export const ScatterBrush = createBrush(
         // const { points, closed } = path
         const id = generateId()
 
-        let res: GetPointWorkerResponse
-        try {
-          res = await new Promise<GetPointWorkerResponse>((r, reject) => {
-            const receiver = (e: MessageEvent<WorkerResponse>) => {
-              if (e.data.type === 'aborted' && e.data.id === id) {
-                reject(new PaplicoAbortError())
-                this.worker!.removeEventListener('message', receiver)
-                return
-              }
+        let res: GetPointWorkerResponse = await useMemoForPath(
+          path,
+          async () => {
+            try {
+              return await new Promise<GetPointWorkerResponse>((r, reject) => {
+                const receiver = (e: MessageEvent<WorkerResponse>) => {
+                  if (e.data.type === 'aborted' && e.data.id === id) {
+                    reject(new PaplicoAbortError())
+                    this.worker!.removeEventListener('message', receiver)
+                    return
+                  }
 
-              if (e.data.type !== 'getPoints' || e.data.id !== id) return
+                  if (e.data.type !== 'getPoints' || e.data.id !== id) return
 
-              r(e.data)
-              this.worker!.removeEventListener('message', receiver)
+                  r(e.data)
+                  this.worker!.removeEventListener('message', receiver)
+                }
+
+                const onAbort = () => {
+                  this.worker!.postMessage({
+                    type: 'aborted',
+                    id,
+                  } satisfies Payload)
+                }
+
+                abort.addEventListener('abort', onAbort, { once: true })
+                this.worker!.addEventListener('message', receiver)
+
+                console.log(pixelRatio)
+                this.worker!.postMessage({
+                  id,
+                  type: 'getPoints',
+                  path,
+                  pixelRatio,
+                  brushSize: size,
+                  destSize,
+                  scatterRange: sp.scatterRange ?? 0,
+                  inOutInfluence: sp.inOutInfluence ?? 0,
+                  inOutLength: sp.inOutLength ?? 0,
+                  scatterScale: 1,
+                } satisfies Payload)
+              })
+            } catch (e) {
+              // console.info(e)
+              throw e
             }
+          },
+          [...Object.values(sp)],
+        )
 
-            const onAbort = () => {
-              this.worker!.postMessage({
-                type: 'aborted',
-                id,
-              } satisfies Payload)
-            }
-
-            abort.addEventListener('abort', onAbort, { once: true })
-            this.worker!.addEventListener('message', receiver)
-
-            this.worker!.postMessage({
-              id,
-              type: 'getPoints',
-              path,
-              // closed,
-              brushSize: size,
-              destSize,
-              scatterRange: sp.scatterRange ?? 0,
-              inOutInfluence: sp.inOutInfluence ?? 0,
-              inOutLength: sp.inOutLength ?? 0,
-              scatterScale: 1,
-            } satisfies Payload)
-          })
-        } catch (e) {
-          // console.info(e)
-          throw e
+        if (res.matrices == null) {
+          throw new PaplicoError(
+            'ScatterBrush: failed to render (receive null matrices)',
+          )
         }
-
-        if (res.matrices == null) return { bbox }
-        // console.log({ res })
 
         const scene = new Scene()
         const material = this.materials[sp.texture]
@@ -313,115 +342,61 @@ export const ScatterBrush = createBrush(
         mesh.instanceMatrix.needsUpdate = false
 
         ctx.fillStyle = 'rgb(0,255,255)'
-        for (let i = 0, l = res.matrices.length; i < l; i++) {
-          // render circle at res.position[i]
-          // ctx.beginPath()
 
-          // ctx.arc(
-          //   res._internals.positions[i][0],
-          //   res._internals.positions[i][1],
-          //   1,
-          //   0,
-          //   Math.PI * 2,
-          // )
-          // ctx.closePath()
-          // ctx.fill()
+        try {
+          for (let i = 0, l = res.matrices.length; i < l; i++) {
+            _mat4.fromArray(res.matrices[i])
+            mesh.setMatrixAt(i, _mat4)
+            mesh.setColorAt(
+              i,
+              StrokingUtils.rgbToThreeRGB(
+                ink.getColor({
+                  pointIndex: i,
+                  points: path.points,
+                  pointAtLength: res.lengths[i],
+                  totalLength: res.totalLength,
+                  baseColor,
+                  pixelRatio,
+                }),
+                // {
+                //   r: i / l,
+                //   g: 1 - i / l,
+                //   b: 0,
+                // },
+                _color,
+              ),
+            )
+          }
 
-          _mat4.fromArray(res.matrices[i])
-          mesh.setMatrixAt(i, _mat4)
-          mesh.setColorAt(
-            i,
-            StrokingUtils.rgbToThreeRGB(
-              ink.getColor({
-                pointIndex: i,
-                points: path.points,
-                pointAtLength: res.lengths[i],
-                totalLength: res.totalLength,
-                baseColor,
-              }),
-              // {
-              //   r: i / l,
-              //   g: 1 - i / l,
-              //   b: 0,
-              // },
-              _color,
-            ),
-          )
+          if (res.bbox) {
+            bbox.left = Math.min(bbox.left, res.bbox.left)
+            bbox.top = Math.min(bbox.top, res.bbox.top)
+            bbox.right = Math.max(bbox.right, res.bbox.right)
+            bbox.bottom = Math.max(bbox.bottom, res.bbox.bottom)
+          }
+
+          group.add(mesh)
+          group.scale.set(transform.scale.x, transform.scale.y, 1)
+          group.position.set(transform.translate.x, -transform.translate.y, 0)
+          // group.rotation.set(transform.rotate)
+
+          scene.add(group)
+          threeRenderer.render(scene, threeCamera)
+          ctx.drawImage(threeRenderer.domElement, 0, 0)
+
+          return {
+            bbox: {
+              left: bbox.left - destSize.width / 2,
+              top: bbox.top - destSize.height / 2,
+              right: bbox.right + destSize.width / 2,
+              bottom: bbox.bottom + destSize.height / 2,
+            },
+          }
+        } finally {
+          mesh.dispose()
+          geometry.dispose()
         }
-
-        if (res.bbox) {
-          bbox.left = Math.min(bbox.left, res.bbox.left)
-          bbox.top = Math.min(bbox.top, res.bbox.top)
-          bbox.right = Math.max(bbox.right, res.bbox.right)
-          bbox.bottom = Math.max(bbox.bottom, res.bbox.bottom)
-        }
-
-        group.add(mesh)
-        group.scale.set(transform.scale.x, transform.scale.y, 1)
-        group.position.set(transform.translate.x, -transform.translate.y, 0)
-        // group.rotation.set(transform.rotate)
-
-        scene.add(group)
-        threeRenderer.render(scene, threeCamera)
-        ctx.drawImage(threeRenderer.domElement, 0, 0)
       }
-
-      return {
-        bbox: {
-          left: bbox.left - destSize.width / 2,
-          top: bbox.top - destSize.height / 2,
-          right: bbox.right + destSize.width / 2,
-          bottom: bbox.bottom + destSize.height / 2,
-        },
-      }
-    }
-
-    public async render(
-      ctx: BrushContext<ScatterBrush.Settings>,
-    ): Promise<BrushLayoutData> {
-      return this.renderWithWorker(ctx)
-      // const interX = interpolateMapObject(points, (idx, arr) => arr[idx].x)
-      // const interY = interpolateMapObject(points, (idx, arr) => arr[idx].y)
-      // let idx = 0
-      // for (let len = 0; len <= totalLen; len += step) {
-      //   const t = len / totalLen
-      //   const [x, y] = [interX(t), interY(t)]
-      //   const rad = StrokingHelper.getRadianFromTangent(
-      //     { x, y },
-      //     { x: interX(t + 0.01), y: interY(t + 0.01) }
-      //   )
-      //   const ypos = y / destSize.height
-      //   const matt4 = new Matrix4()
-      //     .translate(
-      //       x - destSize.width / 2,
-      //       (1 - ypos) * destSize.height - destSize.height / 2,
-      //       0
-      //     )
-      //     .rotateZ(rad)
-      //   _mat4.fromArray(matt4.toArray())
-      //   mesh.setMatrixAt(idx, _mat4)
-      //   idx++
-      //   bbox.left = Math.min(bbox.left, x)
-      //   bbox.top = Math.min(bbox.top, y)
-      //   bbox.right = Math.max(bbox.right, x)
-      //   bbox.bottom = Math.max(bbox.bottom, y)
-      // }
-      //   group.add(mesh)
-      //   group.scale.set(transform.scale.x, transform.scale.y, 1)
-      //   group.position.set(transform.translate.x, -transform.translate.y, 0)
-      //   // group.rotation.set(transform.rotate)
-      //   scene.add(group)
-      //   threeRenderer.render(scene, threeCamera)
-      //   ctx.drawImage(threeRenderer.domElement, 0, 0)
-      // }
-      // return {
-      //   bbox: {
-      //     left: bbox.left - destSize.width / 2,
-      //     top: bbox.top - destSize.height / 2,
-      //     right: bbox.right + destSize.width / 2,
-      //     bottom: bbox.bottom + destSize.height / 2,
-      //   },
-      // }
     }
 
     protected async createWorker() {

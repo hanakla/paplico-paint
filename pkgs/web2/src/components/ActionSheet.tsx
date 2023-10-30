@@ -18,6 +18,7 @@ import { centering } from '@/utils/cssMixin'
 import useEvent from 'react-use-event-hook'
 import { FocusTrap } from '@/components/FocusTrap'
 import { GhostButton } from '@/components/GhostButton'
+import { Portal } from '@radix-ui/themes'
 
 type Props = {
   opened: boolean
@@ -63,6 +64,7 @@ export const ActionSheet = memo(
     })
 
     const handleClickBackdrop = useEvent((e: MouseEvent<HTMLDivElement>) => {
+      console.log(e.target, e.currentTarget)
       if (!DOMUtils.isSameElement(e.target, e.currentTarget)) return
       onClose()
     })

@@ -12,8 +12,7 @@ describe('DOMMatrix', () => {
           rotate: 5,
         },
         path: {
-          points: [{ x: 0, y: 0, begin: null, end: null }],
-          closed: false,
+          points: [{ isMoveTo: true, x: 0, y: 0, begin: null, end: null }],
           randomSeed: 0,
         },
       }),

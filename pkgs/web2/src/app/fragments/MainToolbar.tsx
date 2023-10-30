@@ -65,6 +65,8 @@ import { letDownload } from '@hanakla/arma'
 import { Fieldset } from '@/components/Fieldset'
 import { storePicker } from '@/utils/zutrand'
 import { create } from 'zustand'
+import { Skeleton } from '@/components/Skeleton'
+import { pick } from '@/utils/object'
 
 type Props = {
   className?: string
@@ -127,7 +129,9 @@ export const MainToolbar = memo(
     ref,
   ) {
     const { pap } = usePaplico()
-    const papStore = usePaplicoStore(storePicker('engineState'))
+    const { currentStroke, strokeComposition } = usePaplicoStore((s) =>
+      pick(s.engineState, ['currentStroke', 'strokeComposition']),
+    )
     const openModal = useModal()
     const propsMemo = usePropsMemo()
 
@@ -136,15 +140,13 @@ export const MainToolbar = memo(
     const [menuOpened, toggleMenuOpened] = useToggle(false)
 
     const toolbarStore = useToolbarStore(
-      storePicker('set', 'strokeColorString'),
+      storePicker(['set', 'strokeColorString']),
     )
 
     useIsomorphicLayoutEffect(() => {
       toolbarStore.set({
-        strokeColorHSB: papStore.engineState?.currentStroke
-          ? rgbaToHSBA(
-              papColorToRGBA(papStore.engineState?.currentStroke.color),
-            )
+        strokeColorHSB: currentStroke
+          ? rgbaToHSBA(papColorToRGBA(currentStroke.color))
           : { h: 0, s: 0, b: 0 },
       })
     }, [])
@@ -192,7 +194,7 @@ export const MainToolbar = memo(
           break
         }
         case 'png': {
-          binary = await pap!.exporters.png({})
+          binary = await pap!.exporters.png({ dpi: 150 })
           break
         }
         case 'psd': {
@@ -242,11 +244,12 @@ export const MainToolbar = memo(
         <Popover
           trigger={
             <div>
-              {/* {console.log()} */}
-              {papStore.engineState?.strokeComposition === 'normal' ? (
+              {strokeComposition === 'normal' ? (
                 <BsBrushFill size={24} />
-              ) : (
+              ) : strokeComposition === 'erase' ? (
                 <BsEraserFill size={24} />
+              ) : (
+                <Skeleton width={24} height={24} />
               )}
             </div>
           }
@@ -323,7 +326,7 @@ const StrokeColorPopoverTrigger = memo(
   function StrokeColorPopoverTrigger({}: {}) {
     const { pap } = usePaplico()
     const { strokeColorHSB, strokeColorString, set } = useToolbarStore(
-      storePicker('strokeColorHSB', 'strokeColorString', 'set'),
+      storePicker(['strokeColorHSB', 'strokeColorString', 'set']),
     )
     const propsMemo = usePropsMemo()
 

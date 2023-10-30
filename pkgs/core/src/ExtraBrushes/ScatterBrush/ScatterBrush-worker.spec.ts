@@ -30,9 +30,9 @@ describe('ScatterBrush-worker', () => {
       inOutLength: 0,
       path: {
         randomSeed: 0,
-        closed: false,
         points: [
           {
+            isMoveTo: true,
             x: 0,
             y: 0,
             end: null,

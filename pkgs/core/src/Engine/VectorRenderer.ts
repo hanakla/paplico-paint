@@ -10,7 +10,7 @@ import {
   saveAndRestoreCanvas,
   setCanvasSize,
 } from '@/utils/canvas'
-import { deepClone } from '@/utils/object'
+import { deepClone, shallowEquals } from '@/utils/object'
 import { OrthographicCamera, WebGLRenderer } from 'three'
 import { BrushRegistry } from './Registry/BrushRegistry'
 import { createCanvas, createContext2D } from './CanvasFactory'
@@ -32,6 +32,12 @@ import { FontRegistry } from './Registry/FontRegistry'
 import { parseSVGPath, pathCommandsToString } from '@/VectorProcess'
 import { createSVGPathByVectorPath } from '@/utils/svg'
 import { TextNode } from '@/Document/LayerEntity/TextNode'
+import { BrushClass, BrushLayoutData, IBrush } from './Brush/Brush'
+import {
+  LayerMetrics,
+  createBBox,
+  createEmptyBBox,
+} from './DocumentContext/LayerMetrics'
 
 export type VectorObjectOverrides = {
   [vectorLayerUid: string]: {
@@ -39,6 +45,11 @@ export type VectorObjectOverrides = {
   }
 }
 
+type StrokeMemoToken = object
+type StrokeMemoEntry<T> = {
+  data: T
+  prevDeps: any[]
+}
 export class VectorRenderer {
   protected brushRegistry: BrushRegistry
   protected inkRegistry: InkRegistry
@@ -48,6 +59,10 @@ export class VectorRenderer {
   protected glRendererResource: AtomicResource<WebGLRenderer>
 
   protected camera: OrthographicCamera
+  protected strokeMemo: WeakMap<
+    VectorPath,
+    WeakMap<IBrush, StrokeMemoEntry<any>>
+  > = new WeakMap()
 
   constructor(options: {
     brushRegistry: BrushRegistry
@@ -69,6 +84,10 @@ export class VectorRenderer {
     this.glRendererResource.ensureForce().dispose()
   }
 
+  public async invalidateStrokeMemo(path: VectorPath) {
+    this.strokeMemo.delete(path)
+  }
+
   public async renderVectorLayer(
     output: HTMLCanvasElement,
     layer: VectorLayer | TextLayer,
@@ -80,29 +99,46 @@ export class VectorRenderer {
       phase: RenderPhase
       objectOverrides?: VectorObjectOverrides
     },
-  ): Promise<void> {
-    const { logger } = options
+  ): Promise<{
+    layerBBox: {
+      source: LayerMetrics.BBox
+      visually: LayerMetrics.BBox
+    }
+    objectsBBox: {
+      [objectUid: string]: {
+        source: LayerMetrics.BBox
+        visually: LayerMetrics.BBox
+      }
+    }
+  }> {
+    const { logger, pixelRatio } = options
 
     setCanvasSize(output, options.viewport)
     const outcx = output.getContext('2d')!
+    const objectsBBox: Record<string, LayerMetrics.BBoxSet> = {}
 
     let objects: (VectorObject | VectorGroup)[] = []
     if (layer.layerType === 'text') {
       objects = await this.generateTextVectorObject(layer)
-      console.log({ objects })
     } else {
       objects = layer.objects
     }
 
     for (let obj of objects) {
-      if (obj.type === 'vectorGroup') continue
+      if (obj.type === 'vectorGroup') {
+      }
       if (!obj.visible) continue
+
+      const sourceBBox = calcVectorBoundingBox(obj) // Ignore override for source
+      let visuallyBBox = sourceBBox
 
       if (options.objectOverrides?.[layer.uid]?.[obj.uid]) {
         obj = options.objectOverrides?.[layer.uid]?.[obj.uid]!(deepClone(obj))
       }
 
       await saveAndRestoreCanvas(outcx, async () => {
+        if (obj.type === 'vectorGroup') return // for typecheck
+
         outcx.globalCompositeOperation = 'source-over'
 
         outcx.transform(
@@ -114,25 +150,28 @@ export class VectorRenderer {
         )
         outcx.beginPath()
 
-        const [start] = obj.path.points
-        outcx.moveTo(start.x, start.y)
+        obj.path.points.forEach((pt, idx, points) => {
+          const prev = points[idx - 1]
 
-        mapPoints(
-          obj.path.points,
-          (point, prev) => {
+          if (pt.isMoveTo) {
+            outcx.moveTo(pt.x * pixelRatio, pt.y * pixelRatio)
+          } else if (pt.isClose) {
+            outcx.closePath()
+          } else {
+            if (!prev) {
+              throw new Error('Unexpected point, previous point is null')
+            }
+
             outcx.bezierCurveTo(
-              point.begin?.x ?? prev!.x,
-              point.begin?.y ?? prev!.y,
-              point.end?.x ?? point.x,
-              point.end?.y ?? point.y,
-              point.x,
-              point.y,
+              (pt.begin?.x ?? prev!.x) * pixelRatio,
+              (pt.begin?.y ?? prev!.y) * pixelRatio,
+              (pt.end?.x ?? pt.x) * pixelRatio,
+              (pt.end?.y ?? pt.y) * pixelRatio,
+              pt.x * pixelRatio,
+              pt.y * pixelRatio,
             )
-          },
-          { startOffset: 1 },
-        )
-
-        if (obj.path.closed) outcx.closePath()
+          }
+        })
 
         for (const ap of obj.filters) {
           if (ap.kind === 'fill') {
@@ -156,14 +195,14 @@ export class VectorRenderer {
 
                 // const width = right - left
                 // const height = bottom - top
-                const centerX = left + width / 2
-                const centerY = top + height / 2
+                const centerX = (left + width / 2) * pixelRatio
+                const centerY = (top + height / 2) * pixelRatio
 
                 const gradient = outcx.createLinearGradient(
-                  centerX + start.x,
-                  centerY + start.y,
-                  centerX + end.x,
-                  centerY + end.y,
+                  (centerX + start.x) * pixelRatio,
+                  (centerY + start.y) * pixelRatio,
+                  (centerX + end.x) * pixelRatio,
+                  (centerY + end.y) * pixelRatio,
                 )
 
                 for (const {
@@ -189,30 +228,80 @@ export class VectorRenderer {
               throw new Error(`Unregistered brush ${ap.stroke.brushId}`)
             }
 
-            await this.renderStroke(output, obj.path, ap.stroke, {
-              abort: options.abort,
-              inkSetting: ap.ink,
-              transform: {
-                position: addPoint2D(
-                  layer.transform.position,
-                  obj.transform.position,
-                ),
-                scale: multiplyPoint2D(
-                  layer.transform.scale,
-                  obj.transform.scale,
-                ),
-                rotation: layer.transform.rotate + obj.transform.rotate,
+            const { bbox } = await this.renderStroke(
+              output,
+              obj.path,
+              ap.stroke,
+              {
+                abort: options.abort,
+                inkSetting: ap.ink,
+                pixelRatio,
+                transform: {
+                  position: addPoint2D(
+                    layer.transform.position,
+                    obj.transform.position,
+                  ),
+                  scale: multiplyPoint2D(
+                    layer.transform.scale,
+                    obj.transform.scale,
+                  ),
+                  rotation: layer.transform.rotate + obj.transform.rotate,
+                },
+                phase: options.phase,
+                logger: options.logger,
               },
-              phase: options.phase,
-              logger: options.logger,
-            })
+            )
+
+            visuallyBBox = {
+              ...bbox,
+              width: bbox.right - bbox.left,
+              height: bbox.bottom - bbox.top,
+              centerX: bbox.left + (bbox.right - bbox.left) / 2,
+              centerY: bbox.top + (bbox.bottom - bbox.top) / 2,
+            }
           } else if (ap.kind === 'external') {
             continue
           }
         }
       })
 
+      objectsBBox[obj.uid] = {
+        source: sourceBBox,
+        visually: visuallyBBox,
+      }
+
       outcx.resetTransform()
+    }
+
+    let layerSourceBBox: LayerMetrics.BBox = createEmptyBBox()
+    let layerVisuallyBBox: LayerMetrics.BBox = createEmptyBBox()
+
+    for (const obj of objects) {
+      const { source, visually } = objectsBBox[obj.uid]
+
+      layerSourceBBox.left = Math.min(layerSourceBBox.left, source.left)
+      layerSourceBBox.top = Math.min(layerSourceBBox.top, source.top)
+      layerSourceBBox.width = Math.max(layerSourceBBox.width, source.width)
+      layerSourceBBox.height = Math.max(layerSourceBBox.height, source.height)
+
+      layerVisuallyBBox.left = Math.min(layerVisuallyBBox.left, visually.left)
+      layerVisuallyBBox.top = Math.min(layerVisuallyBBox.top, visually.top)
+      layerVisuallyBBox.width = Math.max(
+        layerVisuallyBBox.width,
+        visually.width,
+      )
+      layerVisuallyBBox.height = Math.max(
+        layerVisuallyBBox.height,
+        visually.height,
+      )
+    }
+
+    return {
+      layerBBox: {
+        source: createBBox(layerSourceBBox),
+        visually: createBBox(layerVisuallyBBox),
+      },
+      objectsBBox: objectsBBox,
     }
   }
 
@@ -223,12 +312,14 @@ export class VectorRenderer {
 
     const objects: VectorObject[] = []
 
-    let curX = 0
+    let curX = layer.transform.position.x
+    let curY = layer.transform.position.y
     let curBaseline = 0
 
-    // Linebreak nomarlize
-    const lineBreakedNodes: TextNode[] = []
-    let currentNode: TextNode = { ...layer.textNodes[0], text: '' }
+    // #region Linebreak nomarlize
+    const lineBreakedNodes: TextNode[][] = []
+    let currentLine: TextNode[] = []
+    let currentNode: TextNode
 
     for (
       let nodeIdx = 0, nodeLen = layer.textNodes.length;
@@ -236,9 +327,13 @@ export class VectorRenderer {
       nodeIdx++
     ) {
       let node = layer.textNodes[nodeIdx]
-
-      lineBreakedNodes.push(currentNode)
-      currentNode = { ...layer.textNodes[0], ...node, text: '' }
+      currentNode = {
+        fontSize: layer.fontSize,
+        fontFamily: layer.fontFamily,
+        fontStyle: layer.fontStyle,
+        ...node,
+        text: '',
+      }
 
       for (
         let charIdx = 0, chars = [...node.text], charLen = chars.length;
@@ -246,81 +341,120 @@ export class VectorRenderer {
         charIdx++
       ) {
         if (chars[charIdx] === '\n') {
-          lineBreakedNodes.push(currentNode)
-          currentNode = { ...node, text: '' }
-          break
+          currentLine.push(currentNode)
+          lineBreakedNodes.push(currentLine)
+          currentLine = []
+          currentNode = {
+            fontSize: layer.fontSize,
+            fontFamily: layer.fontFamily,
+            fontStyle: layer.fontStyle,
+            ...node,
+            text: '',
+          }
+          continue
         } else {
           currentNode.text += chars[charIdx]
         }
       }
+
+      currentLine.push(currentNode)
     }
 
-    lineBreakedNodes.push(currentNode)
+    lineBreakedNodes.push(currentLine)
+    // #endregion
 
     console.log({ lineBreakedNodes })
-    for (const node of lineBreakedNodes) {
-      const font = await this.fontRegistry.getFont(
-        node.fontFamily ?? layer.fontFamily,
-        node.fontStyle ?? layer.fontStyle,
-        { fallback: { family: 'Hiragino Sans' } },
-      )
-
-      if (!font) {
-        console.warn(
-          `Font not found: ${node.fontFamily ?? layer.fontFamily} ${
-            node.fontStyle ?? layer.fontStyle
-          }`,
+    for (const lineNodes of lineBreakedNodes) {
+      const loadFont = (node: TextNode) => {
+        return this.fontRegistry.getFont(
+          node.fontFamily ?? layer.fontFamily,
+          node.fontStyle ?? layer.fontStyle,
+          { fallback: { family: 'Hiragino Sans' } },
         )
-        continue
       }
 
-      const glyphs = font.stringToGlyphs(node.text)
+      let maxLineHeightPx = 0
 
-      for (let glyph of glyphs) {
-        const fontSize = node.fontSize ?? layer.fontSize
-        // SEE: https://github.com/opentypejs/opentype.js/blob/8fbc2bad758e66e9a65da3bd2a0f9fd9c3d93dca/src/glyph.js#L349C5-L349C49
-        const scale = (1 / glyph.path.unitsPerEm) * fontSize
+      for (const node of lineNodes) {
+        const font = await loadFont(node)
 
-        const path = glyph.getPath(
-          curX,
-          /* baseline */ glyph.yMin! * scale + curBaseline + 20,
-          fontSize,
-        )
-        curX += glyph.advanceWidth! * scale
+        if (!font) {
+          console.warn(
+            `Font not found: ${node.fontFamily ?? layer.fontFamily} ${
+              node.fontStyle ?? layer.fontStyle
+            }`,
+          )
+          continue
+        }
 
-        const charPaths = svgCommandToVectoPath(path.toPathData(5))
-        for (let path of charPaths) {
-          objects.push({
-            uid: '__TEXT__',
-            type: 'vectorObject',
-            lock: false,
-            name: '',
-            opacity: 1,
-            path,
-            visible: true,
-            transform: {
-              position: {
-                x: node.position.x,
-                y: node.position.y,
-              },
-              scale: {
-                x: 1,
-                y: 1,
-              },
-              rotate: 0,
-            },
-            filters: [
-              {
-                uid: '__TEXT__',
-                kind: 'fill',
-                fill: {
-                  type: 'fill',
-                  color: { r: 0, g: 0, b: 0 },
-                  opacity: 1,
+        const nodeGlyphs = font.stringToGlyphs(node.text)
+
+        for (const glyph of nodeGlyphs) {
+          const fontSize = node.fontSize ?? layer.fontSize
+          const unitToPxScale = (1 / font.unitsPerEm) * fontSize
+          const glyphHeight = glyph.yMax! - glyph.yMin!
+
+          maxLineHeightPx = Math.max(
+            maxLineHeightPx,
+            glyphHeight * unitToPxScale,
+          )
+        }
+      }
+
+      for (const node of lineNodes) {
+        const font = await loadFont(node)
+        if (!font) continue
+
+        const nodeGlyphs = font.stringToGlyphs(node.text)
+
+        for (let glyph of nodeGlyphs) {
+          const fontSize = node.fontSize ?? layer.fontSize
+          const unitToPxScale = (1 / font.unitsPerEm) * fontSize
+          const glyphHeightPx = glyph.yMax! - glyph.yMin! * unitToPxScale
+
+          console.log({ maxLineHeightPx, glyphHeightPx, unitToPxScale })
+          const path = glyph.getPath(curX, curY + maxLineHeightPx, fontSize)
+
+          curX += glyph.advanceWidth! * unitToPxScale
+
+          const metrics = glyph.getMetrics()
+          const charPaths = svgCommandToVectoPath(path.toPathData(5))
+
+          console.log(metrics)
+
+          for (let path of charPaths) {
+            objects.push({
+              uid: '__TEXT__',
+              type: 'vectorObject',
+              lock: false,
+              name: '',
+              opacity: 1,
+              path,
+              visible: true,
+              transform: {
+                position: {
+                  x: node.position.x,
+                  y: node.position.y,
                 },
+                scale: {
+                  x: 1,
+                  y: 1,
+                },
+                rotate: 0,
               },
-            ],
-          })
+              filters: [
+                {
+                  uid: '__TEXT__',
+                  kind: 'fill',
+                  fill: {
+                    type: 'fill',
+                    color: { r: 0, g: 0, b: 0 },
+                    opacity: 1,
+                  },
+                },
+              ],
+            })
+          }
         }
       }
     }
@@ -355,6 +489,7 @@ export class VectorRenderer {
     {
       inkSetting,
       transform,
+      pixelRatio,
       abort,
       phase,
       logger,
@@ -365,11 +500,12 @@ export class VectorRenderer {
         scale: { x: number; y: number }
         rotation: number
       }
+      pixelRatio: number
       abort?: AbortSignal
       phase: RenderPhase
       logger: RenderCycleLogger
     },
-  ): Promise<void> {
+  ): Promise<BrushLayoutData> {
     const brush = this.brushRegistry.getInstance(strokeSetting.brushId)
     const ink = this.inkRegistry.getInstance(inkSetting.inkId)
 
@@ -378,7 +514,8 @@ export class VectorRenderer {
 
     const renderer = await this.glRendererResource.ensure()
     const dstctx = dest.getContext('2d')!
-    const { width, height } = dest
+    const width = dest.width * pixelRatio
+    const height = dest.height * pixelRatio
 
     renderer.setSize(width, height, false)
     renderer.setClearColor(0x000000, 0)
@@ -390,13 +527,34 @@ export class VectorRenderer {
     this.camera.bottom = -height / 2.0
     this.camera.updateProjectionMatrix()
 
+    const useMemoForPath = async <T>(
+      path: VectorPath,
+      factory: () => T,
+      deps: any[],
+    ): Promise<T> => {
+      const memoStore = this.strokeMemo.get(path) ?? new WeakMap()
+      let memoEntry = memoStore?.get(brush)
+      let data: T | undefined = undefined
+
+      if (!memoEntry || !shallowEquals(memoEntry.prevDeps, deps)) {
+        data = factory()
+        memoEntry = { data, prevDeps: deps }
+      }
+
+      memoStore.set(brush, memoEntry)
+      this.strokeMemo.set(path, memoStore)
+
+      return memoEntry.data
+    }
+
     try {
-      await brush.render({
+      return await brush.render({
         abort: abort ?? new AbortController().signal,
         abortIfNeeded: () => {
           if (abort?.aborted) throw new PaplicoAbortError()
         },
         destContext: dstctx,
+        pixelRatio,
         threeRenderer: renderer,
         threeCamera: this.camera,
 
@@ -411,6 +569,7 @@ export class VectorRenderer {
         },
         phase,
         logger,
+        useMemoForPath,
       })
     } finally {
       this.glRendererResource.release(renderer)

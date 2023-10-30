@@ -1,8 +1,10 @@
 import { ulid } from '@/utils/ulid'
 import { assign, deepClone } from '@/utils/object'
-import { LayerEntity, RootLayer } from './LayerEntity'
+import { LayerEntity, RootLayer, VectorLayer } from './LayerEntity'
 import { LayerNode } from './LayerNode'
 import { PaplicoBlob } from './PaplicoBlob'
+import { VectorGroup } from './LayerEntity/VectorGroup'
+import { VectorObject } from './LayerEntity/VectorObject'
 
 export namespace PaplicoDocument {
   export type Meta = {
@@ -128,6 +130,38 @@ export class PaplicoDocument {
     }
 
     return this.layerEntities.find((layer) => layer.uid === layerId)
+  }
+
+  public resolveVectorObject(uid: string): VectorGroup | VectorObject | null {
+    const findObject = (
+      layer: VectorGroup,
+    ): VectorGroup | VectorObject | null => {
+      for (const child of layer.children) {
+        if (child.uid === uid) return child
+
+        if (child.type === 'vectorGroup') {
+          const result = findObject(child)
+          if (result) return result
+        }
+      }
+
+      return null
+    }
+
+    for (const layer of this.layerEntities) {
+      if (layer.layerType !== 'vector') continue
+
+      for (const child of layer.objects) {
+        if (child.uid === uid) return child
+
+        if (child.type === 'vectorGroup') {
+          const result = findObject(child)
+          if (result) return result
+        }
+      }
+    }
+
+    return null
   }
 
   public resolveNodePath(path: readonly string[]) {

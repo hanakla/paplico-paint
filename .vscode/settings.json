@@ -4,7 +4,8 @@
     "**/bower_components": true,
     "**/*.code-search": true,
     "**/.next": true,
-    "**/*.{d.ts,mjs,umd.js}": true
+    "**/*.{d.ts,mjs,umd.js}": true,
+    "pkgs/core/dist/**/*": true
   },
   "typescript.tsdk": "./node_modules/typescript/lib",
   "typescript.preferences.importModuleSpecifier": "shortest",

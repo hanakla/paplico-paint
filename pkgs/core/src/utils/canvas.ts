@@ -51,3 +51,27 @@ export const clearCanvas = (
 export const freeingCanvas = (canvas: HTMLCanvasElement) => {
   setCanvasSize(canvas, 0, 0)
 }
+
+export const canvasToBlob = async (
+  canvas: HTMLCanvasElement,
+  type?: string,
+  quality?: number,
+) => {
+  return new Promise<Blob>((resolve, reject) => {
+    if (canvas.toBlob != null) {
+      canvas.toBlob(
+        (blob) => {
+          if (blob == null) return reject(new Error('Failed to Canvas.toBlob'))
+          else resolve(blob!)
+        },
+        type,
+        quality,
+      )
+    } else {
+      // for node-canvas
+      const dataurl = canvas.toDataURL(type, quality)
+      const buffer = Buffer.from(dataurl.split(',')[1], 'base64')
+      return resolve(new Blob([buffer], { type }))
+    }
+  })
+}

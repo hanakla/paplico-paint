@@ -1,4 +1,4 @@
-import { createCanvas } from '@/Engine/CanvasFactory'
+import { createCanvas, createImageBitmapImpl } from '@/Engine/CanvasFactory'
 import { freeingCanvas, setCanvasSize } from './canvas'
 
 export const imageBitmapToImageData = (
@@ -18,5 +18,5 @@ export const imageBitmapToImageData = (
 }
 
 export const imageDataToImageBitmap = (imageData: ImageData) => {
-  return createImageBitmap(imageData)
+  return createImageBitmapImpl(imageData)
 }

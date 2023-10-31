@@ -74,6 +74,7 @@ export namespace Paplico {
   export type InkSetting = _InkSetting
 
   export type Preferences = {
+    paneUILocale: SupportedLocales
     /** Simplify path tolerance, recommend to 0 to 6. 0 is no simplify */
     strokeTrelance: number
     /** Pixel ratio for rendering, default to 1 */
@@ -130,6 +131,8 @@ export namespace Paplico {
     pixelRatio?: number
     signal?: AbortSignal
   }
+
+  export type SupportedLocales = 'en' | 'ja'
 
   export type _PaneImpl = {
     components: PaplicoComponents
@@ -190,6 +193,7 @@ export class Paplico extends Emitter<Paplico.Events> {
   protected readonly paneImpl: Paplico._PaneImpl
 
   #preferences: Paplico.Preferences = {
+    paneUILocale: 'en',
     strokeTrelance: 5,
     pixelRatio: 1,
   }
@@ -237,6 +241,7 @@ export class Paplico extends Emitter<Paplico.Events> {
   constructor(
     canvas: HTMLCanvasElement,
     opts: {
+      paneUILocale?: string
       paneComponentImpls?: PaplicoComponents
       paneCreateElement?: AbstractComponentRenderer
     } = {},
@@ -247,6 +252,13 @@ export class Paplico extends Emitter<Paplico.Events> {
       components: opts.paneComponentImpls ?? NoneImpls,
       h: opts.paneCreateElement ?? (() => null),
     }
+
+    this.#preferences.paneUILocale =
+      typeof navigator !== 'undefined' && typeof navigator.language === 'string'
+        ? (navigator.language.match(
+            /^(en|ja)/,
+          )?.[0] as Paplico.SupportedLocales) ?? 'en'
+        : 'en'
 
     this.brushes = new BrushRegistry()
     this.brushes.register(CircleBrush)

@@ -3,19 +3,10 @@ import type { VectorStrokeSetting, VectorPath } from '@/Document'
 import type { RenderCycleLogger } from '../RenderCycleLogger'
 import type { InkGenerator } from '../Ink'
 import type { RenderPhase } from '../types'
-import type { PaneSetState, PaplicoComponents } from '@/UI/PaneUI/index'
-import type {
-  AbstractComponentRenderer,
-  VNode,
-} from '@/UI/PaneUI/AbstractComponent'
+import type { VNode } from '@/UI/PaneUI/AbstractComponent'
+import { PaneUIRenderings } from '../PaneUIRenderings'
 
-export type BrushPaneContext<T> = {
-  components: PaplicoComponents
-  c: PaplicoComponents
-  state: T
-  setState: PaneSetState<T>
-  h: AbstractComponentRenderer
-}
+export type BrushPaneContext<T> = PaneUIRenderings.PaneUIContext<T>
 
 export type BrushContext<T extends Record<string | symbol, any>, M> = {
   abort: AbortSignal
@@ -73,7 +64,7 @@ export interface BrushClass<T = any> {
 
   getInitialConfig(): any
 
-  renderPane(context: BrushPaneContext<T>): VNode
+  renderPane(context: PaneUIRenderings.PaneUIContext<T>): VNode
 
   new (): IBrush
 }

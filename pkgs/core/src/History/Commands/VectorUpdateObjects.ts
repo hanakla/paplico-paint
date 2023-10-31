@@ -36,7 +36,7 @@ export class VectorUpdateObjects implements ICommand {
     const next = deepClone(original)
     this.options.updater(next)
 
-    this.changesPatch = diff(original, next) ?? {}
+    this.changesPatch = diff(original, next)
     patch(layer, this.changesPatch!)
 
     document.invalidateLayerBitmapCache(this.layerId)

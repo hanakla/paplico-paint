@@ -32,6 +32,7 @@ import { ColorRGBA } from '@/Document'
 import * as StrokingUtils from '@/stroking-utils'
 import { PaplicoError } from '@/Errors/PaplicoError'
 import { createImage } from '@/Engine/CanvasFactory'
+import { scatterBrushTexts } from '@/locales'
 
 const _mat4 = new ThreeMatrix4()
 
@@ -74,23 +75,27 @@ export const ScatterBrush = createBrush(
       h,
       state,
       setState,
+      locale,
+      makeTranslation,
     }: PapBrush.BrushPaneContext<ScatterBrush.Settings>) {
+      const t = makeTranslation(scatterBrushTexts)
+
       return h(
         c.View,
         { flexFlow: 'column' },
         // Texture
         h(c.FieldSet, {
-          title: 'Texture',
+          title: t('texture'),
           input: h(c.SelectBox, {
             placeholder: 'Select texture',
             value: state.texture,
             items: [
               {
-                label: 'Pencil',
+                label: t('textures.pencil'),
                 value: 'pencil',
               },
               {
-                label: 'Airbrush',
+                label: t('textures.airBrush'),
                 value: 'airBrushTexture',
               },
             ],
@@ -101,7 +106,7 @@ export const ScatterBrush = createBrush(
 
         // Scatter
         h(c.FieldSet, {
-          title: 'Scatter',
+          title: t('scatter'),
           displayValue: state.scatterRange,
           input: h(c.Slider, {
             min: 0,
@@ -114,7 +119,7 @@ export const ScatterBrush = createBrush(
 
         // in/out
         h(c.FieldSet, {
-          title: 'In / Out',
+          title: t('inOut'),
           displayValue: state.inOutInfluence,
           input: h(c.Slider, {
             min: 0,
@@ -127,7 +132,7 @@ export const ScatterBrush = createBrush(
 
         // in/out length
         h(c.FieldSet, {
-          title: 'In / Out Length',
+          title: t('inOutLength'),
           displayValue: state.inOutLength,
           input: h(c.Slider, {
             min: 0,
@@ -140,7 +145,7 @@ export const ScatterBrush = createBrush(
 
         // Pressure
         h(c.FieldSet, {
-          title: 'Pressure influence',
+          title: t('pressureInfluence'),
           displayValue: state.pressureInfluence,
           input: h(c.Slider, {
             min: 0,

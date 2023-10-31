@@ -1,27 +1,11 @@
 import { type VectorPath } from '@/Document'
-import type {
-  AbstractComponentRenderer,
-  VNode,
-} from '@/UI/PaneUI/AbstractComponent'
+import type { VNode } from '@/UI/PaneUI/AbstractComponent'
 import { FilterWebGLContext } from './FilterContextAbst'
 import { RenderCycleLogger } from '../RenderCycleLogger'
-import { PaneSetState, PaplicoComponents } from '@/UI/PaneUI'
 import { RenderPhase } from '../types'
+import { PaneUIRenderings } from '../PaneUIRenderings'
 
-export type FilterPaneContext<T> = {
-  components: PaplicoComponents
-  c: PaplicoComponents
-  state: T
-  setState: PaneSetState<T>
-  h: AbstractComponentRenderer
-
-  // getDocumentLayerNodes: () => readonly Readonly<LayerNode>[]
-  // queryLayer: (query: {
-  //   uid?: string
-  //   layerType?: LayerEntity['layerType']
-  //   hasFeature?: string
-  // }) => readonly Readonly<LayerEntity>[]
-}
+export type FilterPaneContext<T> = PaneUIRenderings.PaneUIContext<T>
 
 export type FilterInitContext = {
   gl: FilterWebGLContext
@@ -73,7 +57,7 @@ export interface FilterClass<T extends Record<string, any>> {
   getInitialConfig(): T
   migrateSetting(previousVersion: string, config: T): T
 
-  renderPane(context: FilterPaneContext<T>): VNode
+  renderPane(context: PaneUIRenderings.PaneUIContext<T>): VNode
 
   new (): IFilter<T>
 }

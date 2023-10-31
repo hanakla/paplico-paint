@@ -42,6 +42,26 @@ export const vectorObjectTransformToMatrix = (obj: VectorObject) => {
     .translate(-bbx.width / 2, -bbx.height / 2)
 }
 
+export const calcVectorPathBoundingBox = (path: VectorPath) => {
+  const bbox = pathBounds(pointsToSVGCommandArray(path.points))
+  const left = bbox.left
+  const top = bbox.top
+  const width = Math.abs(bbox.right - bbox.left)
+  const height = Math.abs(bbox.bottom - bbox.top)
+
+  return {
+    ...bbox,
+    left,
+    top,
+    right: left + width,
+    bottom: top + height,
+    centerX: left + width / 2,
+    centerY: top + height / 2,
+    width,
+    height,
+  }
+}
+
 export const calcVectorBoundingBox = (obj: VectorObject) => {
   const bbox = pathBounds(pointsToSVGCommandArray(obj.path.points))
   const left = bbox.left + obj.transform.position.x

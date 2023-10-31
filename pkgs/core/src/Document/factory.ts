@@ -12,6 +12,7 @@ import {
   VectorAppearanceFill,
   VectorAppearanceStroke,
 } from './LayerEntity/VectorAppearance'
+import { VectorExternalAppearanceSetting } from './LayerEntity/VectorExternalAppearanceSetting'
 
 type Requires<T, K extends keyof T> = Omit<T, K> & {
   [P in K]-?: T[P]
@@ -91,6 +92,7 @@ export const createVectorObject = ({
   name = '',
   lock = false,
   visible = true,
+  compositeMode = 'normal',
   transform = DEFAULT_TRANSFORM(),
   opacity = 1,
   filters = [],
@@ -104,10 +106,12 @@ export const createVectorObject = ({
   name,
   lock,
   visible,
+  compositeMode,
   transform,
   opacity,
   filters,
   path,
+  groupClipper: false,
 })
 
 export const createVectorPath = ({
@@ -122,23 +126,43 @@ export const createVectorPath = ({
   randomSeed,
 })
 
-export const createVectorAppearance = ({
-  kind,
-  ...etc
-}:
-  | Requires<Partial<Omit<VectorAppearanceFill, 'uid'>>, 'kind' | 'fill'>
-  | Requires<
-      Partial<Omit<VectorAppearanceStroke, 'uid'>>,
-      'kind' | 'stroke' | 'ink'
-    >
-  | Requires<
-      Partial<Omit<VectorAppearanceExternal, 'uid'>>,
-      'kind' | 'processor'
-    >): VectorAppearance =>
+type VectorExternalAppearanceSettingNoUid = Omit<
+  VectorExternalAppearanceSetting<any>,
+  'uid'
+>
+
+export const createVectorAppearance = (
+  args:
+    | Requires<Partial<Omit<VectorAppearanceFill, 'uid'>>, 'kind' | 'fill'>
+    | Requires<
+        Partial<Omit<VectorAppearanceStroke, 'uid'>>,
+        'kind' | 'stroke' | 'ink'
+      >
+    | Requires<
+        Partial<
+          Omit<VectorAppearanceExternal, 'uid' | 'processor'> & {
+            processor: VectorExternalAppearanceSettingNoUid
+          }
+        >,
+        'kind' | 'processor'
+      >,
+): VectorAppearance =>
   ({
     uid: `vectorAppearance-${ulid()}`,
-    kind,
-    ...etc,
+    kind: args.kind,
+    enabled: args.enabled ?? true,
+    // prettier-ignore
+    ...(
+      args.kind === 'fill' ? { fill: args.fill }
+      : args.kind === 'stroke' ? { stroke: args.stroke, ink: args.ink }
+      : args.kind === 'external' ?
+          {
+            processor: {
+              uid: `vectorAppearance-ext-${ulid()}`,
+              ...args.processor}
+          }
+      : {}
+    ),
   }) as VectorAppearance
 
 export const createFilterLayerEntity = ({

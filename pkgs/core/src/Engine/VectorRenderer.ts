@@ -1,27 +1,26 @@
-import { VectorGroup, VectorObject, VectorPath } from '@/Document'
-import { TextLayer, VectorLayer } from '@/Document/LayerEntity'
+import {
+  VectorFillSetting,
+  VectorGroup,
+  VectorObject,
+  VectorPath,
+} from '@/Document'
+import { LayerTransform, TextLayer, VectorLayer } from '@/Document/LayerEntity'
 import { InkSetting } from '@/Document/LayerEntity/InkSetting'
 import { VectorStrokeSetting } from '@/Document/LayerEntity/VectorStrokeSetting'
 import { PaplicoAbortError } from '@/Errors'
-import { UIStroke } from '@/UI/UIStroke'
 import { AtomicResource } from '@/utils/AtomicResource'
-import {
-  clearCanvas,
-  saveAndRestoreCanvas,
-  setCanvasSize,
-} from '@/utils/canvas'
+import { saveAndRestoreCanvas, setCanvasSize } from '@/utils/canvas'
 import { deepClone, shallowEquals } from '@/utils/object'
 import { OrthographicCamera, WebGLRenderer } from 'three'
 import { BrushRegistry } from './Registry/BrushRegistry'
-import { createCanvas, createContext2D } from './CanvasFactory'
 import { InkRegistry } from './Registry/InkRegistry'
 import { RenderCycleLogger } from './RenderCycleLogger'
 import { RenderPhase, Viewport } from './types'
 import {
   addPoint2D,
   calcVectorBoundingBox,
+  calcVectorPathBoundingBox,
   layerTransformToMatrix,
-  mapPoints,
   matrixToCanvasMatrix,
   multiplyPoint2D,
   svgCommandToVectoPath,
@@ -29,10 +28,8 @@ import {
 } from './VectorUtils'
 import { AppearanceRegistry } from './Registry/AppearanceRegistry'
 import { FontRegistry } from './Registry/FontRegistry'
-import { parseSVGPath, pathCommandsToString } from '@/VectorProcess'
-import { createSVGPathByVectorPath } from '@/utils/svg'
 import { TextNode } from '@/Document/LayerEntity/TextNode'
-import { BrushClass, BrushLayoutData, IBrush } from './Brush/Brush'
+import { BrushLayoutData, IBrush } from './Brush/Brush'
 import {
   LayerMetrics,
   createBBox,
@@ -125,8 +122,7 @@ export class VectorRenderer {
     }
 
     for (let obj of objects) {
-      if (obj.type === 'vectorGroup') {
-      }
+      if (obj.type === 'vectorGroup') return
       if (!obj.visible) continue
 
       const sourceBBox = calcVectorBoundingBox(obj) // Ignore override for source
@@ -139,88 +135,25 @@ export class VectorRenderer {
       await saveAndRestoreCanvas(outcx, async () => {
         if (obj.type === 'vectorGroup') return // for typecheck
 
-        outcx.globalCompositeOperation = 'source-over'
-
-        outcx.transform(
-          ...matrixToCanvasMatrix(
-            vectorObjectTransformToMatrix(obj).multiply(
-              layerTransformToMatrix(layer.transform),
-            ),
-          ),
-        )
-        outcx.beginPath()
-
-        obj.path.points.forEach((pt, idx, points) => {
-          const prev = points[idx - 1]
-
-          if (pt.isMoveTo) {
-            outcx.moveTo(pt.x * pixelRatio, pt.y * pixelRatio)
-          } else if (pt.isClose) {
-            outcx.closePath()
-          } else {
-            if (!prev) {
-              throw new Error('Unexpected point, previous point is null')
-            }
-
-            outcx.bezierCurveTo(
-              (pt.begin?.x ?? prev!.x) * pixelRatio,
-              (pt.begin?.y ?? prev!.y) * pixelRatio,
-              (pt.end?.x ?? pt.x) * pixelRatio,
-              (pt.end?.y ?? pt.y) * pixelRatio,
-              pt.x * pixelRatio,
-              pt.y * pixelRatio,
-            )
-          }
-        })
-
         for (const ap of obj.filters) {
           if (ap.kind === 'fill') {
-            switch (ap.fill.type) {
-              case 'fill': {
-                const {
-                  color: { r, g, b },
-                  opacity,
-                } = ap.fill
-
-                outcx.globalAlpha = 1
-                outcx.fillStyle = `rgba(${r * 255}, ${g * 255}, ${
-                  b * 255
-                }, ${opacity})`
-                outcx.fill()
-                break
-              }
-              case 'linear-gradient': {
-                const { colorStops: colorPoints, opacity, start, end } = ap.fill
-                const { width, height, left, top } = calcVectorBoundingBox(obj)
-
-                // const width = right - left
-                // const height = bottom - top
-                const centerX = (left + width / 2) * pixelRatio
-                const centerY = (top + height / 2) * pixelRatio
-
-                const gradient = outcx.createLinearGradient(
-                  (centerX + start.x) * pixelRatio,
-                  (centerY + start.y) * pixelRatio,
-                  (centerX + end.x) * pixelRatio,
-                  (centerY + end.y) * pixelRatio,
-                )
-
-                for (const {
-                  position,
-                  color: { r, g, b, a },
-                } of colorPoints) {
-                  gradient.addColorStop(
-                    position,
-                    `rgba(${r * 255}, ${g * 255}, ${b * 255}, ${a}`,
-                  )
-                }
-
-                outcx.globalAlpha = opacity
-                outcx.fillStyle = gradient
-                outcx.fill()
-                break
-              }
-            }
+            this.renderFill(outcx, obj.path, ap.fill, {
+              pixelRatio: options.pixelRatio,
+              transform: {
+                position: addPoint2D(
+                  layer.transform.position,
+                  obj.transform.position,
+                ),
+                scale: multiplyPoint2D(
+                  layer.transform.scale,
+                  obj.transform.scale,
+                ),
+                rotate: layer.transform.rotate + obj.transform.rotate,
+              },
+              phase: options.phase,
+              abort: options.abort,
+              logger: options.logger,
+            })
           } else if (ap.kind === 'stroke') {
             const brush = this.brushRegistry.getInstance(ap.stroke.brushId)
 
@@ -245,7 +178,7 @@ export class VectorRenderer {
                     layer.transform.scale,
                     obj.transform.scale,
                   ),
-                  rotation: layer.transform.rotate + obj.transform.rotate,
+                  rotate: layer.transform.rotate + obj.transform.rotate,
                 },
                 phase: options.phase,
                 logger: options.logger,
@@ -462,24 +395,97 @@ export class VectorRenderer {
     return objects
   }
 
-  public async renderVectorObject(
-    dest: HTMLCanvasElement,
+  public async renderFill(
+    outcx: CanvasRenderingContext2D,
     path: VectorPath,
-  ): Promise<void> {
-    const dstctx = dest.getContext('2d')!
+    fillSetting: VectorFillSetting,
+    {
+      transform,
+      pixelRatio,
+      abort,
+      phase = 'final',
+      logger,
+    }: {
+      transform: LayerTransform
+      pixelRatio: number
+      abort?: AbortSignal
+      phase: RenderPhase
+      logger: RenderCycleLogger
+    },
+  ) {
+    saveAndRestoreCanvas(outcx, (cx) => {
+      cx.globalCompositeOperation = 'source-over'
 
-    // const brush = this.brushRegistry.getInstance('stroke')
-    // if (!brush) return
+      cx.beginPath()
 
-    const [start, ...points] = path.points
+      path.points.forEach((pt, idx, points) => {
+        const prev = points[idx - 1]
 
-    dstctx.strokeStyle = '#000'
-    dstctx.lineWidth = 2
+        if (pt.isMoveTo) {
+          cx.moveTo(pt.x * pixelRatio, pt.y * pixelRatio)
+        } else if (pt.isClose) {
+          cx.closePath()
+        } else {
+          if (!prev) {
+            throw new Error('Unexpected point, previous point is null')
+          }
 
-    dstctx.beginPath()
-    dstctx.moveTo(start.x, start.y)
-    for (const point of points) dstctx.lineTo(point.x, point.y)
-    dstctx.stroke()
+          cx.bezierCurveTo(
+            (pt.begin?.x ?? prev!.x) * pixelRatio,
+            (pt.begin?.y ?? prev!.y) * pixelRatio,
+            (pt.end?.x ?? pt.x) * pixelRatio,
+            (pt.end?.y ?? pt.y) * pixelRatio,
+            pt.x * pixelRatio,
+            pt.y * pixelRatio,
+          )
+        }
+      })
+
+      switch (fillSetting.type) {
+        case 'fill': {
+          const {
+            color: { r, g, b },
+            opacity,
+          } = fillSetting
+
+          cx.globalAlpha = 1
+          cx.fillStyle = `rgba(${r * 255}, ${g * 255}, ${b * 255}, ${opacity})`
+          cx.fill()
+          break
+        }
+        case 'linear-gradient': {
+          const { colorStops: colorPoints, opacity, start, end } = fillSetting
+          const { width, height, left, top } = calcVectorPathBoundingBox(path)
+
+          // const width = right - left
+          // const height = bottom - top
+          const centerX = (left + width / 2) * pixelRatio
+          const centerY = (top + height / 2) * pixelRatio
+
+          const gradient = cx.createLinearGradient(
+            (centerX + start.x) * pixelRatio,
+            (centerY + start.y) * pixelRatio,
+            (centerX + end.x) * pixelRatio,
+            (centerY + end.y) * pixelRatio,
+          )
+
+          for (const {
+            position,
+            color: { r, g, b, a },
+          } of colorPoints) {
+            gradient.addColorStop(
+              position,
+              `rgba(${r * 255}, ${g * 255}, ${b * 255}, ${a}`,
+            )
+          }
+
+          cx.globalAlpha = opacity
+          cx.fillStyle = gradient
+          cx.fill()
+          break
+        }
+      }
+    })
   }
 
   public async renderStroke(
@@ -495,11 +501,7 @@ export class VectorRenderer {
       logger,
     }: {
       inkSetting: InkSetting
-      transform: {
-        position: { x: number; y: number }
-        scale: { x: number; y: number }
-        rotation: number
-      }
+      transform: LayerTransform
       pixelRatio: number
       abort?: AbortSignal
       phase: RenderPhase
@@ -532,6 +534,8 @@ export class VectorRenderer {
       factory: () => T,
       deps: any[],
     ): Promise<T> => {
+      if (phase === 'stroking') return factory()
+
       const memoStore = this.strokeMemo.get(path) ?? new WeakMap()
       let memoEntry = memoStore?.get(brush)
       let data: T | undefined = undefined
@@ -565,7 +569,7 @@ export class VectorRenderer {
         transform: {
           translate: { x: transform.position.x, y: transform.position.y },
           scale: { x: transform.scale.x, y: transform.scale.y },
-          rotate: transform.rotation,
+          rotate: transform.rotate,
         },
         phase,
         logger,

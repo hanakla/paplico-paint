@@ -488,8 +488,12 @@ export class Paplico extends Emitter<Paplico.Events> {
 
     this.document = doc
     this.runtimeDoc = new DocumentContext(doc)
-    this.runtimeDoc.previews.on('updated', (updateEntry) => {
+    this.runtimeDoc.on('preview:updated', (updateEntry) => {
       this.emit('preview:updated', updateEntry)
+    })
+
+    this.runtimeDoc.on('invalidateVectorPathCacheRequested', (e) => {
+      this.vectorRenderer.invalidateStrokeMemo(e.object.path)
     })
 
     this.runtimeDoc.layerMetrics.on('update', () => {
@@ -675,7 +679,7 @@ export class Paplico extends Emitter<Paplico.Events> {
         this.runtimeDoc.invalidateAllLayerBitmapCache()
       }
 
-      const metrices = await this.pipeline.fullyRender(
+      const metrices = await this.pipeline.fullyRenderWithScheduler(
         dstctx,
         runtimeDoc,
         this.vectorRenderer,
@@ -884,7 +888,7 @@ export class Paplico extends Emitter<Paplico.Events> {
             transform: {
               position: { x: 0, y: 0 },
               scale: { x: 1, y: 1 },
-              rotation: 0,
+              rotate: 0,
             },
             phase: 'stroking',
             logger: renderLogger,
@@ -915,7 +919,7 @@ export class Paplico extends Emitter<Paplico.Events> {
         }
 
         // Ignore metrices for preview
-        await this.pipeline.fullyRender(
+        await this.pipeline.fullyRenderWithScheduler(
           dstctx,
           this.runtimeDoc,
           this.vectorRenderer,
@@ -1079,7 +1083,7 @@ export class Paplico extends Emitter<Paplico.Events> {
             transform: {
               position: { x: 0, y: 0 },
               scale: { x: 1, y: 1 },
-              rotation: 0,
+              rotate: 0,
             },
             pixelRatio: this.#preferences.pixelRatio,
             phase: 'final',
@@ -1119,7 +1123,7 @@ export class Paplico extends Emitter<Paplico.Events> {
       try {
         RenderCycleLogger.current.log('Refresh all layers')
 
-        const result = await this.pipeline.fullyRender(
+        const result = await this.pipeline.fullyRenderWithScheduler(
           dstctx,
           runtimeDoc,
           this.vectorRenderer,

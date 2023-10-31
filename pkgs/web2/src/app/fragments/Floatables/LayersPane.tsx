@@ -271,7 +271,7 @@ const LayerItemContextMenu = memo<{ id: string }>(
     const onClickRemove = useEvent<
       ContextMenuItemClickHandler<LayerContextMenuParams>
     >(({ props }) => {
-      pap?.command.do(new Commands.DocumentRemoveLayer(props.layerUid))
+      pap?.command.do(new Commands.DocumentRemoveLayer(props!.layerUid))
     })
 
     return (

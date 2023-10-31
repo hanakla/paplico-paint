@@ -18,6 +18,9 @@ export namespace DocumentContext {
   }
 
   export type Events = {
+    invalidateVectorPathCacheRequested: {
+      object: VectorObject
+    }
     'preview:updated': PreviewStore.Events['updated']
   }
 }
@@ -185,6 +188,10 @@ export class DocumentContext extends Emitter<DocumentContext.Events> {
   public invalidateAllLayerBitmapCache() {
     this.layerImageCache.forEach((bitmap) => bitmap.close())
     this.layerImageCache.clear()
+  }
+
+  public invalidateVectorObjectCache(vectorObject: VectorObject) {
+    this.emit('invalidateVectorPathCacheRequested', { object: vectorObject })
   }
 
   // public getLayerImageBitmap(layerUid: string) {}

@@ -127,7 +127,7 @@ export async function processInput(data: Payload): Promise<WorkerResponse> {
     inOutInfluence,
     inOutLength,
   } = data
-  console.log({ pixelRatio })
+
   const originalWidth = destSize.width
   const originalHeight = destSize.height
 

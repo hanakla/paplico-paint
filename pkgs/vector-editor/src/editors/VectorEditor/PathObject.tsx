@@ -87,9 +87,9 @@ export const PathObject = memo(function PathObject({
       })
     } else {
       paplico.command.do(
-        new Commands.VectorUpdateLayer(layerUid, {
-          updater: (layer) => {
-            const target = layer.objects.find((obj) => obj.uid === object.uid)
+        new Commands.VectorUpdateObjects(layerUid, {
+          updater: ({ objects }) => {
+            const target = objects.find((obj) => obj.uid === object.uid)
             if (!target) return
 
             const prevPosition = target.transform.position
@@ -140,9 +140,9 @@ export const PathObject = memo(function PathObject({
       setPointOverride({ idx: +pointIdx, x: movement[0], y: movement[1] })
     } else {
       paplico.command.do(
-        new Commands.VectorUpdateLayer(layerUid, {
-          updater: (layer) => {
-            const target = layer.objects.find((obj) => obj.uid === object.uid)
+        new Commands.VectorUpdateObjects(layerUid, {
+          updater: (objects) => {
+            const target = objects.find((obj) => obj.uid === object.uid)
             if (!target || target.type !== 'vectorObject') return
 
             const point = target.path.points[pointIdx]
@@ -192,9 +192,9 @@ export const PathObject = memo(function PathObject({
       setBeginAnchorOverride({ idx: +pointIdx, x: movement[0], y: movement[1] })
     } else {
       paplico.command.do(
-        new Commands.VectorUpdateLayer(layerUid, {
-          updater: (layer) => {
-            const target = layer.objects.find((obj) => obj.uid === object.uid)
+        new Commands.VectorUpdateObjects(layerUid, {
+          updater: (objects) => {
+            const target = objects.find((obj) => obj.uid === object.uid)
             if (!target || target.type !== 'vectorObject') return
 
             const point = target.path.points[pointIdx]
@@ -234,8 +234,8 @@ export const PathObject = memo(function PathObject({
     } else {
       paplico.command.do(
         new Commands.VectorUpdateLayer(layerUid, {
-          updater: (layer) => {
-            const target = layer.objects.find((obj) => obj.uid === object.uid)
+          updater: (objects) => {
+            const target = objects.find((obj) => obj.uid === object.uid)
             if (!target || target.type !== 'vectorObject') return
 
             const point = target.path.points[pointIdx]

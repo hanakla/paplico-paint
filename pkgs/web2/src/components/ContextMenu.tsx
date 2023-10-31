@@ -10,11 +10,12 @@ import {
   MenuProps,
   ShowContextMenuParams as _ShowContextMenuParams,
 } from 'react-contexify'
-import { Requires } from '@/utils/types'
+import { Portal } from './Portal'
+import 'react-contexify/ReactContexify.css'
 
 export type ContextMenuParam<T> = ItemParams<T, any>
 export type ContextMenuItemClickHandler<T> = (
-  params: Requires<ContextMenuParam<T>, 'props'>,
+  params: ContextMenuParam<T>,
 ) => void
 
 export type ShowContextMenuParams<T> = Omit<_ShowContextMenuParams<T>, 'id'>
@@ -35,14 +36,24 @@ export const useContextMenu = <T extends object>() => {
 
 const Menu = memo<MenuProps>(function ContextMenuRoot(props) {
   return (
-    <_Menu
-      css={css`
-        min-width: auto;
-        padding: 6px 4px;
-      `}
-      {...props}
-      animation={false}
-    />
+    <Portal>
+      <_Menu
+        css={css`
+          position: fixed;
+          min-width: 150px;
+          padding: 4px;
+          background: rgba(248, 248, 248, 0.9) !important;
+          border-radius: 8px;
+          font-size: var(--font-size-2);
+          z-index: 1;
+          backdrop-filter: blur(8px);
+          box-shadow: 1px 2px 12px rgba(0, 0, 0, 0.2);
+        `}
+        {...props}
+        disableBoundariesCheck
+        animation={false}
+      />
+    </Portal>
   )
 })
 
@@ -55,8 +66,13 @@ const Item = memo<ItemProps>(function ContextMenuItm({
   return (
     <_Item
       css={`
-        .react-contexify__item__content {
-          padding: 4px 8px;
+        .contexify_itemContent {
+          padding: 4px;
+          background-color: none !important;
+
+          &:hover {
+            background-color: var(--accent-8) !important;
+          }
         }
       `}
       onClick={onClick}

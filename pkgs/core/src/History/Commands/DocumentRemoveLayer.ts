@@ -41,7 +41,7 @@ export class DocumentRemoveLayer implements ICommand {
     const parent = document.document.resolveNodePath(this.parentPath!)
     if (!parent) throw new Error('Parent layer not found')
 
-    parent.children.push()
+    parent.children.push(this.removedNode!)
 
     document.invalidateLayerBitmapCache(this.layerId)
   }

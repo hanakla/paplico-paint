@@ -301,7 +301,6 @@ export const ScatterBrush = createBrush(
                 abort.addEventListener('abort', onAbort, { once: true })
                 this.worker!.addEventListener('message', receiver)
 
-                console.log(pixelRatio)
                 this.worker!.postMessage({
                   id,
                   type: 'getPoints',

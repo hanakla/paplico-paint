@@ -1,8 +1,6 @@
 import { VectorAppearance } from './VectorAppearance'
-import { VectorStrokeSetting } from './VectorStrokeSetting'
-import { VectorFillSetting } from './VectorFillSetting'
 import { VectorObject } from './VectorObject'
-import { LayerTransform } from '../LayerEntity'
+import { CompositeMode, LayerTransform } from '../LayerEntity'
 
 export type VectorGroup = {
   uid: string
@@ -10,9 +8,10 @@ export type VectorGroup = {
   visible: boolean
   lock: boolean
   transform: LayerTransform
+  compositeMode: CompositeMode
 
   /** Compositing first to last (last is foreground) */
-  appearances: VectorAppearance[]
+  filters: VectorAppearance[]
 
   children: (VectorObject | VectorGroup)[]
 }

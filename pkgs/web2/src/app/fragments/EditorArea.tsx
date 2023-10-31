@@ -191,15 +191,15 @@ export const EditorArea = memo(
               background-color: #fff;
               ${checkerBoard({ size: 10, opacity: 0.1 })};
             `}
-            width={(pap?.currentDocument?.meta.mainArtboard.width ?? 1) * 1.5}
-            height={(pap?.currentDocument?.meta.mainArtboard.height ?? 1) * 1.5}
-            style={{
-              width: pap?.currentDocument?.meta.mainArtboard.width ?? 1,
-              height: pap?.currentDocument?.meta.mainArtboard.height ?? 1,
-              // aspectRatio: papRef.current?.currentDocument
-              //   ? `${papRef.current.currentDocument.meta.mainArtboard.width}/${papRef.current.currentDocument.meta.mainArtboard.height}`
-              //   : '1',
-            }}
+            width={pap?.currentDocument?.meta.mainArtboard.width ?? 0}
+            height={pap?.currentDocument?.meta.mainArtboard.height ?? 0}
+            style={
+              {
+                // aspectRatio: papRef.current?.currentDocument
+                //   ? `${papRef.current.currentDocument.meta.mainArtboard.width}/${papRef.current.currentDocument.meta.mainArtboard.height}`
+                //   : '1',
+              }
+            }
           />
         </div>
 

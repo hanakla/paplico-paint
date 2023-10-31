@@ -31,7 +31,7 @@ export const FieldSet = memo(function FieldSet({
           {postTitle}
         </div>
 
-        {displayValue && (
+        {displayValue != null && (
           <div
             style={{
               marginLeft: 'auto',

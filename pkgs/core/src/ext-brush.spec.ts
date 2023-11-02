@@ -4,7 +4,7 @@ import {
   pointsToSVGCommandArray,
   scatterPlot,
   getTangent,
-} from './stroking-utils'
+} from './ext-brush'
 import { FuncStats } from './utils/perfstats'
 
 describe('getTangentAt', () => {

@@ -198,7 +198,7 @@ export const ActionSheetItemGroup = ({
   return (
     <div
       css={css`
-        background-color: ${({ theme }) => theme.exactColors.white60};
+        /* background-color: {({ theme }) => theme.exactColors.white60}; */
         backdrop-filter: blur(8px);
         border-radius: 4px;
         overflow: hidden;

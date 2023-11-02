@@ -10,9 +10,9 @@
       "import": "./dist/index.mjs",
       "require": "./dist/index.js"
     },
-    "./stroking-utils": {
-      "import": "./dist/stroking-utils.mjs",
-      "require": "./dist/stroking-utils.js"
+    "./ext-brush": {
+      "import": "./dist/ext-brush.mjs",
+      "require": "./dist/ext-brush.js"
     },
     "./extras": {
       "import": "./dist/extras.mjs",

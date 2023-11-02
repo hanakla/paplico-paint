@@ -48,10 +48,11 @@ export class History extends Emitter<History.Events> {
 
     try {
       await command.do(document)
-      rescue(() => this.emit('affect', { layerIds: command.effectedLayers }))
 
       this.#undoStack.push(command)
       this.#redoStack = []
+
+      this.emit('affect', { layerIds: command.effectedLayers })
     } finally {
       this.excutionLock.release(lock)
     }

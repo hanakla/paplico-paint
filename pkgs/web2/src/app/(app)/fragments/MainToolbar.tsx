@@ -60,7 +60,7 @@ import {
 } from '@/components/ActionSheet'
 import { useIsomorphicLayoutEffect, useToggle } from 'react-use'
 import { useModal } from '@/components/Dialog'
-import { FileSaveDialog } from './MainToolbar/FileSaveDialog'
+import { FileSaveDialog } from '../../modals/FileSaveDialog'
 import { letDownload } from '@hanakla/arma'
 import { Fieldset } from '@/components/Fieldset'
 import { storePicker } from '@/utils/zutrand'
@@ -178,6 +178,10 @@ export const MainToolbar = memo(
       }
     })
 
+    const handleClickNewDocument = useEvent(async () => {
+      openModal(ConfirmDiscardDialog, {})
+    })
+
     const handleClickSave = useEvent(async () => {
       toggleMenuOpened(false)
 
@@ -238,7 +242,14 @@ export const MainToolbar = memo(
           fill={false}
           onClose={() => toggleMenuOpened(false)}
         >
-          <ActionSheetItem onClick={handleClickSave}>Save</ActionSheetItem>
+          <ActionSheetItemGroup>
+            <ActionSheetItem onClick={handleClickNewDocument}>
+              New paper
+            </ActionSheetItem>
+          </ActionSheetItemGroup>
+          <ActionSheetItemGroup>
+            <ActionSheetItem onClick={handleClickSave}>Save</ActionSheetItem>
+          </ActionSheetItemGroup>
         </ActionSheet>
 
         <Popover

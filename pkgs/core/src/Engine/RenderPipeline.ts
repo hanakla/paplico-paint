@@ -34,6 +34,7 @@ import {
   type LayerMetrics,
 } from './DocumentContext/LayerMetrics'
 import {
+  CanvasToken,
   RenderCommands,
   RenderSource,
   RenderTargets,
@@ -77,256 +78,6 @@ export class RenderPipeline {
     dest.drawImage(input.canvas, 0, 0)
   }
 
-  public async fullyRender(
-    dest: CanvasRenderingContext2D,
-    doc: DocumentContext,
-    renderer: VectorRenderer,
-    {
-      abort,
-      viewport,
-      override,
-      vectorObjectOverrides,
-      pixelRatio,
-      phase,
-      logger,
-    }: {
-      abort?: AbortSignal
-      viewport: Viewport
-      override?: { [layerId: string]: HTMLCanvasElement | ImageBitmap }
-      vectorObjectOverrides?: VectorObjectOverrides
-      pixelRatio: number
-      phase: RenderPhase
-      logger: RenderCycleLogger
-    },
-  ): Promise<
-    | {
-        /** Newer calcurated bboxes, not all */
-        layerBBoxes: Record<string, LayerMetrics.BBoxSet>
-        /** Newer calcurated bboxes, not all */
-        objectBBoxes: Record<string, LayerMetrics.BBoxSet>
-      }
-    | undefined
-  > {
-    const dblBufCx = createContext2D()
-    const tmpcx = createContext2D({ willReadFrequently: true })
-    setCanvasSize(dblBufCx.canvas, viewport)
-    setCanvasSize(tmpcx.canvas, viewport)
-    // const filterDstCx = createContext2D()
-
-    const layerMetrics: Record<string, LayerMetrics.BBoxSet> = {}
-    const objectMetrics: Record<string, LayerMetrics.BBoxSet> = {}
-
-    logger.group('MixerPipeline.fullyRender')
-    logger.time('Render all layers time')
-    try {
-      for (const node of doc.rootNode.children) {
-        // Use tmpVectorOutCx for vector layer rendering
-        const tmpVectorOutCx = tmpcx
-
-        const layer = doc.resolveLayer(node.layerUid)
-        const sourceLayer = layer?.source.deref()
-
-        if (!layer || !sourceLayer) {
-          logger.error('Bad layer link', node.layerUid)
-          continue
-        }
-
-        setCanvasSize(tmpVectorOutCx.canvas, viewport)
-
-        logger.log(
-          'Render layer',
-          sourceLayer.uid,
-          sourceLayer.name,
-          sourceLayer.layerType,
-        )
-
-        logger.time(`Render layer time: ${sourceLayer.uid}`)
-
-        let layerBitmap: ImageBitmap | HTMLCanvasElement | null | void
-
-        if (override?.[sourceLayer.uid]) {
-          layerBitmap = override[sourceLayer.uid]
-        } else if (sourceLayer.layerType === 'raster') {
-          layerBitmap = (await doc.getOrCreateLayerBitmapCache(
-            sourceLayer.uid,
-          ))!
-
-          layerMetrics[sourceLayer.uid] ??= {
-            source: createBBox({
-              left: sourceLayer.transform.position.x,
-              top: sourceLayer.transform.position.y,
-              width: layerBitmap.width,
-              height: layerBitmap.height,
-            }),
-            visually: createEmptyBBox(),
-          }
-        } else if (
-          sourceLayer.layerType === 'vector' ||
-          sourceLayer.layerType === 'text'
-        ) {
-          const requestSize = { width: viewport.width, height: viewport.height }
-
-          const hasOverrideForThisLayer =
-            !!vectorObjectOverrides?.[sourceLayer.uid]
-          const canUseBitmapCache =
-            doc.hasLayerBitmapCache(sourceLayer.uid, requestSize) &&
-            vectorObjectOverrides?.[sourceLayer.uid] == null
-
-          if (canUseBitmapCache) {
-            logger.info('Use cached bitmap for vector layer', sourceLayer.uid)
-
-            layerBitmap = (await doc.getOrCreateLayerBitmapCache(
-              sourceLayer.uid,
-              requestSize,
-            ))!
-          } else {
-            logger.info(
-              'Cache is invalidated, re-render vector layer',
-              sourceLayer.uid,
-            )
-
-            const { layerBBox, objectsBBox } = await renderer.renderVectorLayer(
-              tmpVectorOutCx.canvas,
-              sourceLayer,
-              {
-                viewport,
-                pixelRatio,
-                objectOverrides: vectorObjectOverrides,
-                abort,
-                phase,
-                logger,
-              },
-            )
-
-            layerMetrics[sourceLayer.uid] = layerBBox
-            for (const [uid, bbox] of Object.entries(objectsBBox)) {
-              objectMetrics[uid] = bbox
-            }
-
-            if (abort?.aborted) throw new PaplicoAbortError()
-
-            if (hasOverrideForThisLayer) {
-              // For perfomance, avoid getImageData when using override
-              const overrided = createContext2D()
-              setCanvasSize(overrided.canvas, viewport)
-              overrided.drawImage(tmpVectorOutCx.canvas, 0, 0)
-
-              layerBitmap = overrided.canvas
-            } else {
-              layerBitmap = await doc.updateOrCreateLayerBitmapCache(
-                sourceLayer.uid,
-                tmpVectorOutCx.getImageData(
-                  0,
-                  0,
-                  viewport.width,
-                  viewport.height,
-                ),
-              )
-            }
-          }
-        } else {
-          // TODO
-          continue
-        }
-
-        if (!layerBitmap) {
-          logger.error('Layer bitmap is null', sourceLayer.uid)
-          continue
-        }
-
-        // Reuse tmpVectorOutCx for filter
-        clearCanvas(tmpVectorOutCx)
-        setCanvasSize(tmpVectorOutCx.canvas, viewport)
-        const filterDstCx = tmpVectorOutCx
-
-        logger.timeEnd(`Render layer time: ${sourceLayer.uid}`)
-
-        // Apply filters
-        if (sourceLayer.filters.length > 0) {
-          const papglcx = await this.papGLContext.ensure()
-
-          try {
-            for (const filter of sourceLayer.filters) {
-              if (!filter.enabled) {
-                continue
-              }
-
-              const instance = this.filterRegistry.getInstance(filter.filterId)
-
-              if (!instance) {
-                logger.error(`Filter instance not found`, filter.filterId)
-                return
-              }
-
-              logger.group(`Apply filter ${instance.id}`)
-              logger.time(`Apply filter time: ${instance.id}`)
-
-              await saveAndRestoreCanvas(filterDstCx, async () => {
-                clearCanvas(filterDstCx)
-                setCanvasSize(filterDstCx.canvas, viewport)
-
-                // FIXME: Return bboxes
-                await instance.applyRasterFilter?.(layerBitmap!, filterDstCx, {
-                  abort: abort ?? new AbortController().signal,
-                  abortIfNeeded: () => {
-                    if (abort?.aborted) throw new PaplicoAbortError()
-                  },
-
-                  gl: papglcx,
-                  destSize: { width: viewport.width, height: viewport.height },
-                  pixelRatio,
-
-                  filterSetting: deepClone(filter.settings),
-                  phase,
-                  logger,
-                })
-              })
-
-              logger.timeEnd(`Apply filter time: ${instance.id}`)
-
-              if (layerBitmap instanceof ImageBitmap) layerBitmap.close()
-              layerBitmap = await createImageBitmapImpl(filterDstCx.canvas)
-            }
-          } finally {
-            this.papGLContext.release(papglcx)
-          }
-        }
-
-        const mode = layerCompositeModeToCanvasCompositeMode(
-          sourceLayer.compositeMode,
-        )
-
-        logger.log(
-          `Will draw layer ${sourceLayer.uid} as ${mode} to destination.`,
-          layerBitmap,
-        )
-
-        dest.globalCompositeOperation = mode
-
-        const result = rescue(() => {
-          dblBufCx.drawImage(layerBitmap!, 0, 0)
-        })
-
-        if (isCanvasElement(layerBitmap)) {
-          freeingCanvas(layerBitmap)
-        }
-
-        rescue.isFailure(result) &&
-          logger.error('drawImage error', result.error)
-      }
-
-      clearCanvas(dest)
-      dest.drawImage(dblBufCx.canvas!, 0, 0)
-
-      return { layerBBoxes: layerMetrics, objectBBoxes: objectMetrics }
-    } finally {
-      freeingCanvas(tmpcx.canvas)
-
-      logger.timeEnd('Render all layers time')
-      logger.groupEnd()
-    }
-  }
-
   public async fullyRenderWithScheduler(
     dest: CanvasRenderingContext2D,
     docCx: DocumentContext,
@@ -357,196 +108,21 @@ export class RenderPipeline {
       }
     | undefined
   > {
-    const schedules = buildRenderSchedule(docCx.rootNode, docCx, {
+    const { tasks: schedules } = buildRenderSchedule(docCx.rootNode, docCx, {
       layerOverrides: override,
     })
 
     console.log(schedules)
 
-    const preFilterCx = createContext2D()
+    const canvasStore = new WeakMap<CanvasToken, CanvasRenderingContext2D>()
+    const canvases: { [role: string]: CanvasRenderingContext2D | undefined } = {
+      [RenderTargets.PREDEST]: createContext2D({ willReadFrequently: true }),
+    }
+    let usedCanvasCount = 1
+    let dynamicCanvasCount = 0
+
+    const predest = canvases[RenderTargets.PREDEST]!
     const tmpVectorOutCx = createContext2D({ willReadFrequently: true })
-    const sharedFilterBuf = createContext2D({ willReadFrequently: true })
-    const vectorFilterBuf = createContext2D({ willReadFrequently: true })
-    const canvasStore = new WeakMap<
-      { __targetToken: true },
-      CanvasRenderingContext2D
-    >()
-
-    setCanvasSize(preFilterCx.canvas, viewport)
-    setCanvasSize(tmpVectorOutCx.canvas, viewport)
-    setCanvasSize(sharedFilterBuf.canvas, viewport)
-    setCanvasSize(vectorFilterBuf.canvas, viewport)
-
-    const getRenderTarget = (target: RenderTargets) => {
-      switch (target) {
-        case RenderTargets.PREDEST:
-          return {
-            x: dest,
-            image: dest.canvas,
-            width: dest.canvas.width,
-            height: dest.canvas.height,
-          }
-        case RenderTargets.VECTOR_PRE_FILTER:
-          return {
-            x: tmpVectorOutCx,
-            image: tmpVectorOutCx.canvas,
-            width: tmpVectorOutCx.canvas.width,
-            height: tmpVectorOutCx.canvas.height,
-          }
-        case RenderTargets.SHARED_FILTER_BUF:
-          return {
-            x: sharedFilterBuf,
-            image: sharedFilterBuf.canvas,
-            width: sharedFilterBuf.canvas.width,
-            height: sharedFilterBuf.canvas.height,
-          }
-        case RenderTargets.NONE:
-          return 'NONE' as const
-        case RenderTargets.VECTOR_PRE_FILTER:
-          return {
-            x: vectorFilterBuf,
-            image: vectorFilterBuf.canvas,
-            width: vectorFilterBuf.canvas.width,
-            height: vectorFilterBuf.canvas.height,
-          }
-        case RenderTargets.PRE_FILTER:
-          return {
-            x: preFilterCx,
-            image: preFilterCx.canvas,
-            width: preFilterCx.canvas.width,
-            height: preFilterCx.canvas.height,
-          }
-        case RenderTargets.GL_RENDER_TARGET1:
-          return null
-        default:
-          if ('__newTarget' in target) {
-            const token = target()
-            let cx = canvasStore.get(token) ?? createContext2D()
-            canvasStore.set(token, createContext2D())
-            return {
-              x: cx,
-              image: cx.canvas,
-              width: cx.canvas.width,
-              height: cx.canvas.height,
-            }
-          } else {
-            unreachable(target)
-          }
-      }
-    }
-
-    const getSource = async (
-      source: RenderSource,
-    ): Promise<
-      | 'NONE'
-      | undefined
-      | null
-      | { image: CanvasImageSource; width: number; height: number }
-    > => {
-      if (typeof source === 'string' || '__newTarget' in source) {
-        return getRenderTarget(source)
-      } else if ('bitmap' in source) {
-        return {
-          image: source.bitmap,
-          width: source.bitmap.width,
-          height: source.bitmap.height,
-        }
-      }
-
-      let layerBitmap: HTMLCanvasElement | ImageBitmap
-      const { layer: sourceLayer } = source
-
-      if (override?.[sourceLayer.uid]) {
-        layerBitmap = override[sourceLayer.uid]
-      } else if (sourceLayer.layerType === 'raster') {
-        layerBitmap = (await docCx.getOrCreateLayerBitmapCache(
-          sourceLayer.uid,
-        ))!
-
-        layerMetrics[sourceLayer.uid] ??= {
-          source: createBBox({
-            left: sourceLayer.transform.position.x,
-            top: sourceLayer.transform.position.y,
-            width: layerBitmap.width,
-            height: layerBitmap.height,
-          }),
-          visually: createEmptyBBox(),
-        }
-      } else if (
-        sourceLayer.layerType === 'vector' ||
-        sourceLayer.layerType === 'text'
-      ) {
-        const requestSize = { width: viewport.width, height: viewport.height }
-
-        const hasOverrideForThisLayer =
-          !!vectorObjectOverrides?.[sourceLayer.uid]
-        const canUseBitmapCache =
-          docCx.hasLayerBitmapCache(sourceLayer.uid, requestSize) &&
-          vectorObjectOverrides?.[sourceLayer.uid] == null
-
-        if (canUseBitmapCache) {
-          logger.info('Use cached bitmap for vector layer', sourceLayer.uid)
-
-          layerBitmap = (await docCx.getOrCreateLayerBitmapCache(
-            sourceLayer.uid,
-            requestSize,
-          ))!
-        } else {
-          logger.info(
-            'Cache is invalidated, re-render vector layer',
-            sourceLayer.uid,
-          )
-
-          const { layerBBox, objectsBBox } = await renderer.renderVectorLayer(
-            tmpVectorOutCx.canvas,
-            sourceLayer,
-            {
-              viewport,
-              pixelRatio,
-              objectOverrides: vectorObjectOverrides,
-              abort,
-              phase,
-              logger,
-            },
-          )
-
-          layerMetrics[sourceLayer.uid] = layerBBox
-          for (const [uid, bbox] of Object.entries(objectsBBox)) {
-            objectMetrics[uid] = bbox
-          }
-
-          if (abort?.aborted) throw new PaplicoAbortError()
-
-          if (hasOverrideForThisLayer) {
-            // For perfomance, avoid getImageData when using override
-            const overrided = createContext2D()
-            setCanvasSize(overrided.canvas, viewport)
-            overrided.drawImage(tmpVectorOutCx.canvas, 0, 0)
-
-            layerBitmap = overrided.canvas
-          } else {
-            layerBitmap = await docCx.updateOrCreateLayerBitmapCache(
-              sourceLayer.uid,
-              tmpVectorOutCx.getImageData(
-                0,
-                0,
-                viewport.width,
-                viewport.height,
-              ),
-            )
-          }
-        }
-      } else {
-        // TODO
-        return null!
-      }
-
-      return {
-        image: layerBitmap,
-        width: layerBitmap.width,
-        height: layerBitmap.height,
-      }
-    }
 
     const layerMetrics: Record<string, LayerMetrics.BBoxSet> = {}
     const objectMetrics: Record<string, LayerMetrics.BBoxSet> = {}
@@ -575,6 +151,7 @@ export class RenderPipeline {
           saveAndRestoreCanvas(targetCanvas.x, (cx) => {
             cx.globalCompositeOperation =
               layerCompositeModeToCanvasCompositeMode(compositeMode)
+
             cx.globalAlpha = opacity
             setCanvasSize(cx.canvas, sourceImage.width, sourceImage.height)
 
@@ -620,7 +197,8 @@ export class RenderPipeline {
         }
 
         case RenderCommands.APPLY_INTERNAL_OBJECT_FILTER: {
-          const { renderTarget, object, filter, clearTarget } = task
+          const { renderTarget, layerUid, filter, clearTarget } = task
+          let { object } = task
 
           const targetCanvas = getRenderTarget(renderTarget)
 
@@ -629,6 +207,12 @@ export class RenderPipeline {
           }
 
           if (clearTarget) clearCanvas(targetCanvas.x)
+
+          // Process overrides
+          object =
+            vectorObjectOverrides?.[layerUid]?.[object.uid]?.(
+              deepClone(object),
+            ) ?? object
 
           if (filter.kind === 'fill') {
             await renderer.renderFill(
@@ -702,12 +286,244 @@ export class RenderPipeline {
           break
         }
 
-        // case RenderCommands.CLEAR_TARGET: {
-        //   if (renderTarget === RenderTargets.NONE) break
-        //   const target = getRenderTarget(renderTarget)
-        //   if (!target) break
-        //   clearCanvas(target)
-        // }
+        case RenderCommands.FREE_TARGET: {
+          const { renderTarget } = task
+          if (
+            typeof renderTarget !== 'string' &&
+            '__canvasToken' in renderTarget
+          ) {
+            const cx = canvasStore.get(renderTarget)
+            if (cx) {
+              freeingCanvas(cx.canvas)
+              canvasStore.delete(renderTarget)
+            }
+          } else {
+            throw new PaplicoError(
+              `Non freeable  render target: ${renderTarget}`,
+            )
+          }
+
+          break
+        }
+      }
+    }
+
+    clearCanvas(dest)
+    dest.drawImage(predest.canvas, 0, 0)
+
+    return {
+      layerBBoxes: layerMetrics,
+      objectBBoxes: objectMetrics,
+      stats: {
+        usedCanvasCount,
+        dynamicCanvasCount,
+      },
+    }
+
+    // getter functions
+
+    function getRenderTarget(target: RenderTargets) {
+      const getOrCreate = (
+        role: string,
+        options?: CanvasRenderingContext2DSettings,
+      ) => {
+        if (canvases[role]) return canvases[role]!
+
+        usedCanvasCount++
+        canvases[role] = createContext2D(options)
+        setCanvasSize(canvases[role]!.canvas, viewport)
+        return canvases[role]!
+      }
+
+      switch (target) {
+        case RenderTargets.PREDEST: {
+          const predest = getOrCreate(RenderTargets.PREDEST)
+
+          return {
+            x: predest,
+            image: predest.canvas,
+            width: predest.canvas.width,
+            height: predest.canvas.height,
+          }
+        }
+        case RenderTargets.VECTOR_PRE_FILTER: {
+          const vectorPreFilter = getOrCreate(RenderTargets.VECTOR_PRE_FILTER)
+          return {
+            x: vectorPreFilter,
+            image: vectorPreFilter.canvas,
+            width: vectorPreFilter.canvas.width,
+            height: vectorPreFilter.canvas.height,
+          }
+        }
+        case RenderTargets.SHARED_FILTER_BUF: {
+          const sharedFilterBuf = getOrCreate(RenderTargets.SHARED_FILTER_BUF)
+          return {
+            x: sharedFilterBuf,
+            image: sharedFilterBuf.canvas,
+            width: sharedFilterBuf.canvas.width,
+            height: sharedFilterBuf.canvas.height,
+          }
+        }
+        case RenderTargets.NONE: {
+          return 'NONE' as const
+        }
+        case RenderTargets.VECTOR_PRE_FILTER: {
+          const vectorPreFilter = getOrCreate(RenderTargets.VECTOR_PRE_FILTER)
+          return {
+            x: vectorPreFilter,
+            image: vectorPreFilter.canvas,
+            width: vectorPreFilter.canvas.width,
+            height: vectorPreFilter.canvas.height,
+          }
+        }
+        case RenderTargets.PRE_FILTER: {
+          const preFilterCx = getOrCreate(RenderTargets.PRE_FILTER)
+          return {
+            x: preFilterCx,
+            image: preFilterCx.canvas,
+            width: preFilterCx.canvas.width,
+            height: preFilterCx.canvas.height,
+          }
+        }
+        case RenderTargets.GL_RENDER_TARGET1: {
+          return null
+        }
+        default: {
+          if (!('__canvasToken' in target)) return unreachable(target)
+
+          const token = target
+          let cx = canvasStore.get(token)
+
+          if (!cx) {
+            usedCanvasCount++
+            dynamicCanvasCount++
+            cx = createContext2D()
+          }
+
+          canvasStore.set(token, createContext2D())
+
+          return {
+            x: cx,
+            image: cx.canvas,
+            width: cx.canvas.width,
+            height: cx.canvas.height,
+          }
+        }
+      }
+    }
+
+    async function getSource(source: RenderSource): Promise<
+      | 'NONE'
+      | undefined
+      | null
+      | {
+          image: HTMLCanvasElement | ImageBitmap
+          width: number
+          height: number
+        }
+    > {
+      if (typeof source === 'string' || '__canvasToken' in source) {
+        return getRenderTarget(source)
+      } else if ('bitmap' in source) {
+        return {
+          image: source.bitmap,
+          width: source.bitmap.width,
+          height: source.bitmap.height,
+        }
+      }
+
+      let layerBitmap: HTMLCanvasElement | ImageBitmap
+      const { layer: sourceLayer } = source
+
+      if (override?.[sourceLayer.uid]) {
+        layerBitmap = override[sourceLayer.uid]
+      } else if (sourceLayer.layerType === 'raster') {
+        layerBitmap = (await docCx.getOrCreateLayerBitmapCache(
+          sourceLayer.uid,
+        ))!
+
+        layerMetrics[sourceLayer.uid] ??= {
+          source: createBBox({
+            left: sourceLayer.transform.position.x,
+            top: sourceLayer.transform.position.y,
+            width: layerBitmap.width,
+            height: layerBitmap.height,
+          }),
+          visually: createEmptyBBox(),
+        }
+      } else if (
+        // sourceLayer.layerType === 'vector' ||
+        sourceLayer.layerType === 'text'
+      ) {
+        const requestSize = { width: viewport.width, height: viewport.height }
+
+        const hasOverrideForThisLayer =
+          !!vectorObjectOverrides?.[sourceLayer.uid]
+        const canUseBitmapCache =
+          docCx.hasLayerBitmapCache(sourceLayer.uid, requestSize) &&
+          vectorObjectOverrides?.[sourceLayer.uid] == null
+
+        if (canUseBitmapCache) {
+          logger.info('Use cached bitmap for vector layer', sourceLayer.uid)
+
+          layerBitmap = (await docCx.getOrCreateLayerBitmapCache(
+            sourceLayer.uid,
+            requestSize,
+          ))!
+        } else {
+          logger.info(
+            'Cache is invalidated, re-render vector layer',
+            sourceLayer.uid,
+          )
+
+          const { layerBBox, objectsBBox } = await renderer.renderVectorLayer(
+            tmpVectorOutCx.canvas,
+            sourceLayer,
+            {
+              viewport,
+              pixelRatio,
+              objectOverrides: vectorObjectOverrides,
+              abort,
+              phase,
+              logger,
+            },
+          )
+
+          layerMetrics[sourceLayer.uid] = layerBBox
+          for (const [uid, bbox] of Object.entries(objectsBBox)) {
+            objectMetrics[uid] = bbox
+          }
+
+          if (abort?.aborted) throw new PaplicoAbortError()
+
+          if (hasOverrideForThisLayer) {
+            // For perfomance, avoid getImageData when using override
+            const overrided = createContext2D()
+            setCanvasSize(overrided.canvas, viewport)
+            overrided.drawImage(tmpVectorOutCx.canvas, 0, 0)
+
+            layerBitmap = overrided.canvas
+          } else {
+            layerBitmap = await docCx.updateOrCreateLayerBitmapCache(
+              sourceLayer.uid,
+              tmpVectorOutCx.getImageData(
+                0,
+                0,
+                viewport.width,
+                viewport.height,
+              ),
+            )
+          }
+        }
+      } else {
+        // TODO
+        return null!
+      }
+
+      return {
+        image: layerBitmap,
+        width: layerBitmap.width,
+        height: layerBitmap.height,
       }
     }
   }

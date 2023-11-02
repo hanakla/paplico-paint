@@ -26,7 +26,11 @@ export const FieldSet = memo(function FieldSet({
           margin: '4px 0 0 2px',
         }}
       >
-        <div>
+        <div
+          css={css`
+            font-size: var(--font-size-2);
+          `}
+        >
           <label htmlFor={id}>{title}</label>
           {postTitle}
         </div>

@@ -5,8 +5,11 @@ import { CompositeMode, LayerTransform } from '../LayerEntity'
 export type VectorGroup = {
   uid: string
   type: 'vectorGroup'
+
   visible: boolean
   lock: boolean
+  opacity: number
+
   transform: LayerTransform
   compositeMode: CompositeMode
 

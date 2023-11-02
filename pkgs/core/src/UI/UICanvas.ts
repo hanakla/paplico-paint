@@ -42,7 +42,7 @@ export class UICanvas extends Emitter<Events> {
 
     // Touch Event is used in iOS because PointerEvent cannot be used as a basis for smooth paths.
 
-    // this.canvas.addEventListener('touchstart', this.handleTouchStart, passive)
+    this.canvas.addEventListener('touchstart', this.handleTouchStart, passive)
     // this.canvas.addEventListener('touchmove', this.handleTouchMove, passive)
     // this.canvas.addEventListener('touchend', this.handleTouchEnd, passive)
     this.canvas.addEventListener('pointerdown', this.handleMouseDown, passive)
@@ -54,8 +54,8 @@ export class UICanvas extends Emitter<Events> {
 
   public dispose() {
     this.canvas.removeEventListener('touchstart', this.handleTouchStart)
-    this.canvas.removeEventListener('touchmove', this.handleTouchMove)
-    this.canvas.removeEventListener('touchend', this.handleTouchEnd)
+    // this.canvas.removeEventListener('touchmove', this.handleTouchMove)
+    // this.canvas.removeEventListener('touchend', this.handleTouchEnd)
     this.canvas.removeEventListener('pointerdown', this.handleMouseDown)
     this.canvas.removeEventListener('pointermove', this.handleMouseMove)
     this.canvas.removeEventListener('pointerup', this.handleMouseUp)
@@ -63,26 +63,31 @@ export class UICanvas extends Emitter<Events> {
   }
 
   protected handleTouchStart(e: TouchEvent) {
-    e.preventDefault()
-    e.stopPropagation()
-
-    this.currentStroke = null
-
     if (e.touches.length > 1) {
       this.cancelStroke()
       return
     }
 
-    const offset = this._getTouchOffset(e)
+    // e.preventDefault()
+    // e.stopPropagation()
 
-    this.startStroke([
-      {
-        x: (offset.x * this.ctx.canvas.width) / this.ctx.canvas.clientWidth,
-        y: (offset.y * this.ctx.canvas.height) / this.ctx.canvas.clientHeight,
-        pressure: e.touches[0].force,
-        tilt: null,
-      },
-    ])
+    // this.currentStroke = null
+
+    // if (e.touches.length > 1) {
+    //   this.cancelStroke()
+    //   return
+    // }
+
+    // const offset = this._getTouchOffset(e)
+
+    // this.startStroke([
+    //   {
+    //     x: (offset.x * this.ctx.canvas.width) / this.ctx.canvas.clientWidth,
+    //     y: (offset.y * this.ctx.canvas.height) / this.ctx.canvas.clientHeight,
+    //     pressure: e.touches[0].force,
+    //     tilt: null,
+    //   },
+    // ])
   }
 
   protected handleTouchMove(e: TouchEvent) {
@@ -93,16 +98,16 @@ export class UICanvas extends Emitter<Events> {
       return
     }
 
-    const offset = this._getTouchOffset(e)
+    // const offset = this._getTouchOffset(e)
 
-    this.updateStroke([
-      {
-        x: (offset.x * this.ctx.canvas.width) / this.ctx.canvas.clientWidth,
-        y: (offset.y * this.ctx.canvas.height) / this.ctx.canvas.clientHeight,
-        pressure: e.touches[0].force,
-        tilt: null,
-      },
-    ])
+    // this.updateStroke([
+    //   {
+    //     x: (offset.x * this.ctx.canvas.width) / this.ctx.canvas.clientWidth,
+    //     y: (offset.y * this.ctx.canvas.height) / this.ctx.canvas.clientHeight,
+    //     pressure: e.touches[0].force,
+    //     tilt: null,
+    //   },
+    // ])
   }
 
   protected handleTouchEnd(e: TouchEvent) {

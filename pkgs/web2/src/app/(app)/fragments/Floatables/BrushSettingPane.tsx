@@ -9,8 +9,11 @@ import { css } from 'styled-components'
 import { type Paplico } from '@paplico/core-new'
 import { FieldSet } from '@/components/FilterPane/FieldSet'
 import { Slider } from '@/components/FilterPane/Slider'
+import { useTranslation } from '@/lib/i18n'
+import { brushesSettingPaneTexts } from '@/locales'
 
 export const BrushSettingPane = memo(function BrushSetting() {
+  const t = useTranslation(brushesSettingPaneTexts)
   const { pap, editorHandle } = usePaplico()
   const { currentStroke } = usePaplicoStore((s) => ({
     currentStroke: s.engineState?.currentStroke,
@@ -37,15 +40,8 @@ export const BrushSettingPane = memo(function BrushSetting() {
     })
   })
 
-  const onSettingsChange = useEvent((settings: Paplico.StrokeSetting) => {
-    pap!.setStrokeSetting(settings)
-  })
-
-  const strokeSetting = currentStroke
-  const BrushClass = pap?.brushes.getClass(currentStroke?.brushId ?? '')
-
   return (
-    <FloatablePane paneId={FloatablePaneIds.brushSettings} title="Brushes">
+    <FloatablePane paneId={FloatablePaneIds.brushSettings} title={t('title')}>
       <div
         css={css`
           margin-bottom: 8px;
@@ -72,7 +68,7 @@ export const BrushSettingPane = memo(function BrushSetting() {
           `}
         >
           <FieldSet
-            title="Size"
+            title={t('size')}
             displayValue={currentStroke?.size ?? 0}
             input={
               <Slider
@@ -85,17 +81,32 @@ export const BrushSettingPane = memo(function BrushSetting() {
             }
           />
 
-          {BrushClass &&
-            strokeSetting &&
-            pap?.paneUI.renderBrushPane(
-              BrushClass?.metadata.id,
-              strokeSetting,
-              {
-                onSettingsChange,
-              },
-            )}
+          <CustomPane />
         </Box>
       </div>
     </FloatablePane>
+  )
+})
+
+const CustomPane = memo(function CustomPane() {
+  const { pap } = usePaplico()
+
+  const { currentStroke } = usePaplicoStore((s) => ({
+    currentStroke: s.engineState?.currentStroke,
+  }))
+
+  const onSettingsChange = useEvent((settings: Paplico.StrokeSetting) => {
+    pap!.setStrokeSetting(settings)
+  })
+
+  const strokeSetting = currentStroke
+  const BrushClass = pap?.brushes.getClass(currentStroke?.brushId ?? '')
+
+  return (
+    BrushClass &&
+    strokeSetting &&
+    pap?.paneUI.renderBrushPane(BrushClass?.metadata.id, strokeSetting, {
+      onSettingsChange,
+    })
   )
 })

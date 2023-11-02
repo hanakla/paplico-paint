@@ -10,7 +10,7 @@ export const arrayChunk = <T>(arr: T[], size: number): T[][] => {
 
 export const mapSeries = async <T, R>(
   arr: T[],
-  fn: (item: T, index: number, list: T[]) => R | Promise<R>
+  fn: (item: T, index: number, list: T[]) => R | Promise<R>,
 ): Promise<R[]> => {
   const results: R[] = []
 
@@ -19,4 +19,18 @@ export const mapSeries = async <T, R>(
   }
 
   return results
+}
+
+export const reduceAsync = async <T, R>(
+  arr: T[],
+  fn: (prev: R, item: T, index: number, list: T[]) => R | Promise<R>,
+  initial: R,
+): Promise<R> => {
+  let result = initial
+
+  for (let i = 0, l = arr.length; i < l; i++) {
+    result = await fn(result, arr[i], i, arr)
+  }
+
+  return result
 }

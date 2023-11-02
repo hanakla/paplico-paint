@@ -92,6 +92,7 @@ export function usePaplicoInit(
       const raster = Document.createRasterLayerEntity({
         width: 1000,
         height: 1000,
+        // compositeMode: 'multiply',
       })
 
       const vector = Document.createVectorLayerEntity({
@@ -105,31 +106,11 @@ export function usePaplicoInit(
           }),
         ],
       })
-
-      const text = Document.createTextLayerEntity({
-        transform: {
-          position: { x: 16, y: 16 },
-          scale: { x: 1, y: 1 },
-          rotate: 0,
-        },
-        fontFamily: 'Poppins',
-        fontStyle: 'Bold',
-        fontSize: 64,
-      })
-      text.textNodes.push(
-        { text: 'PAPLIC-o-\n', position: { x: 0, y: 0 } },
-        {
-          text: 'MAGIC',
-          fontSize: 128,
-          position: { x: 0, y: 0 },
-        },
-      )
-
       vector.objects.push(
         Document.createVectorObject({
           path: Document.createVectorPath({
             points: [
-              { isMoveTo: true, x: 0, y: 0, begin: null, end: null },
+              { isMoveTo: true, x: 0, y: 0 },
               { x: 1000, y: 1000, begin: null, end: null },
             ],
           }),
@@ -159,37 +140,56 @@ export function usePaplicoInit(
         }),
       )
 
-      doc.addLayer(
-        Document.createVectorLayerEntity({
-          objects: [
-            Document.createVectorObject({
-              path: Document.createVectorPath({
-                points: [
-                  { isMoveTo: true, x: 0, y: 0, begin: null, end: null },
-                  { x: 1000, y: 0, begin: null, end: null },
-                  { x: 1000, y: 1000, begin: null, end: null },
-                  { x: 0, y: 1000, begin: null, end: null },
-                  { isClose: true, x: 0, y: 0, begin: null, end: null },
-                ],
-                closed: true,
-              }),
-              filters: [
-                // Document.createVectorAppearance({
-                //   kind: 'fill',
-                //   fill: {
-                //     type: 'fill',
-                //     color: { r: 0, g: 0, b: 1 },
-                //     opacity: 1,
-                //   },
-                // }),
-              ],
-            }),
-          ],
-        }),
+      const text = Document.createTextLayerEntity({
+        transform: {
+          position: { x: 16, y: 16 },
+          scale: { x: 1, y: 1 },
+          rotate: 0,
+        },
+        fontFamily: 'Poppins',
+        fontStyle: 'Bold',
+        fontSize: 64,
+      })
+      text.textNodes.push(
+        { text: 'PAPLIC-o-\n', position: { x: 0, y: 0 } },
+        {
+          text: 'MAGIC',
+          fontSize: 128,
+          position: { x: 0, y: 0 },
+        },
       )
-      doc.addLayer(raster, [])
+
+      // doc.addLayer(
+      //   Document.createVectorLayerEntity({
+      //     objects: [
+      //       Document.createVectorObject({
+      //         path: Document.createVectorPath({
+      //           points: [
+      //             { isMoveTo: true, x: 0, y: 0, begin: null, end: null },
+      //             { x: 1000, y: 0, begin: null, end: null },
+      //             { x: 1000, y: 1000, begin: null, end: null },
+      //             { x: 0, y: 1000, begin: null, end: null },
+      //             { isClose: true, x: 0, y: 0, begin: null, end: null },
+      //           ],
+      //           closed: true,
+      //         }),
+      //         filters: [
+      //           // Document.createVectorAppearance({
+      //           //   kind: 'fill',
+      //           //   fill: {
+      //           //     type: 'fill',
+      //           //     color: { r: 0, g: 0, b: 1 },
+      //           //     opacity: 1,
+      //           //   },
+      //           // }),
+      //         ],
+      //       }),
+      //     ],
+      //   }),
+      // )
+
       doc.addLayer(vector, [])
-      doc.addLayer(Document.createVectorLayerEntity({}), [])
+      doc.addLayer(raster, [])
       doc.addLayer(text, [])
 
       if (!chatMode) {

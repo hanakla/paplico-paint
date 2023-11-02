@@ -2,7 +2,7 @@ import { FloatablePane } from '@/components/FloatablePane'
 import { TreeView } from '@/components/TreeView'
 import { FloatablePaneIds } from '@/domains/floatablePanes'
 import { usePaplico, usePaplicoStore } from '@/domains/paplico'
-import { Commands, Document } from '@paplico/core-new'
+import { Commands, Document, Paplico } from '@paplico/core-new'
 import React, {
   ChangeEvent,
   MouseEvent,
@@ -41,6 +41,8 @@ import {
   ContextMenuItemClickHandler,
   useContextMenu,
 } from '@/components/ContextMenu'
+import { useTranslation } from '@/lib/i18n'
+import { layersPaneTexts } from '@/locales'
 
 type Props = {
   size?: 'sm' | 'lg'
@@ -63,6 +65,7 @@ type LayerContextMenuParams = {
 }
 
 export const LayersPane = memo(function LayersPane({ size = 'sm' }: Props) {
+  const t = useTranslation(layersPaneTexts)
   const { pap } = usePaplico()
   const papStore = usePaplicoStore(storePicker(['activeLayerEntity']))
   const rerender = useUpdate()
@@ -80,6 +83,18 @@ export const LayersPane = memo(function LayersPane({ size = 'sm' }: Props) {
       new Commands.LayerUpdateAttributes(activeLayer.uid, {
         updater: (layer) => {
           layer.name = name
+        },
+      }),
+    )
+  })
+
+  const handleChangeCompositeMode = useEvent((mode: string) => {
+    console.log(mode)
+
+    pap?.command.do(
+      new Commands.LayerUpdateAttributes(activeLayer!.uid, {
+        updater: (layer) => {
+          layer.compositeMode = mode as any
         },
       }),
     )
@@ -138,7 +153,7 @@ export const LayersPane = memo(function LayersPane({ size = 'sm' }: Props) {
               margin-right: 4px;
             `}
           />{' '}
-          Layers
+          {t('title')}
         </>
       }
     >
@@ -153,55 +168,67 @@ export const LayersPane = memo(function LayersPane({ size = 'sm' }: Props) {
           border-radius: 4px;
         `}
       >
-        <Fieldset label="Layer name">
-          <TextField
-            size="1"
-            value={activeLayer?.name ?? ''}
-            placeholder={'<Layer name>'}
-            onChange={handleChangeLayerName}
-          />
-        </Fieldset>
+        {!activeLayer ? (
+          <PlaceholderString>
+            Select a layer to show properties
+          </PlaceholderString>
+        ) : (
+          <>
+            <Fieldset label={t('layerName')}>
+              <TextField
+                size="1"
+                value={activeLayer?.name ?? ''}
+                placeholder={`<${t('layerName')}>`}
+                onChange={handleChangeLayerName}
+              />
+            </Fieldset>
 
-        <Fieldset
-          label="Blend mode"
-          valueField={activeLayer?.compositeMode ?? '<Blend mode>'}
-        >
-          {propsMemo.memo(
-            'blendmode-fieldset-root',
-            () => (
-              <Select.Root size="1">
-                <>
-                  <Select.Trigger />
-                  <Select.Content>
-                    <Select.Item value="normal">Normal</Select.Item>
-                    <Select.Item value="multiply">Multiply</Select.Item>
-                    <Select.Item value="screen">Screen</Select.Item>
-                    <Select.Item value="overlay">Overlay</Select.Item>
-                  </Select.Content>
-                </>
-              </Select.Root>
-            ),
-            [],
-          )}
-        </Fieldset>
+            <Fieldset
+              label={t('compositeMode')}
+              valueField={activeLayer?.compositeMode ?? '<Blend mode>'}
+            >
+              {propsMemo.memo(
+                'blendmode-fieldset-root',
+                () => (
+                  <Select.Root
+                    size="1"
+                    value={activeLayer?.compositeMode}
+                    onValueChange={handleChangeCompositeMode}
+                  >
+                    <>
+                      <Select.Trigger />
+                      <Select.Content>
+                        <Select.Item value="normal">Normal</Select.Item>
+                        <Select.Item value="multiply">Multiply</Select.Item>
+                        <Select.Item value="screen">Screen</Select.Item>
+                        <Select.Item value="overlay">Overlay</Select.Item>
+                      </Select.Content>
+                    </>
+                  </Select.Root>
+                ),
+                [],
+              )}
+            </Fieldset>
 
-        <Fieldset
-          label="Layer opacity"
-          valueField={`${roundPrecision(
-            (activeLayer?.opacity ?? 1) * 100,
-            1,
-          )}%`}
-        >
-          <Slider
-            css={css`
-              padding: 8px 0;
-            `}
-            value={[activeLayer?.opacity ?? 1]}
-            min={0}
-            max={1}
-            step={0.01}
-          />
-        </Fieldset>
+            <Fieldset
+              label={t('opacity')}
+              valueField={`${roundPrecision(
+                (activeLayer?.opacity ?? 1) * 100,
+                1,
+              )}%`}
+            >
+              <Slider
+                css={css`
+                  padding: 8px 0;
+                `}
+                value={[activeLayer?.opacity ?? 1]}
+                min={0}
+                max={1}
+                step={0.01}
+              />
+            </Fieldset>
+          </>
+        )}
       </Box>
 
       <ScrollArea
@@ -495,7 +522,7 @@ const LayerTreeRow = ({
       style={{
         background:
           item instanceof LayerTreeNode &&
-          papStore.engineState?.activeLayer?.layerUid === item.layer.uid
+          pap?.activeLayer?.layerUid === item.layer.uid
             ? 'var(--sky-5)'
             : 'transparent',
       }}

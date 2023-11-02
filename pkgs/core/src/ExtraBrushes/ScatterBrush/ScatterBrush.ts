@@ -29,7 +29,7 @@ import {
   createBrush,
 } from '@/Engine/Brush/Brush'
 import { ColorRGBA } from '@/Document'
-import * as StrokingUtils from '@/stroking-utils'
+import * as StrokingUtils from '@/ext-brush'
 import { PaplicoError } from '@/Errors/PaplicoError'
 import { createImage } from '@/Engine/CanvasFactory'
 import { scatterBrushTexts } from '@/locales'

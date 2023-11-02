@@ -51,12 +51,7 @@ import { IExporter } from './Exporters/IExporter'
 import { PSDExporter } from './Exporters/PSDExporter'
 import { type History } from '@/History/History'
 import { PreviewStore } from './DocumentContext/PreviewStore'
-import { logImage } from '../utils/DebugHelper'
-import {
-  NoneImpls,
-  type PaneSetState,
-  type PaplicoComponents,
-} from '@/UI/PaneUI/index'
+import { NoneImpls, type PaplicoComponents } from '@/UI/PaneUI/index'
 import { type AbstractComponentRenderer } from '../UI/PaneUI/AbstractComponent'
 import { TestFilter } from '../Filters'
 import { WebGLRenderer } from 'three'
@@ -64,6 +59,7 @@ import { PaneUIRenderings } from './PaneUIRenderings'
 import { FontRegistry } from './Registry/FontRegistry'
 import { rescue } from '@/utils/resque'
 import { LayerMetrics } from './DocumentContext/LayerMetrics'
+import { InvalidOptionOrStateError } from '@/Errors/InvalidOptionOrStateError'
 
 export namespace Paplico {
   export type StrokeSetting<T extends Record<string, any> = any> =
@@ -81,14 +77,7 @@ export namespace Paplico {
     pixelRatio: number
   }
 
-  export type ActiveLayer = {
-    layerType: LayerEntity['layerType']
-    layerUid: string
-    pathToLayer: string[]
-  }
-
   export type State = {
-    activeLayer: ActiveLayer | null
     currentStroke: StrokeSetting | null
     currentFill: FillSetting | null
     currentInk: InkSetting
@@ -109,7 +98,7 @@ export namespace Paplico {
       previous: PaplicoDocument | null
       current: PaplicoDocument | null
     }
-    activeLayerChanged: { current: Paplico.ActiveLayer | null }
+    activeLayerChanged: { current: DocumentContext.ActiveLayer | null }
     flushed: void
 
     strokeStarted: StrokeEvent
@@ -163,6 +152,9 @@ const DEFAULT_STROKE_SETTING = (): Readonly<Paplico.StrokeSetting> => ({
   specific: {},
 })
 
+/**
+ * An frontend class of Paplico.
+ */
 export class Paplico extends Emitter<Paplico.Events> {
   public readonly brushes: BrushRegistry
   public readonly inks: InkRegistry
@@ -199,7 +191,6 @@ export class Paplico extends Emitter<Paplico.Events> {
   }
 
   #state: Paplico.State = {
-    activeLayer: null,
     currentStroke: null,
     currentFill: null,
     currentInk: {
@@ -211,8 +202,6 @@ export class Paplico extends Emitter<Paplico.Events> {
     brushEntries: [],
     busy: false,
   }
-
-  #activeLayerEntity: LayerEntity | null = null
 
   public static createWithDocument(
     canvas: HTMLCanvasElement,
@@ -341,19 +330,19 @@ export class Paplico extends Emitter<Paplico.Events> {
 
   protected setState(
     fn: (draft: Draft<Paplico.State>) => void,
-    { skipEmit = false }: { skipEmit?: boolean } = {},
+    { __internal_skipEmit = false }: { __internal_skipEmit?: boolean } = {},
   ) {
     this.#state = immer(this.#state, (d) => {
       fn(d)
     })
 
-    if (!skipEmit) {
+    if (!__internal_skipEmit) {
       this.emit('stateChanged', this.#state)
     }
   }
 
-  private get activeLayerEntity(): LayerEntity | null {
-    return this.#activeLayerEntity
+  public get activeLayer(): DocumentContext.ActiveLayer | null {
+    return this.runtimeDoc?.activeLayer ?? null
   }
 
   protected initialize() {
@@ -484,7 +473,6 @@ export class Paplico extends Emitter<Paplico.Events> {
   public loadDocument(doc: PaplicoDocument | null) {
     const prevDocument = this.document
 
-    this.#activeLayerEntity = null
     this.runtimeDoc?.dispose()
 
     if (doc == null) {
@@ -510,6 +498,10 @@ export class Paplico extends Emitter<Paplico.Events> {
 
     this.runtimeDoc.layerMetrics.on('update', () => {
       this.emit('document:metrics:update')
+    })
+
+    this.runtimeDoc.on('activeLayerChanged', (e) => {
+      this.emit('activeLayerChanged', e)
     })
 
     this.runtimeDoc.history.on('affect', (e) => {
@@ -539,45 +531,23 @@ export class Paplico extends Emitter<Paplico.Events> {
     })
   }
 
-  public setStrokingTargetLayer(path: string[]) {
-    if (!this.document) {
+  public setStrokingTargetLayer(path: string[] | null) {
+    if (!this.runtimeDoc) {
       console.log('Paplico.enterLayer: No document loaded')
       return
     }
 
-    if (path.length === 0) {
-      this.setState((d) => {
-        d.activeLayer = null
-      })
-
-      this.emit('activeLayerChanged', { current: null })
-      return
-    }
-
-    const target = this.document.resolveNodePath(path)
-    if (!target) {
-      console.warn(`Paplico.enterLayer: Layer not found: ${path.join('/')}`)
-      return
-    }
-
-    const layer = this.document.resolveLayerEntity(target.layerUid)!
-
-    this.setState((d) => {
-      d.activeLayer = {
-        layerType: layer.layerType,
-        layerUid: target!.layerUid,
-        pathToLayer: path,
-      }
-
-      this.#activeLayerEntity = layer
-    })
-
-    console.info(`Enter layer: ${path.join('/')}`)
-    this.emit('activeLayerChanged', { current: this.#state.activeLayer })
+    this.runtimeDoc.setActiveLayer(path)
   }
 
+  /** @deprecated Use cloneStrokeSetting instead. */
   public getStrokeSetting(): Paplico.StrokeSetting | null {
     return this.#state.currentStroke
+  }
+
+  /** Get current stroke setting. returned objeccts is write safe (deep cloned) */
+  public cloneStrokeSetting(): Paplico.StrokeSetting | null {
+    return deepClone(this.#state.currentStroke)
   }
 
   public setStrokeSetting(setting: Partial<Paplico.StrokeSetting> | null) {
@@ -592,8 +562,32 @@ export class Paplico extends Emitter<Paplico.Events> {
     })
   }
 
+  /** @deprecated Use cloneFillSetting instead. */
   public getFillSetting(): Paplico.FillSetting | null {
     return this.#state.currentFill
+  }
+
+  /** Get current fill setting. returned objeccts is write safe (deep cloned) */
+  public cloneFillSetting(): Paplico.FillSetting | null {
+    return deepClone(this.#state.currentFill)
+  }
+
+  public cloneInkSetting(): Paplico.InkSetting {
+    return deepClone(this.#state.currentInk)
+  }
+
+  /** @deprecated Use cloneInkSetting instead. */
+  public getInkSetting(): Paplico.InkSetting {
+    return this.#state.currentInk
+  }
+
+  public setInkSetting(setting: Partial<Paplico.InkSetting>) {
+    this.setState((d) => {
+      d.currentInk = {
+        ...d.currentInk,
+        ...setting,
+      }
+    })
   }
 
   public setFillSetting(setting: Partial<Paplico.FillSetting> | null) {
@@ -731,6 +725,62 @@ export class Paplico extends Emitter<Paplico.Events> {
   }
 
   /**
+   * Execute stroke preview process with specified stroke.
+   */
+  public async putStrokeChange(
+    stroke: UIStroke,
+    {
+      targetLayerUid,
+      strokeSettings,
+    }: {
+      targetLayerUid?: string
+      strokeSettings?: Paplico.StrokeSetting | null
+    },
+  ) {
+    if (!this.runtimeDoc) {
+      throw new InvalidOptionOrStateError(
+        'putStrokeComplete: Document not loaded',
+      )
+    }
+
+    const document = this.document! // Lock reference
+    const runtimeDoc = this.runtimeDoc! // Lock reference
+
+    const state = this.savehStrokingState(runtimeDoc)
+
+    // set activeLayer temporary
+    if (targetLayerUid) {
+      const targetPath = document?.findLayerNodePath(targetLayerUid)
+
+      if (!targetPath) {
+        throw new InvalidOptionOrStateError(
+          `Layer not found: ${targetLayerUid}`,
+        )
+      }
+
+      runtimeDoc.setActiveLayer(targetPath, {
+        __internal_skipEmit: true,
+      })
+    }
+
+    // set strokeSettings temporary
+    if (strokeSettings !== undefined) {
+      this.setState(
+        (d) => {
+          d.currentStroke = strokeSettings
+        },
+        { __internal_skipEmit: true },
+      )
+    }
+
+    try {
+      await this.onUIStrokeChange(stroke)
+    } finally {
+      this.restoreStrokingState(runtimeDoc, state)
+    }
+  }
+
+  /**
    * Execute stroke completion process with specified stroke.
    */
   public async putStrokeComplete(
@@ -743,32 +793,30 @@ export class Paplico extends Emitter<Paplico.Events> {
       strokeSettings?: Paplico.StrokeSetting | null
     },
   ) {
-    // save current states
-    const prev = this.#state.activeLayer
-    const prevLayer = this.#activeLayerEntity
-    const prevStroke = this.getStrokeSetting()
+    if (!this.runtimeDoc) {
+      throw new InvalidOptionOrStateError(
+        'putStrokeComplete: Document not loaded',
+      )
+    }
+
+    const document = this.document! // Lock reference
+    const runtimeDoc = this.runtimeDoc! // Lock reference
+
+    const state = this.savehStrokingState(runtimeDoc)
 
     // set activeLayer temporary
     if (targetLayerUid) {
-      const nextLayer = this.document?.resolveLayerEntity(targetLayerUid)
-      const targetPath = this.document?.findLayerNodePath(targetLayerUid)
+      const targetPath = document?.findLayerNodePath(targetLayerUid)
 
-      if (!nextLayer || !targetPath) {
-        throw new Error(`Layer not found: ${targetLayerUid}`)
+      if (!targetPath) {
+        throw new InvalidOptionOrStateError(
+          `Layer not found: ${targetLayerUid}`,
+        )
       }
 
-      this.setState(
-        (d) => {
-          d.activeLayer = {
-            layerType: nextLayer.layerType,
-            layerUid: targetLayerUid,
-            pathToLayer: targetPath,
-          }
-        },
-        { skipEmit: true },
-      )
-
-      this.#activeLayerEntity = nextLayer
+      runtimeDoc.setActiveLayer(targetPath, {
+        __internal_skipEmit: true,
+      })
     }
 
     // set strokeSettings temporary
@@ -777,24 +825,43 @@ export class Paplico extends Emitter<Paplico.Events> {
         (d) => {
           d.currentStroke = strokeSettings
         },
-        { skipEmit: true },
+        { __internal_skipEmit: true },
       )
     }
 
     try {
-      this.onUIStrokeComplete(stroke)
+      await this.onUIStrokeComplete(stroke)
     } finally {
-      // restore states
-      this.setState(
-        (d) => {
-          d.activeLayer = prev
-          d.currentStroke = prevStroke
-        },
-        { skipEmit: true },
-      )
-
-      this.#activeLayerEntity = prevLayer
+      this.restoreStrokingState(runtimeDoc, state)
     }
+  }
+
+  private savehStrokingState(runtimeDoc: DocumentContext) {
+    // save current states
+    const prev = runtimeDoc.activeLayer
+    const prevStroke = this.getStrokeSetting()
+
+    return {
+      activeLayer: prev,
+      strokeSetting: prevStroke,
+    }
+  }
+
+  private restoreStrokingState(
+    runtimeDoc: DocumentContext,
+    state: ReturnType<typeof this.savehStrokingState>,
+  ) {
+    runtimeDoc.setActiveLayer(state.activeLayer?.pathToLayer || null, {
+      __internal_skipEmit: true,
+    })
+
+    // restore states
+    this.setState(
+      (d) => {
+        d.currentStroke = state.strokeSetting
+      },
+      { __internal_skipEmit: true },
+    )
   }
 
   protected async onUIStrokeChange(stroke: UIStroke): Promise<void> {
@@ -815,7 +882,7 @@ export class Paplico extends Emitter<Paplico.Events> {
     abort?: AbortController,
   ): Promise<void> {
     if (!this.runtimeDoc) return
-    if (!this.activeLayerEntity) return
+    if (!this.runtimeDoc.activeLayerEntity) return
     if (this.#state.busy) return
 
     const renderLogger = RenderCycleLogger.createNext()
@@ -823,7 +890,7 @@ export class Paplico extends Emitter<Paplico.Events> {
     const aborter = abort ?? new AbortController()
 
     const runtimeDoc = this.runtimeDoc // Lock reference
-    const activeLayerEntity = this.activeLayerEntity // Lock reference
+    const activeLayerEntity = runtimeDoc.activeLayerEntity! // Lock reference
     const currentStroke = this.#state.currentStroke // Lock reference
 
     const [tmpctx, strkctx] = await Promise.all([
@@ -897,6 +964,7 @@ export class Paplico extends Emitter<Paplico.Events> {
           {
             inkSetting: this.#state.currentInk,
             abort: aborter.signal,
+            pixelRatio: this.#preferences.pixelRatio,
             transform: {
               position: { x: 0, y: 0 },
               scale: { x: 1, y: 1 },
@@ -969,7 +1037,7 @@ export class Paplico extends Emitter<Paplico.Events> {
 
   protected async onUIStrokeComplete(stroke: UIStroke) {
     if (!this.runtimeDoc) return
-    if (!this.activeLayerEntity) return
+    if (!this.runtimeDoc.activeLayerEntity) return
 
     RenderCycleLogger.createNext()
     RenderCycleLogger.current.log('start: stroke complete')
@@ -981,7 +1049,7 @@ export class Paplico extends Emitter<Paplico.Events> {
     if (this.#state.busy) return
 
     const runtimeDoc = this.runtimeDoc // Lock reference
-    const activeLayerEntity = this.activeLayerEntity // Lock reference
+    const activeLayerEntity = runtimeDoc.activeLayerEntity! // Lock reference
     const currentStroke = this.#state.currentStroke // Lock reference
 
     const updateLock = await runtimeDoc.updaterLock.ensure()
@@ -1223,8 +1291,6 @@ export class Paplico extends Emitter<Paplico.Events> {
       { maxQueue: 5 },
     )
   }
-
-  // public onVectorObjectCreate() {}
 }
 
 function createStrokeEvent(stroke: UIStroke): Paplico.StrokeEvent {

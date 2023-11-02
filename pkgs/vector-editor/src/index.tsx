@@ -3,7 +3,8 @@ import { createRoot } from 'react-dom/client'
 import { EditorRoot } from './editors/EditorRoot'
 import { StoresContext, createEditorStore, createEngineStore } from './store'
 import { themeVariables } from './theme'
-import { flushSync } from 'react-dom'
+import { ToolModes } from './utils/types'
+import { bind } from './bind'
 
 export type PaplicoEditorHandle = ReturnType<typeof bindPaplico>
 
@@ -23,34 +24,7 @@ export function bindPaplico(
   const engineStore = createEngineStore()
   const editorStore = createEditorStore()
 
-  engineStore.getState()._setPaplicoInstance(paplico)
-  engineStore.getState()._setEngineState(paplico.state)
-  editorStore.setState({
-    currentType:
-      paplico.state.activeLayer?.layerType === 'vector' ? 'vector' : 'none',
-  })
-
-  paplico.on('stateChanged', (state) => {
-    engineStore.getState()._setEngineState(state)
-  })
-
-  paplico.on('documentChanged', ({ current }) => {
-    const layerType = paplico.state.activeLayer?.layerType
-
-    editorStore.setState(() => ({
-      enabled: layerType === 'vector',
-      currentType: layerType === 'vector' ? 'vector' : 'none',
-    }))
-  })
-
-  paplico.on('activeLayerChanged', ({ current }) => {
-    const layerType = paplico.state.activeLayer?.layerType
-
-    editorStore.setState(() => ({
-      enabled: current?.layerType === 'vector',
-      currentType: layerType === 'vector' ? 'vector' : 'none',
-    }))
-  })
+  bind(paplico, engineStore, editorStore)
 
   const root = createRoot(attachTarget)
 
@@ -71,6 +45,10 @@ export function bindPaplico(
     },
     currentEditorMode: () => {
       return editorStore.getState().currentType
+    },
+
+    setToolMode: (mode: ToolModes) => {
+      editorStore.setState({ toolMode: mode })
     },
 
     /**

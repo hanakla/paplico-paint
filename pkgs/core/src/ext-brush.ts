@@ -15,7 +15,15 @@ import { FuncStats } from './utils/perfstats'
 import { degToRad } from './utils/math'
 import { type Color } from 'three'
 
-export { mapPoints } from './Engine/VectorUtils'
+export {
+  createBrush,
+  type IBrush,
+  type BrushMetadata,
+  type BrushContext,
+  type BrushPaneContext,
+  type BrushClass,
+  type BrushLayoutData,
+} from './Engine/Brush/Brush'
 
 export {
   interpolateMap,
@@ -67,6 +75,7 @@ export const createStreamScatter = (
   {
     scatterRange,
     scatterScale = 0,
+
     useTangent = false,
   }: {
     counts: number

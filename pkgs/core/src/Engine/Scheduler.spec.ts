@@ -20,7 +20,7 @@ describe('Scheduler', () => {
       createRasterLayerEntity({ width: 1, height: 1 }),
       createVectorLayerEntity({}),
     ])
-    const s = buildRenderSchedule(doc.layerTree, docCx)
+    const s = buildRenderSchedule(doc.layerTree, docCx).tasks
 
     expect(s).toMatchObject([
       {
@@ -58,7 +58,7 @@ describe('Scheduler', () => {
         ],
       }),
     ])
-    const s = buildRenderSchedule(doc.layerTree, docCx)
+    const s = buildRenderSchedule(doc.layerTree, docCx).tasks
 
     expect(s.every((t) => t.renderTarget == RenderTargets.PREDEST)).toBe(true)
   })
@@ -108,7 +108,7 @@ describe('Scheduler', () => {
       }),
     ])
 
-    const s = buildRenderSchedule(doc.layerTree, docCx)
+    const s = buildRenderSchedule(doc.layerTree, docCx).tasks
     let i = 0
 
     expect(s[i++]).toMatchObject({
@@ -160,7 +160,55 @@ describe('Scheduler', () => {
     })
   })
 
-  it('Layer filters', () => {
+  it('has multiply composition layer', () => {
+    const [doc, docCx] = documentFactory([
+      createVectorLayerEntity({
+        compositeMode: 'multiply',
+        objects: [
+          createVectorObject({
+            compositeMode: 'normal',
+            path: createVectorPath({}),
+            filters: [vectorFill()],
+          }),
+        ],
+      }),
+    ])
+
+    const s = buildRenderSchedule(doc.layerTree, docCx).tasks
+
+    let i = 0
+
+    // console.log(s)
+    expect(s[i++]).toMatchObject({
+      command: RenderCommands.CLEAR_TARGET,
+      renderTarget: RenderTargets.PREDEST,
+    })
+
+    expect(s[i++]).toMatchObject({
+      command: RenderCommands.CLEAR_TARGET,
+      renderTarget: RenderTargets.VECTOR_PRE_FILTER,
+    })
+
+    expect(s[i++]).toMatchObject({
+      command: RenderCommands.APPLY_INTERNAL_OBJECT_FILTER,
+      renderTarget: RenderTargets.VECTOR_PRE_FILTER,
+    })
+
+    expect(s[i++]).toMatchObject({
+      command: RenderCommands.DRAW_SOURCE_TO_DEST,
+      source: RenderTargets.VECTOR_PRE_FILTER,
+      renderTarget: RenderTargets.PRE_FILTER,
+    })
+
+    expect(s[i++]).toMatchObject({
+      command: RenderCommands.DRAW_SOURCE_TO_DEST,
+      source: RenderTargets.PRE_FILTER,
+      renderTarget: RenderTargets.PREDEST,
+      compositeMode: 'multiply',
+    })
+  })
+
+  it.only('Layer filters', () => {
     const [doc, docCx] = documentFactory([
       createVectorLayerEntity({
         compositeMode: 'normal',
@@ -193,7 +241,7 @@ describe('Scheduler', () => {
         ],
       }),
     ])
-    const s = buildRenderSchedule(doc.layerTree, docCx)
+    const s = buildRenderSchedule(doc.layerTree, docCx).tasks
     let i = 0
 
     // Clearing PREDEST

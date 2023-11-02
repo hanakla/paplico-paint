@@ -6,7 +6,7 @@ import { ICommand } from '@/History/ICommand'
 import { PreviewStore } from '@/Engine/DocumentContext/PreviewStore'
 import { Emitter } from '@/utils/Emitter'
 import { LayerMetrics } from './LayerMetrics'
-import { VectorGroup, VectorObject } from '@/Document'
+import { LayerEntity, VectorGroup, VectorObject } from '@/Document'
 import { createImageBitmapImpl, createImageData } from '../CanvasFactory'
 
 export namespace DocumentContext {
@@ -17,9 +17,18 @@ export namespace DocumentContext {
     height: number
   }
 
+  export type ActiveLayer = {
+    layerType: LayerEntity['layerType']
+    layerUid: string
+    pathToLayer: string[]
+  }
+
   export type Events = {
     invalidateVectorPathCacheRequested: {
       object: VectorObject
+    }
+    activeLayerChanged: {
+      current: ActiveLayer | null
     }
     'preview:updated': PreviewStore.Events['updated']
   }
@@ -41,6 +50,9 @@ export class DocumentContext extends Emitter<DocumentContext.Events> {
 
   public updaterLock = new AtomicResource({}, 'RuntimeDocument#updateLock')
 
+  protected _activeLayer: DocumentContext.ActiveLayer | null = null
+  protected _activeLayerEntity: LayerEntity | null = null
+
   constructor(document: PaplicoDocument) {
     super()
 
@@ -54,6 +66,9 @@ export class DocumentContext extends Emitter<DocumentContext.Events> {
   }
 
   public dispose() {
+    this._activeLayer = null
+    this._activeLayerEntity = null
+
     this.mitt.all.clear()
     this.updaterLock.clearQueue()
 
@@ -75,6 +90,51 @@ export class DocumentContext extends Emitter<DocumentContext.Events> {
     redo: () => this.history.redo(this),
     canUndo: () => this.history.canUndo(),
     canRedo: () => this.history.canRedo(),
+  }
+
+  public get activeLayer() {
+    return this._activeLayer
+  }
+
+  public get activeLayerEntity() {
+    return this._activeLayerEntity
+  }
+
+  public setActiveLayer(
+    path: string[] | null | undefined,
+    {
+      __internal_skipEmit,
+    }: {
+      __internal_skipEmit?: boolean
+    } = {},
+  ) {
+    if (!path || path.length === 0) {
+      this._activeLayer = null
+      this._activeLayerEntity = null
+      this.emit('activeLayerChanged', { current: null })
+      return
+    }
+
+    const target = this.document.resolveNodePath(path)
+    if (!target) {
+      console.warn(`Paplico.enterLayer: Layer not found: ${path.join('/')}`)
+      return
+    }
+
+    const layer = this.document.resolveLayerEntity(target.layerUid)!
+
+    this._activeLayer = {
+      layerType: layer.layerType,
+      layerUid: target!.layerUid,
+      pathToLayer: path,
+    }
+    this._activeLayerEntity = layer
+
+    console.info(`Enter layer: ${path.join('/')}`)
+
+    if (!__internal_skipEmit) {
+      this.emit('activeLayerChanged', { current: this._activeLayer })
+    }
   }
 
   public getPreviewImage(layerUid: string) {

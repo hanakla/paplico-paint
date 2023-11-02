@@ -1,14 +1,21 @@
 import { VectorPath } from '@/Document'
-import { mapPoints } from '@/stroking-utils'
 
-export function pathToSVGPath(path: VectorPath) {
-  const [start, ...points] = path.points
+export function pathToSVGPath({ points }: VectorPath) {
   const d: string[] = []
 
-  d.push(`M ${start.x} ${start.y}`)
+  for (let idx = 0, l = points.length; idx < l; idx++) {
+    const prev = points[idx - 1]
+    const point = points[idx]
 
-  mapPoints(points, (point, prev) => {
-    if (point.begin || point.end) {
+    if (point.isMoveTo) {
+      d.push(`M ${point.x} ${point.y}`)
+    } else if (point.isClose) {
+      d.push(`Z`)
+    } else {
+      if (idx === 0) {
+        throw new Error('pathToSVGPath: First point must be moveTo')
+      }
+
       d.push(
         [
           'C',
@@ -17,10 +24,10 @@ export function pathToSVGPath(path: VectorPath) {
           [point.x, point.y].join(','),
         ].join(' '),
       )
-    } else if (point.begin == null && point.end == null) {
-      d.push(['L', [point.x, point.y].join(',')].join(' '))
     }
-  })
+
+    return d.join(' ')
+  }
 
   return d.join(' ')
 }

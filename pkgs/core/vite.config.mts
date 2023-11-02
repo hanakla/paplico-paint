@@ -22,7 +22,7 @@ export default defineConfig({
     lib: {
       entry: {
         index: 'src/index.ts',
-        'stroking-utils': 'src/stroking-utils.ts',
+        'ext-brush': 'src/ext-brush.ts',
         extras: 'src/extras.ts',
       },
       name: 'PapCore',

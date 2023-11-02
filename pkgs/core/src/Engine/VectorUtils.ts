@@ -5,7 +5,7 @@ import {
   type VectorPathPoint,
 } from '@/Document/LayerEntity/VectorPath'
 import { type Point2D } from '@/Document/Struct/Point2D'
-import { pointsToSVGCommandArray } from '@/stroking-utils'
+import { pointsToSVGCommandArray } from '@/ext-brush'
 import { absNormalizePath } from '@/fastsvg/absNormalizePath'
 import DOMMatrix from '@thednp/dommatrix'
 import { LayerTransform } from '@/Document/LayerEntity'
@@ -189,22 +189,4 @@ export function pointsToSVGPath(points: VectorPathPoint[], closed: boolean) {
   }
 
   return result.join(' ')
-}
-
-export function mapPoints<T extends VectorPathPoint, R>(
-  points: T[],
-  proc: (
-    point: T,
-    prevPoint: VectorPathPoint | undefined,
-    index: number,
-    points: T[],
-  ) => R,
-  { startOffset = 0 }: { startOffset?: number } = {},
-): R[] {
-  // const result: T[] = [] as any
-  return points
-    .slice(startOffset)
-    .map((point, idx) =>
-      proc(point, points[idx + startOffset - 1], idx, points),
-    )
 }

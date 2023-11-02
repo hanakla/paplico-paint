@@ -7,7 +7,7 @@ import {
 } from '@/Engine/Brush/Brush'
 import { mergeToNew } from '@/utils/object'
 import { mapPoints } from '../Engine/VectorUtils'
-import { scatterPlot } from '@/stroking-utils'
+import { scatterPlot } from '@/ext-brush'
 import { PapBrush } from '@/index'
 
 export declare namespace CircleBrush {

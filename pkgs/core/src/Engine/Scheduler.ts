@@ -17,7 +17,7 @@ import { PaplicoError } from '@/Errors/PaplicoError'
 
 export type RenderTask = {
   source: RenderSource
-  renderTarget: RenderTargets | NewCanvasTarget
+  renderTarget: RenderTargets
   clearTarget?: true // defaults to false
   meta?: Record<string, any>
 } & (
@@ -45,6 +45,7 @@ export type RenderTask = {
   //   }
   | {
       command: typeof RenderCommands.APPLY_INTERNAL_OBJECT_FILTER
+      layerUid: string
       object: VectorObject
       filter: VectorAppearanceFill | VectorAppearanceStroke
     }
@@ -73,37 +74,35 @@ export const RenderCommands = km({
   CLEAR_TARGET: null,
   FREE_TARGET: null,
 })
-
 export type RenderCommands =
   (typeof RenderCommands)[keyof typeof RenderCommands]
 
-export type NewCanvasTarget = { __newTarget: true; (): { __targetToken: true } }
+export type CanvasToken = {
+  __canvasToken: true
+}
+
+export const RenderTargets = km({
+  PRE_FILTER: null,
+  VECTOR_PRE_FILTER: null,
+  SHARED_FILTER_BUF: null,
+  PREDEST: null,
+  GL_RENDER_TARGET1: null,
+  NONE: null,
+})
+
+export type RenderTargets =
+  | (typeof RenderTargets)[keyof typeof RenderTargets]
+  | CanvasToken
 
 export type RenderSource =
   | RenderTargets
   | { layer: LayerEntity }
   | { bitmap: HTMLCanvasElement | ImageBitmap }
-  | NewCanvasTarget
+  | CanvasToken
 
-export const RenderTargets = Object.assign(
-  km({
-    PRE_FILTER: null,
-    VECTOR_PRE_FILTER: null,
-    SHARED_FILTER_BUF: null,
-    PREDEST: null,
-    GL_RENDER_TARGET1: null,
-    NONE: null,
-  }),
-  {
-    NEW_TARGET: Object.assign(
-      () => ({
-        __targetToken: true as const,
-      }),
-      { __newTarget: true as const },
-    ) satisfies NewCanvasTarget,
-  },
-)
-export type RenderTargets = (typeof RenderTargets)[keyof typeof RenderTargets]
+const NEW_CANVAS_TARGET = () => ({
+  __canvasToken: true as const,
+})
 
 function km<T extends object>(obj: T): { [K in keyof T]: K } {
   return Object.keys(obj).reduce((acc, key) => {
@@ -171,6 +170,7 @@ export function buildRenderSchedule(
       layer.filters.length > 0 &&
       layer.filters.some((f) => f.enabled && f.opacity > 0)
 
+    // Has layer overrides
     if (layerOverrides?.[layer.uid]) {
       tasks.push({
         command: RenderCommands.DRAW_SOURCE_TO_DEST,
@@ -181,7 +181,9 @@ export function buildRenderSchedule(
         compositeMode: layer.compositeMode,
         opacity: layer.opacity,
       })
-    } else if (layer.layerType === 'raster') {
+    }
+    // Raster layer
+    else if (layer.layerType === 'raster') {
       tasks.push({
         command: RenderCommands.DRAW_SOURCE_TO_DEST,
         source: { layer },
@@ -191,7 +193,9 @@ export function buildRenderSchedule(
         compositeMode: layer.compositeMode,
         opacity: layer.opacity,
       })
-    } else if (layer.layerType === 'vector') {
+    }
+    // Vector layer
+    else if (layer.layerType === 'vector') {
       if (layer.objects.length === 0) continue
 
       let canLayerDirectOutput =
@@ -202,8 +206,10 @@ export function buildRenderSchedule(
         object: VectorObject | VectorGroup,
         useDirectOutput: boolean = true,
       ) => {
+        if (!object.visible) return
+
         const objHasExternalFilter = object.filters.some((f) => {
-          return f.kind === 'external' && f.enabled && f.processor.opacity > 0
+          return f.kind === 'external' && f.enabled
         })
 
         const canObjDirectOutput =
@@ -211,74 +217,95 @@ export function buildRenderSchedule(
           layer.compositeMode === 'normal' &&
           !objHasExternalFilter
 
+        const VECTOR_NODEEDGE_ACCUM_BUFFER = NEW_CANVAS_TARGET()
+
         if (object.type === 'vectorGroup') {
-          scheduleForTree(parentOut, object, canObjDirectOutput)
+          scheduleForTree(
+            canObjDirectOutput ? parentOut : VECTOR_NODEEDGE_ACCUM_BUFFER,
+            object,
+            canObjDirectOutput,
+          )
+
+          if (!canObjDirectOutput) {
+            tasks.push(
+              {
+                command: RenderCommands.DRAW_SOURCE_TO_DEST,
+                source: VECTOR_NODEEDGE_ACCUM_BUFFER,
+                renderTarget: RenderTargets.VECTOR_PRE_FILTER,
+                compositeMode: object.compositeMode,
+                opacity: object.opacity,
+              },
+              {
+                command: RenderCommands.FREE_TARGET,
+                source: RenderTargets.NONE,
+                renderTarget: VECTOR_NODEEDGE_ACCUM_BUFFER,
+              },
+            )
+          }
         }
 
-        if (object.type === 'vectorObject') {
-          if (!object.visible) return
-          if (object.opacity <= 0) return
+        // when canObjDirectOutput == false, VECTOR_PRE_FILTER buffer will use
+        if (!canObjDirectOutput) {
+          tasks.push({
+            command: RenderCommands.CLEAR_TARGET,
+            source: RenderTargets.NONE,
+            renderTarget: RenderTargets.VECTOR_PRE_FILTER,
+          })
+        }
 
-          if (!canObjDirectOutput) {
-            // when canObjDirectOutput == false, VECTOR_PRE_FILTER buffer will use
+        for (const filter of object.filters) {
+          if (!filter.enabled) continue
+
+          if (filter.kind !== 'external') {
+            // internal filters
             tasks.push({
-              command: RenderCommands.CLEAR_TARGET,
+              command: RenderCommands.APPLY_INTERNAL_OBJECT_FILTER,
               source: RenderTargets.NONE,
-              renderTarget: RenderTargets.VECTOR_PRE_FILTER,
+              renderTarget: canObjDirectOutput
+                ? parentOut
+                : RenderTargets.VECTOR_PRE_FILTER,
+              layerUid: child.layerUid,
+              object,
+              filter,
             })
-          }
+          } else {
+            // render external filters
 
-          for (const filter of object.filters) {
-            if (!filter.enabled) continue
-
-            if (filter.kind !== 'external') {
-              // internal filters
-              tasks.push({
-                command: RenderCommands.APPLY_INTERNAL_OBJECT_FILTER,
-                source: RenderTargets.NONE,
-                renderTarget: canObjDirectOutput
-                  ? parentOut
-                  : RenderTargets.VECTOR_PRE_FILTER,
-                object,
-                filter,
-              })
-            } else {
-              if (filter.processor.opacity <= 0) continue
-              if (canObjDirectOutput) {
-                throw new PaplicoError(
-                  `Invioation of external filter on object ${object.uid} is not allowed in direct output `,
-                )
-              }
-
-              tasks.push(
-                {
-                  command: RenderCommands.APPLY_EXTERNAL_OBJECT_FILTER,
-                  source: RenderTargets.VECTOR_PRE_FILTER,
-                  renderTarget: RenderTargets.SHARED_FILTER_BUF,
-                  filter,
-                  layerUid: child.layerUid,
-                  objectUid: object.uid,
-                },
-                {
-                  command: RenderCommands.DRAW_SOURCE_TO_DEST,
-                  source: RenderTargets.SHARED_FILTER_BUF,
-                  renderTarget: RenderTargets.VECTOR_PRE_FILTER,
-                  compositeMode: 'normal',
-                  opacity: filter.processor.opacity,
-                },
+            if (filter.processor.opacity <= 0) continue
+            if (canObjDirectOutput) {
+              throw new PaplicoError(
+                `Invioation of external filter on object ${object.uid} is not allowed in direct output `,
               )
             }
-          }
 
-          if (!canObjDirectOutput) {
-            tasks.push({
-              command: RenderCommands.DRAW_SOURCE_TO_DEST,
-              source: RenderTargets.VECTOR_PRE_FILTER,
-              renderTarget: RenderTargets.PRE_FILTER,
-              compositeMode: object.compositeMode,
-              opacity: object.opacity,
-            })
+            tasks.push(
+              {
+                command: RenderCommands.APPLY_EXTERNAL_OBJECT_FILTER,
+                source: RenderTargets.VECTOR_PRE_FILTER,
+                renderTarget: RenderTargets.SHARED_FILTER_BUF,
+                layerUid: child.layerUid,
+                objectUid: object.uid,
+                filter,
+              },
+              {
+                command: RenderCommands.DRAW_SOURCE_TO_DEST,
+                source: RenderTargets.SHARED_FILTER_BUF,
+                renderTarget: RenderTargets.VECTOR_PRE_FILTER,
+                compositeMode: 'normal',
+                opacity: filter.processor.opacity,
+              },
+            )
           }
+        }
+
+        if (!canObjDirectOutput) {
+          tasks.push({
+            command: RenderCommands.DRAW_SOURCE_TO_DEST,
+            source: RenderTargets.VECTOR_PRE_FILTER,
+            renderTarget: RenderTargets.PRE_FILTER,
+            compositeMode: object.compositeMode,
+            opacity: object.opacity,
+          })
         }
       }
 
@@ -290,15 +317,18 @@ export function buildRenderSchedule(
         scheduleForTree(vectorOut, object, canLayerDirectOutput)
       }
 
-      // if (!canLayerDirectOutput) {
-      //   tasks.push({
-      //     command: RenderCommands.DRAW_SOURCE_TO_DEST,
-      //     source: RenderTargets.PREDEST,
-      //     renderTarget: vectorOut,
-      //     compositeMode: layer.compositeMode,
-      //     opacity: 1,
-      //   })
-      // }
+      if (!canLayerDirectOutput) {
+        tasks.push({
+          command: RenderCommands.DRAW_SOURCE_TO_DEST,
+          source: vectorOut,
+          renderTarget: RenderTargets.PREDEST,
+          compositeMode: layer.compositeMode,
+          opacity: 1,
+          meta: {
+            vectorCanNotLayerDirectOutput: true,
+          },
+        })
+      }
     } else if (layer.layerType === 'text') {
       if (layer.textNodes.length === 0) continue
 
@@ -375,5 +405,5 @@ export function buildRenderSchedule(
     }
   }
 
-  return tasks
+  return { tasks, stats: { usingCanvaes: 1 } }
 }

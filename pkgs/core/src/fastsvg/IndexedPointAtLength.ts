@@ -6,6 +6,7 @@ This is fork of below code
 For faster point-at-length searching
 */
 
+import { distance2D } from '@/Math'
 import { absNormalizePath } from './absNormalizePath'
 
 export type SVGDCommand = [cmd: string, ...args: number[]]
@@ -28,6 +29,11 @@ type SubvertData = {
   fragStartPos: Position2D
 }
 
+type SVGVertData = {
+  pos: Position2D
+  svgVertIdx: number
+}
+
 type AtResult = Readonly<{
   length: number
   pos: readonly [number, number]
@@ -47,7 +53,9 @@ export class IndexedPointAtLength {
 
   public readonly _lengthAtSubvert: number[] = []
   public readonly _lengthAtSVGVert: number[] = []
+
   public readonly _subvertIndex: SubvertData[] = []
+  public readonly _svgVertIndex: SVGVertData[] = []
 
   public static atBatch(path: string | Array<SVGDCommand>, pos: number[]) {
     const normPath = absNormalizePath(path)
@@ -87,6 +95,36 @@ export class IndexedPointAtLength {
     return this.atWithDetail(pos, opts).pos
   }
 
+  public nearestLengthAtPoint(pos: { x: number; y: number }) {
+    let result: {
+      vertIdx: number
+      distance: number
+      point: { x: number; y: number }
+    } | null = null
+    let mostNearDistance = Infinity
+
+    const { _subvertIndex } = this
+    for (let idx = 0; idx < _subvertIndex.length; idx++) {
+      const pt = _subvertIndex[idx]
+
+      const distance = distance2D(pos.x, pos.y, pt.pos.x, pt.pos.y)
+      if (distance < mostNearDistance) {
+        mostNearDistance = distance
+
+        result = {
+          vertIdx: idx,
+          distance,
+          point: pt.pos,
+        }
+
+        if (distance === 0) break
+      }
+    }
+
+    if (!result) return null
+    return result
+  }
+
   /**
    * @param pos sorted array of position
    */
@@ -120,7 +158,8 @@ export class IndexedPointAtLength {
       fromSubvertIndex?: number
     } = {},
   ): AtResult[] {
-    const { _subvertIndex, _lengthAtSubvert, _lengthAtSVGVert } = this
+    const { _subvertIndex, _lengthAtSubvert, _lengthAtSVGVert, _svgVertIndex } =
+      this
 
     let searchingIdx = 0
     const results: AtResult[] = []
@@ -175,6 +214,10 @@ export class IndexedPointAtLength {
           })
 
           _lengthAtSVGVert.push(cursor.len)
+          _svgVertIndex.push({
+            pos: { ...cursor },
+            svgVertIdx,
+          })
         }
 
         if (requests && requests[searchingIdx] === 0) {
@@ -218,6 +261,10 @@ export class IndexedPointAtLength {
 
           if (warm) {
             _lengthAtSubvert.push(cursor.len)
+            _svgVertIndex.push({
+              pos: { ...cursor },
+              svgVertIdx,
+            })
 
             _subvertIndex.push({
               pos: { x: cursor.x, y: cursor.y },
@@ -260,6 +307,10 @@ export class IndexedPointAtLength {
 
         if (warm) {
           _lengthAtSVGVert.push(cursor.len)
+          _svgVertIndex.push({
+            pos: { ...cursor },
+            svgVertIdx,
+          })
         }
 
         recentTailPos = {
@@ -291,6 +342,10 @@ export class IndexedPointAtLength {
           currentSubvertIdx++
           if (warm) {
             _lengthAtSubvert.push(cursor.len)
+            _svgVertIndex.push({
+              pos: { ...cursor },
+              svgVertIdx,
+            })
             _subvertIndex.push({
               pos: { x: cursor.x, y: cursor.y },
 
@@ -331,6 +386,10 @@ export class IndexedPointAtLength {
 
         if (warm) {
           _lengthAtSVGVert.push(cursor.len)
+          _svgVertIndex.push({
+            pos: { ...cursor },
+            svgVertIdx,
+          })
         }
 
         recentTailPos = {
@@ -363,6 +422,10 @@ export class IndexedPointAtLength {
 
           if (warm) {
             _lengthAtSubvert.push(cursor.len)
+            _svgVertIndex.push({
+              pos: { ...cursor },
+              svgVertIdx,
+            })
             _subvertIndex.push({
               pos: { x: cursor.x, y: cursor.y },
 
@@ -403,6 +466,10 @@ export class IndexedPointAtLength {
 
         if (warm) {
           _lengthAtSVGVert.push(cursor.len)
+          _svgVertIndex.push({
+            pos: { ...cursor },
+            svgVertIdx,
+          })
         }
 
         recentTailPos = {

@@ -35,6 +35,10 @@ import {
   createBBox,
   createEmptyBBox,
 } from './DocumentContext/LayerMetrics'
+import { VectorAppearance } from '@/Document/LayerEntity/VectorAppearance'
+import { PaplicoRenderWarn } from '@/Errors/PaplicoRenderWarn'
+import { reduceAsync } from '@/utils/array'
+import { MissingFilterWarn } from '@/Errors/Warns/MissingFilterWarn'
 
 export type VectorObjectOverrides = {
   [vectorLayerUid: string]: {
@@ -42,11 +46,11 @@ export type VectorObjectOverrides = {
   }
 }
 
-type StrokeMemoToken = object
 type StrokeMemoEntry<T> = {
   data: T
   prevDeps: any[]
 }
+
 export class VectorRenderer {
   protected brushRegistry: BrushRegistry
   protected inkRegistry: InkRegistry
@@ -405,20 +409,52 @@ export class VectorRenderer {
       abort,
       phase = 'final',
       logger,
+      filtersForPathTransform = [],
     }: {
       transform: LayerTransform
       pixelRatio: number
       abort?: AbortSignal
       phase: RenderPhase
       logger: RenderCycleLogger
+      filtersForPathTransform?: VectorAppearance[]
     },
-  ) {
+  ): Promise<{
+    warns: PaplicoRenderWarn[]
+  }> {
+    let warns: PaplicoRenderWarn[] = []
+
+    const transformedPath = await reduceAsync(
+      filtersForPathTransform,
+      async (path, filter) => {
+        if (filter.kind !== 'external') return path
+
+        const processor = this.filterRegistry.getInstance(
+          filter.processor.filterId,
+        )
+
+        if (!processor) {
+          warns.push(
+            new MissingFilterWarn(
+              filter.processor.filterId,
+              'VectorRender.renderFill#transformedPath',
+            ),
+          )
+          return path
+        }
+
+        if (!processor.transformPath) return path
+
+        return await processor.transformPath?.(deepClone(path))
+      },
+      path,
+    )
+
     saveAndRestoreCanvas(outcx, (cx) => {
       cx.globalCompositeOperation = 'source-over'
 
       cx.beginPath()
 
-      path.points.forEach((pt, idx, points) => {
+      transformedPath.points.forEach((pt, idx, points) => {
         const prev = points[idx - 1]
 
         if (pt.isMoveTo) {
@@ -486,6 +522,8 @@ export class VectorRenderer {
         }
       }
     })
+
+    return { warns }
   }
 
   public async renderStroke(
@@ -533,6 +571,7 @@ export class VectorRenderer {
       path: VectorPath,
       factory: () => T,
       deps: any[],
+      { disposer }: { disposer?: (obj: T) => void } = {},
     ): Promise<T> => {
       if (phase === 'stroking') return factory()
 
@@ -541,6 +580,9 @@ export class VectorRenderer {
       let data: T | undefined = undefined
 
       if (!memoEntry || !shallowEquals(memoEntry.prevDeps, deps)) {
+        if (memoEntry) {
+          disposer?.(memoEntry.data)
+        }
         data = factory()
         memoEntry = { data, prevDeps: deps }
       }
@@ -552,28 +594,30 @@ export class VectorRenderer {
     }
 
     try {
-      return await brush.render({
-        abort: abort ?? new AbortController().signal,
-        abortIfNeeded: () => {
-          if (abort?.aborted) throw new PaplicoAbortError()
-        },
-        destContext: dstctx,
-        pixelRatio,
-        threeRenderer: renderer,
-        threeCamera: this.camera,
+      return saveAndRestoreCanvas(dstctx, async () => {
+        return await brush.render({
+          abort: abort ?? new AbortController().signal,
+          abortIfNeeded: () => {
+            if (abort?.aborted) throw new PaplicoAbortError()
+          },
+          destContext: dstctx,
+          pixelRatio,
+          threeRenderer: renderer,
+          threeCamera: this.camera,
 
-        brushSetting: deepClone(strokeSetting),
-        ink: ink.getInkGenerator({}),
-        path: [path],
-        destSize: { width: dest.width, height: dest.height },
-        transform: {
-          translate: { x: transform.position.x, y: transform.position.y },
-          scale: { x: transform.scale.x, y: transform.scale.y },
-          rotate: transform.rotate,
-        },
-        phase,
-        logger,
-        useMemoForPath,
+          brushSetting: deepClone(strokeSetting),
+          ink: ink.getInkGenerator({}),
+          path: [path],
+          destSize: { width: dest.width, height: dest.height },
+          transform: {
+            translate: { x: transform.position.x, y: transform.position.y },
+            scale: { x: transform.scale.x, y: transform.scale.y },
+            rotate: transform.rotate,
+          },
+          phase,
+          logger,
+          useMemoForPath,
+        })
       })
     } finally {
       this.glRendererResource.release(renderer)

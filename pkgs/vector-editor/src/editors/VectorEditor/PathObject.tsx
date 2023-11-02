@@ -27,7 +27,7 @@ export const PathObject = memo(function PathObject({
 }: Props) {
   const { canvasScale, setSelectedObjectIds, selectedObjectIds } =
     useEditorStore(
-      storePicker('canvasScale', 'setSelectedObjectIds', 'selectedObjectIds'),
+      storePicker(['canvasScale', 'setSelectedObjectIds', 'selectedObjectIds']),
     )
 
   if (object.type === 'vectorGroup') return null
@@ -89,6 +89,7 @@ export const PathObject = memo(function PathObject({
       paplico.command.do(
         new Commands.VectorUpdateObjects(layerUid, {
           updater: ({ objects }) => {
+            console.log(objects)
             const target = objects.find((obj) => obj.uid === object.uid)
             if (!target) return
 

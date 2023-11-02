@@ -16,8 +16,8 @@ export const EditorRoot = memo(function EditorRoot({
   theme = themeVariables,
 }: Props) {
   const { paplico } = useEngineStore()
-  const { brushSizePreview, setEditorState } = useEditorStore(
-    storePicker('brushSizePreview', 'setEditorState'),
+  const { brushSizePreview, setEditorState, currentType } = useEditorStore(
+    storePicker(['brushSizePreview', 'setEditorState', 'currentType']),
   )
   const s = useStyles()
 
@@ -99,9 +99,17 @@ export const EditorRoot = memo(function EditorRoot({
         cy={size.height / 2}
         r={brushSizePreview?.size ?? 0}
       />
-      <MetricsView width={size.width} height={size.height} />
-      <VectorEditor rootBBox={bound} width={size.width} height={size.height} />
-      <TextEditor width={size.width} height={size.height} />
+      {/* <MetricsView width={size.width} height={size.height} /> */}
+      {currentType === 'vector' && (
+        <VectorEditor
+          rootBBox={bound}
+          width={size.width}
+          height={size.height}
+        />
+      )}
+      {currentType === 'text' && (
+        <TextEditor width={size.width} height={size.height} />
+      )}
     </svg>
   )
 })
@@ -116,7 +124,7 @@ const useStyles = createUseStyles({
     },
   },
   brushSize: {
-    pointerEvents: 'none',
+    // pointerEvents: 'none',
     fill: 'none',
     stroke: 'var(--pap-ui-color)',
     animationName: '$brushSizePreviewFadeOut',

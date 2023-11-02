@@ -7,7 +7,6 @@ import {
   VNode,
   type AbstractComponentRenderer,
 } from '@/UI/PaneUI/AbstractComponent'
-import { ICommand } from '@/History/ICommand'
 import { FilterUpdateParameter } from '@/History/Commands/index'
 import { LocaleStrings } from '@/locales'
 
@@ -77,13 +76,12 @@ export class PaneUIRenderings {
     const setState: PaneSetState<any> = (
       patchOrFn: Partial<T> | ((prev: T) => T),
     ) => {
-      if (typeof patchOrFn === 'function') {
-        const next = patchOrFn({ ...current })
-        onStateChange(next)
-      } else {
-        const next = { ...current, ...patchOrFn }
-        onStateChange(next)
-      }
+      const next =
+        typeof patchOrFn === 'function'
+          ? patchOrFn({ ...current })
+          : { ...current, ...patchOrFn }
+
+      onStateChange(next)
     }
 
     return setState
@@ -167,8 +165,8 @@ export class PaneUIRenderings {
     const Class = this.brushRegistry.getClass(brushId)
     if (!Class) return null
 
-    const setState = this.createSetState(settings, (next) => {
-      onSettingsChange(next)
+    const setState = this.createSetState(settings.specific, (next) => {
+      onSettingsChange({ ...settings, specific: next })
     })
 
     return Class.renderPane({

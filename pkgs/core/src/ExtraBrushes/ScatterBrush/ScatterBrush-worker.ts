@@ -4,7 +4,7 @@ import {
   getRadianFromTangent,
   pointsToSVGCommandArray,
   scatterPlot,
-} from '@/stroking-utils'
+} from '@/ext-brush'
 import { Matrix4, mapLinear } from '@/Math'
 import { indexedPointAtLength } from '@/fastsvg/IndexedPointAtLength'
 import { type VectorPath } from '@/Document/LayerEntity/VectorPath'

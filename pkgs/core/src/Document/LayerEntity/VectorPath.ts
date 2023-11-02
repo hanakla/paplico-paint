@@ -25,8 +25,8 @@ export type TypeStrictVectorPathPoint =
       isMoveTo?: false
 
       /**
-       * if it undefined, this point not should be Z
-       * Ignore another attributes
+       * if it undefined, this point not should be Z.
+       * if it true, Ignore another attributes (x, y will ignored)
        */
       isClose?: false
 

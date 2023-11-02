@@ -30,6 +30,11 @@ export const getSidingByTwoPoints = (
   if (x2 > x1 && y2 < y1) return 'right-top'
   if (x2 < x1 && y2 > y1) return 'left-bottom'
   if (x2 < x1 && y2 < y1) return 'left-top'
+  if (x2 === x1 && y2 > y1) return 'left-bottom'
+  if (x2 === x1 && y2 < y1) return 'left-top'
+  if (x2 > x1 && y2 === y1) return 'right-top'
+  if (x2 < x1 && y2 === y1) return 'left-top'
+  if (x2 === x1 && y2 === y1) return 'left-top'
 
   throw new Error('invalid siding')
 }

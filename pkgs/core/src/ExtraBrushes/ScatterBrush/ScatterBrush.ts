@@ -73,8 +73,8 @@ export const ScatterBrush = createBrush(
     public static renderPane({
       c,
       h,
-      state,
-      setState,
+      settings: state,
+      setSettings: setState,
       locale,
       makeTranslation,
     }: PapBrush.BrushPaneContext<ScatterBrush.Settings>) {
@@ -251,7 +251,7 @@ export const ScatterBrush = createBrush(
       transform,
       pixelRatio,
       ink,
-      brushSetting: { size, color, opacity, specific },
+      brushSetting: { size, color, opacity, settings },
       threeRenderer,
       threeCamera,
       destSize,
@@ -261,7 +261,7 @@ export const ScatterBrush = createBrush(
       ScatterBrush.Settings,
       ScatterBrush.MemoData
     >): Promise<BrushLayoutData> {
-      const sp = mergeToNew(ScatterBrush.getInitialConfig(), specific)
+      const sp = mergeToNew(ScatterBrush.getInitialConfig(), settings)
       const baseColor: ColorRGBA = { ...color, a: opacity }
       const _color = new Color()
 

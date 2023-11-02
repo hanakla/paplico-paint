@@ -3,7 +3,7 @@
 import { MutableRefObject, forwardRef, memo, useRef } from 'react'
 import { css } from 'styled-components'
 import { EditorArea } from './fragments/EditorArea'
-import { usePaplicoInit } from '../domains/paplico'
+import { usePaplicoInit } from '@/domains/paplico'
 import { LeftSideBar } from './fragments/LeftSideBar'
 import { useIsMobileDevice } from '@/utils/hooks'
 import { GlobalShortcutHandler } from './GlobalShortcutHandler'

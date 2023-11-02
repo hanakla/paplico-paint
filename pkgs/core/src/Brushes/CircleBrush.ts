@@ -33,8 +33,8 @@ export const CircleBrush = createBrush(
     public static renderPane({
       c,
       h,
-      state,
-      setState,
+      settings: state,
+      setSettings: setState,
     }: PapBrush.BrushPaneContext<CircleBrush.Settings>) {
       return h(c.Text, {}, 'WIP')
     }

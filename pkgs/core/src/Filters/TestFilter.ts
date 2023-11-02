@@ -30,8 +30,8 @@ export const TestFilter = createFilter(
     public static renderPane({
       c,
       h,
-      state,
-      setState,
+      settings: state,
+      setSettings: setState,
     }: PapFilter.FilterPaneContext<TestFilter.Options>) {
       const onTextChange = (value: string) => {
         setState({ color: value })

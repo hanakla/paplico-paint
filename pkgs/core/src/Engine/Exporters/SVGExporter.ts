@@ -2,7 +2,7 @@ import { IExporter } from './IExporter'
 import { ColorRGB, ColorRGBA, LayerNode } from '@/Document'
 import { createContext2D } from '../CanvasFactory'
 import { setCanvasSize } from '@/utils/canvas'
-import { vectorPathToSVGDCommands } from '@/VectorProcess'
+import { vectorPathToSVGDCommands } from '@/SVGPathManipul'
 import {
   VectorAppearanceFill,
   VectorAppearanceStroke,

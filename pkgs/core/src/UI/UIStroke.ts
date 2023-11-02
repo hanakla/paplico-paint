@@ -9,7 +9,7 @@ import {
 
 import { interpolateMap } from '@/Math'
 import { indexedPointAtLength } from '@/fastsvg/IndexedPointAtLength'
-import { simplifySvgPath } from '@/VectorProcess'
+import { simplifySvgPath } from '@/SVGPathManipul'
 
 export type UIStrokePoint = {
   x: number

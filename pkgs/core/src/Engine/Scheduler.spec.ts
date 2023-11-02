@@ -124,19 +124,19 @@ describe('Scheduler', () => {
     // emits clear by external filter
     expect(s[i++]).toMatchObject({
       command: RenderCommands.CLEAR_TARGET,
-      renderTarget: RenderTargets.VECTOR_PRE_FILTER,
+      renderTarget: RenderTargets.VECTOR_OBJECT_PRE_FILTER,
     })
 
     // let emits internal `fill` filter
     expect(s[i++]).toMatchObject({
       command: RenderCommands.APPLY_INTERNAL_OBJECT_FILTER,
-      renderTarget: RenderTargets.VECTOR_PRE_FILTER,
+      renderTarget: RenderTargets.VECTOR_OBJECT_PRE_FILTER,
     })
 
     // applying external filter `test`
     expect(s[i++]).toMatchObject({
       command: RenderCommands.APPLY_EXTERNAL_OBJECT_FILTER,
-      source: RenderTargets.VECTOR_PRE_FILTER,
+      source: RenderTargets.VECTOR_OBJECT_PRE_FILTER,
       renderTarget: RenderTargets.SHARED_FILTER_BUF,
     })
 
@@ -144,19 +144,19 @@ describe('Scheduler', () => {
     expect(s[i++]).toMatchObject({
       command: RenderCommands.DRAW_SOURCE_TO_DEST,
       source: RenderTargets.SHARED_FILTER_BUF,
-      renderTarget: RenderTargets.VECTOR_PRE_FILTER,
+      renderTarget: RenderTargets.VECTOR_OBJECT_PRE_FILTER,
     })
 
     // Ending of external filter, next filter `fill` emits
     expect(s[i++]).toMatchObject({
       command: RenderCommands.APPLY_INTERNAL_OBJECT_FILTER,
-      renderTarget: RenderTargets.VECTOR_PRE_FILTER,
+      renderTarget: RenderTargets.VECTOR_OBJECT_PRE_FILTER,
     })
 
     // Ending all layers, draw to PREDEST
     expect(s[i++]).toMatchObject({
       command: RenderCommands.DRAW_SOURCE_TO_DEST,
-      source: RenderTargets.VECTOR_PRE_FILTER,
+      source: RenderTargets.VECTOR_OBJECT_PRE_FILTER,
     })
   })
 
@@ -186,23 +186,23 @@ describe('Scheduler', () => {
 
     expect(s[i++]).toMatchObject({
       command: RenderCommands.CLEAR_TARGET,
-      renderTarget: RenderTargets.VECTOR_PRE_FILTER,
+      renderTarget: RenderTargets.VECTOR_OBJECT_PRE_FILTER,
     })
 
     expect(s[i++]).toMatchObject({
       command: RenderCommands.APPLY_INTERNAL_OBJECT_FILTER,
-      renderTarget: RenderTargets.VECTOR_PRE_FILTER,
+      renderTarget: RenderTargets.VECTOR_OBJECT_PRE_FILTER,
     })
 
     expect(s[i++]).toMatchObject({
       command: RenderCommands.DRAW_SOURCE_TO_DEST,
-      source: RenderTargets.VECTOR_PRE_FILTER,
-      renderTarget: RenderTargets.PRE_FILTER,
+      source: RenderTargets.VECTOR_OBJECT_PRE_FILTER,
+      renderTarget: RenderTargets.LAYER_PRE_FILTER,
     })
 
     expect(s[i++]).toMatchObject({
       command: RenderCommands.DRAW_SOURCE_TO_DEST,
-      source: RenderTargets.PRE_FILTER,
+      source: RenderTargets.LAYER_PRE_FILTER,
       renderTarget: RenderTargets.PREDEST,
       compositeMode: 'multiply',
     })
@@ -244,6 +244,8 @@ describe('Scheduler', () => {
     const s = buildRenderSchedule(doc.layerTree, docCx).tasks
     let i = 0
 
+    console.log(s)
+
     // Clearing PREDEST
     expect(s[i++]).toMatchObject({
       command: RenderCommands.CLEAR_TARGET,
@@ -253,13 +255,13 @@ describe('Scheduler', () => {
     // Layer has layer filter, first emits clear
     expect(s[i++]).toMatchObject({
       command: RenderCommands.CLEAR_TARGET,
-      renderTarget: RenderTargets.VECTOR_PRE_FILTER,
+      renderTarget: RenderTargets.VECTOR_OBJECT_PRE_FILTER,
     })
 
     // next, draw intaernal filter `fill`
     expect(s[i++]).toMatchObject({
       command: RenderCommands.APPLY_INTERNAL_OBJECT_FILTER,
-      renderTarget: RenderTargets.VECTOR_PRE_FILTER,
+      renderTarget: RenderTargets.VECTOR_OBJECT_PRE_FILTER,
     })
 
     // next, draw external filter `test`
@@ -272,14 +274,14 @@ describe('Scheduler', () => {
     expect(s[i++]).toMatchObject({
       command: RenderCommands.DRAW_SOURCE_TO_DEST,
       source: RenderTargets.SHARED_FILTER_BUF,
-      renderTarget: RenderTargets.VECTOR_PRE_FILTER,
+      renderTarget: RenderTargets.VECTOR_OBJECT_PRE_FILTER,
     })
 
     // next, finishing external filter, drawback to PRE_FILTER
     expect(s[i++]).toMatchObject({
       command: RenderCommands.DRAW_SOURCE_TO_DEST,
-      source: RenderTargets.VECTOR_PRE_FILTER,
-      renderTarget: RenderTargets.PRE_FILTER,
+      source: RenderTargets.VECTOR_OBJECT_PRE_FILTER,
+      renderTarget: RenderTargets.LAYER_PRE_FILTER,
     })
 
     // next, applying layer filter, first emits clear
@@ -291,26 +293,26 @@ describe('Scheduler', () => {
     // apply layer filter
     expect(s[i++]).toMatchObject({
       command: RenderCommands.APPLY_LAYER_FILTER,
-      source: RenderTargets.PRE_FILTER,
+      source: RenderTargets.LAYER_PRE_FILTER,
       renderTarget: RenderTargets.SHARED_FILTER_BUF,
     })
 
     // swapping draw buffers
     expect(s[i++]).toMatchObject({
       command: RenderCommands.CLEAR_TARGET,
-      renderTarget: RenderTargets.PRE_FILTER,
+      renderTarget: RenderTargets.LAYER_PRE_FILTER,
     })
 
     expect(s[i++]).toMatchObject({
       command: RenderCommands.DRAW_SOURCE_TO_DEST,
       source: RenderTargets.SHARED_FILTER_BUF,
-      renderTarget: RenderTargets.PRE_FILTER,
+      renderTarget: RenderTargets.LAYER_PRE_FILTER,
     })
 
     // last! composite results into PREDEST
     expect(s[i++]).toMatchObject({
       command: RenderCommands.DRAW_SOURCE_TO_DEST,
-      source: RenderTargets.PRE_FILTER,
+      source: RenderTargets.LAYER_PRE_FILTER,
       renderTarget: RenderTargets.PREDEST,
     })
 

@@ -156,6 +156,7 @@ export function usePaplicoInit(
           text: 'MAGIC',
           fontSize: 128,
           position: { x: 0, y: 0 },
+          // color: { r: 0, g: 0.5, b: 0.5, a: 1 },
         },
       )
 

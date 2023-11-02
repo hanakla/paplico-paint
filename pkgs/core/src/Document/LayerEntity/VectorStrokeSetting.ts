@@ -13,5 +13,5 @@ export type VectorStrokeSetting<T extends Record<string, any> | null = null> = {
   opacity: number
 
   /** Brush renderer specific settings */
-  specific: T
+  settings: T
 }

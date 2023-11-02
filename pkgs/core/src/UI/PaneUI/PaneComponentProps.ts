@@ -22,7 +22,7 @@ export namespace PaneComponentProps {
     title: string
     postTitle?: VNode
     displayValue?: VNode
-    input: VNode
+    children: VNode
   }
 
   export type SelectBox = StyleProps & {

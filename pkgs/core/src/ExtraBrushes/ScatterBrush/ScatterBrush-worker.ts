@@ -1,13 +1,13 @@
-import { type BrushLayoutData } from '@/index'
 import {
+  BrushLayoutData,
   createStreamScatter,
   getRadianFromTangent,
   pointsToSVGCommandArray,
-  scatterPlot,
 } from '@/ext-brush'
-import { Matrix4, mapLinear } from '@/Math'
+import { Matrix4 } from '@/Math'
 import { indexedPointAtLength } from '@/fastsvg/IndexedPointAtLength'
 import { type VectorPath } from '@/Document/LayerEntity/VectorPath'
+import { mapLinear } from '@/Math/interpolation'
 
 export type Payload =
   | { type: 'warming' }

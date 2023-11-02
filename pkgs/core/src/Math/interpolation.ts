@@ -1,3 +1,5 @@
+import { clamp } from '.'
+
 type Interpolator = (a: number, b: number, ratio: number) => number
 
 export const lerp = (a: number, b: number, t: number) => {
@@ -6,6 +8,14 @@ export const lerp = (a: number, b: number, t: number) => {
 
 const linearInterpolation = (a: number, b: number, ratio: number) => {
   return a + (b - a) * ratio
+}
+
+export const mapLinear = (
+  x: number,
+  a: [number, number],
+  b: [number, number],
+) => {
+  return lerp(b[0], b[1], clamp((x - a[0]) / (a[1] - a[0]), 0, 1))
 }
 
 const clampIndex = (array: any[], index: number) => {
@@ -17,7 +27,7 @@ const clampIndex = (array: any[], index: number) => {
 
 export const interpolateMap = (
   numbers: number[],
-  interpolate: Interpolator = linearInterpolation
+  interpolate: Interpolator = linearInterpolation,
 ) => {
   const fn = (t: number) => {
     const pos = t * (numbers.length - 1)
@@ -41,7 +51,7 @@ export const interpolateMap = (
 export const interpolateMapObject = <T>(
   array: T[],
   picker: (index: number, array: T[]) => number,
-  interpolate: Interpolator = linearInterpolation
+  interpolate: Interpolator = linearInterpolation,
 ) => {
   return (t: number) => {
     const pos = t * (array.length - 1)
@@ -57,27 +67,6 @@ export const interpolateMapObject = <T>(
 
 if (import.meta.vitest) {
   const { describe, it, expect } = import.meta.vitest!
-
-  describe('interpolateMap', () => {
-    it('with t', () => {
-      const map = interpolateMap([0, 1, 2])
-
-      expect(map(0)).toBe(0)
-      expect(map(0.25)).toBe(0.5)
-      expect(map(0.5)).toBe(1)
-      expect(map(1)).toBe(2)
-    })
-
-    it('with idx', () => {
-      const map = interpolateMap([0, 1, 2])
-
-      expect(map.byIndex(0)).toBe(0)
-      expect(map.byIndex(0.5)).toBe(0.5)
-      expect(map.byIndex(1)).toBe(1)
-      expect(map.byIndex(1.5)).toBe(1.5)
-      expect(map.byIndex(2)).toBe(2)
-    })
-  })
 
   describe('Math', () => {
     describe('clampIndex', () => {

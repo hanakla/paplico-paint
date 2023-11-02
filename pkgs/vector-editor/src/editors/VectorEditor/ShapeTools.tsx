@@ -186,125 +186,60 @@ export const ShapeTools = memo(function ShapeTools({ width, height }: Props) {
     },
   )
 
-  const bindEllipseDrag = usePointerDrag(
-    ({ offsetInitial, offsetMovement, last, event, canceled }) => {
-      if (!activeLayer?.layerUid) return
-
-      // circle tool
-      if (editorStore.toolMode === ToolModes.ellipseTool) {
-        if (last) {
-          const stroke = paplico.cloneStrokeSetting()
-          const fill = paplico.cloneFillSetting()
-          const ink = paplico.cloneInkSetting()
-
-          const rect = {
-            x: offsetInitial[0],
-            y: offsetInitial[1],
-            width: offsetMovement[0],
-            height: offsetMovement[1],
-          }
-
-          paplico.command.do(
-            new Commands.VectorUpdateObjects(activeLayer.layerUid, {
-              updater: ({ objects }) => {
-                objects.push(
-                  Document.createVectorObject({
-                    path: createCirclePathByRect(
-                      rect.x,
-                      rect.y,
-                      rect.width,
-                      rect.height,
-                    ),
-                    filters: [
-                      stroke
-                        ? Document.createVectorAppearance({
-                            kind: 'stroke',
-                            stroke,
-                            ink: ink,
-                          })
-                        : undefined,
-                      fill
-                        ? Document.createVectorAppearance({
-                            kind: 'fill',
-                            fill: fill,
-                          })
-                        : undefined,
-                    ].filter((v): v is NonNullable<typeof v> => v != null),
-                  }),
-                )
-              },
-            }),
-          )
-          return
-        }
-
-        setCirclePreview({
-          cx: offsetInitial[0],
-          cy: offsetInitial[1],
-          r: Math.sqrt(
-            Math.pow(offsetMovement[0] - offsetInitial[0], 2) +
-              Math.pow(offsetMovement[1] - offsetInitial[1], 2),
-          ),
-        })
-      }
-    },
-  )
-
   return (
     <>
       {/* Rect tool handler */}
-      {isShapeToolMode(editorStore.toolMode) && (
-        <g>
-          <rect
-            ref={measureRef}
-            width={width}
-            height={height}
-            x={0}
-            y={0}
-            fill="transparent"
-            stroke="none"
-            style={{
-              pointerEvents: 'all',
-            }}
-            {...bindRectDrag()}
-          />
 
-          {rect && (
+      <g>
+        <rect
+          ref={measureRef}
+          width={width}
+          height={height}
+          x={0}
+          y={0}
+          fill="transparent"
+          stroke="none"
+          style={{
+            pointerEvents: 'all',
+          }}
+          {...bindRectDrag()}
+        />
+
+        {rect && (
+          <rect
+            x={rect.x}
+            y={rect.y}
+            width={rect.width}
+            height={rect.height}
+            fill="transparent"
+            strokeWidth={1}
+            className={s.feedbackElement}
+          />
+        )}
+
+        {circle && (
+          <>
             <rect
-              x={rect.x}
-              y={rect.y}
-              width={rect.width}
-              height={rect.height}
+              x={circle.cx - circle.rx}
+              y={circle.cy - circle.ry}
+              width={circle.rx * 2}
+              height={circle.ry * 2}
+              fill="transparent"
+              strokeWidth={0.5}
+              className={s.feedbackElement}
+            />
+            <ellipse
+              cx={circle.cx}
+              cy={circle.cy}
+              rx={circle.rx}
+              ry={circle.ry}
               fill="transparent"
               strokeWidth={1}
               className={s.feedbackElement}
             />
-          )}
-
-          {circle && (
-            <>
-              <rect
-                x={circle.cx - circle.rx}
-                y={circle.cy - circle.ry}
-                width={circle.rx * 2}
-                height={circle.ry * 2}
-                fill="transparent"
-                strokeWidth={0.5}
-                className={s.feedbackElement}
-              />
-              <ellipse
-                cx={circle.cx}
-                cy={circle.cy}
-                rx={circle.rx}
-                ry={circle.ry}
-                fill="transparent"
-                strokeWidth={1}
-                className={s.feedbackElement}
-              />
-            </>
-          )}
-        </g>
-      )}
+          </>
+        )}
+      </g>
     </>
   )
 })
@@ -324,10 +259,10 @@ function createRectPathByRect(
 ): Document.VectorPath {
   return Document.createVectorPath({
     points: [
-      { isMoveTo: true, x: x, y: y },
-      { x: width, y: y },
-      { x: width, y: height },
-      { x: x, y: height },
+      { isMoveTo: true, x, y },
+      { x: x + width, y },
+      { x: x + width, y: y + height },
+      { x: x, y: y + height },
       { isClose: true, x: 0, y: 0 },
     ],
   })

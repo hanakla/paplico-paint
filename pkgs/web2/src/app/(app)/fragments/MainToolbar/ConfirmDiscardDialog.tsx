@@ -20,7 +20,7 @@ export const FileSaveDialog = function FileSaveDialog({ onClose }: Props) {
   return (
     <Dialog.Root open onOpenChange={handleCancel}>
       <Dialog.Content>
-        <Dialog.Title>Cauthion</Dialog.Title>
+        <Dialog.Title>Caution</Dialog.Title>
 
         <Grid gap="4">
           <Button variant="soft" data-type="paplic" onClick={handleClickType}>

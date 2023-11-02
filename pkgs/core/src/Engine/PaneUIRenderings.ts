@@ -5,7 +5,7 @@ import { type Paplico } from './Paplico'
 import { type PaneSetState, type PaplicoComponents } from '@/UI/PaneUI'
 import {
   VNode,
-  type AbstractComponentRenderer,
+  type AbstractElementCreator,
 } from '@/UI/PaneUI/AbstractComponent'
 import { FilterUpdateParameter } from '@/History/Commands/index'
 import { LocaleStrings } from '@/locales'
@@ -17,11 +17,11 @@ export namespace PaneUIRenderings {
     /** alias of .components */
     c: PaplicoComponents
     /** Current state of your settings */
-    state: T
+    settings: T
     /** Update your settings via this function */
-    setState: PaneSetState<T>
+    setSettings: PaneSetState<T>
     /** VNode rendering function likes React.createElement or preact's h() */
-    h: AbstractComponentRenderer
+    h: AbstractElementCreator
     /** Current user locale for render pane */
     locale: Paplico.SupportedLocales
     makeTranslation: <T extends LocaleStrings<any>>(texts: T) => TransFn<T>
@@ -148,8 +148,8 @@ export class PaneUIRenderings {
       c: this.paneImpl.components,
       components: this.paneImpl.components,
       h: this.paneImpl.h,
-      state: { ...entry.settings },
-      setState,
+      settings: { ...entry.settings },
+      setSettings: setState,
       locale: this._pap.getPreferences().paneUILocale,
       makeTranslation: this.makeTranslation.bind(this),
     })
@@ -165,16 +165,16 @@ export class PaneUIRenderings {
     const Class = this.brushRegistry.getClass(brushId)
     if (!Class) return null
 
-    const setState = this.createSetState(settings.specific, (next) => {
-      onSettingsChange({ ...settings, specific: next })
+    const setState = this.createSetState(settings.settings, (next) => {
+      onSettingsChange({ ...settings, settings: next })
     })
 
     return Class.renderPane({
       c: this.paneImpl.components,
       components: this.paneImpl.components,
       h: this.paneImpl.h,
-      state: { ...Class.getInitialConfig(), ...settings.specific },
-      setState,
+      settings: { ...Class.getInitialConfig(), ...settings.settings },
+      setSettings: setState,
       locale: this._pap.getPreferences().paneUILocale,
       makeTranslation: this.makeTranslation.bind(this),
     })

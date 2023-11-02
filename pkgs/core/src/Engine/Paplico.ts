@@ -52,7 +52,7 @@ import { PSDExporter } from './Exporters/PSDExporter'
 import { type History } from '@/History/History'
 import { PreviewStore } from './DocumentContext/PreviewStore'
 import { NoneImpls, type PaplicoComponents } from '@/UI/PaneUI/index'
-import { type AbstractComponentRenderer } from '../UI/PaneUI/AbstractComponent'
+import { type AbstractElementCreator } from '../UI/PaneUI/AbstractComponent'
 import { TestFilter } from '../Filters'
 import { WebGLRenderer } from 'three'
 import { PaneUIRenderings } from './PaneUIRenderings'
@@ -125,7 +125,7 @@ export namespace Paplico {
 
   export type _PaneImpl = {
     components: PaplicoComponents
-    h: AbstractComponentRenderer
+    h: AbstractElementCreator
   }
 }
 
@@ -149,7 +149,7 @@ const DEFAULT_STROKE_SETTING = (): Readonly<Paplico.StrokeSetting> => ({
   },
   opacity: 1,
   size: 10,
-  specific: {},
+  settings: {},
 })
 
 /**
@@ -232,7 +232,7 @@ export class Paplico extends Emitter<Paplico.Events> {
     opts: {
       paneUILocale?: string
       paneComponentImpls?: PaplicoComponents
-      paneCreateElement?: AbstractComponentRenderer
+      paneCreateElement?: AbstractElementCreator
     } = {},
   ) {
     super()

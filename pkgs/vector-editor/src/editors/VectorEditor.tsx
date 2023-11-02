@@ -4,6 +4,7 @@ import { PathObject } from './VectorEditor/PathObject'
 import { RectReadOnly } from 'react-use-measure'
 import { storePicker } from '@/utils/zutrand'
 import { ShapeTools } from './VectorEditor/ShapeTools'
+import { isShapeToolMode } from '@/stores/editor'
 
 type Props = {
   width: number
@@ -70,7 +71,9 @@ export const VectorEditor = memo(function VectorEditor({
         }}
       />
 
-      <ShapeTools width={width} height={height} />
+      {isShapeToolMode(editorStore.toolMode) && (
+        <ShapeTools width={width} height={height} />
+      )}
 
       {layer?.objects.map((object) => (
         <PathObject key={object.uid} layerUid={layer.uid} object={object} />

@@ -1,4 +1,4 @@
-import { Commands, Document } from '@paplico/core-new'
+import { Commands, Document, SVGPathManipul } from '@paplico/core-new'
 import {
   MouseEvent,
   ReactNode,
@@ -36,7 +36,6 @@ export const PathObject = memo(function PathObject({
   const s = usePathStyle()
   const propsMemo = usePropsMemo()
 
-  const points = object.path.points
   const elementScale = 1 / canvasScale
 
   const [pointOverride, setPointOverride] = useState<{
@@ -264,21 +263,7 @@ export const PathObject = memo(function PathObject({
   })
 
   const [pathElement, revalidatePathElement] = useMemoRevailidatable(() => {
-    const d = points
-      .map((pt, idx, list) => {
-        if (idx === 0) {
-          return `M ${pt.x} ${pt.y}`
-        } else {
-          const prev = list[idx - 1]
-
-          // prettier-ignore
-          return pt.begin && pt.end ? `C ${pt.begin.x} ${pt.begin.y} ${pt.end.x} ${pt.end.y} ${pt.x} ${pt.y}`
-            : pt.begin == null && pt.end ? `C ${prev.x} ${prev.y} ${pt.end.x} ${pt.end.y} ${pt.x} ${pt.y}`
-            : pt.begin && pt.end == null ? `C ${pt.begin.x} ${pt.begin.y} ${pt.x} ${pt.y} ${pt.x} ${pt.y}`
-            : `L ${pt.x} ${pt.y}`
-        }
-      })
-      .join(' ')
+    const d = SVGPathManipul.vectorPathToSVGDCommands(object.path)
 
     return (
       <>
@@ -311,8 +296,7 @@ export const PathObject = memo(function PathObject({
     const endAnchorElements: ReactNode[] = []
     const anchorLineElements: ReactNode[] = []
 
-    let currentStartPt: (typeof points)[0] | null = null
-    points.forEach((pt, idx, list) => {
+    object.path.points.forEach((pt, idx, list) => {
       if (!selectedObjectIds[object.uid]) return
 
       const ptOvrOffsetX = pointOverride?.idx === idx ? pointOverride.x : 0
@@ -342,10 +326,6 @@ export const PathObject = memo(function PathObject({
           data-point-idx={idx}
         />,
       )
-
-      if (pt.isMoveTo) {
-        currentStartPt = pt
-      }
 
       if (pt.isClose) {
         return
@@ -481,6 +461,7 @@ export const PathObject = memo(function PathObject({
     }
   }, [
     object.path,
+    object.path.points,
     selectedObjectIds[object.uid],
     pointOverride,
     beginAnchorOverride,

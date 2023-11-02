@@ -112,7 +112,7 @@ export class RenderPipeline {
       layerOverrides: override,
     })
 
-    console.log(schedules)
+    // console.log(schedules)
 
     const canvasStore = new WeakMap<CanvasToken, CanvasRenderingContext2D>()
     const canvases: { [role: string]: CanvasRenderingContext2D | undefined } = {
@@ -122,7 +122,10 @@ export class RenderPipeline {
     let dynamicCanvasCount = 0
 
     const predest = canvases[RenderTargets.PREDEST]!
+    setCanvasSize(predest.canvas, viewport)
+
     const tmpVectorOutCx = createContext2D({ willReadFrequently: true })
+    setCanvasSize(tmpVectorOutCx.canvas, viewport)
 
     const layerMetrics: Record<string, LayerMetrics.BBoxSet> = {}
     const objectMetrics: Record<string, LayerMetrics.BBoxSet> = {}
@@ -346,8 +349,10 @@ export class RenderPipeline {
             height: predest.canvas.height,
           }
         }
-        case RenderTargets.VECTOR_PRE_FILTER: {
-          const vectorPreFilter = getOrCreate(RenderTargets.VECTOR_PRE_FILTER)
+        case RenderTargets.VECTOR_OBJECT_PRE_FILTER: {
+          const vectorPreFilter = getOrCreate(
+            RenderTargets.VECTOR_OBJECT_PRE_FILTER,
+          )
           return {
             x: vectorPreFilter,
             image: vectorPreFilter.canvas,
@@ -367,8 +372,10 @@ export class RenderPipeline {
         case RenderTargets.NONE: {
           return 'NONE' as const
         }
-        case RenderTargets.VECTOR_PRE_FILTER: {
-          const vectorPreFilter = getOrCreate(RenderTargets.VECTOR_PRE_FILTER)
+        case RenderTargets.VECTOR_OBJECT_PRE_FILTER: {
+          const vectorPreFilter = getOrCreate(
+            RenderTargets.VECTOR_OBJECT_PRE_FILTER,
+          )
           return {
             x: vectorPreFilter,
             image: vectorPreFilter.canvas,
@@ -376,8 +383,8 @@ export class RenderPipeline {
             height: vectorPreFilter.canvas.height,
           }
         }
-        case RenderTargets.PRE_FILTER: {
-          const preFilterCx = getOrCreate(RenderTargets.PRE_FILTER)
+        case RenderTargets.LAYER_PRE_FILTER: {
+          const preFilterCx = getOrCreate(RenderTargets.LAYER_PRE_FILTER)
           return {
             x: preFilterCx,
             image: preFilterCx.canvas,

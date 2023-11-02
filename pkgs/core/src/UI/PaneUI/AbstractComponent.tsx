@@ -1,4 +1,4 @@
-export type AbstractComponentRenderer = <T extends VComponent<any>>(
+export type AbstractElementCreator = <T extends VComponent<any>>(
   component: T,
   props: { key?: string } & VComponentProps<T>,
   ...children: VNode[]

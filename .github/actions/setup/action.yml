@@ -1,0 +1,29 @@
+name: Yarn install and build
+description: Install dependencies and build the project
+
+inputs:
+  node-version:
+    required: true
+  os:
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - uses: actions/cache@v3
+      with:
+        path: |
+          .yarn/cache
+          node_modules/
+        key: ${{ inputs.os }}-node${{ inputs.node-version }}-${{ hashFiles(format('{0}{1}', github.workspace, '/yarn.lock')) }}
+        restore-keys: |
+          ${{ inputs.os }}-node${{ inputs.node-version }}-
+
+    - name: Setup Node.js for use with actions
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ inputs.node-version }}
+
+    - name: Install dependencies
+      shell: bash
+      run: yarn install

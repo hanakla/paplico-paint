@@ -1,0 +1,72 @@
+name: CI
+
+on: [push]
+
+jobs:
+  testing:
+    strategy:
+      matrix:
+        os: [ubuntu-latest]
+        node-version: [20.x]
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: ./.github/actions/setup
+        with:
+          node-version: ${{ matrix.node-version }}
+          os: ${{ matrix.os }}
+
+      - name: Testing @paplico/core-new
+        continue-on-error: true
+        run: |
+          cd pkgs/core
+          # yarn prepublishOnly
+          yarn test
+
+      - name: Testing @paplico/web2
+        continue-on-error: true
+        run: |
+          cd pkgs/web2
+          yarn test
+
+  bundle-size:
+    strategy:
+      matrix:
+        os: [ubuntu-latest]
+        node-version: [20.x]
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: ./.github/actions/setup
+        with:
+          node-version: ${{ matrix.node-version }}
+          os: ${{ matrix.os }}
+
+      - uses: preactjs/compressed-size-action@v2
+        with:
+          pattern: './pkgs/core/dist/*.{js,mjs}'
+          exclude: './pkgs/core/dist/*-*.{js,mjs}'
+
+  build:
+    strategy:
+      matrix:
+        node-version: [20.x]
+        os: [ubuntu-latest]
+
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: ./.github/actions/setup
+        with:
+          node-version: ${{ matrix.node-version }}
+          os: ${{ matrix.os }}
+
+      - uses: ./.github/actions/building

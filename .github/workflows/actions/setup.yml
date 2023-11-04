@@ -8,8 +8,6 @@ inputs:
     required: true
 
 steps:
-  - uses: actions/checkout@v4
-
   - uses: ./actions/yarn-and-build.yml
     with:
       node-version: ${{ inputs.node-version }}

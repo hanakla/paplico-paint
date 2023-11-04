@@ -1,14 +1,16 @@
-import { ComponentProps, ReactNode, memo } from 'react'
+import { ComponentProps, ReactNode, memo, useEffect, useState } from 'react'
 import * as RPopover from '@radix-ui/react-popover'
 import { MixerHorizontalIcon, Cross2Icon } from '@radix-ui/react-icons'
 import css from 'styled-jsx/css'
 import { keyframes } from 'styled-components'
+import { Button } from '@radix-ui/themes'
 
 type Props = {
   trigger: ReactNode
   side?: ComponentProps<typeof RPopover.Content>['side']
   className?: string
   children?: ReactNode
+  containerSelector?: string
 }
 
 export const Popover = memo(function Popover({
@@ -16,9 +18,17 @@ export const Popover = memo(function Popover({
   trigger,
   className,
   children,
+  containerSelector = '.radix-themes',
 }: Props) {
+  const [containerEl, setContainer] = useState<HTMLElement | null>(null)
+
+  useEffect(() => {
+    if (!containerSelector) return
+    setContainer(document.querySelector(containerSelector) as HTMLElement)
+  }, [])
+
   return (
-    <RPopover.Root>
+    <RPopover.Root c>
       <RPopover.Trigger asChild className={className}>
         {trigger}
       </RPopover.Trigger>
@@ -59,39 +69,10 @@ export const Popover = memo(function Popover({
           side={side}
         >
           {children}
-          {/* <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            <p className="Text" style={{ marginBottom: 10 }}>
-              Dimensions
-            </p>
-            <fieldset className="Fieldset">
-              <label className="Label" htmlFor="width">
-                Width
-              </label>
-              <input className="Input" id="width" defaultValue="100%" />
-            </fieldset>
-            <fieldset className="Fieldset">
-              <label className="Label" htmlFor="maxWidth">
-                Max. width
-              </label>
-              <input className="Input" id="maxWidth" defaultValue="300px" />
-            </fieldset>
-            <fieldset className="Fieldset">
-              <label className="Label" htmlFor="height">
-                Height
-              </label>
-              <input className="Input" id="height" defaultValue="25px" />
-            </fieldset>
-            <fieldset className="Fieldset">
-              <label className="Label" htmlFor="maxHeight">
-                Max. height
-              </label>
-              <input className="Input" id="maxHeight" defaultValue="none" />
-            </fieldset>
-          </div> */}
 
-          {/* <RPopover.Close css={s.close} aria-label="Close">
+          <RPopover.Close css={s.close} aria-label="Close">
             <Cross2Icon />
-          </RPopover.Close> */}
+          </RPopover.Close>
           <RPopover.Arrow css={s.arrow} />
         </RPopover.Content>
       </RPopover.Portal>

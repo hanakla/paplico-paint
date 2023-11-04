@@ -1,21 +1,13 @@
 'use client'
 
 import type {} from '@/lib/cssprop'
-import { ThemeProvider, createGlobalStyle } from 'styled-components'
-import { ServerStyleSheet, StyleSheetManager } from 'styled-components'
-import { light, dark } from '@charcoal-ui/theme'
-import {
-  TokenInjector,
-  prefersColorScheme,
-  themeSelector,
-} from '@charcoal-ui/styled'
+import { createGlobalStyle } from 'styled-components'
 import reset from 'styled-reset'
-import React, { useState } from 'react'
-import { useServerInsertedHTML } from 'next/navigation'
-import '@radix-ui/themes/styles.css'
+import React from 'react'
 import { Theme } from '@radix-ui/themes'
 import StyledComponentsRegistry from '@/lib/StyledComponentsRegistry'
 import { ModalProvider } from '@/components/Dialog'
+import '@radix-ui/themes/styles.css'
 
 // export const metadata = {
 //   title: 'Next.js',
@@ -29,26 +21,17 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body>
-        <StyledComponentsRegistry>
-          <GlobalStyle />
-
-          <Theme style={{ width: '100%', height: '100%' }} accentColor="lime">
-            <ThemeProvider theme={light}>
-              <TokenInjector
-                theme={{
-                  ':root': light,
-                  [themeSelector('light')]: light,
-                  [themeSelector('dark')]: dark,
-                  [prefersColorScheme('dark')]: dark,
-                }}
-                background="background1"
-              />
-              <ModalProvider>{children}</ModalProvider>
-            </ThemeProvider>
-          </Theme>
-        </StyledComponentsRegistry>
-      </body>
+      <StyledComponentsRegistry>
+        <Theme
+          asChild
+          style={{ width: '100%', height: '100%' }}
+          accentColor="lime">
+          <body>
+            <GlobalStyle />
+            <ModalProvider>{children}</ModalProvider>
+          </body>
+        </Theme>
+      </StyledComponentsRegistry>
     </html>
   )
 }

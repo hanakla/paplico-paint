@@ -9,14 +9,15 @@ import {
 import { useGesture } from '@use-gesture/react'
 import { css } from 'styled-components'
 import { checkerBoard } from '@/utils/cssMixin'
-import { usePaplico, usePaplicoStore } from '@/domains/paplico'
+import { usePaplicoInstance, useEngineStore } from '@/domains/paplico'
 import { useCombineRef, usePropsMemo } from '@/utils/hooks'
 import useEvent from 'react-use-event-hook'
 import { MainToolbar } from './MainToolbar'
 import useMeasure from 'use-measure'
 import { useEditorStore } from '@/domains/uiState'
-import { bindPaplico } from '@paplico/vector-editor'
+import { bindPaplico } from '@paplico/editor'
 import { storePicker } from '@/utils/zutrand'
+import { Notification } from './EditorArea/Notification'
 
 type Props = { className?: string }
 
@@ -25,8 +26,8 @@ export const EditorArea = memo(
     { className },
     canvasRef,
   ) {
-    const { pap, editorHandle } = usePaplico()
-    const papStore = usePaplicoStore(
+    const { pap, editorHandle } = usePaplicoInstance()
+    const papStore = useEngineStore(
       storePicker(['_setEditorHandle', 'editorHandle']),
     )
     const propsMemo = usePropsMemo()
@@ -164,8 +165,7 @@ export const EditorArea = memo(
           width: '100%',
           height: '100%',
         }}
-        data-editorarea-root
-      >
+        data-editorarea-root>
         <div
           ref={transformRootRef}
           suppressHydrationWarning
@@ -176,8 +176,7 @@ export const EditorArea = memo(
           style={{
             transformOrigin: /* center */ '50% 50%',
             transform: `scale(${canvasTransform.scale}) rotate(${canvasTransform.rotateDeg}deg) translate(${canvasTransform.x}px, ${canvasTransform.y}px)`,
-          }}
-        >
+          }}>
           <div
             ref={vectorEditorRef}
             css={css`
@@ -203,6 +202,8 @@ export const EditorArea = memo(
           />
         </div>
 
+        <Notification />
+
         <MainToolbar
           ref={toolbarRef}
           x={Math.max(
@@ -222,5 +223,3 @@ export const EditorArea = memo(
     )
   }),
 )
-
-const MemoizedMainToolbar = memo(MainToolbar)

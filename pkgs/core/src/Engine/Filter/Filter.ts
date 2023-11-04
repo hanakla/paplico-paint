@@ -13,7 +13,7 @@ export type FilterInitContext = {
 
 export type RasterFilterContext<T extends Record<string, any>> = {
   abort: AbortSignal
-  abortIfNeeded: () => never | void
+  throwIfAborted: () => never | void
 
   gl: FilterWebGLContext
   destSize: { width: number; height: number }
@@ -54,8 +54,8 @@ export type FilterMetadata = {
 export interface FilterClass<T extends Record<string, any>> {
   readonly metadata: FilterMetadata
 
-  getInitialConfig(): T
-  migrateSetting(previousVersion: string, config: T): T
+  getInitialSetting(): T
+  migrateSetting(previousVersion: string, config: any): T
 
   renderPane(context: PaneUIRenderings.PaneUIContext<T>): VNode
 

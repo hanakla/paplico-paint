@@ -212,3 +212,25 @@ export const usePropsMemo = () => {
     [],
   )
 }
+
+export const useDangerouslyEffectAsync = (
+  fn: () => void | (() => void) | Promise<() => void>,
+  deps: DependencyList,
+) => {
+  useEffect(() => {
+    let unmounted = false
+    let cleanup = fn()
+
+    if (cleanup instanceof Promise) {
+      cleanup.then((c) => {
+        if (unmounted) return c()
+        cleanup = c
+      })
+    }
+
+    return () => {
+      unmounted = true
+      if (typeof cleanup === 'function') cleanup()
+    }
+  }, deps)
+}

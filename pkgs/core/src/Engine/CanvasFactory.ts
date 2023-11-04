@@ -9,7 +9,9 @@ type ImageDataConstructorLike = {
 }
 
 type ImageFactory = () => HTMLImageElement
-type CanvasFactory = () => { getContext: HTMLCanvasElement['getContext'] }
+type CanvasFactory = (opt?: { dbgId?: string }) => {
+  getContext: HTMLCanvasElement['getContext']
+}
 
 let imageDataFactory: {
   (sw: number, sh: number, settings?: ImageDataSettings): ImageData
@@ -29,7 +31,12 @@ let imageBitMapFactory: typeof createImageBitmap = async (...args: any[]) => {
   return createImageBitmap(...args)
 }
 let imageFactory: ImageFactory = () => new Image()
-let canvasFactory: CanvasFactory = () => document.createElement('canvas')
+let canvasFactory: CanvasFactory = ({ dbgId } = {}) => {
+  const el = document.createElement('canvas')
+  el.id = dbgId ?? ''
+  return el
+}
+
 let CanvasClass: any =
   typeof HTMLCanvasElement !== 'undefined' ? HTMLCanvasElement : void 0
 
@@ -96,8 +103,9 @@ export const createCanvas = () => {
 export const createWebGLContext = (options?: WebGLContextAttributes) =>
   canvasFactory().getContext('webgl', options)!
 
-export const createContext2D = (settings?: CanvasRenderingContext2DSettings) =>
-  canvasFactory().getContext('2d', settings)!
+export const createContext2D = (
+  settings?: CanvasRenderingContext2DSettings & { dbgId?: string },
+) => canvasFactory({ dbgId: settings?.dbgId }).getContext('2d', settings)!
 
 export const isCanvasElement = (v: any): v is HTMLCanvasElement => {
   return v instanceof CanvasClass

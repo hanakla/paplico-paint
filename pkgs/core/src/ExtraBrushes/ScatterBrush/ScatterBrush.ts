@@ -1,7 +1,5 @@
-import { PapBrush } from '@/index'
+import Paplico, { PapBrush } from '@/index'
 import * as Textures from './textures/index'
-import { PaplicoAbortError } from '@/Errors'
-import { mergeToNew } from '@/utils/object'
 import {
   AddEquation,
   CanvasTexture,
@@ -22,16 +20,18 @@ import {
   type Payload,
   type WorkerResponse,
 } from './ScatterBrush-worker'
+import {} from '@/Engine/Brush/Brush'
+import { ColorRGBA } from '@/Document'
+import { PaplicoError } from '@/Errors/PaplicoError'
+import { createImage } from '@/Engine/CanvasFactory'
+
 import {
+  createBrush,
   BrushContext,
   BrushLayoutData,
   BrushMetadata,
-  createBrush,
-} from '@/Engine/Brush/Brush'
-import { ColorRGBA } from '@/Document'
-import * as StrokingUtils from '@/ext-brush'
-import { PaplicoError } from '@/Errors/PaplicoError'
-import { createImage } from '@/Engine/CanvasFactory'
+  PaplicoAbortError,
+} from '@/ext-brush'
 import { scatterBrushTexts } from '@/locales'
 
 const _mat4 = new ThreeMatrix4()
@@ -79,6 +79,7 @@ export const ScatterBrush = createBrush(
       makeTranslation,
     }: PapBrush.BrushPaneContext<ScatterBrush.Settings>) {
       const t = makeTranslation(scatterBrushTexts)
+      const brushes = ScatterBrush.getTextures()
 
       return h(
         c.View,
@@ -86,19 +87,13 @@ export const ScatterBrush = createBrush(
         // Texture
         h(c.FieldSet, {
           title: t('texture'),
-          input: h(c.SelectBox, {
+          inputs: h(c.SelectBox, {
             placeholder: 'Select texture',
             value: state.texture,
-            items: [
-              {
-                label: t('textures.pencil'),
-                value: 'pencil',
-              },
-              {
-                label: t('textures.airBrush'),
-                value: 'airBrushTexture',
-              },
-            ],
+            items: brushes.map((entry) => ({
+              value: entry.textureId,
+              label: entry.name[locale] ?? entry.name.en,
+            })),
             onChange: (value) =>
               setState({ texture: value as keyof typeof Textures }),
           }),
@@ -108,7 +103,7 @@ export const ScatterBrush = createBrush(
         h(c.FieldSet, {
           title: t('scatter'),
           displayValue: state.scatterRange,
-          input: h(c.Slider, {
+          inputs: h(c.Slider, {
             min: 0,
             max: 100,
             step: 0.1,
@@ -121,7 +116,7 @@ export const ScatterBrush = createBrush(
         h(c.FieldSet, {
           title: t('inOut'),
           displayValue: state.inOutInfluence,
-          input: h(c.Slider, {
+          inputs: h(c.Slider, {
             min: 0,
             max: 1,
             step: 0.01,
@@ -134,7 +129,7 @@ export const ScatterBrush = createBrush(
         h(c.FieldSet, {
           title: t('inOutLength'),
           displayValue: state.inOutLength,
-          input: h(c.Slider, {
+          inputs: h(c.Slider, {
             min: 0,
             max: 200,
             step: 0.1,
@@ -147,7 +142,7 @@ export const ScatterBrush = createBrush(
         h(c.FieldSet, {
           title: t('pressureInfluence'),
           displayValue: state.pressureInfluence,
-          input: h(c.Slider, {
+          inputs: h(c.Slider, {
             min: 0,
             max: 1,
             step: 0.01,
@@ -158,7 +153,7 @@ export const ScatterBrush = createBrush(
       )
     }
 
-    public static getInitialConfig(): ScatterBrush.Settings {
+    public static getInitialSetting(): ScatterBrush.Settings {
       return {
         texture: 'pencil',
         divisions: 1000,
@@ -173,6 +168,32 @@ export const ScatterBrush = createBrush(
       }
     }
 
+    /** Extend this method to adding your custom brush */
+    public static getTextures(): Array<{
+      name: { [K in Paplico.SupportedLocales]: string }
+      textureId: string
+      url: string
+    }> {
+      return [
+        {
+          name: {
+            en: 'Pencil',
+            ja: '鉛筆',
+          },
+          textureId: 'pencil',
+          url: Textures.pencil,
+        },
+        {
+          name: {
+            en: 'AirBrush',
+            ja: 'エアブラシ',
+          },
+          textureId: 'airbrush',
+          url: Textures.airBrushTexture,
+        },
+      ]
+    }
+
     public get id() {
       return ScatterBrush.metadata.id
     }
@@ -185,7 +206,7 @@ export const ScatterBrush = createBrush(
       this.worker = await this.createWorker()
 
       await Promise.all(
-        Object.entries(Textures).map(async ([name, url]) => {
+        ScatterBrush.getTextures().map(async ({ textureId, url }) => {
           const img = await new Promise<HTMLImageElement>((resolve, reject) => {
             const img = createImage()
             img.onload = () => resolve(img)
@@ -193,20 +214,8 @@ export const ScatterBrush = createBrush(
             img.src = url
           })
 
-          // const c = CanvasFactory.createCanvas()
-          // const ctx = c.getContext('2d')!
-          // c.width = img.width
-          // c.height = img.height
-          // ctx.drawImage(img, 0, 0)
-
-          // const data = ctx.getImageData(0, 0, c.width, c.height)
-          // for (let i = 0; i < data.data.length; i += 4) {
-          //   data.data[i + 3] = data.data[i]
-          // }
-          // ctx.putImageData(data, 0, 0)
-
           const texture = new CanvasTexture(img)
-          this.materials[name] = new MeshBasicMaterial({
+          this.materials[textureId] = new MeshBasicMaterial({
             color: 0xffffff,
 
             premultipliedAlpha: true,
@@ -245,7 +254,7 @@ export const ScatterBrush = createBrush(
 
     protected async renderWithWorker({
       abort,
-      abortIfNeeded,
+      throwIfAborted,
       destContext: ctx,
       path: inputPath,
       transform,
@@ -261,7 +270,7 @@ export const ScatterBrush = createBrush(
       ScatterBrush.Settings,
       ScatterBrush.MemoData
     >): Promise<BrushLayoutData> {
-      const sp = mergeToNew(ScatterBrush.getInitialConfig(), settings)
+      const sp = { ...ScatterBrush.getInitialSetting(), settings }
       const baseColor: ColorRGBA = { ...color, a: opacity }
       const _color = new Color()
 
@@ -273,7 +282,7 @@ export const ScatterBrush = createBrush(
       }
 
       for (const path of inputPath) {
-        abortIfNeeded()
+        throwIfAborted()
 
         // const { points, closed } = path
         const id = generateId()
@@ -285,8 +294,8 @@ export const ScatterBrush = createBrush(
               return await new Promise<GetPointWorkerResponse>((r, reject) => {
                 const receiver = (e: MessageEvent<WorkerResponse>) => {
                   if (e.data.type === 'aborted' && e.data.id === id) {
-                    reject(new PaplicoAbortError())
                     this.worker!.removeEventListener('message', receiver)
+                    reject(new PaplicoAbortError())
                     return
                   }
 
@@ -349,27 +358,20 @@ export const ScatterBrush = createBrush(
 
         try {
           for (let i = 0, l = res.matrices.length; i < l; i++) {
+            const inked = ink.getColor({
+              pointIndex: i,
+              points: path.points,
+              pointAtLength: res.lengths[i],
+              totalLength: res.totalLength,
+              baseColor,
+              pixelRatio,
+            })
+
+            _color.setRGB(inked.r, inked.g, inked.b)
+
             _mat4.fromArray(res.matrices[i])
             mesh.setMatrixAt(i, _mat4)
-            mesh.setColorAt(
-              i,
-              StrokingUtils.rgbToThreeRGB(
-                ink.getColor({
-                  pointIndex: i,
-                  points: path.points,
-                  pointAtLength: res.lengths[i],
-                  totalLength: res.totalLength,
-                  baseColor,
-                  pixelRatio,
-                }),
-                // {
-                //   r: i / l,
-                //   g: 1 - i / l,
-                //   b: 0,
-                // },
-                _color,
-              ),
-            )
+            mesh.setColorAt(i, _color)
           }
 
           if (res.bbox) {

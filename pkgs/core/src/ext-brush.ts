@@ -2,19 +2,27 @@
 
 import fastRandom from 'fast-random'
 import { rgb } from 'polished'
-import { VectorPath, VectorPathPoint } from '@/Document/LayerEntity/VectorPath'
+import {
+  type VectorPath,
+  type VectorPathPoint,
+} from '@/Document/LayerEntity/VectorPath'
 import {
   IndexedPointAtLength,
   indexedPointAtLength,
   SequencialPointAtLength,
   SVGDCommand,
 } from './fastsvg/IndexedPointAtLength'
-import { ColorRGB, createVectorPath } from './Document'
-import { interpolateMap, interpolateMapObject, lerp } from './Math'
+import { ColorRGB } from './Document'
+import {
+  createNumSequenceMap,
+  createObjectSequenceMap,
+  getTangent,
+  lerp,
+} from './Math'
 import { FuncStats } from './utils/perfstats'
 import { degToRad } from './utils/math'
-import { type Color } from 'three'
 
+export { PaplicoAbortError } from '@/Errors/PaplicoAbortError'
 export {
   createBrush,
   type IBrush,
@@ -26,40 +34,24 @@ export {
 } from './Engine/Brush/Brush'
 
 export {
-  interpolateMap,
-  interpolateMapObject,
+  vectorPathPointsToSVGPathString,
+  vectorPathPointsToSVGCommandArray as vectorPathPointsToSVGDCommandArray,
+  svgDCommandArrayToSVGPathString,
+} from './SVGPathManipul/index'
+export { getRadianFromTangent } from '@/Math/getRadianFromTangent'
+
+export {
+  createNumSequenceMap as interpolateMap,
+  createObjectSequenceMap as interpolateMapObject,
   indexedPointAtLength,
   type IndexedPointAtLength,
+  type SVGDCommand,
 }
 
-export const rgbToHexColor = (color: ColorRGB) => {
+export * as CanvasUtil from '@/utils/canvas'
+
+export const rgbToHexColorString = (color: ColorRGB) => {
   return rgb(color.r * 255, color.g * 255, color.b * 255)
-}
-
-export const rgbToThreeRGB = (color: ColorRGB, target: Color) => {
-  target.setRGB(color.r, color.g, color.b)
-  return target
-}
-
-export function getTangent(x1: number, y1: number, x2: number, y2: number) {
-  const vector = { x: x2 - x1, y: y2 - y1 }
-  const magnitude = Math.hypot(x2 - x1, y2 - y1)
-
-  vector.x /= magnitude
-  vector.y /= magnitude
-
-  return vector
-}
-
-export function getRadianFromTangent(
-  x1: number,
-  y1: number,
-  x2: number,
-  y2: number,
-) {
-  const vector = getTangent(x1, y1, x2, y2)
-  const result = Math.atan2(vector.x, vector.y)
-  return Number.isNaN(result) ? 0 : result
 }
 
 type ScatteredPoint = VectorPathPoint & {
@@ -96,10 +88,10 @@ export const createStreamScatter = (
   const scaleRandom = fastRandom(path.randomSeed + 0x2435ffab)
 
   timeEnd = stat.time('interpolateMap build')
-  const getPressureAt = interpolateMapObject(path.points, (idx, arr) => arr[idx].pressure ?? 1) // prettier-ignore
-  const getDeltaAt = interpolateMapObject(path.points, (idx, arr) => arr[idx].deltaTime ?? 0) // prettier-ignore
-  const getTiltXAt = interpolateMapObject(path.points, (idx, arr) => arr[idx].tilt?.x ?? 0) // prettier-ignore
-  const getTiltYAt = interpolateMapObject(path.points, (idx, arr) => arr[idx].tilt?.y ?? 0) // prettier-ignore
+  const getPressureAt = createObjectSequenceMap(path.points, (idx, arr) => arr[idx].pressure ?? 1) // prettier-ignore
+  const getDeltaAt = createObjectSequenceMap(path.points, (idx, arr) => arr[idx].deltaTime ?? 0) // prettier-ignore
+  const getTiltXAt = createObjectSequenceMap(path.points, (idx, arr) => arr[idx].tilt?.x ?? 0) // prettier-ignore
+  const getTiltYAt = createObjectSequenceMap(path.points, (idx, arr) => arr[idx].tilt?.y ?? 0) // prettier-ignore
   timeEnd()
 
   const _scatterRange = (scatterRange /= 2)
@@ -128,11 +120,11 @@ export const createStreamScatter = (
       const result = {
         x: x,
         y: y,
-        deltaTime: getDeltaAt(frac),
-        pressure: getPressureAt(frac),
+        deltaTime: getDeltaAt.atFrac(frac),
+        pressure: getPressureAt.atFrac(frac),
         tilt: {
-          x: getTiltXAt(frac),
-          y: getTiltYAt(frac),
+          x: getTiltXAt.atFrac(frac),
+          y: getTiltYAt.atFrac(frac),
         },
         /** radians */
         rotate: degToRad(rotationRandom.nextFloat() * 360),
@@ -147,39 +139,6 @@ export const createStreamScatter = (
       return result
     },
   }
-}
-
-export function pointsToSVGCommandArray(
-  points: VectorPathPoint[],
-  closed: boolean = false,
-): SVGDCommand[] {
-  const [start] = points
-
-  if (points.length === 1) {
-    return [['M', start.x, start.y]]
-  }
-
-  return [
-    ['M', start.x, start.y],
-    ...[...points, ...(closed ? [start] : [])].map(
-      (point, prev): SVGDCommand => {
-        if (point!.end || point.begin) {
-          return [
-            'C',
-            point.begin?.x ?? prev!.x,
-            point.begin?.y ?? prev!.y,
-            point.end?.x ?? point.x,
-            point.end?.y ?? point.y,
-            point.x,
-            point.y,
-          ]
-        } else {
-          return ['L', point.x, point.y]
-        }
-      },
-    ),
-    ...(closed ? [['Z'] as ['Z']] : []),
-  ]
 }
 
 /** @deprecated */
@@ -210,10 +169,10 @@ export const scatterPlot = (
   const scaleRandom = fastRandom(path.randomSeed + 0x2435ffab)
 
   timeEnd = stat.time('interpolateMap build')
-  const getPressureAt = interpolateMapObject(path.points,  (idx, arr) => arr[idx].pressure ?? 1) // prettier-ignore
-  const getDeltaAt = interpolateMapObject(path.points,  (idx, arr) => arr[idx].deltaTime ?? 0) // prettier-ignore
-  const getTiltXAt = interpolateMapObject(path.points,  (idx, arr) => arr[idx].tilt?.x ?? 0) // prettier-ignore
-  const getTiltYAt = interpolateMapObject(path.points,  (idx, arr) => arr[idx].tilt?.y ?? 0) // prettier-ignore
+  const getPressureAt = createObjectSequenceMap(path.points,  (idx, arr) => arr[idx].pressure ?? 1) // prettier-ignore
+  const getDeltaAt = createObjectSequenceMap(path.points,  (idx, arr) => arr[idx].deltaTime ?? 0) // prettier-ignore
+  const getTiltXAt = createObjectSequenceMap(path.points,  (idx, arr) => arr[idx].tilt?.x ?? 0) // prettier-ignore
+  const getTiltYAt = createObjectSequenceMap(path.points,  (idx, arr) => arr[idx].tilt?.y ?? 0) // prettier-ignore
   timeEnd()
 
   scatterRange /= 2
@@ -248,11 +207,11 @@ export const scatterPlot = (
       begin: null,
       x: x,
       y: y,
-      deltaTime: getDeltaAt(frac),
-      pressure: getPressureAt(frac),
+      deltaTime: getDeltaAt.atFrac(frac),
+      pressure: getPressureAt.atFrac(frac),
       tilt: {
-        x: getTiltXAt(frac),
-        y: getTiltYAt(frac),
+        x: getTiltXAt.atFrac(frac),
+        y: getTiltYAt.atFrac(frac),
       },
       rotate: degToRad(rotationRandom.nextFloat() * 360),
       scale:

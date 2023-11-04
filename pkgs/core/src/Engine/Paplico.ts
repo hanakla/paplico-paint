@@ -13,8 +13,8 @@ import {
   createDocument,
   createRasterLayerEntity,
   createVectorAppearance,
+  createVectorLayerEntity,
   createVectorObject,
-  LayerEntity,
   PaplicoDocument,
   VectorObject,
   VectorPath,
@@ -30,7 +30,6 @@ import { VectorStrokeSetting } from '../Document/LayerEntity/VectorStrokeSetting
 import { VectorFillSetting } from '../Document/LayerEntity/VectorFillSetting'
 import { InkSetting as _InkSetting } from '../Document/LayerEntity/InkSetting'
 import { deepClone } from '../utils/object'
-import { VectorAppearance } from '../Document/LayerEntity/VectorAppearance'
 import { CircleBrush } from '../Brushes/CircleBrush'
 import { Emitter } from '../utils/Emitter'
 import { BrushClass } from './Brush/Brush'
@@ -57,9 +56,17 @@ import { TestFilter } from '../Filters'
 import { WebGLRenderer } from 'three'
 import { PaneUIRenderings } from './PaneUIRenderings'
 import { FontRegistry } from './Registry/FontRegistry'
-import { rescue } from '@/utils/resque'
+import { aggregateRescueErrors, rescue } from '@/utils/rescue'
 import { LayerMetrics } from './DocumentContext/LayerMetrics'
 import { InvalidOptionOrStateError } from '@/Errors/InvalidOptionOrStateError'
+import { Canvas2DAllocator } from '@/Engine/Canvas2DAllocator'
+import { CompositeMode, VectorLayer } from '@/Document/LayerEntity'
+import {
+  DEFAULT_FILL_SETTING,
+  DEFAULT_INK_SETTING,
+  DEFAULT_STROKE_SETTING,
+} from './constants'
+import { MicroCanvas } from './MicroCanvas'
 
 export namespace Paplico {
   export type StrokeSetting<T extends Record<string, any> = any> =
@@ -129,29 +136,6 @@ export namespace Paplico {
   }
 }
 
-const DEFAULT_FILL_SETTING = (): Readonly<Paplico.FillSetting> => ({
-  type: 'fill',
-  color: {
-    r: 0,
-    g: 0,
-    b: 0,
-  },
-  opacity: 1,
-})
-
-const DEFAULT_STROKE_SETTING = (): Readonly<Paplico.StrokeSetting> => ({
-  brushId: CircleBrush.metadata.id,
-  brushVersion: CircleBrush.metadata.version,
-  color: {
-    r: 0,
-    g: 0,
-    b: 0,
-  },
-  opacity: 1,
-  size: 10,
-  settings: {},
-})
-
 /**
  * An frontend class of Paplico.
  */
@@ -180,9 +164,13 @@ export class Paplico extends Emitter<Paplico.Events> {
   protected readonly rerenderQueue = new RenderQueue<'previewRender'>()
   protected activeStrokeChangeAborters: AbortController[] = []
 
+  protected readonly _childMicroCanvases: WeakRef<MicroCanvas>[] = []
+
   protected idleRerenderTimerId: any
 
   protected readonly paneImpl: Paplico._PaneImpl
+
+  protected readonly __dbg_Canvas2DAllocator = Canvas2DAllocator
 
   #preferences: Paplico.Preferences = {
     paneUILocale: 'en',
@@ -193,11 +181,7 @@ export class Paplico extends Emitter<Paplico.Events> {
   #state: Paplico.State = {
     currentStroke: null,
     currentFill: null,
-    currentInk: {
-      inkId: RainbowInk.id,
-      inkVersion: RainbowInk.version,
-      specific: {},
-    },
+    currentInk: DEFAULT_INK_SETTING(),
     strokeComposition: 'normal',
     brushEntries: [],
     busy: false,
@@ -267,7 +251,7 @@ export class Paplico extends Emitter<Paplico.Events> {
       premultipliedAlpha: true,
       antialias: false,
       preserveDrawingBuffer: true,
-      canvas: createCanvas() as HTMLCanvasElement,
+      canvas: createCanvas(),
     })
     renderer.setClearColor(0xffffff, 0)
     this.glRendererResource = new AtomicResource(renderer, 'Paplico#glRenderer')
@@ -389,6 +373,11 @@ export class Paplico extends Emitter<Paplico.Events> {
   public dispose() {
     this.mitt.all.clear()
 
+    this._childMicroCanvases.forEach((ref) => {
+      ref.deref()?.dispose()
+    })
+    this._childMicroCanvases.splice(0)
+
     this.tmpctxResource.clearQueue()
     freeingCanvas(this.tmpctxResource.ensureForce().canvas)
 
@@ -399,6 +388,12 @@ export class Paplico extends Emitter<Paplico.Events> {
 
     this.glRendererResource.clearQueue()
     this.glRendererResource.ensureForce().dispose()
+  }
+
+  public createMicroCanvas(canvas: CanvasRenderingContext2D) {
+    const mc = new MicroCanvas(canvas.canvas, this)
+    this._childMicroCanvases
+    return mc
   }
 
   public readonly previews = {
@@ -507,15 +502,16 @@ export class Paplico extends Emitter<Paplico.Events> {
     this.runtimeDoc.history.on('affect', (e) => {
       this.rerenderForHistoryAffection()
 
-      rescue(() => {
-        e.layerIds.forEach((layerEntityUid) => {
-          this.emit('document:layerUpdated', { layerEntityUid })
-        })
-      })
-
-      rescue(() => {
-        this.emit('history:affect', e)
-      })
+      aggregateRescueErrors([
+        rescue(() => {
+          e.layerIds.forEach((layerEntityUid) => {
+            this.emit('document:layerUpdated', { layerEntityUid })
+          })
+        }),
+        rescue(() => {
+          this.emit('history:affect', e)
+        }),
+      ])
     })
 
     doc.blobs.forEach((blob) => {
@@ -722,6 +718,94 @@ export class Paplico extends Emitter<Paplico.Events> {
       this.setState((d) => (d.busy = false))
       RenderCycleLogger.current.printLogs('rerender()')
     }
+  }
+
+  public renderPathInto(
+    path: VectorPath,
+    destination: CanvasRenderingContext2D,
+    {
+      strokeSetting,
+      inkSetting = {
+        inkId: PlainInk.metadata.id,
+        inkVersion: PlainInk.metadata.version,
+        specific: PlainInk.getInitialSetting,
+      },
+      fillSetting,
+      compositeMode = 'normal',
+      order = 'stroke-first',
+      pixelRatio = this.#preferences.pixelRatio,
+    }: {
+      strokeSetting?: Paplico.StrokeSetting | null
+      inkSetting?: Paplico.InkSetting | null
+      fillSetting?: Paplico.FillSetting | null
+      compositeMode?: CompositeMode
+      order?: 'fill-first' | 'stroke-first'
+      pixelRatio?: number
+    },
+  ) {
+    strokeSetting = {
+      brushId: CircleBrush.metadata.id,
+      brushVersion: CircleBrush.metadata.version,
+      color: { r: 0, g: 0, b: 0 },
+      opacity: 1,
+      size: 5,
+      settings: {
+        ...CircleBrush.getInitialSetting(),
+      },
+      ...strokeSetting,
+    }
+
+    fillSetting ??= {
+      type: 'fill',
+      color: { r: 0, g: 0, b: 0 },
+      opacity: 1,
+    }
+
+    const strokeFilter = strokeSetting
+      ? createVectorAppearance({
+          enabled: true,
+          kind: 'stroke',
+          stroke: strokeSetting,
+          ink: inkSetting ?? DEFAULT_INK_SETTING(),
+        })
+      : null
+
+    const fillFilter = fillSetting
+      ? createVectorAppearance({
+          enabled: true,
+          kind: 'fill',
+          fill: fillSetting,
+        })
+      : null
+
+    const tmpLayer: VectorLayer = createVectorLayerEntity({
+      compositeMode,
+      objects: [
+        createVectorObject({
+          path,
+          filters:
+            order === 'stroke-first'
+              ? [strokeFilter, fillFilter].filter(
+                  (v): v is NonNullable<typeof v> => v != null,
+                )
+              : [fillFilter, strokeFilter].filter(
+                  (v): v is NonNullable<typeof v> => v != null,
+                ),
+        }),
+      ],
+    })
+
+    this.vectorRenderer.renderVectorLayer(destination.canvas, tmpLayer, {
+      viewport: {
+        left: 0,
+        top: 0,
+        width: destination.canvas.width,
+        height: destination.canvas.height,
+      },
+      logger: RenderCycleLogger.createNext(),
+      pixelRatio,
+      phase: 'final',
+    })
   }
 
   /**

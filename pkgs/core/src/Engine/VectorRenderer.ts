@@ -20,11 +20,8 @@ import {
   addPoint2D,
   calcVectorBoundingBox,
   calcVectorPathBoundingBox,
-  layerTransformToMatrix,
-  matrixToCanvasMatrix,
   multiplyPoint2D,
   svgCommandToVectoPath,
-  vectorObjectTransformToMatrix,
 } from './VectorUtils'
 import { AppearanceRegistry } from './Registry/AppearanceRegistry'
 import { FontRegistry } from './Registry/FontRegistry'
@@ -96,7 +93,7 @@ export class VectorRenderer {
       viewport: Viewport
       pixelRatio: number
       abort?: AbortSignal
-      logger: RenderCycleLogger
+      logger?: RenderCycleLogger
       phase: RenderPhase
       objectOverrides?: VectorObjectOverrides
     },
@@ -126,7 +123,7 @@ export class VectorRenderer {
     }
 
     for (let obj of objects) {
-      if (obj.type === 'vectorGroup') return
+      if (obj.type === 'vectorGroup') return { objectsBBox }
       if (!obj.visible) continue
 
       const sourceBBox = calcVectorBoundingBox(obj) // Ignore override for source
@@ -137,7 +134,7 @@ export class VectorRenderer {
       }
 
       await saveAndRestoreCanvas(outcx, async () => {
-        if (obj.type === 'vectorGroup') return // for typecheck
+        if (obj.type === 'vectorGroup') return { objectsBBox } // for typecheck
 
         for (const ap of obj.filters) {
           if (ap.kind === 'fill') {
@@ -356,8 +353,6 @@ export class VectorRenderer {
 
           const metrics = glyph.getMetrics()
           const charPaths = svgCommandToVectoPath(path.toPathData(5))
-
-          console.log(metrics)
 
           for (let path of charPaths) {
             objects.push({
@@ -579,13 +574,16 @@ export class VectorRenderer {
       let memoEntry = memoStore?.get(brush)
       let data: T | undefined = undefined
 
-      if (!memoEntry || !shallowEquals(memoEntry.prevDeps, deps)) {
-        if (memoEntry) {
-          disposer?.(memoEntry.data)
-        }
-        data = factory()
-        memoEntry = { data, prevDeps: deps }
+      if (memoEntry && shallowEquals(memoEntry.prevDeps, deps)) {
+        return memoEntry.data
       }
+
+      if (memoEntry) {
+        disposer?.(memoEntry.data)
+      }
+
+      data = factory()
+      memoEntry = { data, prevDeps: deps }
 
       memoStore.set(brush, memoEntry)
       this.strokeMemo.set(path, memoStore)
@@ -597,7 +595,7 @@ export class VectorRenderer {
       return saveAndRestoreCanvas(dstctx, async () => {
         return await brush.render({
           abort: abort ?? new AbortController().signal,
-          abortIfNeeded: () => {
+          throwIfAborted: () => {
             if (abort?.aborted) throw new PaplicoAbortError()
           },
           destContext: dstctx,

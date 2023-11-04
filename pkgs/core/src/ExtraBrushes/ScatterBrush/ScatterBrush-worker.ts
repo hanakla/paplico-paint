@@ -2,12 +2,15 @@ import {
   BrushLayoutData,
   createStreamScatter,
   getRadianFromTangent,
-  pointsToSVGCommandArray,
 } from '@/ext-brush'
 import { Matrix4 } from '@/Math'
 import { indexedPointAtLength } from '@/fastsvg/IndexedPointAtLength'
 import { type VectorPath } from '@/Document/LayerEntity/VectorPath'
 import { mapLinear } from '@/Math/interpolation'
+import {
+  vectorPathPointsToSVGCommandArray,
+  vectorPathPointsToSVGPathString,
+} from '@/SVGPathManipul'
 
 export type Payload =
   | { type: 'warming' }
@@ -32,7 +35,7 @@ export type GetPointWorkerResponse = {
   lengths: number[]
   totalLength: number
   bbox: { left: number; top: number; right: number; bottom: number } | null
-  _internals: any
+  _debug: any
 }
 
 export type WorkerResponse =
@@ -134,7 +137,7 @@ export async function processInput(data: Payload): Promise<WorkerResponse> {
   const destWidth = destSize.width * pixelRatio
   const destHeight = destSize.height * pixelRatio
 
-  // const positions: [number, number][] = []
+  const _debug_positions: [number, number][] = []
   const lengths: number[] = []
   const matrices: (number[] | Float32Array)[] = []
   const bbox: BrushLayoutData['bbox'] = {
@@ -144,7 +147,9 @@ export async function processInput(data: Payload): Promise<WorkerResponse> {
     bottom: 0,
   }
 
-  const pal = indexedPointAtLength(pointsToSVGCommandArray(path.points))
+  const pal = indexedPointAtLength(
+    vectorPathPointsToSVGCommandArray(path.points),
+  )
 
   const totalLen = pal.totalLength
 
@@ -156,7 +161,7 @@ export async function processInput(data: Payload): Promise<WorkerResponse> {
       lengths: [],
       bbox: null,
       totalLength: 0,
-      _internals: {},
+      _debug: {},
     }
   }
 
@@ -188,12 +193,12 @@ export async function processInput(data: Payload): Promise<WorkerResponse> {
 
     const len = points[idx].length
     const frac = len / totalLen
-    let [x, y] = points[idx].pos //pal.at(len)
+    let [x, y] = points[idx].pos
+    _debug_positions.push([x, y])
     const next = points[idx + 1]?.pos ?? points[idx]?.pos //pal.at(len + 0.01, { seek: false })
 
     const rad = getRadianFromTangent(x, y, next[0], next[1])
     const scatPoint = scatter.scatterPoint(x, y, frac)
-    // console.log({ x, y, xx: scatPoint.x, yy: scatPoint.y })
 
     // if len in inOutLength from start or end, scale by inOutInfluence
     // prettier-ignore
@@ -231,7 +236,6 @@ export async function processInput(data: Payload): Promise<WorkerResponse> {
 
     matrices.push(matt4.toArray())
     lengths.push(len)
-    // positions.push([x, y])
 
     bbox.left = Math.min(bbox.left, x)
     bbox.top = Math.min(bbox.top, y)
@@ -251,9 +255,10 @@ export async function processInput(data: Payload): Promise<WorkerResponse> {
     lengths,
     totalLength: totalLen,
     matrices,
-    _internals: {
-      requestAts,
-      // positions,
+    _debug: {
+      // requestAts,
+      // path,
+      // positions: _debug_positions,
     },
   }
 }

@@ -3,26 +3,26 @@
  */
 
 import { SVGDCommand } from '@/fastsvg/IndexedPointAtLength'
-import { parseSVGPath, pathCommandsToString } from '.'
+import { parseSVGPath, svgDCommandArrayToSVGPathString } from '.'
 
 export function roundPathCorners(
   path: SVGDCommand[],
-  radius: number
+  radius: number,
 ): SVGDCommand[] {
   if (path.length < 3) {
     return path
   }
 
-  const result: SVGPathCommand[] = []
-  const startPoint = path[0].slice() as SVGPathCommand
-  const firstPoint = path[1].slice() as SVGPathCommand
+  const result: SVGDCommand[] = []
+  const startPoint = path[0].slice() as SVGDCommand
+  const firstPoint = path[1].slice() as SVGDCommand
   let prevPoint = firstPoint
 
   result.push(startPoint)
 
   for (let i = 1; i < path.length; i++) {
-    const currentPoint = path[i].slice() as SVGPathCommand
-    const nextPoint = path[(i + 1) % path.length].slice() as SVGPathCommand
+    const currentPoint = path[i].slice() as SVGDCommand
+    const nextPoint = path[(i + 1) % path.length].slice() as SVGDCommand
 
     if (currentPoint[0] !== 'L' || nextPoint[0] !== 'L') {
       if (currentPoint[0] !== 'Z') {
@@ -102,7 +102,7 @@ if (import.meta.vitest) {
       const path = parseSVGPath('M0,0 L100,0 L100,100 L0,100 Z')
 
       const newPath = roundPathCorners(path, 10)
-      console.log(pathCommandsToString(newPath))
+      console.log(svgDCommandArrayToSVGPathString(newPath))
 
       // expect(newPath).toEqual([
       //   ['M', 0, 0],

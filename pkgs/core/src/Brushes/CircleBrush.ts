@@ -6,8 +6,6 @@ import {
   createBrush,
 } from '@/Engine/Brush/Brush'
 import { mergeToNew } from '@/utils/object'
-import { mapPoints } from '../Engine/VectorUtils'
-import { scatterPlot } from '@/ext-brush'
 import { PapBrush } from '@/index'
 
 export declare namespace CircleBrush {
@@ -24,7 +22,7 @@ export const CircleBrush = createBrush(
       name: 'Circle Brush',
     }
 
-    public static getInitialConfig(): CircleBrush.Settings {
+    public static getInitialSetting(): CircleBrush.Settings {
       return {
         lineCap: 'round',
       }
@@ -49,7 +47,7 @@ export const CircleBrush = createBrush(
       brushSetting: { size, color, opacity, specific },
       destSize,
     }: BrushContext<CircleBrush.Settings>): Promise<BrushLayoutData> {
-      const sp = mergeToNew(CircleBrush.getInitialConfig(), specific)
+      const sp = mergeToNew(CircleBrush.getInitialSetting(), specific)
 
       const bbox: BrushLayoutData['bbox'] = {
         left: 0,

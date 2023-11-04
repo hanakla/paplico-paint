@@ -1,6 +1,6 @@
 import pal from 'point-at-length'
 import { SVGDCommand, indexedPointAtLength } from './IndexedPointAtLength'
-import { pointsToSVGCommandArray } from '@/ext-brush'
+import { vectorPathPointsToSVGPathString } from '@/ext-brush'
 
 describe('IndexedPointAtLength', () => {
   const path = complexPath()
@@ -31,23 +31,19 @@ describe('IndexedPointAtLength', () => {
 
     it('should work with pointsToSVGCommandArray', () => {
       const pal = indexedPointAtLength(
-        pointsToSVGCommandArray(
-          [
-            {
-              x: 0,
-              y: 0,
-              begin: null,
-              end: null,
-            },
-            {
-              x: 1000,
-              y: 1000,
-              begin: { x: 333.3333333333333, y: 666.6666666666667 },
-              end: { x: 666.6666666666667, y: 666.6666666666667 },
-            },
-          ],
-          false,
-        ),
+        vectorPathPointsToSVGPathString([
+          {
+            isMoveTo: true,
+            x: 0,
+            y: 0,
+          },
+          {
+            x: 1000,
+            y: 1000,
+            begin: { x: 333.3333333333333, y: 666.6666666666667 },
+            end: { x: 666.6666666666667, y: 666.6666666666667 },
+          },
+        ]),
       )
 
       expect(pal.at(pal.totalLength)).toEqual([1000, 1000])

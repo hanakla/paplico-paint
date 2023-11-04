@@ -2,5 +2,9 @@ export { simplifySvgPath } from './simplifyPath'
 export { splitPathAt } from './splitPath'
 export { roundPathCorners } from './roundPathCorners'
 export { parseSVGPath } from '../fastsvg/parse'
-export { pathCommandsToString } from './pathCommandsToString'
-export { vectorPathToSVGDCommands } from './vectorPathToSVGDCommands'
+
+export {
+  svgDCommandArrayToSVGPathString,
+  vectorPathPointsToSVGPathString,
+  vectorPathPointsToSVGCommandArray,
+} from './pathStructConverters'

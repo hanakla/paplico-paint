@@ -5,7 +5,7 @@ export const FieldSet = memo(function FieldSet({
   title,
   postTitle,
   displayValue,
-  input: inputs,
+  inputs,
   style,
 }: PaneComponentProps.FieldSet) {
   const id = useId()
@@ -23,8 +23,7 @@ export const FieldSet = memo(function FieldSet({
             style={{ marginLeft: 'auto' }}
             role="status"
             aria-aria-live="polite"
-            aria-label={`Current ${title} value`}
-          >
+            aria-label={`Current ${title} value`}>
             {displayValue}
           </div>
         )}

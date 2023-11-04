@@ -244,7 +244,7 @@ describe('Scheduler', () => {
     const s = buildRenderSchedule(doc.layerTree, docCx).tasks
     let i = 0
 
-    console.log(s)
+    process.env.NODE_ENV !== 'test' && console.log(s)
 
     // Clearing PREDEST
     expect(s[i++]).toMatchObject({

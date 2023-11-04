@@ -1,7 +1,7 @@
 import { FloatablePane } from '@/components/FloatablePane'
 import { TreeView } from '@/components/TreeView'
 import { FloatablePaneIds } from '@/domains/floatablePanes'
-import { usePaplico, usePaplicoStore } from '@/domains/paplico'
+import { usePaplicoInstance, useEngineStore } from '@/domains/paplico'
 import { Commands, Document, Paplico } from '@paplico/core-new'
 import React, {
   ChangeEvent,
@@ -66,8 +66,8 @@ type LayerContextMenuParams = {
 
 export const LayersPane = memo(function LayersPane({ size = 'sm' }: Props) {
   const t = useTranslation(layersPaneTexts)
-  const { pap } = usePaplico()
-  const papStore = usePaplicoStore(storePicker(['activeLayerEntity']))
+  const { pap } = usePaplicoInstance()
+  const papStore = useEngineStore(storePicker(['activeLayerEntity']))
   const rerender = useUpdate()
   const propsMemo = usePropsMemo()
   const layerItemMenu = useContextMenu<LayerContextMenuParams>()
@@ -155,8 +155,7 @@ export const LayersPane = memo(function LayersPane({ size = 'sm' }: Props) {
           />{' '}
           {t('title')}
         </>
-      }
-    >
+      }>
       <Box
         css={css`
           display: flex;
@@ -166,8 +165,7 @@ export const LayersPane = memo(function LayersPane({ size = 'sm' }: Props) {
           padding: 8px;
           background-color: var(--gray-3);
           border-radius: 4px;
-        `}
-      >
+        `}>
         {!activeLayer ? (
           <PlaceholderString>
             Select a layer to show properties
@@ -185,16 +183,14 @@ export const LayersPane = memo(function LayersPane({ size = 'sm' }: Props) {
 
             <Fieldset
               label={t('compositeMode')}
-              valueField={activeLayer?.compositeMode ?? '<Blend mode>'}
-            >
+              valueField={activeLayer?.compositeMode ?? '<Blend mode>'}>
               {propsMemo.memo(
                 'blendmode-fieldset-root',
                 () => (
                   <Select.Root
                     size="1"
                     value={activeLayer?.compositeMode}
-                    onValueChange={handleChangeCompositeMode}
-                  >
+                    onValueChange={handleChangeCompositeMode}>
                     <>
                       <Select.Trigger />
                       <Select.Content>
@@ -215,8 +211,7 @@ export const LayersPane = memo(function LayersPane({ size = 'sm' }: Props) {
               valueField={`${roundPrecision(
                 (activeLayer?.opacity ?? 1) * 100,
                 1,
-              )}%`}
-            >
+              )}%`}>
               <Slider
                 css={css`
                   padding: 8px 0;
@@ -237,8 +232,7 @@ export const LayersPane = memo(function LayersPane({ size = 'sm' }: Props) {
           min-height: 300px;
           max-height: 600px;
           border-radius: 4px 4px 0 0;
-        `}
-      >
+        `}>
         {!!pap?.currentDocument && (
           <LayerTreeView
             root={pap?.currentDocument?.layerTree}
@@ -255,8 +249,7 @@ export const LayersPane = memo(function LayersPane({ size = 'sm' }: Props) {
           background-color: var(--gray-3);
           border-top: 1px solid var(--gray-6);
           border-radius: 0 0 4px 4px;
-        `}
-      >
+        `}>
         <DropdownMenu
           trigger={
             <Button
@@ -265,22 +258,18 @@ export const LayersPane = memo(function LayersPane({ size = 'sm' }: Props) {
                 color: var(--gray-11);
               `}
               variant="ghost"
-              size="1"
-            >
+              size="1">
               <RxPlus />
             </Button>
-          }
-        >
+          }>
           <DropdownMenuItem
             data-layer-type="normal"
-            onClick={handleClickAddLayer}
-          >
+            onClick={handleClickAddLayer}>
             Normal Layer
           </DropdownMenuItem>
           <DropdownMenuItem
             data-layer-type="vector"
-            onClick={handleClickAddLayer}
-          >
+            onClick={handleClickAddLayer}>
             Vector Layer
           </DropdownMenuItem>
         </DropdownMenu>
@@ -293,7 +282,7 @@ export const LayersPane = memo(function LayersPane({ size = 'sm' }: Props) {
 
 const LayerItemContextMenu = memo<{ id: string }>(
   function LayerItemContextMenu({ id }) {
-    const { pap } = usePaplico()
+    const { pap } = usePaplicoInstance()
 
     const onClickRemove = useEvent<
       ContextMenuItemClickHandler<LayerContextMenuParams>
@@ -318,7 +307,7 @@ const LayerTreeView = memo(
     root: Document.LayerNode
     onLayerItemContextMenu: (e: LayerContextMenuEvent) => void
   }) => {
-    const pap = usePaplico().pap!
+    const pap = usePaplicoInstance().pap!
 
     const rerender = useUpdate()
     const [tree, setTree] = useState<LayerTreeNode | null>(() =>
@@ -479,8 +468,8 @@ const LayerTreeRow = ({
   onClick: (item: LayerNodes) => void
   onContextMenu: (entity: LayerContextMenuEvent) => void
 }) => {
-  const { pap } = usePaplico()
-  const papStore = usePaplicoStore(storePicker(['engineState']))
+  const { pap } = usePaplicoInstance()
+  const papStore = useEngineStore(storePicker(['engineState']))
 
   const handleCollapseButtonClick = useEvent((e: MouseEvent) => {
     e.stopPropagation()
@@ -527,8 +516,7 @@ const LayerTreeRow = ({
             : 'transparent',
       }}
       onClick={handleClick}
-      onContextMenu={handleContextMenu}
-    >
+      onContextMenu={handleContextMenu}>
       <span
         css={css`
           display: inline-flex;
@@ -543,8 +531,7 @@ const LayerTreeRow = ({
         style={{
           marginRight: 2 + depth * 12,
         }}
-        onClick={handleCollapseButtonClick}
-      >
+        onClick={handleCollapseButtonClick}>
         {item.hasChildren() &&
           (item.collapsed ? <TriangleUpIcon /> : <TriangleDownIcon />)}
       </span>

@@ -8,7 +8,7 @@ import { DisplayContents } from '@/components/DisplayContents'
 import { DropdownMenu, DropdownMenuItem } from '@/components/DropdownMenu'
 import { FloatablePane } from '@/components/FloatablePane'
 import { FloatablePaneIds } from '@/domains/floatablePanes'
-import { usePaplico, usePaplicoStore } from '@/domains/paplico'
+import { usePaplicoInstance, useEngineStore } from '@/domains/paplico'
 import { useEditorStore } from '@/domains/uiState'
 import { storePicker } from '@/utils/zutrand'
 import { Commands, Document } from '@paplico/core-new'
@@ -21,8 +21,9 @@ import useEvent from 'react-use-event-hook'
 import styled, { css } from 'styled-components'
 
 export const LayerFiltersPane = memo(function LayerFiltersPane() {
-  const papStore = usePaplicoStore(storePicker(['activeLayerEntity']))
-  const activeLayer = papStore.activeLayerEntity
+  const { activeLayerEntity: activeLayer } = useEngineStore(
+    storePicker(['activeLayerEntity']),
+  )
 
   return (
     <FloatablePane paneId={FloatablePaneIds.filters} title="Filters">
@@ -30,8 +31,7 @@ export const LayerFiltersPane = memo(function LayerFiltersPane() {
         css={css`
           background-color: var(--gray-3);
           border-radius: 4px;
-        `}
-      >
+        `}>
         {!activeLayer ? (
           <NoLayerSelected />
         ) : !isFilterAvailableType(activeLayer) ? (
@@ -45,8 +45,8 @@ export const LayerFiltersPane = memo(function LayerFiltersPane() {
 })
 
 export const FilterList = memo(function FilterList() {
-  const { pap } = usePaplico()
-  const papStore = usePaplicoStore(storePicker(['activeLayerEntity']))
+  const { pap } = usePaplicoInstance()
+  const papStore = useEngineStore(storePicker(['activeLayerEntity']))
   const {
     getPaneExpandedFilterUids,
     setPaneExpandedFilterState,
@@ -59,7 +59,7 @@ export const FilterList = memo(function FilterList() {
     ]),
   )
 
-  const layer = papStore.activeLayerEntity!
+  const activeLayer = papStore.activeLayerEntity!
 
   const rerender = useUpdate()
   const prevExpandedUids = useRef<string[]>([])
@@ -75,7 +75,7 @@ export const FilterList = memo(function FilterList() {
     const filter = Document.createFilterEntry({
       filterId: FilterClass.metadata.id,
       filterVersion: FilterClass.metadata.version,
-      settings: FilterClass.getInitialConfig(),
+      settings: FilterClass.getInitialSetting(),
       enabled: true,
       opacity: 1,
     })
@@ -146,22 +146,23 @@ export const FilterList = memo(function FilterList() {
 
   useEffect(() => {
     return pap?.on('history:affect', ({ layerIds }) => {
-      if (layerIds.includes(layer.uid)) rerender()
+      if (layerIds.includes(activeLayer.uid)) rerender()
     })
-  }, [pap, layer.uid])
+  }, [pap, activeLayer.uid])
+
+  console.log(activeLayer)
 
   return (
     <>
       <div>
-        {layer.filters.length === 0 ? (
+        {activeLayer.filters.length === 0 ? (
           <NoAvailable>No filters</NoAvailable>
         ) : (
           <AccordionRoot
             type="multiple"
             value={paneExpandedFilterUids}
-            onValueChange={handleChangeExpandedFilters}
-          >
-            {layer.filters.map((filter) => (
+            onValueChange={handleChangeExpandedFilters}>
+            {activeLayer.filters.map((filter) => (
               <AccordionItem key={filter.uid} value={filter.uid}>
                 <div
                   css={css`
@@ -169,12 +170,10 @@ export const FilterList = memo(function FilterList() {
                     align-items: center;
                     padding: 8px;
                     line-height: 1;
-                  `}
-                >
+                  `}>
                   <span
                     onClick={handleClickToggleEnabled}
-                    data-filter-uid={filter.uid}
-                  >
+                    data-filter-uid={filter.uid}>
                     {filter.enabled ? (
                       <RxEyeOpen size={16} />
                     ) : (
@@ -189,8 +188,7 @@ export const FilterList = memo(function FilterList() {
                           css={css`
                             margin-left: 8px;
                             padding: 0;
-                          `}
-                        >
+                          `}>
                           {
                             pap?.filters.getClass(filter.filterId)?.metadata
                               .name
@@ -202,8 +200,7 @@ export const FilterList = memo(function FilterList() {
                     <ContextMenu.Content size="1">
                       <ContextMenu.Item
                         onClick={handleClickRemoveFilter}
-                        data-filter-uid={filter.uid}
-                      >
+                        data-filter-uid={filter.uid}>
                         Remove
                       </ContextMenu.Item>
                     </ContextMenu.Content>
@@ -214,8 +211,7 @@ export const FilterList = memo(function FilterList() {
                   css={css`
                     position: relative;
                     padding: 2px 8px 8px 0;
-                  `}
-                >
+                  `}>
                   <div
                     css={css`
                       position: absolute;
@@ -234,9 +230,8 @@ export const FilterList = memo(function FilterList() {
                       & :not(input, textarea, select) {
                         user-select: none;
                       }
-                    `}
-                  >
-                    {pap?.paneUI.renderFilterPane(layer.uid, filter)}
+                    `}>
+                    {pap?.paneUI.renderFilterPane(activeLayer.uid, filter)}
                   </div>
                 </AccordionContent>
               </AccordionItem>
@@ -252,8 +247,7 @@ export const FilterList = memo(function FilterList() {
           background-color: var(--gray-3);
           border-top: 1px solid var(--gray-6);
           border-radius: 0 0 4px 4px;
-        `}
-      >
+        `}>
         <DropdownMenu
           trigger={
             <Button
@@ -262,18 +256,15 @@ export const FilterList = memo(function FilterList() {
                 color: var(--gray-11);
               `}
               variant="ghost"
-              size="1"
-            >
+              size="1">
               <RxPlus />
             </Button>
-          }
-        >
+          }>
           {pap?.filters.appearanceEntries.map((Class) => (
             <DropdownMenuItem
               key={Class.metadata.id}
               data-filter-id={Class.metadata.id}
-              onClick={handleClickAddFilter}
-            >
+              onClick={handleClickAddFilter}>
               {Class.metadata.name}
             </DropdownMenuItem>
           ))}

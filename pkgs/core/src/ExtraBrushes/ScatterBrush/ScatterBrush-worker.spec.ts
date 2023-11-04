@@ -28,7 +28,9 @@ describe('ScatterBrush-worker', () => {
       scatterRange: 0,
       scatterScale: 0,
       inOutLength: 0,
+      pixelRatio: 1,
       path: {
+        fillRule: 'nonzero',
         randomSeed: 0,
         points: [
           {
@@ -48,8 +50,6 @@ describe('ScatterBrush-worker', () => {
       },
     })
 
-    result.type === 'getPoints' && console.log(result._internals)
-
-    // expect(result).toMatchSnapshot()
+    expect(result).toMatchSnapshot()
   })
 })

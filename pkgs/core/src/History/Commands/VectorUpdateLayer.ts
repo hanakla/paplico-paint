@@ -1,4 +1,4 @@
-import { diff, patch, unpatch, Delta } from '@paplico/jsondiffpatch'
+import { diff, patch, unpatch, Delta } from 'jsondiffpatch'
 // ^-- Do not use star imports or named imports from jsondiffpatch-rc, it will break the build.
 
 import { ICommand } from '../ICommand'

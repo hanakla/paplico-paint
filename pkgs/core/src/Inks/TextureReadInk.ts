@@ -16,7 +16,7 @@ export class TextureReadInk implements IInk {
     return TextureReadInk
   }
 
-  public texture: ImageData
+  public texture!: ImageData
 
   public async initialize() {
     const img = await new Promise<HTMLImageElement>((resolve, reject) => {

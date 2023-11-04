@@ -172,7 +172,7 @@ export class LayerMetrics extends Emitter<LayerMetrics.Events> {
 
   public layerAtPoint(x: number, y: number) {
     return [...this.layerMetrics].filter(([uid, data]) => {
-      const { left, top, width, height } = data.bbox
+      const { left, top, width, height } = data.sourceBBox
       return left <= x && x <= left + width && top <= y && y <= top + height
     })
   }

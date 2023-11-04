@@ -10,7 +10,7 @@ export type BrushPaneContext<T> = PaneUIRenderings.PaneUIContext<T>
 
 export type BrushContext<T extends Record<string | symbol, any>, M> = {
   abort: AbortSignal
-  abortIfNeeded: () => never | void
+  throwIfAborted: () => never | void
 
   /** Render result destination canvas */
   destContext: CanvasRenderingContext2D
@@ -62,7 +62,7 @@ export type BrushMetadata = {
 export interface BrushClass<T = any> {
   readonly metadata: BrushMetadata
 
-  getInitialConfig(): any
+  getInitialSetting(): any
 
   renderPane(context: PaneUIRenderings.PaneUIContext<T>): VNode
 

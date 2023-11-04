@@ -1,4 +1,4 @@
-import { diff, patch, unpatch, Delta } from '@paplico/jsondiffpatch'
+import { diff, patch, unpatch, Delta } from 'jsondiffpatch'
 
 import { ICommand } from '../ICommand'
 import { RuntimeDocument } from '@/Engine'

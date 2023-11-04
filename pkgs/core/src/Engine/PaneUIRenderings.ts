@@ -173,7 +173,7 @@ export class PaneUIRenderings {
       c: this.paneImpl.components,
       components: this.paneImpl.components,
       h: this.paneImpl.h,
-      settings: { ...Class.getInitialConfig(), ...settings.settings },
+      settings: { ...Class.getInitialSetting(), ...settings.settings },
       setSettings: setState,
       locale: this._pap.getPreferences().paneUILocale,
       makeTranslation: this.makeTranslation.bind(this),

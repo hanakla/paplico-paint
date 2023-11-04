@@ -27,8 +27,10 @@ export default defineConfig({
       },
       name: 'PapCore',
       formats: ['es', 'cjs'],
-      fileName: (format, entryName) =>
-        `${entryName}.${format === 'es' ? 'mjs' : 'js'}`,
+      fileName: (format, entryName) => {
+        console.log(entryName)
+        return `${entryName}.${format === 'es' ? 'mjs' : 'js'}`
+      },
     },
     rollupOptions: {
       output: {

@@ -7,7 +7,7 @@ import {
   VectorPathPoint,
 } from '@/Document/LayerEntity/VectorPath'
 
-import { interpolateMap } from '@/Math'
+import { createNumSequenceMap } from '@/Math'
 import { indexedPointAtLength } from '@/fastsvg/IndexedPointAtLength'
 import { simplifySvgPath } from '@/SVGPathManipul'
 
@@ -76,10 +76,14 @@ export class UIStroke {
     const absolutedPath = abs(simplified)
     const simplifiedPal = indexedPointAtLength(absolutedPath)
 
-    const deltaMap = interpolateMap(this.points.map((p) => p.deltaTimeMs))
-    const pressureMap = interpolateMap(this.points.map((p) => p.pressure))
-    const tiltXMap = interpolateMap(this.points.map((p) => p.tilt?.x ?? 0))
-    const tiltYMap = interpolateMap(this.points.map((p) => p.tilt?.y ?? 0))
+    const deltaMap = createNumSequenceMap(this.points.map((p) => p.deltaTimeMs))
+    const pressureMap = createNumSequenceMap(this.points.map((p) => p.pressure))
+    const tiltXMap = createNumSequenceMap(
+      this.points.map((p) => p.tilt?.x ?? 0),
+    )
+    const tiltYMap = createNumSequenceMap(
+      this.points.map((p) => p.tilt?.y ?? 0),
+    )
 
     const points = absolutedPath.map(
       ([cmd, ...args], idx): StrictVectorPathPoint => {
@@ -99,11 +103,11 @@ export class UIStroke {
               y: args[5],
               begin: { x: args[0], y: args[1] },
               end: { x: args[2], y: args[3] },
-              pressure: pressureMap(frac),
-              deltaTime: deltaMap(frac),
+              pressure: pressureMap.atFrac(frac),
+              deltaTime: deltaMap.atFrac(frac),
               tilt: {
-                x: tiltXMap(frac),
-                y: tiltYMap(frac),
+                x: tiltXMap.atFrac(frac),
+                y: tiltYMap.atFrac(frac),
               },
             }
           case 'L':
@@ -112,11 +116,11 @@ export class UIStroke {
               y: args[1],
               begin: null,
               end: null,
-              pressure: pressureMap(frac),
-              deltaTime: deltaMap(frac),
+              pressure: pressureMap.atFrac(frac),
+              deltaTime: deltaMap.atFrac(frac),
               tilt: {
-                x: tiltXMap(frac),
-                y: tiltYMap(frac),
+                x: tiltXMap.atFrac(frac),
+                y: tiltYMap.atFrac(frac),
               },
             }
           default: {

@@ -1,4 +1,4 @@
-import { Delta, diff, unpatch } from '@paplico/jsondiffpatch'
+import { Delta, diff, unpatch } from 'jsondiffpatch'
 import { ICommand } from '../ICommand'
 import { RuntimeDocument } from '@/Engine'
 import { deepClone } from '@/utils/object'

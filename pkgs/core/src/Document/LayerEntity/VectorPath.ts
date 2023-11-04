@@ -1,11 +1,8 @@
 export type VectorPath = {
   points: VectorPathPoint[]
+  /** Should default to nonzero */
   fillRule: 'nonzero' | 'evenodd'
   randomSeed: number
-}
-
-export type VectorPathPoints = {
-  points: VectorPathPoint[]
 }
 
 export type TypeStrictVectorPathPoint =

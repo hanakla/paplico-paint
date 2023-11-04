@@ -1,6 +1,7 @@
-import { create } from 'zustand'
+import { StoreApi, create } from 'zustand'
 import { createJSONStorage, persist } from 'zustand/middleware'
 import { Shortcuts, mergeShortcuts } from './shortcut'
+import Paplico from '@paplico/core-new'
 
 type EditorStore = {
   toolbarPosition: { x: number; y: number } | null
@@ -10,6 +11,7 @@ type EditorStore = {
   fileHandlers: {
     [docUid: string]: FileSystemFileHandle
   }
+  strokeCompositonBeforeChnageToVectorTool: Paplico.State['strokeComposition']
 
   setFileHandlerForDocument: (
     docUid: string,
@@ -27,6 +29,8 @@ type EditorStore = {
 
   getPaneExpandedFilterUids(): string[]
   getShortcuts(): Shortcuts
+
+  set: StoreApi<EditorStore>['setState']
 }
 
 export const useEditorStore = create(
@@ -37,6 +41,7 @@ export const useEditorStore = create(
       canvasTransform: { x: 0, y: 0, scale: 1, rotateDeg: 0 },
       shortcutOverrides: {},
       fileHandlers: {},
+      strokeCompositonBeforeChnageToVectorTool: 'normal',
 
       setFileHandlerForDocument: (docUid, handle) => {
         set({ fileHandlers: { ...get().fileHandlers, [docUid]: handle } })
@@ -65,6 +70,8 @@ export const useEditorStore = create(
       getShortcuts() {
         return mergeShortcuts(get().shortcutOverrides)
       },
+
+      set,
     }),
     {
       name: 'ui-state',

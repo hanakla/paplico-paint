@@ -42,7 +42,8 @@ export const setCanvasSize: {
 export const clearCanvas = (
   cx: CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D,
 ) => {
-  cx.clearRect(0, 0, cx.canvas.width, cx.canvas.height)
+  cx.canvas.width += 0.1
+  // cx.clearRect(0, 0, cx.canvas.width, cx.canvas.height)
 }
 
 /** Freeing memory for Safari canvas */

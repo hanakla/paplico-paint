@@ -37,8 +37,8 @@ import { TextField } from '@/components/TextField'
 import {
   DEFAULT_BRUSH_ID,
   DEFAULT_BRUSH_VERSION,
-  usePaplico,
-  usePaplicoStore,
+  usePaplicoInstance,
+  useEngineStore,
 } from '@/domains/paplico'
 import {
   Alpha,
@@ -67,6 +67,9 @@ import { storePicker } from '@/utils/zutrand'
 import { create } from 'zustand'
 import { Skeleton } from '@/components/Skeleton'
 import { pick } from '@/utils/object'
+import { TabPage } from '@/components/TabBar'
+import { ToolSelectPane } from './MainToolbar/ToolSelectPane'
+import { Portal } from '@/components/Portal'
 
 type Props = {
   className?: string
@@ -128,8 +131,8 @@ export const MainToolbar = memo(
     { className, x, y, onPositionChanged },
     ref,
   ) {
-    const { pap } = usePaplico()
-    const { currentStroke, strokeComposition } = usePaplicoStore((s) =>
+    const { pap } = usePaplicoInstance()
+    const { currentStroke, strokeComposition } = useEngineStore((s) =>
       pick(s.engineState, ['currentStroke', 'strokeComposition']),
     )
     const openModal = useModal()
@@ -166,16 +169,6 @@ export const MainToolbar = memo(
     const handleClickOpenMenu = useEvent(() => {
       console.log('open')
       toggleMenuOpened(true)
-    })
-
-    const handleClickTool = useEvent((e: MouseEvent<HTMLElement>) => {
-      const type = e.currentTarget.dataset.type!
-
-      if (type === 'brush') {
-        pap?.setStrokeCompositionMode('normal')
-      } else if (type === 'eraser') {
-        pap?.setStrokeCompositionMode('erase')
-      }
     })
 
     const handleClickNewDocument = useEvent(async () => {
@@ -228,8 +221,7 @@ export const MainToolbar = memo(
           [x, y],
         )}
         aria-label="Formatting options"
-        className={className}
-      >
+        className={className}>
         <span role="none" css={s.drag} {...bindDrag()}>
           <DragHandleDots2Icon width={28} height={28} />
         </span>
@@ -240,8 +232,7 @@ export const MainToolbar = memo(
         <ActionSheet
           opened={menuOpened}
           fill={false}
-          onClose={() => toggleMenuOpened(false)}
-        >
+          onClose={() => toggleMenuOpened(false)}>
           <ActionSheetItemGroup>
             <ActionSheetItem onClick={handleClickNewDocument}>
               New paper
@@ -264,23 +255,8 @@ export const MainToolbar = memo(
               )}
             </div>
           }
-          side="top"
-        >
-          <ul
-            css={css`
-              padding: 2px 0;
-            `}
-          >
-            <ToolItem onClick={handleClickTool} data-type="brush">
-              <BsBrushFill css={s.toolIcon} size={28} />
-              Brush
-            </ToolItem>
-
-            <ToolItem onClick={handleClickTool} data-type="eraser">
-              <BsEraserFill css={s.toolIcon} size={28} />
-              Eraser
-            </ToolItem>
-          </ul>
+          side="top">
+          <ToolSelectPane />
         </Popover>
 
         <Popover
@@ -300,8 +276,7 @@ export const MainToolbar = memo(
             ),
             [toolbarStore.strokeColorString],
           )}
-          side="top"
-        >
+          side="top">
           <FillSettingPane />
         </Popover>
 
@@ -313,8 +288,7 @@ export const MainToolbar = memo(
               <TbDroplet size={30} />
             </div>
           }
-          side="top"
-        >
+          side="top">
           <div>Inks</div>
         </Popover>
 
@@ -324,8 +298,7 @@ export const MainToolbar = memo(
               <RxLayers size={32} />
             </div>
           }
-          side="top"
-        >
+          side="top">
           <LayersPane size="lg" />
         </Popover>
       </Toolbar.Root>
@@ -335,7 +308,7 @@ export const MainToolbar = memo(
 
 const StrokeColorPopoverTrigger = memo(
   function StrokeColorPopoverTrigger({}: {}) {
-    const { pap } = usePaplico()
+    const { pap } = usePaplicoInstance()
     const { strokeColorHSB, strokeColorString, set } = useToolbarStore(
       storePicker(['strokeColorHSB', 'strokeColorString', 'set']),
     )
@@ -368,15 +341,13 @@ const StrokeColorPopoverTrigger = memo(
           ),
           [strokeColorString],
         )}
-        side="top"
-      >
+        side="top">
         <div
           css={css`
             display: flex;
             flex-flow: column;
             gap: 8px;
-          `}
-        >
+          `}>
           <SatAndBright
             css={css`
               width: 100%;
@@ -390,8 +361,7 @@ const StrokeColorPopoverTrigger = memo(
             label="Hue"
             valueField={
               <TextField size="1" value={Math.round(strokeColorHSB.h)} />
-            }
-          >
+            }>
             <Hue
               color={strokeColorHSB}
               onChange={handleChangeStrokeColor}
@@ -484,10 +454,6 @@ const s = {
       color: var(--violet-11);
     }
   `,
-  toolIcon: css`
-    margin-right: 8px;
-    vertical-align: bottom;
-  `,
   separator: css`
     width: 1px;
     height: 20px;
@@ -507,25 +473,6 @@ const s = {
     }
   `,
 }
-
-const ToolItem = styled.li`
-  display: flex;
-  align-items: center;
-  width: 100%;
-  padding: 8px;
-  cursor: pointer;
-  user-select: none;
-  border-radius: 4px;
-
-  &:hover {
-    color: var(--gray-1);
-    background-color: var(--teal-8);
-  }
-
-  & + & {
-    margin-top: 8px;
-  }
-`
 
 const HuePointer = styled.div.withConfig({
   shouldForwardProp: (prop) => prop !== 'color',

@@ -1,6 +1,6 @@
 import { clamp } from '.'
 
-type Interpolator = (a: number, b: number, ratio: number) => number
+type InterpolatorFunction = (a: number, b: number, ratio: number) => number
 
 export const lerp = (a: number, b: number, t: number) => {
   return a + (b - a) * t
@@ -25,16 +25,18 @@ const clampIndex = (array: any[], index: number) => {
     index
 }
 
-export const interpolateMap = (
-  numbers: number[],
-  interpolate: Interpolator = linearInterpolation,
-) => {
-  const fn = (t: number) => {
-    const pos = t * (numbers.length - 1)
-    return fn.byIndex(pos)
-  }
+type NumericSeqLerp = {
+  /** @param t 0 to 1 number */
+  atFrac: (t: number) => number
+  /** @param idx Index of array accepst floating point number */
+  atIndex: (index: number) => number
+}
 
-  fn.byIndex = (idx: number) => {
+export const createNumSequenceMap = (
+  numbers: number[],
+  interpolate: InterpolatorFunction = linearInterpolation,
+): NumericSeqLerp => {
+  const indexLerp = (idx: number) => {
     const rate = idx - Math.trunc(idx)
     const index = Math.trunc(idx)
 
@@ -45,23 +47,30 @@ export const interpolateMap = (
     return interpolate(a, b, rate)
   }
 
-  return fn
+  return {
+    atFrac: (t: number) => indexLerp(t * (numbers.length - 1)),
+    atIndex: indexLerp,
+  }
 }
 
-export const interpolateMapObject = <T>(
+export const createObjectSequenceMap = <T>(
   array: T[],
   picker: (index: number, array: T[]) => number,
-  interpolate: Interpolator = linearInterpolation,
-) => {
-  return (t: number) => {
-    const pos = t * (array.length - 1)
-    const rate = pos - Math.trunc(pos)
-    const index = Math.trunc(pos)
+  interpolate: InterpolatorFunction = linearInterpolation,
+): NumericSeqLerp => {
+  const indexLerp = (idx: number) => {
+    const rate = idx - Math.trunc(idx)
+    const index = Math.trunc(idx)
 
     const a = picker(clampIndex(array, index), array)
     const b = picker(clampIndex(array, index + 1), array)
 
     return interpolate(a, b, rate)
+  }
+
+  return {
+    atFrac: (t: number) => indexLerp(t * (array.length - 1)),
+    atIndex: indexLerp,
   }
 }
 
@@ -77,17 +86,6 @@ if (import.meta.vitest) {
         expect(clampIndex(array, 0)).toBe(0)
         expect(clampIndex(array, 1)).toBe(1)
         expect(clampIndex(array, 2)).toBe(1)
-      })
-    })
-
-    describe('interpolateMapObject', () => {
-      it('should interpolate', () => {
-        const array = [0, 1, 2]
-        const intelate = interpolateMapObject(array, (i) => i)
-
-        expect(intelate(0)).toBe(0)
-        expect(intelate(0.5)).toBe(1)
-        expect(intelate(1)).toBe(2)
       })
     })
   })

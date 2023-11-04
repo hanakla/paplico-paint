@@ -1,0 +1,44 @@
+{
+  "name": "@paplico/editor",
+  "version": "0.0.0",
+  "main": "dist/index.umd.js",
+  "module": "dist/index.mjs",
+  "types": "dist/index.d.ts",
+  "license": "MIT",
+  "exports": {
+    ".": {
+      "import": "./dist/index.mjs",
+      "types": "./dist/index.d.ts",
+      "require": "./dist/index.umd.js"
+    }
+  },
+  "scripts": {
+    "test": "vitest",
+    "dev": "vite build --watch",
+    "prepublishOnly": "yarn build",
+    "build": "vite build"
+  },
+  "devDependencies": {
+    "@rollup/plugin-typescript": "^9.0.2",
+    "@types/react": "^18.2.31",
+    "@types/react-dom": "^18.2.14",
+    "rollup-plugin-node-externals": "^6.1.2",
+    "typescript": "^5.0.4",
+    "vite": "^4.4.9",
+    "vite-plugin-dts": "^3.5.3",
+    "vite-tsconfig-paths": "^4.2.0",
+    "vitest": "^0.34.3"
+  },
+  "peerDependencies": {
+    "@paplico/core-new": "*",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0"
+  },
+  "dependencies": {
+    "@use-gesture/react": "^10.3.0",
+    "mitt": "^3.0.1",
+    "react-jss": "^10.10.0",
+    "react-use-measure": "^2.1.1",
+    "zustand": "^4.4.4"
+  }
+}

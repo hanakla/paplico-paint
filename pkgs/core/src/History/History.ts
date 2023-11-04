@@ -1,11 +1,13 @@
 import { ICommand } from './ICommand'
 import { Emitter } from '@/utils/Emitter'
-import { rescue } from '@/utils/resque'
+import { aggregateRescueErrors, rescue } from '@/utils/rescue'
 import { DocumentContext } from '@/Engine/DocumentContext/DocumentContext'
 import { AtomicResource } from '@/utils/AtomicResource'
 
 export namespace History {
   export type Events = {
+    undo: { command: ICommand }
+    redo: { command: ICommand }
     affect: { layerIds: string[] }
   }
 }
@@ -66,8 +68,18 @@ export class History extends Emitter<History.Events> {
 
     try {
       await command.undo(document)
-      rescue(() => this.emit('affect', { layerIds: command.effectedLayers }))
       this.#redoStack.push(command)
+
+      aggregateRescueErrors(
+        [
+          rescue(() =>
+            this.emit('affect', { layerIds: command.effectedLayers }),
+          ),
+          rescue(() => this.emit('undo', { command })),
+        ],
+        'Undo errors',
+        true,
+      )
     } finally {
       this.excutionLock.release(lock)
     }
@@ -81,8 +93,18 @@ export class History extends Emitter<History.Events> {
 
     try {
       await command.redo(document)
-      rescue(() => this.emit('affect', { layerIds: command.effectedLayers }))
       this.#undoStack.push(command)
+
+      aggregateRescueErrors(
+        [
+          rescue(() =>
+            this.emit('affect', { layerIds: command.effectedLayers }),
+          ),
+          rescue(() => this.emit('redo', { command })),
+        ],
+        'Redo errors',
+        true,
+      )
     } finally {
       this.excutionLock.release(lock)
     }

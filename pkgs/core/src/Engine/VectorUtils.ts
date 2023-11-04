@@ -5,7 +5,7 @@ import {
   type VectorPathPoint,
 } from '@/Document/LayerEntity/VectorPath'
 import { type Point2D } from '@/Document/Struct/Point2D'
-import { pointsToSVGCommandArray } from '@/ext-brush'
+import { vectorPathPointsToSVGDCommandArray } from '@/ext-brush'
 import { absNormalizePath } from '@/fastsvg/absNormalizePath'
 import DOMMatrix from '@thednp/dommatrix'
 import { LayerTransform } from '@/Document/LayerEntity'
@@ -43,7 +43,7 @@ export const vectorObjectTransformToMatrix = (obj: VectorObject) => {
 }
 
 export const calcVectorPathBoundingBox = (path: VectorPath) => {
-  const bbox = pathBounds(pointsToSVGCommandArray(path.points))
+  const bbox = pathBounds(vectorPathPointsToSVGDCommandArray(path.points))
   const left = bbox.left
   const top = bbox.top
   const width = Math.abs(bbox.right - bbox.left)
@@ -63,7 +63,7 @@ export const calcVectorPathBoundingBox = (path: VectorPath) => {
 }
 
 export const calcVectorBoundingBox = (obj: VectorObject) => {
-  const bbox = pathBounds(pointsToSVGCommandArray(obj.path.points))
+  const bbox = pathBounds(vectorPathPointsToSVGDCommandArray(obj.path.points))
   const left = bbox.left + obj.transform.position.x
   const top = bbox.top + obj.transform.position.y
   const width = Math.abs(bbox.right - bbox.left)

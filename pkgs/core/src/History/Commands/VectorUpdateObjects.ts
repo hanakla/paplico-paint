@@ -1,4 +1,4 @@
-import { diff, patch, unpatch, Delta } from '@paplico/jsondiffpatch'
+import { diff, patch, unpatch, Delta } from 'jsondiffpatch'
 // ^-- Do not use star imports or named imports from jsondiffpatch-rc, it will break the build.
 
 import { ICommand } from '../ICommand'
@@ -11,7 +11,7 @@ type Options = {
    * objects can no be modified by this command for performance reason.
    * use `VectorUpdateObject` instead.
    */
-  updater: (objects: { objects: VectorLayer['objects'] }) => void
+  updater: (objects: VectorLayer['objects']) => void
 }
 
 export class VectorUpdateObjects implements ICommand {
@@ -20,7 +20,7 @@ export class VectorUpdateObjects implements ICommand {
   protected layerId: string
   protected options: Options
 
-  protected changesPatch: Delta | null = null
+  protected changesPatch: Delta | undefined = undefined
 
   constructor(targetLayerId: string, options: Options) {
     this.layerId = targetLayerId
@@ -32,12 +32,12 @@ export class VectorUpdateObjects implements ICommand {
     if (!layer) throw new Error('Layer not found')
     if (layer.layerType !== 'vector') return
 
-    const original = deepClone({ objects: layer.objects })
+    const original = layer.objects
     const next = deepClone(original)
     this.options.updater(next)
 
     this.changesPatch = diff(original, next)
-    patch(layer, this.changesPatch!)
+    patch(layer.objects, this.changesPatch!)
 
     document.invalidateLayerBitmapCache(this.layerId)
     // document.invalidateVectorObjectCache()

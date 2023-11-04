@@ -1,8 +1,5 @@
-import {
-  createCanvas,
-  createImageBitmapImpl,
-  createImageData,
-} from '@/Engine/CanvasFactory'
+import { createImageBitmapImpl, createImageData } from '@/Engine/CanvasFactory'
+import { Canvas2DAllocator } from '@/Engine/Canvas2DAllocator'
 import { freeingCanvas, setCanvasSize } from '@/utils/canvas'
 import { unreachable } from '@/utils/unreachable'
 
@@ -42,8 +39,15 @@ export const resize = async (
           createImageData(data, opt.width, opt.height),
         )
 
-  const canv = bufferCanvas ?? createCanvas()
-  setCanvasSize(canv, opt.toWidth, opt.toHeight)
+  let borrowed: CanvasRenderingContext2D | null = null
+  const canv =
+    bufferCanvas ??
+    (borrowed = Canvas2DAllocator.borrow({
+      width: opt.toWidth,
+      height: opt.toHeight,
+    })).canvas
+
+  if (bufferCanvas) setCanvasSize(canv, opt.toWidth, opt.toHeight)
 
   const ctx = canv.getContext('2d')!
 
@@ -58,6 +62,7 @@ export const resize = async (
   const reuslt = ctx.getImageData(0, 0, opt.toWidth, opt.toHeight)
 
   freeingCanvas(canv)
+  Canvas2DAllocator.release(borrowed)
   return reuslt
 }
 

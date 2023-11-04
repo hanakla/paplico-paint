@@ -17,7 +17,7 @@ export class UICanvas extends Emitter<Events> {
 
   #enabled = true
 
-  constructor(public canvas: HTMLCanvasElement) {
+  constructor(public readonly canvas: HTMLCanvasElement) {
     super()
     this.ctx = canvas.getContext('2d')! // settle to 2d context
 
@@ -118,6 +118,7 @@ export class UICanvas extends Emitter<Events> {
   protected handleMouseDown(e: PointerEvent) {
     if (e.buttons === 0) return
 
+    this.canvas.setPointerCapture(e.pointerId)
     this.startStroke(this.getPointsFromCoalescedEvent(e))
   }
 
@@ -128,6 +129,7 @@ export class UICanvas extends Emitter<Events> {
   }
 
   protected handleMouseUp(e: PointerEvent) {
+    this.canvas.releasePointerCapture(e.pointerId)
     this.finishStroke()
   }
 

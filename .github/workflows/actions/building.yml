@@ -1,0 +1,19 @@
+name: Building
+description: Build all packages
+
+steps:
+  - name: Build (core)
+    working-directory: ./pkgs/core
+    run: yarn build
+
+  - name: Build (editor)
+    working-directory: ./pkgs/editor
+    run: yarn build
+
+  - name: Build (chat)
+    working-directory: ./pkgs/editor
+    run: yarn build
+
+  - name: Build (web)
+    working-directory: ./pkgs/web
+    run: yarn build

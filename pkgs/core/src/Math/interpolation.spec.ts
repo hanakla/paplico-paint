@@ -1,32 +1,47 @@
-import { interpolateMap, mapLinear } from './interpolation'
+import {
+  createNumSequenceMap,
+  createObjectSequenceMap,
+  mapLinear,
+} from './interpolation'
 
-describe('interpolateMap', () => {
+describe('createNumbersInterpolationMap', () => {
   it('should interpolate', () => {
-    const map = interpolateMap([0, 1, 2])
+    const seqlerp = createNumSequenceMap([0, 1, 2])
 
-    expect(map(0)).toBe(0)
-    expect(map(0.25)).toBe(0.5)
-    expect(map(0.5)).toBe(1)
-    expect(map(1)).toBe(2)
+    expect(seqlerp.atFrac(0)).toBe(0)
+    expect(seqlerp.atFrac(0.25)).toBe(0.5)
+    expect(seqlerp.atFrac(0.5)).toBe(1)
+    expect(seqlerp.atFrac(1)).toBe(2)
   })
 
   it('with t', () => {
-    const map = interpolateMap([0, 1, 2])
+    const seqlerp = createNumSequenceMap([0, 1, 2])
 
-    expect(map(0)).toBe(0)
-    expect(map(0.25)).toBe(0.5)
-    expect(map(0.5)).toBe(1)
-    expect(map(1)).toBe(2)
+    expect(seqlerp.atFrac(0)).toBe(0)
+    expect(seqlerp.atFrac(0.25)).toBe(0.5)
+    expect(seqlerp.atFrac(0.5)).toBe(1)
+    expect(seqlerp.atFrac(1)).toBe(2)
   })
 
   it('with idx', () => {
-    const map = interpolateMap([0, 1, 2])
+    const seqlerp = createNumSequenceMap([0, 1, 2])
 
-    expect(map.byIndex(0)).toBe(0)
-    expect(map.byIndex(0.5)).toBe(0.5)
-    expect(map.byIndex(1)).toBe(1)
-    expect(map.byIndex(1.5)).toBe(1.5)
-    expect(map.byIndex(2)).toBe(2)
+    expect(seqlerp.atIndex(0)).toBe(0)
+    expect(seqlerp.atIndex(0.5)).toBe(0.5)
+    expect(seqlerp.atIndex(1)).toBe(1)
+    expect(seqlerp.atIndex(1.5)).toBe(1.5)
+    expect(seqlerp.atIndex(2)).toBe(2)
+  })
+})
+
+describe('createObjectsInterpolationMap', () => {
+  it('should interpolate', () => {
+    const array = [{ num: 0 }, { num: 1 }, { num: 2 }]
+    const objLerbMap = createObjectSequenceMap(array, (i, list) => list[i].num)
+
+    expect(objLerbMap.atFrac(0)).toBe(0)
+    expect(objLerbMap.atFrac(0.5)).toBe(1)
+    expect(objLerbMap.atFrac(1)).toBe(2)
   })
 })
 

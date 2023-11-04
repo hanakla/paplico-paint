@@ -1,0 +1,26 @@
+name: Bundle size check
+
+on: [push]
+
+permissions:
+  pull-requests: write
+
+jobs:
+  bundle-size:
+    strategy:
+      matrix:
+        os: [ubuntu-latest]
+        node-version: [20.x]
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - uses: ./actions/setup.yml
+        with:
+          node-version: ${{ matrix.node-version }}
+          os: ${{ matrix.os }}
+
+      - uses: preactjs/compressed-size-action@v2
+        with:
+          pattern: './pkgs/core/dist/*.{js,mjs}'
+          exclude: './pkgs/core/dist/*-*.{js,mjs}'

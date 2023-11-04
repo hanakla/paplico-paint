@@ -1,22 +1,10 @@
-import {
-  CompositeMode,
-  LayerEntity,
-  LayerFilter,
-  VectorObject,
-} from '@/Document'
+import { CompositeMode, LayerFilter } from '@/Document'
 import {
   clearCanvas,
   freeingCanvas,
   saveAndRestoreCanvas,
   setCanvasSize,
 } from '@/utils/canvas'
-import { rescue } from '@/utils/resque'
-import {
-  createCanvas,
-  createContext2D,
-  createImageBitmapImpl,
-  isCanvasElement,
-} from './CanvasFactory'
 import { RenderCycleLogger } from './RenderCycleLogger'
 import { VectorObjectOverrides, VectorRenderer } from './VectorRenderer'
 import { DocumentContext } from './DocumentContext/DocumentContext'
@@ -42,7 +30,7 @@ import {
 } from './Scheduler'
 import { unreachable } from '@/utils/unreachable'
 import { PaplicoError } from '@/Errors/PaplicoError'
-import { logImage } from '@/utils/DebugHelper'
+import { Canvas2DAllocator } from '@/Engine/Canvas2DAllocator'
 
 export class RenderPipeline {
   protected filterRegistry: AppearanceRegistry
@@ -105,6 +93,7 @@ export class RenderPipeline {
         layerBBoxes: Record<string, LayerMetrics.BBoxSet>
         /** Newer calcurated bboxes, not all */
         objectBBoxes: Record<string, LayerMetrics.BBoxSet>
+        stats: any
       }
     | undefined
   > {
@@ -114,233 +103,297 @@ export class RenderPipeline {
 
     // console.log(schedules)
 
-    const canvasStore = new WeakMap<CanvasToken, CanvasRenderingContext2D>()
-    const canvases: { [role: string]: CanvasRenderingContext2D | undefined } = {
-      [RenderTargets.PREDEST]: createContext2D({ willReadFrequently: true }),
-    }
+    const canvasByToken = new WeakMap<CanvasToken, CanvasRenderingContext2D>()
+    const canvasByRole: {
+      [role: string]: CanvasRenderingContext2D | undefined
+    } = {}
+    let borrowedCanvases = new Set()
+
+    const tmpVectorOutCx = Canvas2DAllocator.borrow({
+      width: viewport.width,
+      height: viewport.height,
+      willReadFrequently: true,
+    })
+    borrowedCanvases.add(tmpVectorOutCx)
+
     let usedCanvasCount = 1
     let dynamicCanvasCount = 0
-
-    const predest = canvases[RenderTargets.PREDEST]!
-    setCanvasSize(predest.canvas, viewport)
-
-    const tmpVectorOutCx = createContext2D({ willReadFrequently: true })
-    setCanvasSize(tmpVectorOutCx.canvas, viewport)
+    let clearCount = 0
+    let draws = 0
 
     const layerMetrics: Record<string, LayerMetrics.BBoxSet> = {}
     const objectMetrics: Record<string, LayerMetrics.BBoxSet> = {}
 
-    for (const task of schedules) {
-      const { command } = task
+    try {
+      canvasByRole[RenderTargets.PREDEST] = Canvas2DAllocator.borrow({
+        width: viewport.width,
+        height: viewport.height,
+      })
+      borrowedCanvases.add(canvasByRole[RenderTargets.PREDEST]!)
 
-      switch (command) {
-        case RenderCommands.DRAW_SOURCE_TO_DEST: {
-          const { source, renderTarget, compositeMode, opacity, clearTarget } =
-            task
-          if (renderTarget === RenderTargets.NONE) break
+      const predest = canvasByRole[RenderTargets.PREDEST]!
 
-          const sourceImage = await getSource(source)
-          const targetCanvas = getRenderTarget(renderTarget)
+      for (const task of schedules) {
+        const { command } = task
 
-          if (!sourceImage || sourceImage === 'NONE') {
-            throw new PaplicoError(`Invalid source: ${source}`)
+        switch (command) {
+          case RenderCommands.DRAW_SOURCE_TO_DEST: {
+            const {
+              source,
+              renderTarget,
+              compositeMode,
+              opacity,
+              clearTarget,
+            } = task
+            if (renderTarget === RenderTargets.NONE) break
+
+            const sourceImage = await getSource(source)
+            const targetCanvas = getRenderTarget(renderTarget, {
+              width: viewport.width,
+              height: viewport.height,
+            })
+
+            if (!sourceImage || sourceImage === 'NONE') {
+              throw new PaplicoError(`Invalid source: ${source}`)
+            }
+
+            if (targetCanvas === 'NONE') break
+            if (!targetCanvas) {
+              throw new PaplicoError(`Invalid render target: ${renderTarget}`)
+            }
+
+            draws++
+
+            saveAndRestoreCanvas(targetCanvas.x, (cx) => {
+              cx.globalCompositeOperation =
+                layerCompositeModeToCanvasCompositeMode(compositeMode)
+
+              cx.globalAlpha = opacity
+              setCanvasSize(cx.canvas, sourceImage.width, sourceImage.height)
+
+              if (clearTarget) clearCanvas(cx)
+
+              cx.drawImage(sourceImage.image, 0, 0)
+            })
+
+            break
           }
 
-          if (targetCanvas === 'NONE') break
-          if (!targetCanvas) {
-            throw new PaplicoError(`Invalid render target: ${renderTarget}`)
+          case RenderCommands.PRERENDER_SOURCE: {
+            const { source } = task
+            getSource(source)
+            break
           }
 
-          saveAndRestoreCanvas(targetCanvas.x, (cx) => {
-            cx.globalCompositeOperation =
-              layerCompositeModeToCanvasCompositeMode(compositeMode)
+          case RenderCommands.APPLY_LAYER_FILTER: {
+            const { source, renderTarget, filter, clearTarget } = task
 
-            cx.globalAlpha = opacity
-            setCanvasSize(cx.canvas, sourceImage.width, sourceImage.height)
+            const sourceImage = await getSource(source)
+            const targetCanvas = getRenderTarget(renderTarget, {
+              width: viewport.width,
+              height: viewport.height,
+            })
 
-            if (clearTarget) clearCanvas(cx)
+            if (!sourceImage || sourceImage === 'NONE') {
+              throw new PaplicoError(`Invalid source: ${source}`)
+            }
 
-            cx.drawImage(sourceImage.image, 0, 0)
-          })
+            if (!targetCanvas || targetCanvas === 'NONE') {
+              throw new PaplicoError(`Invalid render target: ${renderTarget}`)
+            }
 
-          break
-        }
+            if (clearTarget) clearCanvas(targetCanvas.x)
 
-        case RenderCommands.PRERENDER_SOURCE: {
-          const { source } = task
-          getSource(source)
-          break
-        }
-
-        case RenderCommands.APPLY_LAYER_FILTER: {
-          const { source, renderTarget, filter, clearTarget } = task
-
-          const sourceImage = await getSource(source)
-          const targetCanvas = getRenderTarget(renderTarget)
-
-          if (!sourceImage || sourceImage === 'NONE') {
-            throw new PaplicoError(`Invalid source: ${source}`)
-          }
-
-          if (!targetCanvas || targetCanvas === 'NONE') {
-            throw new PaplicoError(`Invalid render target: ${renderTarget}`)
-          }
-
-          if (clearTarget) clearCanvas(targetCanvas.x)
-
-          await this.applyFilter(sourceImage.image, targetCanvas.x, filter, {
-            abort,
-            phase,
-            pixelRatio,
-            viewport,
-            logger,
-          })
-
-          break
-        }
-
-        case RenderCommands.APPLY_INTERNAL_OBJECT_FILTER: {
-          const { renderTarget, layerUid, filter, clearTarget } = task
-          let { object } = task
-
-          const targetCanvas = getRenderTarget(renderTarget)
-
-          if (!targetCanvas || targetCanvas === 'NONE') {
-            throw new PaplicoError(`Invalid render target: ${renderTarget}`)
-          }
-
-          if (clearTarget) clearCanvas(targetCanvas.x)
-
-          // Process overrides
-          object =
-            vectorObjectOverrides?.[layerUid]?.[object.uid]?.(
-              deepClone(object),
-            ) ?? object
-
-          if (filter.kind === 'fill') {
-            await renderer.renderFill(
-              targetCanvas.x,
-              object.path,
-              filter.fill,
-              {
-                transform: object.transform,
-                phase,
-                pixelRatio,
-                abort,
-                logger,
-              },
-            )
-          } else if (filter.kind === 'stroke') {
-            await renderer.renderStroke(
-              targetCanvas.x.canvas,
-              object.path,
-              filter.stroke,
-              {
-                transform: object.transform,
-                inkSetting: filter.ink,
-                phase,
-                pixelRatio,
-                abort,
-                logger,
-              },
-            )
-          } else {
-            unreachable(filter)
-          }
-
-          break
-        }
-
-        case RenderCommands.APPLY_EXTERNAL_OBJECT_FILTER: {
-          const { source, renderTarget, layerUid, objectUid, filter } = task
-
-          const sourceImage = await getSource(source)
-          const targetCanvas = getRenderTarget(renderTarget)
-
-          if (!sourceImage || sourceImage === 'NONE') {
-            throw new PaplicoError(`Invalid source: ${source}`)
-          }
-
-          if (!targetCanvas || targetCanvas === 'NONE') {
-            throw new PaplicoError(`Invalid render target: ${renderTarget}`)
-          }
-
-          await this.applyFilter(
-            sourceImage.image,
-            targetCanvas.x,
-            filter.processor,
-            {
+            await this.applyFilter(sourceImage.image, targetCanvas.x, filter, {
               abort,
               phase,
               pixelRatio,
               viewport,
               logger,
-            },
-          )
+            })
 
-          break
-        }
-
-        case RenderCommands.CLEAR_TARGET: {
-          const { renderTarget } = task
-          const target = getRenderTarget(renderTarget)
-          if (!target || target === 'NONE') break
-          clearCanvas(target.x)
-          break
-        }
-
-        case RenderCommands.FREE_TARGET: {
-          const { renderTarget } = task
-          if (
-            typeof renderTarget !== 'string' &&
-            '__canvasToken' in renderTarget
-          ) {
-            const cx = canvasStore.get(renderTarget)
-            if (cx) {
-              freeingCanvas(cx.canvas)
-              canvasStore.delete(renderTarget)
-            }
-          } else {
-            throw new PaplicoError(
-              `Non freeable  render target: ${renderTarget}`,
-            )
+            break
           }
 
-          break
+          case RenderCommands.APPLY_INTERNAL_OBJECT_FILTER: {
+            const { renderTarget, layerUid, filter, clearTarget } = task
+            let { object } = task
+
+            const targetCanvas = getRenderTarget(renderTarget, {
+              width: viewport.width,
+              height: viewport.height,
+            })
+
+            if (!targetCanvas || targetCanvas === 'NONE') {
+              throw new PaplicoError(`Invalid render target: ${renderTarget}`)
+            }
+
+            if (clearTarget) clearCanvas(targetCanvas.x)
+
+            // Process overrides
+            object =
+              vectorObjectOverrides?.[layerUid]?.[object.uid]?.(
+                deepClone(object),
+              ) ?? object
+
+            if (filter.kind === 'fill') {
+              await renderer.renderFill(
+                targetCanvas.x,
+                object.path,
+                filter.fill,
+                {
+                  transform: object.transform,
+                  phase,
+                  pixelRatio,
+                  abort,
+                  logger,
+                },
+              )
+            } else if (filter.kind === 'stroke') {
+              await renderer.renderStroke(
+                targetCanvas.x.canvas,
+                object.path,
+                filter.stroke,
+                {
+                  transform: object.transform,
+                  inkSetting: filter.ink,
+                  phase,
+                  pixelRatio,
+                  abort,
+                  logger,
+                },
+              )
+            } else {
+              unreachable(filter)
+            }
+
+            break
+          }
+
+          case RenderCommands.APPLY_EXTERNAL_OBJECT_FILTER: {
+            const { source, renderTarget, layerUid, objectUid, filter } = task
+
+            const sourceImage = await getSource(source)
+            const targetCanvas = getRenderTarget(renderTarget, {
+              width: viewport.width,
+              height: viewport.height,
+            })
+
+            if (!sourceImage || sourceImage === 'NONE') {
+              throw new PaplicoError(`Invalid source: ${source}`)
+            }
+
+            if (!targetCanvas || targetCanvas === 'NONE') {
+              throw new PaplicoError(`Invalid render target: ${renderTarget}`)
+            }
+
+            await this.applyFilter(
+              sourceImage.image,
+              targetCanvas.x,
+              filter.processor,
+              {
+                abort,
+                phase,
+                pixelRatio,
+                viewport,
+                logger,
+              },
+            )
+
+            break
+          }
+
+          case RenderCommands.CLEAR_TARGET: {
+            const { renderTarget } = task
+            const target = getRenderTarget(renderTarget, null)
+            if (!target || target === 'NONE') break
+            clearCanvas(target.x)
+            clearCount++
+            break
+          }
+
+          case RenderCommands.FREE_TARGET: {
+            const { renderTarget } = task
+            if (
+              typeof renderTarget !== 'string' &&
+              '__canvasToken' in renderTarget
+            ) {
+              const cx = canvasByToken.get(renderTarget)
+              if (cx) {
+                freeingCanvas(cx.canvas)
+                canvasByToken.delete(renderTarget)
+                Canvas2DAllocator.release(cx)
+              }
+            } else {
+              throw new PaplicoError(
+                `Non freeable  render target: ${renderTarget}`,
+              )
+            }
+
+            break
+          }
         }
       }
-    }
 
-    clearCanvas(dest)
-    dest.drawImage(predest.canvas, 0, 0)
+      clearCanvas(dest)
+      clearCount++
+      dest.drawImage(predest.canvas, 0, 0)
 
-    return {
-      layerBBoxes: layerMetrics,
-      objectBBoxes: objectMetrics,
-      stats: {
-        usedCanvasCount,
-        dynamicCanvasCount,
-      },
+      // console.log({
+      //   layerBBoxes: layerMetrics,
+      //   objectBBoxes: objectMetrics,
+      //   stats: {
+      //     usedCanvasCount,
+      //     dynamicCanvasCount,
+      //     clearCount,
+      //     schedules,
+      //     draws,
+      //   },
+      // })
+
+      return {
+        layerBBoxes: layerMetrics,
+        objectBBoxes: objectMetrics,
+        stats: {
+          usedCanvasCount,
+          dynamicCanvasCount,
+          clearCount,
+          draws,
+        },
+      }
+    } finally {
+      borrowedCanvases.forEach((cx) => Canvas2DAllocator.release(cx))
     }
 
     // getter functions
 
-    function getRenderTarget(target: RenderTargets) {
-      const getOrCreate = (
+    function getRenderTarget(
+      target: RenderTargets,
+      size: { width: number; height: number } | null,
+    ) {
+      function getOrCreate(
         role: string,
+        size: { width: number; height: number } | null,
         options?: CanvasRenderingContext2DSettings,
-      ) => {
-        if (canvases[role]) return canvases[role]!
+      ) {
+        if (canvasByRole[role]) return canvasByRole[role]!
+        if (!size && !canvasByRole[role]) {
+          throw new PaplicoError(
+            'fullyRenderWithScheduler: inviolate state. trying uninitialized canvas without size',
+          )
+        }
 
         usedCanvasCount++
-        canvases[role] = createContext2D(options)
-        setCanvasSize(canvases[role]!.canvas, viewport)
-        return canvases[role]!
+        canvasByRole[role] = Canvas2DAllocator.borrow({ ...size!, ...options })
+        borrowedCanvases.add(canvasByRole[role]!)
+        // .setCanvasSize(canvases[role]!.canvas, viewport)
+        clearCount++
+        return canvasByRole[role]!
       }
 
       switch (target) {
         case RenderTargets.PREDEST: {
-          const predest = getOrCreate(RenderTargets.PREDEST)
+          const predest = getOrCreate(RenderTargets.PREDEST, size)
 
           return {
             x: predest,
@@ -352,6 +405,7 @@ export class RenderPipeline {
         case RenderTargets.VECTOR_OBJECT_PRE_FILTER: {
           const vectorPreFilter = getOrCreate(
             RenderTargets.VECTOR_OBJECT_PRE_FILTER,
+            size,
           )
           return {
             x: vectorPreFilter,
@@ -361,7 +415,10 @@ export class RenderPipeline {
           }
         }
         case RenderTargets.SHARED_FILTER_BUF: {
-          const sharedFilterBuf = getOrCreate(RenderTargets.SHARED_FILTER_BUF)
+          const sharedFilterBuf = getOrCreate(
+            RenderTargets.SHARED_FILTER_BUF,
+            size,
+          )
           return {
             x: sharedFilterBuf,
             image: sharedFilterBuf.canvas,
@@ -375,6 +432,7 @@ export class RenderPipeline {
         case RenderTargets.VECTOR_OBJECT_PRE_FILTER: {
           const vectorPreFilter = getOrCreate(
             RenderTargets.VECTOR_OBJECT_PRE_FILTER,
+            size,
           )
           return {
             x: vectorPreFilter,
@@ -384,7 +442,7 @@ export class RenderPipeline {
           }
         }
         case RenderTargets.LAYER_PRE_FILTER: {
-          const preFilterCx = getOrCreate(RenderTargets.LAYER_PRE_FILTER)
+          const preFilterCx = getOrCreate(RenderTargets.LAYER_PRE_FILTER, size)
           return {
             x: preFilterCx,
             image: preFilterCx.canvas,
@@ -399,15 +457,15 @@ export class RenderPipeline {
           if (!('__canvasToken' in target)) return unreachable(target)
 
           const token = target
-          let cx = canvasStore.get(token)
+          let cx = canvasByToken.get(token)
 
           if (!cx) {
             usedCanvasCount++
             dynamicCanvasCount++
-            cx = createContext2D()
+            cx = Canvas2DAllocator.borrow(size!)
           }
 
-          canvasStore.set(token, createContext2D())
+          canvasByToken.set(token, cx)
 
           return {
             x: cx,
@@ -430,7 +488,7 @@ export class RenderPipeline {
         }
     > {
       if (typeof source === 'string' || '__canvasToken' in source) {
-        return getRenderTarget(source)
+        return getRenderTarget(source, null)
       } else if ('bitmap' in source) {
         return {
           image: source.bitmap,
@@ -505,9 +563,13 @@ export class RenderPipeline {
 
           if (hasOverrideForThisLayer) {
             // For perfomance, avoid getImageData when using override
-            const overrided = createContext2D()
-            setCanvasSize(overrided.canvas, viewport)
+            const overrided = Canvas2DAllocator.borrow({
+              width: viewport.width,
+              height: viewport.height,
+            })
+            clearCount++
             overrided.drawImage(tmpVectorOutCx.canvas, 0, 0)
+            Canvas2DAllocator.release(overrided)
 
             layerBitmap = overrided.canvas
           } else {
@@ -572,7 +634,7 @@ export class RenderPipeline {
         // FIXME: Return bboxes
         await instance.applyRasterFilter?.(input, outcx, {
           abort: abort ?? new AbortController().signal,
-          abortIfNeeded: () => {
+          throwIfAborted: () => {
             if (abort?.aborted) throw new PaplicoAbortError()
           },
 

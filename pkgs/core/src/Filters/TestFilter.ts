@@ -14,7 +14,7 @@ export const TestFilter = createFilter(
       name: 'Test Filter',
     }
 
-    public static getInitialConfig(): TestFilter.Options {
+    public static getInitialSetting(): TestFilter.Options {
       return {
         color: '#0000FF',
       }

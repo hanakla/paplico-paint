@@ -15,22 +15,22 @@ export const TabRoot = memo(function TabRoot({
 
 export const TabList = memo(function TabList({
   children,
+  className,
 }: {
   children: ReactNode
+  className?: string
 }) {
-  return (
-    <Tabs.List className="TabsList" aria-label="Manage your account">
-      {children}
-    </Tabs.List>
-  )
+  return <Tabs.List className={className}>{children}</Tabs.List>
 })
 
 export const Tab = memo(function Tab({
   children,
   pageId,
+  className,
 }: {
   children: ReactNode
   pageId: string
+  className?: string
 }) {
   return (
     <Tabs.Trigger
@@ -53,6 +53,7 @@ export const Tab = memo(function Tab({
         }
       `}
       value={pageId}
+      className={className}
     >
       {children}
     </Tabs.Trigger>
@@ -74,3 +75,10 @@ export const TabContent = memo(function TabContent({
     </Tabs.Content>
   )
 })
+
+export const TabPage = {
+  Root: TabRoot,
+  List: TabList,
+  Tab,
+  Content: TabContent,
+}

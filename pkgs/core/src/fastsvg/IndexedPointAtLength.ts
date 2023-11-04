@@ -69,6 +69,7 @@ export class IndexedPointAtLength {
 
   constructor(path: string | Array<SVGDCommand>) {
     this._path = absNormalizePath(path)
+    // process.env.NODE_ENV !== 'test' && console.log(this._path)
     const warm = this._walk(null, { warm: true })
     this._length = warm[0].length
   }

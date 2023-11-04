@@ -12,8 +12,6 @@ export const scatterBrushTexts = tx({
   en: {
     texture: 'Texture',
     texturePlaceholder: 'Select texture',
-    'textures.pencil': 'Pencil',
-    'textures.airBrush': 'Air Brush',
     scatter: 'Scatter',
     inOut: 'Strength of In / Out',
     inOutLength: 'Length of In / Out ',
@@ -22,8 +20,6 @@ export const scatterBrushTexts = tx({
   ja: {
     texture: 'テクスチャ',
     texturePlaceholder: 'テクスチャを選ぶ',
-    'textures.pencil': '鉛筆',
-    'textures.airBrush': 'エアブラシ',
     scatter: '散布の広さ',
     inOut: '入り抜きの強さ',
     inOutLength: '入り抜きの長さ',

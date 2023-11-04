@@ -9,6 +9,14 @@ export interface Shortcuts {
     delete: string[] | null
     selectAll: string[] | null
     unselectAll: string[] | null
+
+    brushTool: string[] | null
+
+    // vector
+    vectorShapeRectTool: string[] | null
+    vectorEllipseTool: string[] | null
+    vectorObjectTool: string[] | null
+    vectorPointTool: string[] | null
   }
 }
 
@@ -27,6 +35,14 @@ export const DEFAULT_SHORTCUTS: Shortcuts = {
     delete: ['backspace', 'delete'],
     selectAll: ['command+a', 'ctrl+a'],
     unselectAll: ['command+shift+a', 'ctrl+shift+a'],
+
+    brushTool: ['b'],
+
+    // vector
+    vectorShapeRectTool: ['m'],
+    vectorEllipseTool: ['l'],
+    vectorObjectTool: ['v'],
+    vectorPointTool: ['a'],
   } satisfies Shortcuts['global'],
 }
 

@@ -1,16 +1,18 @@
-import { usePaplico, usePaplicoStore } from '@/domains/paplico'
+import { usePaplicoInstance, useEngineStore } from '@/domains/paplico'
 import { useEditorStore } from '@/domains/uiState'
 import { useGlobalMousetrap } from '@/utils/hooks'
-import { memo } from 'react'
+import { memo, use } from 'react'
 
 import msgpack from 'msgpack5'
 import { letDownload } from '@hanakla/arma'
 import { Commands } from '@paplico/core-new'
 import { storePicker } from '@/utils/zutrand'
+import { RasterToolModes, VectorToolModes } from '@paplico/editor'
 
 export const GlobalShortcutHandler = memo(function GlobalShortcutHandler() {
-  const { pap, editorHandle } = usePaplico()
-  const papStore = usePaplicoStore(storePicker(['activeLayerEntity']))
+  const { pap, editorHandle } = usePaplicoInstance()
+  const papStore = useEngineStore(storePicker(['activeLayerEntity']))
+
   const { fileHandlers, setFileHandlerForDocument, getShortcuts } =
     useEditorStore()
 
@@ -75,11 +77,7 @@ export const GlobalShortcutHandler = memo(function GlobalShortcutHandler() {
   })
 
   useGlobalMousetrap(shortcuts.global.selectAll, () => {
-    console.log('hi')
-
     if (papStore.activeLayerEntity?.layerType !== 'vector') return
-
-    console.log('hi2')
 
     editorHandle?.setSelectedObjectIds(
       papStore.activeLayerEntity.objects.map((object) => object.uid),
@@ -88,6 +86,27 @@ export const GlobalShortcutHandler = memo(function GlobalShortcutHandler() {
 
   useGlobalMousetrap(shortcuts.global.unselectAll, () => {
     editorHandle?.setSelectedObjectIds([])
+  })
+
+  useGlobalMousetrap(shortcuts.global.brushTool, () => {
+    editorHandle?.setRasterToolMode(RasterToolModes.stroking)
+    editorHandle?.setVectorToolMode(VectorToolModes.stroking)
+  })
+
+  useGlobalMousetrap(shortcuts.global.vectorShapeRectTool, () => {
+    editorHandle?.setVectorToolMode(VectorToolModes.rectangleTool)
+  })
+
+  useGlobalMousetrap(shortcuts.global.vectorEllipseTool, () => {
+    editorHandle?.setVectorToolMode(VectorToolModes.ellipseTool)
+  })
+
+  useGlobalMousetrap(shortcuts.global.vectorObjectTool, () => {
+    editorHandle?.setVectorToolMode(VectorToolModes.objectTool)
+  })
+
+  useGlobalMousetrap(shortcuts.global.vectorPointTool, () => {
+    editorHandle?.setVectorToolMode(VectorToolModes.pointTool)
   })
 
   return null

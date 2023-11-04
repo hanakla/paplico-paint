@@ -23,7 +23,7 @@ export function Portal({
     setParent(root)
 
     return () => {
-      container.removeChild(root)
+      // container.removeChild(root)
     }
   }, [])
 

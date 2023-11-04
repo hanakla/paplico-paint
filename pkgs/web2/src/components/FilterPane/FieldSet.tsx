@@ -6,7 +6,7 @@ export const FieldSet = memo(function FieldSet({
   title,
   postTitle,
   displayValue,
-  input: inputs,
+  inputs,
   style,
 }: PaneUI.PaneComponentProps.FieldSet) {
   const id = useId()
@@ -17,20 +17,17 @@ export const FieldSet = memo(function FieldSet({
         display: flex;
         padding: 2px 0;
       `}
-      style={{ display: 'flex', flexFlow: 'column', ...style }}
-    >
+      style={{ display: 'flex', flexFlow: 'column', ...style }}>
       <div
         style={{
           display: 'flex',
           alignItems: 'flex-end',
           margin: '4px 0 0 2px',
-        }}
-      >
+        }}>
         <div
           css={css`
             font-size: var(--font-size-2);
-          `}
-        >
+          `}>
           <label htmlFor={id}>{title}</label>
           {postTitle}
         </div>
@@ -43,8 +40,7 @@ export const FieldSet = memo(function FieldSet({
             }}
             role="status"
             aria-live="polite"
-            aria-label={`Current ${title} value`}
-          >
+            aria-label={`Current ${title} value`}>
             {displayValue}
           </div>
         )}

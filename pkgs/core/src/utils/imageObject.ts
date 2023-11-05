@@ -1,4 +1,8 @@
-import { createCanvas, createImageBitmapImpl } from '@/Engine/CanvasFactory'
+import {
+  createCanvas,
+  createImage,
+  createImageBitmapImpl,
+} from '@/Engine/CanvasFactory'
 import { freeingCanvas, setCanvasSize } from './canvas'
 
 export const imageBitmapToImageData = (
@@ -19,4 +23,13 @@ export const imageBitmapToImageData = (
 
 export const imageDataToImageBitmap = (imageData: ImageData) => {
   return createImageBitmapImpl(imageData)
+}
+
+export const loadImage = (src: string): Promise<HTMLImageElement> => {
+  return new Promise<HTMLImageElement>((resolve, reject) => {
+    const img = createImage()
+    img.onload = () => resolve(img)
+    img.onerror = (e) => reject(e)
+    img.src = src
+  })
 }

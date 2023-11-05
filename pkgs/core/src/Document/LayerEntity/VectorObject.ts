@@ -1,7 +1,7 @@
 import { VectorAppearance } from './VectorAppearance'
 import { VectorPath } from './VectorPath'
 import { Point2D } from '../Struct/Point2D'
-import { CompositeMode, LayerTransform } from '../LayerEntity'
+import { BlendMode, LayerTransform } from '../LayerEntity'
 
 export type VectorObject = {
   uid: string
@@ -17,7 +17,7 @@ export type VectorObject = {
 
   /** Compositing first to last (last is foreground) */
   filters: VectorAppearance[]
-  compositeMode: CompositeMode
+  blendMode: BlendMode
 
   path: VectorPath
 }

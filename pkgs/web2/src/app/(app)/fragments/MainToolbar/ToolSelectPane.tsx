@@ -12,7 +12,7 @@ import { mainToolbarTexts } from '@/locales'
 
 export const ToolSelectPane = memo(function ToolSelectPane() {
   const t = useTranslation(mainToolbarTexts)
-  const { pap, editorHandle } = usePaplicoInstance()
+  const { pplc: pap, editorHandle } = usePaplicoInstance()
   const editorStore = useEditorStore()
   const paplicoStore = useEngineStore()
 
@@ -45,7 +45,7 @@ export const ToolSelectPane = memo(function ToolSelectPane() {
   })
 
   const isVectorLayerActive =
-    paplicoStore.activeLayerEntity?.layerType === 'vector'
+    paplicoStore.strokeTargetVisually?.layerType === 'vector'
 
   return (
     <ul

@@ -68,12 +68,13 @@ export const useEditorStore: BoundedUseStore<StoreApi<EditorStore>> = <U>(
 }
 
 export const layerTypeToEditorType = (
-  layerType: Document.LayerEntity['layerType'] | undefined,
+  layerType: Document.VisuElement.AnyElement['type'] | undefined,
 ): EditorStore['editorType'] => {
   // prettier-ignore
   return (
-    layerType ==='raster' ? 'raster' :
-    layerType ==='vector' ? 'vector' :
+    layerType ==='canvas' ? 'raster' :
+    layerType ==='vectorObject' ? 'vector' :
+    // layerType ==='group' ? 'group' :
     layerType ==='text' ? 'text' :
     'none'
   )

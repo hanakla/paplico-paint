@@ -6,10 +6,15 @@ import { ICommand } from '@/History/ICommand'
 import { PreviewStore } from '@/Engine/DocumentContext/PreviewStore'
 import { Emitter } from '@/utils/Emitter'
 import { LayerMetrics } from './LayerMetrics'
-import { LayerEntity, VectorGroup, VectorObject } from '@/Document'
+import { VectorObject, VisuElement } from '@/Document'
 import { createImageBitmapImpl, createImageData } from '../CanvasFactory'
 
 export namespace DocumentContext {
+  export type VisuallyPointer = {
+    lastUpdated: number
+    source: WeakRef<VisuElement.AnyElement>
+  }
+
   export type LayoutData = {
     left: number
     top: number
@@ -18,7 +23,7 @@ export namespace DocumentContext {
   }
 
   export type ActiveLayer = {
-    layerType: LayerEntity['layerType']
+    visuType: VisuElement.AnyElement['type']
     layerUid: string
     pathToLayer: string[]
   }
@@ -42,16 +47,13 @@ export class DocumentContext extends Emitter<DocumentContext.Events> {
   public blobCaches: Map<string, WeakRef<any>> = new Map()
 
   public layerMetrics = new LayerMetrics(this)
-
-  protected layerEntities = new Map<string, RuntimeLayerEntity>()
-  protected vectorObjectEntities = new Map<string, VectorObject | VectorGroup>()
-
+  protected visuElements = new Map<string, DocumentContext.VisuallyPointer>()
   public previews: PreviewStore
 
   public updaterLock = new AtomicResource({}, 'RuntimeDocument#updateLock')
 
-  protected _activeLayer: DocumentContext.ActiveLayer | null = null
-  protected _activeLayerEntity: LayerEntity | null = null
+  protected _activeVisually: DocumentContext.ActiveLayer | null = null
+  protected _activeVisuallyEntity: VisuElement.AnyElement | null = null
 
   constructor(document: PaplicoDocument) {
     super()
@@ -66,8 +68,8 @@ export class DocumentContext extends Emitter<DocumentContext.Events> {
   }
 
   public dispose() {
-    this._activeLayer = null
-    this._activeLayerEntity = null
+    this._activeVisually = null
+    this._activeVisuallyEntity = null
 
     this.mitt.all.clear()
     this.updaterLock.clearQueue()
@@ -80,8 +82,8 @@ export class DocumentContext extends Emitter<DocumentContext.Events> {
     this.blobCaches.clear()
   }
 
-  public get rootNode() {
-    return this.document.layerTree
+  public get layerTreeRoot() {
+    return this.document.layerTreeRoot
   }
 
   public command = {
@@ -93,14 +95,14 @@ export class DocumentContext extends Emitter<DocumentContext.Events> {
   }
 
   public get activeLayer() {
-    return this._activeLayer
+    return this._activeVisually
   }
 
-  public get activeLayerEntity() {
-    return this._activeLayerEntity
+  public get activeVisuallyEntity() {
+    return this._activeVisuallyEntity
   }
 
-  public setActiveLayer(
+  public setStrokeTargetVisually(
     path: string[] | null | undefined,
     {
       __internal_skipEmit,
@@ -109,31 +111,33 @@ export class DocumentContext extends Emitter<DocumentContext.Events> {
     } = {},
   ) {
     if (!path || path.length === 0) {
-      this._activeLayer = null
-      this._activeLayerEntity = null
+      this._activeVisually = null
+      this._activeVisuallyEntity = null
       this.emit('activeLayerChanged', { current: null })
       return
     }
 
-    const target = this.document.resolveNodePath(path)
+    const target = this.document.layerNodes.getNodeAtPath(path)
     if (!target) {
-      console.warn(`Paplico.enterLayer: Layer not found: ${path.join('/')}`)
+      console.warn(
+        `Paplico.enterLayer: Layer node not found: /${path.join('/')}`,
+      )
       return
     }
 
-    const layer = this.document.resolveLayerEntity(target.layerUid)!
+    const layer = this.document.getVisuallyByUid(target.visuUid)!
 
-    this._activeLayer = {
-      layerType: layer.layerType,
-      layerUid: target!.layerUid,
+    this._activeVisually = {
+      visuType: layer.type,
+      layerUid: target!.visuUid,
       pathToLayer: path,
     }
-    this._activeLayerEntity = layer
+    this._activeVisuallyEntity = layer
 
     console.info(`Enter layer: ${path.join('/')}`)
 
     if (!__internal_skipEmit) {
-      this.emit('activeLayerChanged', { current: this._activeLayer })
+      this.emit('activeLayerChanged', { current: this._activeVisually })
     }
   }
 
@@ -141,11 +145,12 @@ export class DocumentContext extends Emitter<DocumentContext.Events> {
     return this.previews.get(layerUid)
   }
 
+  /** @deprecated */
   public resolveLayer(uid: string) {
-    let runtimeEntity = this.layerEntities.get(uid)
+    let runtimeEntity = this.visuElements.get(uid)
     if (runtimeEntity) return runtimeEntity
 
-    const layer = this.document.resolveLayerEntity(uid)
+    const layer = this.document.getVisuallyByUid(uid)
     if (!layer) return undefined
 
     runtimeEntity = {
@@ -153,7 +158,7 @@ export class DocumentContext extends Emitter<DocumentContext.Events> {
       source: new WeakRef(layer),
     }
 
-    this.layerEntities.set(uid, runtimeEntity)
+    this.visuElements.set(uid, runtimeEntity)
     return runtimeEntity
   }
 
@@ -166,13 +171,13 @@ export class DocumentContext extends Emitter<DocumentContext.Events> {
     layerUid: string,
     size: { width: number; height: number },
   ) {
-    const layer = this.document.layerEntities.find((l) => l.uid === layerUid)
+    const layer = this.document.visuElements.find((l) => l.uid === layerUid)
     if (!layer) return false
 
     const bitmap = this.layerImageCache.get(layerUid)
     if (!bitmap) return false
 
-    if (layer.layerType === 'vector') {
+    if (layer.type === 'vectorObject') {
       return bitmap.width === size.width && bitmap.height === size.height
     }
 
@@ -184,29 +189,29 @@ export class DocumentContext extends Emitter<DocumentContext.Events> {
   }
 
   public async getOrCreateLayerBitmapCache(
-    layerUid: string,
+    visUid: string,
     size?: { width: number; height: number },
   ) {
-    const layer = this.document.layerEntities.find((l) => l.uid === layerUid)
-    if (!layer) return null
+    const vis = this.document.getVisuallyByUid(visUid)
+    if (!vis) return null
 
-    const runtimeEntity = this.layerEntities.get(layerUid) ?? {
+    const runtimeEntity = this.visuElements.get(visUid) ?? {
       lastUpdated: 0,
-      source: new WeakRef(layer),
+      source: new WeakRef(vis),
     }
-    this.layerEntities.set(layerUid, runtimeEntity)
+    this.visuElements.set(visUid, runtimeEntity)
 
-    if (layer?.layerType !== 'raster' && !size) {
+    if (vis?.type !== 'canvas' && !size) {
       throw new Error(
-        'Cannot create bitmap cache without size when layer is not raster',
+        'Cannot create bitmap cache without size when layer is not CanvasVisually',
       )
     }
 
-    let bitmap = this.layerImageCache.get(layerUid)
+    let bitmap = this.layerImageCache.get(visUid)
 
     // if different size needed in vector layer, dispose current cache
     if (
-      layer.layerType === 'vector' &&
+      vis.type === 'vectorObject' &&
       (bitmap?.width !== size?.width || bitmap?.height !== size?.height)
     ) {
       bitmap?.close()
@@ -215,34 +220,34 @@ export class DocumentContext extends Emitter<DocumentContext.Events> {
 
     if (bitmap) return bitmap
 
-    if (layer.layerType === 'raster') {
+    if (vis.type === 'canvas') {
       bitmap = await createImageBitmapImpl(
-        layer.bitmap
-          ? createImageData(layer.bitmap, layer.width, layer.height)
-          : createImageData(layer.width, layer.height),
+        vis.bitmap
+          ? createImageData(vis.bitmap, vis.width, vis.height)
+          : createImageData(vis.width, vis.height),
       )
 
       runtimeEntity.lastUpdated = Date.now()
 
-      this.layerImageCache.set(layerUid, bitmap)
-      await this.previews.generateAndSet(layerUid, bitmap)
-    } else if (layer.layerType === 'vector') {
+      this.layerImageCache.set(visUid, bitmap)
+      await this.previews.generateAndSet(visUid, bitmap)
+    } else if (vis.type === 'vectorObject') {
       bitmap = await createImageBitmapImpl(
         createImageData(size!.width, size!.height),
       )
 
       runtimeEntity.lastUpdated = Date.now()
 
-      this.layerEntities.set(layerUid, runtimeEntity)
-      this.layerImageCache.set(layerUid, bitmap)
-      await this.previews.generateAndSet(layerUid, bitmap)
+      this.visuElements.set(visUid, runtimeEntity)
+      this.layerImageCache.set(visUid, bitmap)
+      await this.previews.generateAndSet(visUid, bitmap)
     }
 
     return bitmap
   }
 
-  public invalidateLayerBitmapCache(layerUid: string) {
-    this.layerImageCache.delete(layerUid)
+  public invalidateLayerBitmapCache(visuUid: string) {
+    this.layerImageCache.delete(visuUid)
   }
 
   public invalidateAllLayerBitmapCache() {
@@ -257,21 +262,26 @@ export class DocumentContext extends Emitter<DocumentContext.Events> {
   // public getLayerImageBitmap(layerUid: string) {}
 
   public async updateOrCreateLayerBitmapCache(
-    layerUid: string,
+    visuallyUid: string,
     newBitmap: ImageData,
   ) {
-    const layer = this.document.layerEntities.find((l) => l.uid === layerUid)
-
-    const bitmap = this.layerImageCache.get(layerUid)
+    const visually = this.document.getVisuallyByUid(visuallyUid)
+    const bitmap = this.layerImageCache.get(visuallyUid)
     bitmap?.close()
 
-    if (layer?.layerType === 'raster') {
-      layer.bitmap = newBitmap.data
+    if (visually?.type !== 'group') {
+      console.warn(
+        'Primitive Visually usign bitmap cache it performs bad memory usage',
+      )
+    }
+
+    if (visually?.type === 'canvas') {
+      visually.bitmap = newBitmap.data
     }
 
     const nextBitmap = await createImageBitmapImpl(newBitmap)
-    this.layerImageCache.set(layerUid, nextBitmap)
-    this.previews.generateAndSet(layerUid, nextBitmap)
+    this.layerImageCache.set(visuallyUid, nextBitmap)
+    this.previews.generateAndSet(visuallyUid, nextBitmap)
 
     return nextBitmap
   }
@@ -305,7 +315,7 @@ export class DocumentContext extends Emitter<DocumentContext.Events> {
   }
 
   public getLayerMetrics(layerUid: string) {
-    const layer = this.document.layerEntities.find((l) => l.uid === layerUid)
+    const layer = this.document.visuElements.find((l) => l.uid === layerUid)
     if (!layer) return
 
     return this.layerMetrics.get(layer?.uid)

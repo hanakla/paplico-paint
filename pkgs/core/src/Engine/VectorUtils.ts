@@ -1,5 +1,5 @@
 import { pathBounds } from '@/fastsvg/pathBounds'
-import { type VectorObject } from '@/Document'
+import { VisuElement, type VectorObject } from '@/Document'
 import {
   VectorPath,
   type VectorPathPoint,
@@ -62,7 +62,7 @@ export const calcVectorPathBoundingBox = (path: VectorPath) => {
   }
 }
 
-export const calcVectorBoundingBox = (obj: VectorObject) => {
+export const calcVectorBoundingBox = (obj: VisuElement.VectorObjectElement) => {
   const bbox = pathBounds(vectorPathPointsToSVGDCommandArray(obj.path.points))
   const left = bbox.left + obj.transform.position.x
   const top = bbox.top + obj.transform.position.y

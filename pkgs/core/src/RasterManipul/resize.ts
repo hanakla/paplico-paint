@@ -62,7 +62,7 @@ export const resize = async (
   const reuslt = ctx.getImageData(0, 0, opt.toWidth, opt.toHeight)
 
   freeingCanvas(canv)
-  Canvas2DAllocator.release(borrowed)
+  Canvas2DAllocator.return(borrowed)
   return reuslt
 }
 

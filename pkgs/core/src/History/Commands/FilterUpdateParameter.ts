@@ -1,6 +1,6 @@
 import { Delta, diff, unpatch } from 'jsondiffpatch'
 import { ICommand } from '../ICommand'
-import { RuntimeDocument } from '@/Engine'
+import { DocumentContext } from '@/Engine'
 import { deepClone } from '@/utils/object'
 
 export class FilterUpdateParameter implements ICommand {
@@ -21,7 +21,7 @@ export class FilterUpdateParameter implements ICommand {
     this.changedParam = changedParam
   }
 
-  public async do(document: RuntimeDocument): Promise<void> {
+  public async do(document: DocumentContext): Promise<void> {
     const layer = document.resolveLayer(this.layerUid)?.source.deref()
     if (!layer) throw new Error('Layer not found')
     if (layer.layerType === 'artboard' || layer.layerType === 'root') return
@@ -36,7 +36,7 @@ export class FilterUpdateParameter implements ICommand {
     filter.settings = next
   }
 
-  public async undo(document: RuntimeDocument): Promise<void> {
+  public async undo(document: DocumentContext): Promise<void> {
     if (!this.changesPatch) return
 
     const layer = document.resolveLayer(this.layerUid)?.source.deref()
@@ -50,11 +50,11 @@ export class FilterUpdateParameter implements ICommand {
     document.invalidateLayerBitmapCache(this.layerUid)
   }
 
-  public async redo(document: RuntimeDocument): Promise<void> {
+  public async redo(document: DocumentContext): Promise<void> {
     return this.do(document)
   }
 
-  get effectedLayers() {
+  get effectedVisuUids() {
     return [this.layerUid]
   }
 }

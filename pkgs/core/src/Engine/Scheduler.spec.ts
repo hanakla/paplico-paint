@@ -10,7 +10,7 @@ import {
   createVectorPath,
 } from '@/Document'
 import { RenderCommands, RenderTargets, buildRenderSchedule } from './Scheduler'
-import { RuntimeDocument } from '.'
+import { DocumentContext } from '.'
 import { VectorAppearanceFill } from '@/Document/LayerEntity/VectorAppearance'
 import { ulid } from '@/utils/ulid'
 
@@ -20,7 +20,7 @@ describe('Scheduler', () => {
       createRasterLayerEntity({ width: 1, height: 1 }),
       createVectorLayerEntity({}),
     ])
-    const s = buildRenderSchedule(doc.layerTree, docCx).tasks
+    const s = buildRenderSchedule(doc.layerTreeRoot, docCx).tasks
 
     expect(s).toMatchObject([
       {
@@ -40,25 +40,25 @@ describe('Scheduler', () => {
   it('Should direct outputs to PREDIST when all objects are normal compositeMode', () => {
     const [doc, docCx] = documentFactory([
       createVectorLayerEntity({
-        compositeMode: 'normal',
+        blendMode: 'normal',
         objects: [
           createVectorObject({
-            compositeMode: 'normal',
+            blendMode: 'normal',
             path: createVectorPath({}),
           }),
         ],
       }),
       createVectorLayerEntity({
-        compositeMode: 'normal',
+        blendMode: 'normal',
         objects: [
           createVectorObject({
-            compositeMode: 'normal',
+            blendMode: 'normal',
             path: createVectorPath({}),
           }),
         ],
       }),
     ])
-    const s = buildRenderSchedule(doc.layerTree, docCx).tasks
+    const s = buildRenderSchedule(doc.layerTreeRoot, docCx).tasks
 
     expect(s.every((t) => t.renderTarget == RenderTargets.PREDEST)).toBe(true)
   })
@@ -66,10 +66,10 @@ describe('Scheduler', () => {
   it('Should use VectorAccum when any object has filter', () => {
     const [doc, docCx] = documentFactory([
       createVectorLayerEntity({
-        compositeMode: 'normal',
+        blendMode: 'normal',
         objects: [
           createVectorObject({
-            compositeMode: 'normal',
+            blendMode: 'normal',
             path: createVectorPath({}),
             filters: [
               // s[0]
@@ -79,11 +79,11 @@ describe('Scheduler', () => {
         ],
       }),
       createVectorLayerEntity({
-        compositeMode: 'normal',
+        blendMode: 'normal',
         objects: [
           createVectorObject({
             name: 'has filter',
-            compositeMode: 'normal',
+            blendMode: 'normal',
             path: createVectorPath({}),
             filters: [
               // s[1-2]: this layer can not to direct output (for having external filter),
@@ -108,7 +108,7 @@ describe('Scheduler', () => {
       }),
     ])
 
-    const s = buildRenderSchedule(doc.layerTree, docCx).tasks
+    const s = buildRenderSchedule(doc.layerTreeRoot, docCx).tasks
     let i = 0
 
     expect(s[i++]).toMatchObject({
@@ -163,10 +163,10 @@ describe('Scheduler', () => {
   it('has multiply composition layer', () => {
     const [doc, docCx] = documentFactory([
       createVectorLayerEntity({
-        compositeMode: 'multiply',
+        blendMode: 'multiply',
         objects: [
           createVectorObject({
-            compositeMode: 'normal',
+            blendMode: 'normal',
             path: createVectorPath({}),
             filters: [vectorFill()],
           }),
@@ -174,7 +174,7 @@ describe('Scheduler', () => {
       }),
     ])
 
-    const s = buildRenderSchedule(doc.layerTree, docCx).tasks
+    const s = buildRenderSchedule(doc.layerTreeRoot, docCx).tasks
 
     let i = 0
 
@@ -204,17 +204,17 @@ describe('Scheduler', () => {
       command: RenderCommands.DRAW_SOURCE_TO_DEST,
       source: RenderTargets.LAYER_PRE_FILTER,
       renderTarget: RenderTargets.PREDEST,
-      compositeMode: 'multiply',
+      blendMode: 'multiply',
     })
   })
 
   it.only('Layer filters', () => {
     const [doc, docCx] = documentFactory([
       createVectorLayerEntity({
-        compositeMode: 'normal',
+        blendMode: 'normal',
         objects: [
           createVectorObject({
-            compositeMode: 'normal',
+            blendMode: 'normal',
             path: createVectorPath({}),
             filters: [
               vectorFill(),
@@ -241,7 +241,7 @@ describe('Scheduler', () => {
         ],
       }),
     ])
-    const s = buildRenderSchedule(doc.layerTree, docCx).tasks
+    const s = buildRenderSchedule(doc.layerTreeRoot, docCx).tasks
     let i = 0
 
     process.env.NODE_ENV !== 'test' && console.log(s)
@@ -328,8 +328,8 @@ describe('Scheduler', () => {
 
 function documentFactory(layers: LayerEntity[]) {
   const doc = createDocument({ width: 1, height: 1 })
-  layers.forEach((layer) => doc.addLayer(layer))
-  return [doc, new RuntimeDocument(doc)] as const
+  layers.forEach((layer) => doc.addLayerNode(layer))
+  return [doc, new DocumentContext(doc)] as const
 }
 
 function vectorFill(): VectorAppearanceFill {

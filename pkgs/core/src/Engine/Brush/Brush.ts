@@ -1,5 +1,5 @@
 import type { WebGLRenderer, Camera } from 'three'
-import type { VectorStrokeSetting, VectorPath } from '@/Document'
+import type { VectorBrushSetting, VectorPath } from '@/Document'
 import type { RenderCycleLogger } from '../RenderCycleLogger'
 import type { InkGenerator } from '../Ink'
 import type { RenderPhase } from '../types'
@@ -25,7 +25,7 @@ export type BrushContext<T extends Record<string | symbol, any>, M> = {
     translate: { x: number; y: number }
   }
   ink: InkGenerator
-  brushSetting: VectorStrokeSetting<T | null>
+  brushSetting: VectorBrushSetting<T | null>
   /** Expected destination canvas size */
   destSize: { width: number; height: number }
   pixelRatio: number

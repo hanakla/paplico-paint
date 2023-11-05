@@ -14,5 +14,5 @@ export interface ICommand {
   redo(document: DocumentContext): Promise<void>
 
   /** Effected layer ids, it using to optimize render performance pre/post execute command */
-  readonly effectedLayers: string[]
+  readonly effectedVisuUids: string[]
 }

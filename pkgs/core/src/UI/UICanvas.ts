@@ -12,7 +12,7 @@ type Events = {
 }
 
 export class UICanvas extends Emitter<Events> {
-  public currentStroke: UIStroke | null = null
+  public currentBrush: UIStroke | null = null
   protected ctx: CanvasRenderingContext2D
 
   #enabled = true
@@ -71,7 +71,7 @@ export class UICanvas extends Emitter<Events> {
     // e.preventDefault()
     // e.stopPropagation()
 
-    // this.currentStroke = null
+    // this.currentBrush = null
 
     // if (e.touches.length > 1) {
     //   this.cancelStroke()
@@ -136,7 +136,7 @@ export class UICanvas extends Emitter<Events> {
   protected startStroke(input: UIStrokePointRequired[]) {
     if (!this.#enabled) return
 
-    const s = (this.currentStroke = new UIStroke())
+    const s = (this.currentBrush = new UIStroke())
     s.markStartTime()
     input.forEach((p) => s.addPoint(p))
 
@@ -146,7 +146,7 @@ export class UICanvas extends Emitter<Events> {
   protected updateStroke(input: UIStrokePointRequired[]) {
     if (!this.#enabled) return
 
-    const s = this.currentStroke
+    const s = this.currentBrush
     if (!s) return
 
     input.forEach((p) => s.addPoint(p))
@@ -157,20 +157,20 @@ export class UICanvas extends Emitter<Events> {
   protected cancelStroke() {
     if (!this.#enabled) return
 
-    const s = this.currentStroke
+    const s = this.currentBrush
     if (!s) return
 
-    this.currentStroke = null
+    this.currentBrush = null
     this.emit('strokeCancel', s)
   }
 
   protected finishStroke() {
     if (!this.#enabled) return
 
-    const s = this.currentStroke
+    const s = this.currentBrush
     if (!s) return
 
-    this.currentStroke = null
+    this.currentBrush = null
     this.emit('strokeComplete', s)
   }
 
@@ -220,8 +220,8 @@ export class UICanvas extends Emitter<Events> {
         y: (e.offsetY * this.ctx.canvas.height) / this.ctx.canvas.clientHeight,
         pressure: e.pressure,
         tilt: { x: e.tiltX, y: e.tiltY },
-        deltaTimeMs: this.currentStroke?.startTime
-          ? e.timeStamp - this.currentStroke.startTime
+        deltaTimeMs: this.currentBrush?.startTime
+          ? e.timeStamp - this.currentBrush.startTime
           : 0,
       }),
     )

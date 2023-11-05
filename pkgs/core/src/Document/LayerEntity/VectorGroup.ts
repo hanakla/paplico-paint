@@ -1,6 +1,6 @@
 import { VectorAppearance } from './VectorAppearance'
 import { VectorObject } from './VectorObject'
-import { CompositeMode, LayerTransform } from '../LayerEntity'
+import { BlendMode, LayerTransform } from '../LayerEntity'
 
 export type VectorGroup = {
   uid: string
@@ -11,7 +11,7 @@ export type VectorGroup = {
   opacity: number
 
   transform: LayerTransform
-  compositeMode: CompositeMode
+  blendMode: BlendMode
 
   /** Compositing first to last (last is foreground) */
   filters: VectorAppearance[]

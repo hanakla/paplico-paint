@@ -2,11 +2,12 @@ import { Paplico } from '@/Engine/Paplico'
 import { UICanvas } from '@/UI/UICanvas'
 import { UIStroke } from '@/UI/UIStroke'
 import { Canvas2DAllocator } from './Canvas2DAllocator'
-import { DEFAULT_INK_SETTING, DEFAULT_STROKE_SETTING } from './constants'
+import { DEFAULT_INK_SETTING, DEFAULT_BRUSH_SETTING } from './constants'
 import { deepClone } from '@/utils/object'
 import { clearCanvas, setCanvasSize } from '@/utils/canvas'
 import { DisposedInstanceError } from '@/Errors/DisposedInstanceError'
 import { Emitter } from '@/utils/Emitter'
+import { VectorPath } from '@/Document'
 
 export namespace MicroCanvas {
   export type Events = {
@@ -26,13 +27,13 @@ export class MicroCanvas extends Emitter<MicroCanvas.Events> {
   protected uiCanvas: UICanvas
 
   protected commitedCx: CanvasRenderingContext2D | null
+  // protected history: MicroCanvasHistory = new MicroCanvasHistory()
 
-  protected strokeSetting: Paplico.StrokeSetting | null =
-    DEFAULT_STROKE_SETTING()
+  protected brushSetting: Paplico.BrushSetting | null = DEFAULT_BRUSH_SETTING()
   protected inkSetting: Paplico.InkSetting = DEFAULT_INK_SETTING()
   protected fillSetting: Paplico.FillSetting | null = null
 
-  public _enabled = true
+  protected _inputEnabled = true
 
   #disposed = false
 
@@ -42,6 +43,7 @@ export class MicroCanvas extends Emitter<MicroCanvas.Events> {
   constructor(canvas: HTMLCanvasElement, paplico: Paplico) {
     super()
 
+    console.log('micro canvas')
     this.destCanvas = canvas
     this.destcx = canvas.getContext('2d')!
 
@@ -54,30 +56,32 @@ export class MicroCanvas extends Emitter<MicroCanvas.Events> {
 
     this.onStrokeChange = this.onStrokeChange.bind(this)
     this.onStrokeComplete = this.onStrokeComplete.bind(this)
+
+    this.bindListeners()
   }
 
   public dispose() {
     disposeCheck(this.#disposed)
 
-    Canvas2DAllocator.release(this.commitedCx)
+    Canvas2DAllocator.return(this.commitedCx)
     this.commitedCx = null!
     this.uiCanvas.dispose()
     this.#disposed = true
   }
 
-  protected bindListerners() {
+  protected bindListeners() {
     this.uiCanvas.activate()
     this.uiCanvas.on('strokeChange', this.onStrokeChange)
     this.uiCanvas.on('strokeCancel', this.onStrokeCancel)
     this.uiCanvas.on('strokeComplete', this.onStrokeComplete)
   }
 
-  public get enabled() {
-    return this._enabled
+  public get inputEnabled() {
+    return this._inputEnabled
   }
 
-  public set enabled(enabled: boolean) {
-    this._enabled = enabled
+  public set inputEnabled(enabled: boolean) {
+    this._inputEnabled = enabled
   }
 
   public setSize(width: number, height: number) {
@@ -87,12 +91,12 @@ export class MicroCanvas extends Emitter<MicroCanvas.Events> {
     setCanvasSize(this.commitedCx!.canvas, width, height)
   }
 
-  public getStrokeSetting() {
-    return deepClone(this.strokeSetting)
+  public getBrushSetting() {
+    return deepClone(this.brushSetting)
   }
 
-  public setStrokeSetting(setting: Paplico.StrokeSetting | null) {
-    this.strokeSetting = setting
+  public setBrushSetting(setting: Paplico.BrushSetting | null) {
+    this.brushSetting = setting
   }
 
   public getInkSetting() {
@@ -111,9 +115,15 @@ export class MicroCanvas extends Emitter<MicroCanvas.Events> {
     this.fillSetting = setting
   }
 
-  protected onStrokeChange(stroke: UIStroke) {
+  public async drawPathPreview(
+    path: VectorPath,
+    options: Paplico.RenderPathIntoOptions = {
+      brushSetting: this.brushSetting,
+      fillSetting: this.fillSetting,
+    },
+  ) {
     disposeCheck(this.#disposed)
-    if (!this._enabled) return
+    if (!this._inputEnabled) return
 
     const buf = Canvas2DAllocator.borrow({
       width: this.destCanvas.width,
@@ -121,46 +131,94 @@ export class MicroCanvas extends Emitter<MicroCanvas.Events> {
     })
 
     try {
-      this.paplico.renderPathInto(stroke.toPath(), buf, {
-        compositeMode: 'normal',
-        strokeSetting: this.strokeSetting,
-        inkSetting: this.inkSetting,
-        fillSetting: this.fillSetting,
-        order: 'stroke-first',
+      await this.drawPathInto(path, buf, {
+        blendMode: options.blendMode,
+        brushSetting: options.brushSetting ?? this.brushSetting,
+        inkSetting: options.inkSetting ?? this.inkSetting,
+        fillSetting: options.fillSetting ?? this.fillSetting,
+        order: options.order ?? 'stroke-first',
       })
 
       clearCanvas(this.destcx)
       this.destcx.drawImage(this.commitedCx!.canvas, 0, 0)
       this.destcx.drawImage(buf.canvas, 0, 0)
     } finally {
-      Canvas2DAllocator.release(buf)
+      Canvas2DAllocator.return(buf)
     }
   }
 
-  protected onStrokeCancel() {
-    disposeCheck(this.#disposed)
-    if (!this._enabled) return
-
-    clearCanvas(this.destcx)
-    this.destcx.drawImage(this.commitedCx!.canvas, 0, 0)
-  }
-
-  protected onStrokeComplete(stroke: UIStroke) {
-    disposeCheck(this.#disposed)
-    if (!this._enabled) return
-
-    this.paplico.renderPathInto(stroke.toPath(), this.commitedCx!, {
-      compositeMode: 'normal',
-      strokeSetting: this.strokeSetting,
-      inkSetting: this.inkSetting,
+  public async drawPath(
+    path: VectorPath,
+    options: Paplico.RenderPathIntoOptions = {
+      brushSetting: this.brushSetting,
       fillSetting: this.fillSetting,
-      order: 'stroke-first',
+    },
+  ) {
+    disposeCheck(this.#disposed)
+
+    await this.drawPathInto(path, this.commitedCx!, {
+      blendMode: options.blendMode,
+      brushSetting: options.brushSetting ?? this.brushSetting,
+      inkSetting: options.inkSetting ?? this.inkSetting,
+      fillSetting: options.fillSetting ?? this.fillSetting,
+      order: options.order ?? 'stroke-first',
     })
 
     clearCanvas(this.destcx)
     this.destcx.drawImage(this.commitedCx!.canvas, 0, 0)
 
     this.emit('contentUpdated', undefined)
+  }
+
+  protected clearPreview() {
+    disposeCheck(this.#disposed)
+
+    clearCanvas(this.destcx)
+    this.destcx.drawImage(this.commitedCx!.canvas, 0, 0)
+  }
+
+  protected onStrokeChange(stroke: UIStroke) {
+    disposeCheck(this.#disposed)
+    if (!this._inputEnabled) return
+
+    this.drawPathPreview(stroke.toPath())
+  }
+
+  protected onStrokeComplete(stroke: UIStroke) {
+    disposeCheck(this.#disposed)
+    if (!this._inputEnabled) return
+
+    this.drawPath(stroke.toPath())
+  }
+
+  protected onStrokeCancel() {
+    disposeCheck(this.#disposed)
+    if (!this._inputEnabled) return
+
+    clearCanvas(this.destcx)
+    this.destcx.drawImage(this.commitedCx!.canvas, 0, 0)
+  }
+
+  protected async drawPathInto(
+    path: VectorPath,
+    destination: CanvasRenderingContext2D,
+    {
+      blendMode,
+      brushSetting,
+      inkSetting,
+      fillSetting,
+      order,
+    }: Paplico.RenderPathIntoOptions,
+  ) {
+    disposeCheck(this.#disposed)
+
+    await this.paplico.renderPathInto(path, destination, {
+      blendMode,
+      brushSetting: brushSetting ?? this.brushSetting,
+      inkSetting,
+      fillSetting,
+      order,
+    })
   }
 }
 

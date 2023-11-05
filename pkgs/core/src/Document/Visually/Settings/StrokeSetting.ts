@@ -1,6 +1,6 @@
-import { ColorRGB } from '../Struct/ColorRGB'
+import { ColorRGB } from '../../Struct/ColorRGB'
 
-export type VectorStrokeSetting<T extends Record<string, any> | null = null> = {
+export type BrushSetting<T extends Record<string, any> | null = null> = {
   brushId: string
   brushVersion: string
 

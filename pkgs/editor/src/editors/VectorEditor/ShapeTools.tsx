@@ -68,7 +68,7 @@ export const ShapeTools = memo(function ShapeTools({ width, height }: Props) {
         )
 
         if (last) {
-          const stroke = paplico.cloneStrokeSetting()
+          const stroke = paplico.cloneBrushSetting()
           const fill = paplico.cloneFillSetting()
           const ink = paplico.cloneInkSetting()
 
@@ -134,7 +134,7 @@ export const ShapeTools = memo(function ShapeTools({ width, height }: Props) {
           cy = rect.y + rect.height / 2
 
         if (last) {
-          const stroke = paplico.cloneStrokeSetting()
+          const stroke = paplico.cloneBrushSetting()
           const fill = paplico.cloneFillSetting()
           const ink = paplico.cloneInkSetting()
 

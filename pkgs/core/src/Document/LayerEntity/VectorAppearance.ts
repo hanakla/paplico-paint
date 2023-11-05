@@ -1,5 +1,5 @@
-import { VectorStrokeSetting } from './VectorStrokeSetting'
-import { VectorFillSetting } from './VectorFillSetting'
+import { VectorBrushSetting } from './VectorBrushSetting'
+import { FillSetting } from './VectorFillSetting'
 import { VectorExternalAppearanceSetting } from './VectorExternalAppearanceSetting'
 import { InkSetting } from './InkSetting'
 
@@ -9,7 +9,7 @@ export type VectorAppearanceStroke = {
   uid: string
   enabled: boolean
 
-  stroke: VectorStrokeSetting
+  stroke: VectorBrushSetting
   ink: InkSetting
 }
 
@@ -19,7 +19,7 @@ export type VectorAppearanceFill = {
   uid: string
   enabled: boolean
 
-  fill: VectorFillSetting
+  fill: FillSetting
 }
 
 export type VectorAppearanceExternal = {

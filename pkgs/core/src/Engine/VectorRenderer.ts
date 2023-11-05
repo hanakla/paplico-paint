@@ -1,12 +1,4 @@
-import {
-  VectorFillSetting,
-  VectorGroup,
-  VectorObject,
-  VectorPath,
-} from '@/Document'
-import { LayerTransform, TextLayer, VectorLayer } from '@/Document/LayerEntity'
-import { InkSetting } from '@/Document/LayerEntity/InkSetting'
-import { VectorStrokeSetting } from '@/Document/LayerEntity/VectorStrokeSetting'
+import { VectorBrushSetting } from '@/Document/LayerEntity/VectorBrushSetting'
 import { PaplicoAbortError } from '@/Errors'
 import { AtomicResource } from '@/utils/AtomicResource'
 import { saveAndRestoreCanvas, setCanvasSize } from '@/utils/canvas'
@@ -36,10 +28,12 @@ import { VectorAppearance } from '@/Document/LayerEntity/VectorAppearance'
 import { PaplicoRenderWarn } from '@/Errors/PaplicoRenderWarn'
 import { reduceAsync } from '@/utils/array'
 import { MissingFilterWarn } from '@/Errors/Warns/MissingFilterWarn'
+import { PaplicoDocument, VisuElement, VisuFilter } from '@/Document'
+import { createVectorObjectVisually } from '@/Document/Visually/factory'
 
 export type VectorObjectOverrides = {
-  [vectorLayerUid: string]: {
-    [vectorObjectId: string]: (base: VectorObject) => VectorObject
+  [visuallyUid: string]: {
+    (base: VisuElement.VectorObjectElement): VisuElement.VectorObjectElement
   }
 }
 
@@ -58,7 +52,7 @@ export class VectorRenderer {
 
   protected camera: OrthographicCamera
   protected strokeMemo: WeakMap<
-    VectorPath,
+    VisuElement.VectorPath,
     WeakMap<IBrush, StrokeMemoEntry<any>>
   > = new WeakMap()
 
@@ -82,20 +76,31 @@ export class VectorRenderer {
     this.glRendererResource.ensureForce().dispose()
   }
 
-  public async invalidateStrokeMemo(path: VectorPath) {
+  public async invalidateStrokeMemo(path: VisuElement.VectorPath) {
     this.strokeMemo.delete(path)
   }
 
-  public async renderVectorLayer(
-    output: HTMLCanvasElement,
-    layer: VectorLayer | TextLayer,
-    options: {
+  public async renderVectorObjectVisually(
+    output: CanvasRenderingContext2D,
+    visuallies: Array<
+      VisuElement.VectorObjectElement | VisuElement.TextElement
+    >,
+    {
+      viewport,
+      pixelRatio,
+      abort,
+      logger,
+      phase,
+      objectOverrides,
+      parentTransform,
+    }: {
       viewport: Viewport
       pixelRatio: number
       abort?: AbortSignal
       logger?: RenderCycleLogger
       phase: RenderPhase
       objectOverrides?: VectorObjectOverrides
+      parentTransform: VisuElement.ElementTransform
     },
   ): Promise<{
     layerBBox: {
@@ -109,102 +114,98 @@ export class VectorRenderer {
       }
     }
   }> {
-    const { logger, pixelRatio } = options
-
-    setCanvasSize(output, options.viewport)
-    const outcx = output.getContext('2d')!
     const objectsBBox: Record<string, LayerMetrics.BBoxSet> = {}
 
-    let objects: (VectorObject | VectorGroup)[] = []
-    if (layer.layerType === 'text') {
-      objects = await this.generateTextVectorObject(layer)
-    } else {
-      objects = layer.objects
-    }
+    let objects: VisuElement.VectorObjectElement[] = []
 
-    for (let obj of objects) {
-      if (obj.type === 'vectorGroup') return { objectsBBox }
-      if (!obj.visible) continue
-
-      const sourceBBox = calcVectorBoundingBox(obj) // Ignore override for source
-      let visuallyBBox = sourceBBox
-
-      if (options.objectOverrides?.[layer.uid]?.[obj.uid]) {
-        obj = options.objectOverrides?.[layer.uid]?.[obj.uid]!(deepClone(obj))
+    for (const vis of visuallies) {
+      if (vis.type === 'text') {
+        objects = await this.generateTextVectorObject(vis)
+      } else if (vis.type === 'vectorObject') {
+        objects = [vis]
       }
 
-      await saveAndRestoreCanvas(outcx, async () => {
-        if (obj.type === 'vectorGroup') return { objectsBBox } // for typecheck
+      for (let obj of objects) {
+        if (!obj.visible) continue
 
-        for (const ap of obj.filters) {
-          if (ap.kind === 'fill') {
-            this.renderFill(outcx, obj.path, ap.fill, {
-              pixelRatio: options.pixelRatio,
-              transform: {
-                position: addPoint2D(
-                  layer.transform.position,
-                  obj.transform.position,
-                ),
-                scale: multiplyPoint2D(
-                  layer.transform.scale,
-                  obj.transform.scale,
-                ),
-                rotate: layer.transform.rotate + obj.transform.rotate,
-              },
-              phase: options.phase,
-              abort: options.abort,
-              logger: options.logger,
-            })
-          } else if (ap.kind === 'stroke') {
-            const brush = this.brushRegistry.getInstance(ap.stroke.brushId)
+        const sourceBBox = calcVectorBoundingBox(obj) // Ignore override for source
+        let visuallyBBox = sourceBBox
 
-            if (brush == null) {
-              throw new Error(`Unregistered brush ${ap.stroke.brushId}`)
-            }
+        if (objectOverrides?.[vis.uid]) {
+          obj = objectOverrides?.[vis.uid]!(deepClone(obj))
+        }
 
-            const { bbox } = await this.renderStroke(
-              output,
-              obj.path,
-              ap.stroke,
-              {
-                abort: options.abort,
-                inkSetting: ap.ink,
-                pixelRatio,
+        await saveAndRestoreCanvas(output, async () => {
+          // if (obj.type === 'vectorGroup') return { objectsBBox } // for typecheck
+
+          for (const ap of obj.filters) {
+            if (ap.kind === 'fill') {
+              this.renderFill(output, obj.path, ap.fill, {
+                pixelRatio: pixelRatio,
                 transform: {
                   position: addPoint2D(
-                    layer.transform.position,
+                    parentTransform.position,
                     obj.transform.position,
                   ),
                   scale: multiplyPoint2D(
-                    layer.transform.scale,
+                    parentTransform.scale,
                     obj.transform.scale,
                   ),
-                  rotate: layer.transform.rotate + obj.transform.rotate,
+                  rotate: parentTransform.rotate + obj.transform.rotate,
                 },
-                phase: options.phase,
-                logger: options.logger,
-              },
-            )
+                phase,
+                abort,
+                logger,
+              })
+            } else if (ap.kind === 'stroke') {
+              const brush = this.brushRegistry.getInstance(ap.stroke.brushId)
 
-            visuallyBBox = {
-              ...bbox,
-              width: bbox.right - bbox.left,
-              height: bbox.bottom - bbox.top,
-              centerX: bbox.left + (bbox.right - bbox.left) / 2,
-              centerY: bbox.top + (bbox.bottom - bbox.top) / 2,
+              if (brush == null) {
+                throw new Error(`Unregistered brush ${ap.stroke.brushId}`)
+              }
+
+              const { bbox } = await this.renderStroke(
+                output.canvas,
+                obj.path,
+                ap.stroke,
+                {
+                  abort: abort,
+                  inkSetting: ap.ink,
+                  pixelRatio,
+                  transform: {
+                    position: addPoint2D(
+                      parentTransform.position,
+                      obj.transform.position,
+                    ),
+                    scale: multiplyPoint2D(
+                      parentTransform.scale,
+                      obj.transform.scale,
+                    ),
+                    rotate: parentTransform.rotate + obj.transform.rotate,
+                  },
+                  phase: phase,
+                  logger: logger,
+                },
+              )
+
+              visuallyBBox = {
+                ...bbox,
+                width: bbox.right - bbox.left,
+                height: bbox.bottom - bbox.top,
+                centerX: bbox.left + (bbox.right - bbox.left) / 2,
+                centerY: bbox.top + (bbox.bottom - bbox.top) / 2,
+              }
+            } else if (ap.kind === 'external') {
+              continue
             }
-          } else if (ap.kind === 'external') {
-            continue
           }
+        })
+
+        objectsBBox[obj.uid] = {
+          source: sourceBBox,
+          visually: visuallyBBox,
         }
-      })
-
-      objectsBBox[obj.uid] = {
-        source: sourceBBox,
-        visually: visuallyBBox,
       }
-
-      outcx.resetTransform()
     }
 
     let layerSourceBBox: LayerMetrics.BBox = createEmptyBBox()
@@ -239,12 +240,189 @@ export class VectorRenderer {
     }
   }
 
+  /** @deprecated */
+  public async renderVectorLayer(
+    output: HTMLCanvasElement,
+    sourceVis: VisuElement.VectorObjectElement | VisuElement.TextElement,
+    options: {
+      viewport: Viewport
+      pixelRatio: number
+      abort?: AbortSignal
+      logger?: RenderCycleLogger
+      phase: RenderPhase
+      objectOverrides?: VectorObjectOverrides
+    },
+  ): Promise<{
+    layerBBox: {
+      source: LayerMetrics.BBox
+      visually: LayerMetrics.BBox
+    }
+    objectsBBox: {
+      [objectUid: string]: {
+        source: LayerMetrics.BBox
+        visually: LayerMetrics.BBox
+      }
+    }
+  }> {
+    const { logger, pixelRatio } = options
+
+    setCanvasSize(output, options.viewport)
+    const outcx = output.getContext('2d')!
+
+    const objectsBBox: Record<string, LayerMetrics.BBoxSet> = {}
+
+    ;(async function renderLayerTree(
+      this: VectorRenderer,
+      node: PaplicoDocument.ResolvedLayerNode,
+      currentTransform: VisuElement.ElementTransform,
+    ) {
+      for (const child of node.children) {
+        await renderLayerTree.call(this, child, {
+          position: {
+            x:
+              currentTransform.position.x + child.visually.transform.position.x,
+            y:
+              currentTransform.position.y + child.visually.transform.position.y,
+          },
+          scale: {
+            x: currentTransform.scale.x * child.visually.transform.scale.x,
+            y: currentTransform.scale.y * child.visually.transform.scale.y,
+          },
+          rotate: currentTransform.rotate + child.visually.transform.rotate,
+        })
+      }
+
+      let objects: VisuElement.VectorObjectElement[] = []
+
+      if (node.visually.type === 'text') {
+        objects = await this.generateTextVectorObject(sourceVis)
+      } else if (node.visually.type === 'vectorObject') {
+        objects = [node.visually]
+      }
+
+      for (let obj of objects) {
+        if (!obj.visible) continue
+
+        const sourceBBox = calcVectorBoundingBox(obj) // Ignore override for source
+        let visuallyBBox = sourceBBox
+
+        if (options.objectOverrides?.[sourceVis.uid]) {
+          obj = options.objectOverrides?.[sourceVis.uid]!(deepClone(obj))
+        }
+
+        await saveAndRestoreCanvas(outcx, async () => {
+          // if (obj.type === 'vectorGroup') return { objectsBBox } // for typecheck
+
+          for (const ap of obj.filters) {
+            if (ap.kind === 'fill') {
+              this.renderFill(outcx, obj.path, ap.fill, {
+                pixelRatio: options.pixelRatio,
+                transform: {
+                  position: addPoint2D(
+                    currentTransform.position,
+                    obj.transform.position,
+                  ),
+                  scale: multiplyPoint2D(
+                    currentTransform.scale,
+                    obj.transform.scale,
+                  ),
+                  rotate: currentTransform.rotate + obj.transform.rotate,
+                },
+                phase: options.phase,
+                abort: options.abort,
+                logger: options.logger,
+              })
+            } else if (ap.kind === 'stroke') {
+              const brush = this.brushRegistry.getInstance(ap.stroke.brushId)
+
+              if (brush == null) {
+                throw new Error(`Unregistered brush ${ap.stroke.brushId}`)
+              }
+
+              const { bbox } = await this.renderStroke(
+                output,
+                obj.path,
+                ap.stroke,
+                {
+                  abort: options.abort,
+                  inkSetting: ap.ink,
+                  pixelRatio,
+                  transform: {
+                    position: addPoint2D(
+                      currentTransform.position,
+                      obj.transform.position,
+                    ),
+                    scale: multiplyPoint2D(
+                      currentTransform.scale,
+                      obj.transform.scale,
+                    ),
+                    rotate: currentTransform.rotate + obj.transform.rotate,
+                  },
+                  phase: options.phase,
+                  logger: options.logger,
+                },
+              )
+
+              visuallyBBox = {
+                ...bbox,
+                width: bbox.right - bbox.left,
+                height: bbox.bottom - bbox.top,
+                centerX: bbox.left + (bbox.right - bbox.left) / 2,
+                centerY: bbox.top + (bbox.bottom - bbox.top) / 2,
+              }
+            } else if (ap.kind === 'external') {
+              continue
+            }
+          }
+        })
+
+        objectsBBox[obj.uid] = {
+          source: sourceBBox,
+          visually: visuallyBBox,
+        }
+
+        outcx.resetTransform()
+      }
+    }).call(this, sourceVis, sourceVis.visually.transform)
+
+    let layerSourceBBox: LayerMetrics.BBox = createEmptyBBox()
+    let layerVisuallyBBox: LayerMetrics.BBox = createEmptyBBox()
+
+    // for (const obj of objects) {
+    //   const { source, visually } = objectsBBox[obj.uid]
+
+    //   layerSourceBBox.left = Math.min(layerSourceBBox.left, source.left)
+    //   layerSourceBBox.top = Math.min(layerSourceBBox.top, source.top)
+    //   layerSourceBBox.width = Math.max(layerSourceBBox.width, source.width)
+    //   layerSourceBBox.height = Math.max(layerSourceBBox.height, source.height)
+
+    //   layerVisuallyBBox.left = Math.min(layerVisuallyBBox.left, visually.left)
+    //   layerVisuallyBBox.top = Math.min(layerVisuallyBBox.top, visually.top)
+    //   layerVisuallyBBox.width = Math.max(
+    //     layerVisuallyBBox.width,
+    //     visually.width,
+    //   )
+    //   layerVisuallyBBox.height = Math.max(
+    //     layerVisuallyBBox.height,
+    //     visually.height,
+    //   )
+    // }
+
+    return {
+      layerBBox: {
+        source: createBBox(layerSourceBBox),
+        visually: createBBox(layerVisuallyBBox),
+      },
+      objectsBBox: objectsBBox,
+    }
+  }
+
   // protected async renderPath() {}
 
-  public async generateTextVectorObject(layer: TextLayer) {
+  public async generateTextVectorObject(layer: VisuElement.TextElement) {
     if (!layer.visible) return []
 
-    const objects: VectorObject[] = []
+    const objects: VisuElement.VectorObjectElement[] = []
 
     let curX = layer.transform.position.x
     let curY = layer.transform.position.y
@@ -355,37 +533,36 @@ export class VectorRenderer {
           const charPaths = svgCommandToVectoPath(path.toPathData(5))
 
           for (let path of charPaths) {
-            objects.push({
-              uid: '__TEXT__',
-              type: 'vectorObject',
-              lock: false,
-              name: '',
-              opacity: 1,
-              path,
-              visible: true,
-              transform: {
-                position: {
-                  x: node.position.x,
-                  y: node.position.y,
-                },
-                scale: {
-                  x: 1,
-                  y: 1,
-                },
-                rotate: 0,
-              },
-              filters: [
-                {
-                  uid: '__TEXT__',
-                  kind: 'fill',
-                  fill: {
-                    type: 'fill',
-                    color: { r: 0, g: 0, b: 0 },
-                    opacity: 1,
+            objects.push(
+              createVectorObjectVisually({
+                opacity: 1,
+                blendMode: 'normal',
+                path,
+                transform: {
+                  position: {
+                    x: node.position.x,
+                    y: node.position.y,
                   },
+                  scale: {
+                    x: 1,
+                    y: 1,
+                  },
+                  rotate: 0,
                 },
-              ],
-            })
+                filters: [
+                  {
+                    uid: '__TEXT__',
+                    enabled: true,
+                    kind: 'fill',
+                    fill: {
+                      type: 'fill',
+                      color: { r: 0, g: 0, b: 0 },
+                      opacity: 1,
+                    },
+                  },
+                ],
+              }),
+            )
           }
         }
       }
@@ -396,21 +573,23 @@ export class VectorRenderer {
 
   public async renderFill(
     outcx: CanvasRenderingContext2D,
-    path: VectorPath,
-    fillSetting: VectorFillSetting,
+    path: VisuElement.VectorPath,
+    fillSetting: VisuFilter.Structs.FillSetting,
     {
       transform,
       pixelRatio,
       abort,
       phase = 'final',
       logger,
+      compositionMode = 'normal',
       filtersForPathTransform = [],
     }: {
-      transform: LayerTransform
+      transform: VisuElement.ElementTransform
       pixelRatio: number
       abort?: AbortSignal
       phase: RenderPhase
       logger: RenderCycleLogger
+      compositionMode?: VisuElement.CompositeMode
       filtersForPathTransform?: VectorAppearance[]
     },
   ): Promise<{
@@ -523,8 +702,8 @@ export class VectorRenderer {
 
   public async renderStroke(
     dest: HTMLCanvasElement,
-    path: VectorPath,
-    strokeSetting: VectorStrokeSetting,
+    path: VisuElement.VectorPath,
+    brushSetting: VectorBrushSetting,
     {
       inkSetting,
       transform,
@@ -533,18 +712,18 @@ export class VectorRenderer {
       phase,
       logger,
     }: {
-      inkSetting: InkSetting
-      transform: LayerTransform
+      inkSetting: VisuFilter.Structs.InkSetting
+      transform: VisuElement.ElementTransform
       pixelRatio: number
       abort?: AbortSignal
       phase: RenderPhase
       logger: RenderCycleLogger
     },
   ): Promise<BrushLayoutData> {
-    const brush = this.brushRegistry.getInstance(strokeSetting.brushId)
+    const brush = this.brushRegistry.getInstance(brushSetting.brushId)
     const ink = this.inkRegistry.getInstance(inkSetting.inkId)
 
-    if (!brush) throw new Error(`Unregistered brush ${strokeSetting.brushId}`)
+    if (!brush) throw new Error(`Unregistered brush ${brushSetting.brushId}`)
     if (!ink) throw new Error(`Unregistered ink ${inkSetting.inkId}`)
 
     const renderer = await this.glRendererResource.ensure()
@@ -563,7 +742,7 @@ export class VectorRenderer {
     this.camera.updateProjectionMatrix()
 
     const useMemoForPath = async <T>(
-      path: VectorPath,
+      path: VisuElement.VectorPath,
       factory: () => T,
       deps: any[],
       { disposer }: { disposer?: (obj: T) => void } = {},
@@ -603,7 +782,7 @@ export class VectorRenderer {
           threeRenderer: renderer,
           threeCamera: this.camera,
 
-          brushSetting: deepClone(strokeSetting),
+          brushSetting: deepClone(brushSetting),
           ink: ink.getInkGenerator({}),
           path: [path],
           destSize: { width: dest.width, height: dest.height },

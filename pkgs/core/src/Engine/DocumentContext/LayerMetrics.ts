@@ -87,11 +87,11 @@ export class LayerMetrics extends Emitter<LayerMetrics.Events> {
 
     const flatProc = (node: LayerNode | VectorObject | VectorGroup) => {
       if (
-        (node as LayerNode).layerUid !== '__root__' &&
+        (node as LayerNode).visuUid !== '__root__' &&
         (node as VectorObject | VectorGroup).type !== 'vectorGroup'
       ) {
         flatten.push([
-          (node as LayerNode).layerUid ??
+          (node as LayerNode).visuUid ??
             (node as VectorObject | VectorGroup).uid,
           node,
         ])
@@ -101,7 +101,7 @@ export class LayerMetrics extends Emitter<LayerMetrics.Events> {
         node.children.forEach(flatProc)
       } else if ('type' in node && node.type === 'vectorObject') {
       } else {
-        const layer = this.doocument.document.resolveLayerEntity(node.layerUid)
+        const layer = this.doocument.document.getVisuallyByUid(node.visuUid)
         if (layer?.layerType === 'vector') {
           layer.objects.forEach(flatProc)
         }
@@ -110,7 +110,7 @@ export class LayerMetrics extends Emitter<LayerMetrics.Events> {
       }
     }
 
-    flatProc(this.doocument.rootNode)
+    flatProc(this.doocument.layerTreeRoot)
 
     flatten.forEach(([id, entity], index) => {
       const data = this.layerMetrics.get(id)

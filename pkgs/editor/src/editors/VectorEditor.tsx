@@ -25,7 +25,7 @@ export const VectorEditor = memo(function VectorEditor({
   const activeLayer = useMemo(() => {
     if (!paplico.activeLayer?.layerUid) return null
 
-    const entity = paplico.currentDocument?.resolveLayerEntity(
+    const entity = paplico.currentDocument?.resolveVisually(
       paplico.activeLayer.layerUid,
     )
     if (entity?.layerType !== 'vector') return null

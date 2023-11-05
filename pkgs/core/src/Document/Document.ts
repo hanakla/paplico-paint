@@ -1,10 +1,10 @@
 import { ulid } from '@/utils/ulid'
 import { assign, deepClone } from '@/utils/object'
-import { LayerEntity, RootLayer, VectorLayer } from './LayerEntity'
 import { LayerNode } from './LayerNode'
 import { PaplicoBlob } from './PaplicoBlob'
-import { VectorGroup } from './LayerEntity/VectorGroup'
-import { VectorObject } from './LayerEntity/VectorObject'
+import { VisuElement } from './Visually'
+import { createGroupVisually } from './Visually/factory'
+import { createNodesController } from './Document.Nodes'
 
 export namespace PaplicoDocument {
   export type Meta = {
@@ -19,9 +19,16 @@ export namespace PaplicoDocument {
   export type SerializedSchema = {
     uid: string
     meta: Meta
-    layersEntities: LayerEntity[]
+    visuallies: VisuElement.AnyElement[]
     layerTree: LayerNode
     blobs: PaplicoBlob[]
+  }
+
+  export type ResolvedLayerNode = {
+    /** uid for Visually */
+    uid: string
+    visually: VisuElement.AnyElement
+    children: ResolvedLayerNode[]
   }
 }
 
@@ -35,8 +42,8 @@ export class PaplicoDocument {
       {
         uid: data.uid,
         meta: data.meta,
-        layerEntities: data.layersEntities,
-        layerTree: data.layerTree,
+        visuElements: data.visuallies,
+        layerTreeRoot: data.layerTree,
         blobs: data.blobs,
       },
     )
@@ -52,175 +59,86 @@ export class PaplicoDocument {
     },
   }
 
-  public layerEntities: LayerEntity[] = []
-  public layerTree: LayerNode = { layerUid: '__root__', children: [] }
-  public blobs: PaplicoBlob[] = []
+  public readonly visuElements: VisuElement.AnyElement[] = []
+  public readonly layerTreeRoot: LayerNode = {
+    visuUid: '__root__',
+    children: [],
+  }
+  public readonly blobs: PaplicoBlob[] = []
 
   public constructor({ width, height }: { width: number; height: number }) {
     this.meta.mainArtboard = { width, height }
   }
 
-  public addLayer(
-    layer: LayerEntity,
-    pathToParent: readonly string[] = [],
-    positionInNode: number = -1,
-  ) {
-    if (this.layerEntities.find((l) => l.uid === layer.uid)) {
-      console.warn(
-        `Document.addLayer: Layer already exists (uid: ${layer.uid})`,
-      )
-      return
-    }
+  public dispose() {
+    this.blobs.splice(0)
+  }
 
-    this.layerEntities.push(layer)
+  public readonly layerNodes = createNodesController(this)
 
-    const parent = this.resolveNodePath(pathToParent)
-    if (!parent) {
-      throw new Error(
-        `Document.addLayer: Parent node not found (uid: ${pathToParent.join(
-          ' > ',
-        )})`,
-      )
-    }
+  /**
+   * Get Visually instance combined layer nodes which under of pointed node by `path`
+   * @param path
+   * @returns instance
+   */
+  public getResolvedLayerTree(
+    path: string[],
+  ): PaplicoDocument.ResolvedLayerNode {
+    const node = this.layerNodes.getNodeAtPath(path)
 
-    if (positionInNode === -1) {
-      parent?.children.push({ layerUid: layer.uid, children: [] })
-    } else {
-      parent?.children.splice(positionInNode, 0, {
-        layerUid: layer.uid,
-        children: [],
-      })
+    if (!node)
+      throw new Error(`PaplicoDocument.getResolvedLayerTree: node not found`)
+
+    const layer = this.getVisuallyByUid(node.visuUid)
+    if (!layer)
+      throw new Error(`PaplicoDocument.getResolvedLayerTree: layer not found`)
+
+    return {
+      uid: node.visuUid,
+      visually: layer,
+      children: node.children.map((child) => {
+        return this.getResolvedLayerTree([...path, child.visuUid])
+      }),
     }
   }
 
-  public removeLayer(layerId: string) {
-    const path = this.findLayerNodePath(layerId)
-    const node = this.resolveNodePath(path!)
-    if (!path || !node) return null
+  public getVisuallyByUid(
+    visuallyUid: string,
+  ): VisuElement.AnyElement | undefined {
+    if (visuallyUid === '__root__') {
+      const vis = createGroupVisually({})
+      vis.uid = '__root__'
+      return vis
+    }
 
-    const layer = this.layerEntities.find((l) => l.uid === layerId)
-    if (!layer) return null
+    return this.visuElements.find((layer) => layer.uid === visuallyUid)
+  }
 
-    this.layerEntities = this.layerEntities.filter((l) => l.uid !== layerId)
-
-    const parentPath = path.slice(0, -1)
-    const parent = this.resolveNodePath(parentPath)
-    if (!parent) throw new Error('WHATTT?????????')
-
-    parent.children = parent.children.filter(
-      (child) => child.layerUid !== layerId,
+  /** @deprecated */
+  public resolveVectorObject(
+    uid: string,
+  ): VisuElement.VectorObjectElement | null {
+    return (
+      this.visuElements.find(
+        (v): v is VisuElement.VectorObjectElement =>
+          v.type === 'vectorObject' && v.uid === uid,
+      ) ?? null
     )
-
-    return { layer, node }
   }
 
-  public resolveLayerEntity(layerId: string): LayerEntity | undefined {
-    if (layerId === '__root__') {
-      return {
-        layerType: 'root',
-        uid: '__root__',
-        name: 'root',
-        compositeMode: 'normal',
-        features: {},
-        filters: [],
-        lock: false,
-        opacity: 1,
-        visible: true,
-      } satisfies RootLayer
-    }
+  public isChildrenContainableNode(node: LayerNode) {
+    const vis = this.getVisuallyByUid(node.visuUid)
+    if (!vis) return false
 
-    return this.layerEntities.find((layer) => layer.uid === layerId)
-  }
-
-  public resolveVectorObject(uid: string): VectorGroup | VectorObject | null {
-    const findObject = (
-      layer: VectorGroup,
-    ): VectorGroup | VectorObject | null => {
-      for (const child of layer.children) {
-        if (child.uid === uid) return child
-
-        if (child.type === 'vectorGroup') {
-          const result = findObject(child)
-          if (result) return result
-        }
-      }
-
-      return null
-    }
-
-    for (const layer of this.layerEntities) {
-      if (layer.layerType !== 'vector') continue
-
-      for (const child of layer.objects) {
-        if (child.uid === uid) return child
-
-        if (child.type === 'vectorGroup') {
-          const result = findObject(child)
-          if (result) return result
-        }
-      }
-    }
-
-    return null
-  }
-
-  public resolveNodePath(path: readonly string[]) {
-    if (path.length === 0) return this.layerTree
-    if (path[0] === '__root__') path = path.slice(1)
-
-    let cursor = this.layerTree
-    let target: LayerNode | null = null
-
-    for (const uid of path) {
-      let result = cursor.children.find((layer) => layer.layerUid === uid)
-      if (!result) break
-      if (result.layerUid === uid) {
-        target = result
-        break
-      }
-      cursor = result
-    }
-
-    if (!target) {
-      return null
-    }
-
-    return target
-  }
-
-  public findLayerNodePath(layerId: string): string[] | null {
-    if (layerId === '__root__') return ['__root__']
-
-    const path: string[] = []
-    const digNodes = (node: LayerNode): boolean => {
-      for (const child of node.children) {
-        if (child.layerUid === layerId) {
-          path.unshift(child.layerUid)
-          return true
-        }
-
-        if (digNodes(child)) {
-          path.unshift(child.layerUid)
-          return true
-        }
-      }
-
-      return false
-    }
-
-    if (digNodes(this.layerTree)) {
-      return path
-    }
-
-    return null
+    return vis.type === 'group'
   }
 
   public serialize(): PaplicoDocument.SerializedSchema {
     return deepClone({
       uid: this.uid,
       meta: this.meta,
-      layersEntities: this.layerEntities,
-      layerTree: this.layerTree,
+      visuallies: this.visuElements,
+      layerTree: this.layerTreeRoot,
       blobs: this.blobs,
     })
   }

@@ -2,48 +2,49 @@ import { ColorRGBA } from '@/Document'
 import { VectorPathPoint } from '@/Document/LayerEntity/VectorPath'
 import { Camera, WebGLRenderer } from 'three'
 
-type InkMetadata = {
+export type InkMetadata = {
   readonly id: string
   readonly version: string
   readonly name: string
 }
 
-interface InkGetColorContext {
+export interface InkGetColorContext<T extends Record<string, any>> {
   pointIndex: number
   points: VectorPathPoint[]
   pointAtLength: number
   totalLength: number
   baseColor: ColorRGBA
   pixelRatio: number
+  settings: T
 }
 
-interface InkApplyTextureContext {
+export interface InkApplyTextureContext<
+  SettingType extends Record<string, any>,
+> {
   threeRenderer: WebGLRenderer
   threeCamera: Camera
+  settings: SettingType
 }
 
-export interface InkClass<T> {
+export interface InkClass<SettingType extends Record<string, any>> {
   readonly metadata: InkMetadata
-  getInitialSetting(): T
+  getInitialSetting(): SettingType
   new (): IInk<any>
 }
 
-export interface IInk<Setting> {
+export interface IInk<SettingType extends Record<string, any>> {
   readonly id: string
 
-  /** @deprecated */
-  class: InkClass<Setting>
-
   initialize(): Promise<void> | void
-  getInkGenerator(ctx: any): InkGenerator
+  getInkGenerator(ctx: any): InkGenerator<SettingType>
 }
 
-export interface InkGenerator {
-  getColor(inkContext: InkGetColorContext): ColorRGBA
+export interface InkGenerator<SettingType extends Record<string, any>> {
+  getColor(inkContext: InkGetColorContext<SettingType>): ColorRGBA
 
   applyTexture(
     destination: CanvasRenderingContext2D,
-    context: InkApplyTextureContext,
+    context: InkApplyTextureContext<SettingType>,
   ): void
 }
 

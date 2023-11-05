@@ -20,7 +20,7 @@ export function bind(
 
   {
     const currentEditorType = editorStore.getState().editorType
-    const nextEditorType = layerTypeToEditorType(paplico.activeLayer?.layerType)
+    const nextEditorType = layerTypeToEditorType(paplico.activeLayer?.visuType)
 
     if (currentEditorType !== nextEditorType) {
       emitterStore.emit('editorTypeChanged', {
@@ -45,8 +45,8 @@ export function bind(
   })
 
   paplico.on('documentChanged', ({ current }) => {
-    const layerType = paplico.activeLayer?.layerType
-    const nextEditorType = layerTypeToEditorType(layerType)
+    const visuType = paplico.activeLayer?.visuType
+    const nextEditorType = layerTypeToEditorType(visuType)
 
     emitterStore.emit('editorTypeChanged', {
       prev: editorStore.getState().editorType,
@@ -54,7 +54,7 @@ export function bind(
     })
 
     editorStore.setState(() => ({
-      enabled: layerType === 'vector' || layerType === 'raster',
+      enabled: visuType === 'vectorObject' || visuType === 'canvas',
       editorType: nextEditorType,
     }))
   })
@@ -83,7 +83,7 @@ export function bind(
   // paplico.on('strokePreComplete', cancelStrokeIfNeeded)
 
   paplico.on('activeLayerChanged', ({ current }) => {
-    const layerType = paplico.activeLayer?.layerType
+    const layerType = paplico.activeLayer?.visuType
     const nextEditorType = layerTypeToEditorType(layerType)
 
     emitterStore.emit('editorTypeChanged', {

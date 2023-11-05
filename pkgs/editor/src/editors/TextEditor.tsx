@@ -14,7 +14,7 @@ export const TextEditor = memo(function TextEditor({ width, height }: Props) {
   const layer = useMemo(() => {
     if (!engineState.activeLayer?.layerUid) return null
 
-    const entity = paplico.currentDocument?.resolveLayerEntity(
+    const entity = paplico.currentDocument?.resolveVisually(
       engineState.activeLayer.layerUid,
     )
     if (entity?.layerType !== 'text') return null
@@ -50,7 +50,6 @@ export const TextEditor = memo(function TextEditor({ width, height }: Props) {
         // engineState.activeLayer?.layerType === 'vector' ? 'none' : 'none',
       }}
       tabIndex={-1}
-      id="--paplico-vector-editor-text"
-    ></svg>
+      id="--paplico-vector-editor-text"></svg>
   )
 })

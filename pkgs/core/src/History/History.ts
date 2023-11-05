@@ -54,7 +54,7 @@ export class History extends Emitter<History.Events> {
       this.#undoStack.push(command)
       this.#redoStack = []
 
-      this.emit('affect', { layerIds: command.effectedLayers })
+      this.emit('affect', { layerIds: command.effectedVisuUids })
     } finally {
       this.excutionLock.release(lock)
     }
@@ -73,7 +73,7 @@ export class History extends Emitter<History.Events> {
       aggregateRescueErrors(
         [
           rescue(() =>
-            this.emit('affect', { layerIds: command.effectedLayers }),
+            this.emit('affect', { layerIds: command.effectedVisuUids }),
           ),
           rescue(() => this.emit('undo', { command })),
         ],
@@ -98,7 +98,7 @@ export class History extends Emitter<History.Events> {
       aggregateRescueErrors(
         [
           rescue(() =>
-            this.emit('affect', { layerIds: command.effectedLayers }),
+            this.emit('affect', { layerIds: command.effectedVisuUids }),
           ),
           rescue(() => this.emit('redo', { command })),
         ],

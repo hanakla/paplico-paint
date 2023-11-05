@@ -1,3 +1,5 @@
 export { PaplicoAbortError } from './PaplicoAbortError'
 export { PaplicoIgnoreableError } from './PaplicoIgnoreableError'
 export { InvalidOptionOrStateError } from './InvalidOptionOrStateError'
+export { DisposedInstanceError } from './DisposedInstanceError'
+export { PaplicoCanvasAllocationError } from './PaplicoCanvasAllocationError'

@@ -8,14 +8,27 @@
   "exports": {
     ".": {
       "import": "./dist/index.mjs",
+      "types": "./dist/index.d.ts",
       "require": "./dist/index.js"
     },
     "./ext-brush": {
       "import": "./dist/ext-brush.mjs",
+      "types": "./dist/ext-brush.d.ts",
       "require": "./dist/ext-brush.js"
+    },
+    "./ext-ink": {
+      "import": "./dist/ext-ink.mjs",
+      "types": "./dist/ext-ink.d.ts",
+      "require": "./dist/ext-ink.js"
+    },
+    "./math-utils": {
+      "import": "./dist/math-utils.mjs",
+      "types": "./dist/math-utils.d.ts",
+      "require": "./dist/math-utils.js"
     },
     "./extras": {
       "import": "./dist/extras.mjs",
+      "types": "./dist/extras.d.ts",
       "require": "./dist/extras.js"
     }
   },
@@ -30,6 +43,7 @@
     "@types/opentype.js": "^1.3.7",
     "@types/three": "^0.146.0",
     "point-at-length": "^1.1.0",
+    "random-seedable": "^1.0.8",
     "rollup-plugin-node-externals": "^6.1.2",
     "typescript": "^5.0.4",
     "vite": "^4.5.0",

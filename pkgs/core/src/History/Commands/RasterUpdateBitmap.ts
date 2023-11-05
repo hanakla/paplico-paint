@@ -1,6 +1,6 @@
 import { PaplicoDocument, getLayerNodeAt } from '@/Document'
 import { ICommand } from '../ICommand'
-import { RuntimeDocument } from '@/Engine'
+import { DocumentContext } from '@/Engine'
 
 type Options = { updater: (bitmap: Uint8ClampedArray) => void }
 
@@ -18,7 +18,7 @@ export class RasterUpdateBitmap implements ICommand {
     this.options = options
   }
 
-  public async do(document: RuntimeDocument): Promise<void> {
+  public async do(document: DocumentContext): Promise<void> {
     const layer = document.resolveLayer(this.layerId)?.source.deref()
     if (!layer) throw new Error('Layer not found')
     if (layer.layerType !== 'raster') return
@@ -29,7 +29,7 @@ export class RasterUpdateBitmap implements ICommand {
     document.invalidateLayerBitmapCache(this.layerId)
   }
 
-  public async undo(document: RuntimeDocument): Promise<void> {
+  public async undo(document: DocumentContext): Promise<void> {
     const layer = document.resolveLayer(this.layerId)?.source.deref()
     if (!layer) throw new Error('Layer not found')
     if (layer.layerType !== 'raster') return
@@ -39,7 +39,7 @@ export class RasterUpdateBitmap implements ICommand {
     document.invalidateLayerBitmapCache(this.layerId)
   }
 
-  public async redo(document: RuntimeDocument): Promise<void> {
+  public async redo(document: DocumentContext): Promise<void> {
     const layer = document.resolveLayer(this.layerId)?.source.deref()
     if (!layer) throw new Error('Layer not found')
     if (layer.layerType !== 'raster') return
@@ -49,7 +49,7 @@ export class RasterUpdateBitmap implements ICommand {
     document.invalidateLayerBitmapCache(this.layerId)
   }
 
-  get effectedLayers() {
+  get effectedVisuUids() {
     return [this.layerId]
   }
 }

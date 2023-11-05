@@ -12,7 +12,7 @@ export const DEFAULT_FILL_SETTING = (): Readonly<Paplico.FillSetting> => ({
   opacity: 1,
 })
 
-export const DEFAULT_STROKE_SETTING = (): Readonly<Paplico.StrokeSetting> => ({
+export const DEFAULT_BRUSH_SETTING = (): Readonly<Paplico.BrushSetting> => ({
   brushId: CircleBrush.metadata.id,
   brushVersion: CircleBrush.metadata.version,
   color: {

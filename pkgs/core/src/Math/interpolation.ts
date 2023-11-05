@@ -18,11 +18,11 @@ export const mapLinear = (
   return lerp(b[0], b[1], clamp((x - a[0]) / (a[1] - a[0]), 0, 1))
 }
 
-const clampIndex = (array: any[], index: number) => {
+export const clampNumInLength = (array: any[], num: number) => {
   // prettier-ignore
-  return index < 0 ? 0 :
-    index >= array.length ? array.length - 1 :
-    index
+  return num < 0 ? 0 :
+    num >= array.length ? array.length - 1 :
+    num
 }
 
 type NumericSeqLerp = {
@@ -41,8 +41,8 @@ export const createNumSequenceMap = (
     const index = Math.trunc(idx)
 
     // prettier-ignore
-    const a = numbers[clampIndex(numbers, index)]
-    const b = numbers[clampIndex(numbers, index + 1)]
+    const a = numbers[clampNumInLength(numbers, index)]
+    const b = numbers[clampNumInLength(numbers, index + 1)]
 
     return interpolate(a, b, rate)
   }
@@ -62,8 +62,8 @@ export const createObjectSequenceMap = <T>(
     const rate = idx - Math.trunc(idx)
     const index = Math.trunc(idx)
 
-    const a = picker(clampIndex(array, index), array)
-    const b = picker(clampIndex(array, index + 1), array)
+    const a = picker(clampNumInLength(array, index), array)
+    const b = picker(clampNumInLength(array, index + 1), array)
 
     return interpolate(a, b, rate)
   }
@@ -82,10 +82,10 @@ if (import.meta.vitest) {
       it('should clamp index', () => {
         const array = [0, 1]
 
-        expect(clampIndex(array, -1)).toBe(0)
-        expect(clampIndex(array, 0)).toBe(0)
-        expect(clampIndex(array, 1)).toBe(1)
-        expect(clampIndex(array, 2)).toBe(1)
+        expect(clampNumInLength(array, -1)).toBe(0)
+        expect(clampNumInLength(array, 0)).toBe(0)
+        expect(clampNumInLength(array, 1)).toBe(1)
+        expect(clampNumInLength(array, 2)).toBe(1)
       })
     })
   })

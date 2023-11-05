@@ -1,6 +1,6 @@
 /*!
   Copyright (c) 2013 Jake Rosoman <jkroso@gmail.com>
-  Licensed under the MIT License (MIT), see https://github.com/jkroso/parse-svg-path/blob/master/License
+  Licensed under the MIT License (MIT), see  https://github.com/jkroso/parse-svg-path/blob/master/License
 
   Original from https://github.com/jkroso/parse-svg-path/blob/master/index.js
   Fork for fast parsing

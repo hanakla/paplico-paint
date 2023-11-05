@@ -1,11 +1,11 @@
 import { diff, patch, unpatch, Delta } from 'jsondiffpatch'
 
 import { ICommand } from '../ICommand'
-import { RuntimeDocument } from '@/Engine'
+import { DocumentContext } from '@/Engine'
 import { deepClone } from '@/utils/object'
-import { LayerEntity } from '@/Document/LayerEntity'
+import { VisuallyElement } from '@/Document/LayerEntity'
 
-type Options = { updater: (layer: LayerEntity) => void }
+type Options = { updater: (layer: VisuallyElement) => void }
 
 export class CommandGroup implements ICommand {
   public readonly name = 'CommandGroup'
@@ -21,7 +21,7 @@ export class CommandGroup implements ICommand {
     this.options = options
   }
 
-  public async do(document: RuntimeDocument): Promise<void> {
+  public async do(document: DocumentContext): Promise<void> {
     const layer = document.resolveLayer(this.layerId)?.source.deref()
     if (!layer) throw new Error('Layer not found')
     if (layer.layerType !== 'vector') return
@@ -35,7 +35,7 @@ export class CommandGroup implements ICommand {
     document.invalidateLayerBitmapCache(this.layerId)
   }
 
-  public async undo(document: RuntimeDocument): Promise<void> {
+  public async undo(document: DocumentContext): Promise<void> {
     const layer = document.resolveLayer(this.layerId)?.source.deref()
     if (!layer) throw new Error('Layer not found')
     if (layer.layerType !== 'vector') return
@@ -45,7 +45,7 @@ export class CommandGroup implements ICommand {
     document.invalidateLayerBitmapCache(this.layerId)
   }
 
-  public async redo(document: RuntimeDocument): Promise<void> {
+  public async redo(document: DocumentContext): Promise<void> {
     const layer = document.resolveLayer(this.layerId)?.source.deref()
     if (!layer) throw new Error('Layer not found')
     if (layer.layerType !== 'vector') return
@@ -55,7 +55,7 @@ export class CommandGroup implements ICommand {
     document.invalidateLayerBitmapCache(this.layerId)
   }
 
-  get effectedLayers() {
+  get effectedVisuUids() {
     return [this.layerId]
   }
 }

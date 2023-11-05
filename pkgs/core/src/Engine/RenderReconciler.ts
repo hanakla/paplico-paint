@@ -17,7 +17,7 @@ type QueueEntry = {
 const MS_PER_FRAME = 1000 / 60
 const GRACE_FRAMES = 5
 
-export class RenderQueue {
+export class RenderReconciler {
   public queue: QueueEntry[] = []
 
   protected currentTask: QueueEntry | undefined | null = null
@@ -108,24 +108,24 @@ export class RenderQueue {
 
     const droppedQueues = this.queue.filter((q) => !nextQueue.includes(q))
 
-    console.log(
-      'Render queues: remain',
-      this.queue,
-      `,Drop ${droppedQueues.length} queues (${
-        droppedQueues.filter((q) => q.priority === RenderQueuePriority.finish)
-          .length
-      } finish, ${
-        droppedQueues.filter((q) => q.priority === RenderQueuePriority.preview)
-          .length
-      } preview, ${
-        droppedQueues.filter((q) => q.priority === RenderQueuePriority.idleQue)
-          .length
-      } idleQue)`,
-    )
+    // console.log(
+    //   'Render queues: remain',
+    //   this.queue,
+    //   `,Drop ${droppedQueues.length} queues (${
+    //     droppedQueues.filter((q) => q.priority === RenderQueuePriority.finish)
+    //       .length
+    //   } finish, ${
+    //     droppedQueues.filter((q) => q.priority === RenderQueuePriority.preview)
+    //       .length
+    //   } preview, ${
+    //     droppedQueues.filter((q) => q.priority === RenderQueuePriority.idleQue)
+    //       .length
+    //   } idleQue)`,
+    // )
 
     droppedQueues.forEach((q) => q.abortController.abort())
-    this.queue = nextQueue
 
+    this.queue = nextQueue
     this.currentTask = nextEntry
 
     setTimeout(() => {

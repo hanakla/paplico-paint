@@ -5,7 +5,7 @@ import { setCanvasSize, freeingCanvas } from '@/utils/canvas'
 import { rescue } from '@/utils/rescue'
 import { ExportError } from '@/Errors/ExportError'
 import { imageBitmapToImageData } from '@/utils/imageObject'
-import { CompositeMode } from '@/Document'
+import { BlendMode } from '@/Document'
 import { unreachable } from '@/utils/unreachable'
 
 export namespace PSDExporter {
@@ -48,16 +48,14 @@ export class PSDExporter implements IExporter {
       const children: Layer[] = []
 
       if (keepLayers) {
-        for (const node of runtimeDocument.document.layerTree.children) {
-          const layer = runtimeDocument.document.resolveLayerEntity(
-            node.layerUid,
-          )!
+        for (const node of runtimeDocument.document.layerTreeRoot.children) {
+          const layer = runtimeDocument.document.getVisuallyByUid(node.visuUid)!
 
-          const bitmap = runtimeDocument.getLayerBitmapCache(node.layerUid)
+          const bitmap = runtimeDocument.getLayerBitmapCache(node.visuUid)
 
           if (!bitmap) {
             throw new ExportError(
-              `PSDExporter: bitmap not found for layer ${node.layerUid}`,
+              `PSDExporter: bitmap not found for layer ${node.visuUid}`,
             )
           }
 
@@ -66,7 +64,7 @@ export class PSDExporter implements IExporter {
           children.push({
             imageData,
             name: layer.name,
-            blendMode: compositeModeToBlendMode(layer.compositeMode),
+            blendMode: blendModeToPSDBlendMode(layer.blendMode),
           })
         }
 
@@ -110,7 +108,7 @@ export class PSDExporter implements IExporter {
   }
 }
 
-function compositeModeToBlendMode(mode: CompositeMode) {
+function blendModeToPSDBlendMode(mode: BlendMode) {
   // prettier-ignore
   return mode === 'normal' ? 'normal'
     : mode === 'screen' ? 'screen'

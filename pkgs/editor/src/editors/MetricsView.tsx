@@ -40,7 +40,7 @@ export const MetricsView = memo(function MetricsView({ width, height }: Props) {
 
       {[...paplico.runtimeDoc?.layerMetrics.layerMetrics!].map(
         ([layerId, metrics]) => {
-          const layer = paplico.currentDocument?.resolveLayerEntity(layerId)!
+          const layer = paplico.currentDocument?.resolveVisually(layerId)!
 
           return (
             <g key={layerId}>

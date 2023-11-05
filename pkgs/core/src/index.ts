@@ -4,11 +4,12 @@ export * as Document from './Document'
 export {
   CanvasFactory,
   RenderPipeline,
-  RuntimeDocument,
+  DocumentContext as RuntimeDocument,
   createBrush,
   createFilter,
   PapFilter,
   PapBrush,
+  type MicroCanvas,
 } from './Engine/index'
 export * as Brushes from './Brushes/index'
 export { type ICommand } from './History/ICommand'

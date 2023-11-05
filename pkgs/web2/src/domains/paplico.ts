@@ -20,18 +20,18 @@ interface Store {
   engine: Paplico | null
   engineState: Paplico.State | null
   editorHandle: PapEditorHandle | null
-  activeLayerEntity: Document.LayerEntity | null
+  strokeTargetVisually: Document.visu.AnyElement | null
 
   initialize(engine: Paplico): void
   _setEditorHandle: (handle: PapEditorHandle | null) => void
   _setEngineState: (state: Paplico.State) => void
-  _setActiveLayerEntity: (layer: Document.LayerEntity | null) => void
+  _setActiveLayerEntity: (vis: Document.visu.AnyElement | null) => void
 }
 
 export const useEngineStore = create<Store>((set, get) => ({
   engine: null,
   engineState: null,
-  activeLayerEntity: null,
+  strokeTargetVisually: null,
   editorHandle: null,
 
   initialize: (engine: Paplico) => {
@@ -42,7 +42,7 @@ export const useEngineStore = create<Store>((set, get) => ({
     set({ editorHandle: handle })
   },
   _setEngineState: (state) => set({ engineState: state }),
-  _setActiveLayerEntity: (layer) => set({ activeLayerEntity: layer }),
+  _setActiveLayerEntity: (layer) => set({ strokeTargetVisually: layer }),
 }))
 
 export const DEFAULT_BRUSH_ID = Brushes.CircleBrush.metadata.id
@@ -85,10 +85,8 @@ export function usePaplicoInit(
         return
       }
 
-      const layerEntity = pap.currentDocument!.resolveLayerEntity(
-        current.layerUid,
-      )
-      engineStore._setActiveLayerEntity(layerEntity!)
+      const vis = pap.currentDocument!.getVisuallyByUid(current.layerUid)
+      engineStore._setActiveLayerEntity(vis!)
     })
 
     pap.on('documentChanged', () => {
@@ -105,7 +103,7 @@ export function usePaplicoInit(
     pap.on('activeLayerChanged', ({ current }) => {
       engineStore._setActiveLayerEntity(
         current
-          ? pap.currentDocument!.resolveLayerEntity(current.layerUid)!
+          ? pap.currentDocument!.getVisuallyByUid(current.layerUid)!
           : null,
       )
     })
@@ -142,58 +140,62 @@ export function usePaplicoInit(
     if (!pap) return
 
     const doc = Document.createDocument({ width: 1000, height: 1000 })
-    const raster = Document.createRasterLayerEntity({
+
+    const raster = Document.visu.createCanvasVisually({
       width: 1000,
       height: 1000,
       // compositeMode: 'multiply',
     })
 
-    const vector = Document.createVectorLayerEntity({
+    // const vector = Document.visu.createVectorObjectVisually({
+    //   objec
+    //   filters: [
+    //     Document.visu.createVisuallyFilter({
+    //       enabled: false,
+    //       opacity: 1,
+    //       filterId: Filters.TestFilter.metadata.id,
+    //       filterVersion: Filters.TestFilter.metadata.version,
+    //       settings: Filters.TestFilter.getInitialSetting(),
+    //     }),
+    //   ],
+    // })
+
+    const rasterGroupVis = Document.visu.createGroupVisually({})
+    const vectorGroupVis = Document.visu.createGroupVisually({})
+    // const vectorGroupNode = Document.visu.createLayerNode(vectorGroupVis)
+
+    const vector = Document.visu.createVectorObjectVisually({
+      path: Document.createVectorPath({
+        points: [
+          { isMoveTo: true, x: 0, y: 0 },
+          { x: 1000, y: 1000, begin: null, end: null },
+        ],
+      }),
       filters: [
-        Document.createFilterEntry({
-          enabled: false,
-          opacity: 1,
-          filterId: Filters.TestFilter.metadata.id,
-          filterVersion: Filters.TestFilter.metadata.version,
-          settings: Filters.TestFilter.getInitialSetting(),
+        Document.visu.createVisuallyFilter('stroke', {
+          stroke: {
+            brushId: ExtraBrushes.ScatterBrush.metadata.id,
+            brushVersion: '0.0.1',
+            color: { r: 1, g: 1, b: 0 },
+            opacity: 1,
+            size: 30,
+            settings: {
+              texture: 'pencil',
+              noiseInfluence: 1,
+              inOutInfluence: 0,
+              inOutLength: 0,
+            } satisfies ExtraBrushes.ScatterBrush.Settings,
+          },
+          ink: {
+            inkId: Inks.TextureReadInk.metadata.id,
+            inkVersion: Inks.TextureReadInk.metadata.version,
+            setting: {} satisfies Inks.TextureReadInk.Setting,
+          },
         }),
       ],
     })
-    vector.objects.push(
-      Document.createVectorObject({
-        path: Document.createVectorPath({
-          points: [
-            { isMoveTo: true, x: 0, y: 0 },
-            { x: 1000, y: 1000, begin: null, end: null },
-          ],
-        }),
-        filters: [
-          Document.createVectorAppearance({
-            kind: 'stroke',
-            stroke: {
-              brushId: ExtraBrushes.ScatterBrush.metadata.id,
-              brushVersion: '0.0.1',
-              color: { r: 1, g: 1, b: 0 },
-              opacity: 1,
-              size: 30,
-              specific: {
-                texture: 'pencil',
-                noiseInfluence: 1,
-                inOutInfluence: 0,
-                inOutLength: 0,
-              } satisfies ExtraBrushes.ScatterBrush.Settings,
-            },
-            ink: {
-              inkId: Inks.TextureReadInk.id,
-              inkVersion: Inks.TextureReadInk.version,
-              specific: {} satisfies Inks.TextureReadInk.SpecificSetting,
-            },
-          }),
-        ],
-      }),
-    )
 
-    const text = Document.createTextLayerEntity({
+    const text = Document.visu.createTextVisually({
       transform: {
         position: { x: 16, y: 16 },
         scale: { x: 1, y: 1 },
@@ -202,16 +204,16 @@ export function usePaplicoInit(
       fontFamily: 'Poppins',
       fontStyle: 'Bold',
       fontSize: 64,
+      textNodes: [
+        { text: 'PAPLIC-o-\n', position: { x: 0, y: 0 } },
+        {
+          text: 'MAGIC',
+          fontSize: 128,
+          position: { x: 0, y: 0 },
+          // color: { r: 0, g: 0.5, b: 0.5, a: 1 },
+        },
+      ],
     })
-    text.textNodes.push(
-      { text: 'PAPLIC-o-\n', position: { x: 0, y: 0 } },
-      {
-        text: 'MAGIC',
-        fontSize: 128,
-        position: { x: 0, y: 0 },
-        // color: { r: 0, g: 0.5, b: 0.5, a: 1 },
-      },
-    )
 
     // doc.addLayer(
     //   Document.createVectorLayerEntity({
@@ -242,20 +244,23 @@ export function usePaplicoInit(
     //   }),
     // )
 
-    doc.addLayer(vector, [])
-    doc.addLayer(raster, [])
-    doc.addLayer(text, [])
+    doc.layerNodes.addLayerNode(rasterGroupVis)
+    doc.layerNodes.addLayerNode(vectorGroupVis)
+
+    doc.layerNodes.addLayerNode(raster, [rasterGroupVis.uid])
+    doc.layerNodes.addLayerNode(vector, [vectorGroupVis.uid])
+    doc.layerNodes.addLayerNode(text, [vectorGroupVis.uid])
 
     if (!chatMode) {
       pap.loadDocument(doc)
       // pap.setStrokingTargetLayer([raster.uid])
 
-      pap!.setStrokingTargetLayer([vector.uid])
+      pap!.setStrokingTargetLayer([vectorGroupVis.uid, vector.uid])
       pap!.rerender()
     }
 
     // pap.strok
-    pap.setStrokeSetting({
+    pap.setBrushSetting({
       brushId: Brushes.CircleBrush.metadata.id,
       brushVersion: '0.0.1',
       color: { r: 0, g: 0, b: 0 },
@@ -277,11 +282,12 @@ export function usePaplicoInit(
 }
 
 export function usePaplicoInstance() {
-  const store = useEngineStore(storePicker(['engine', 'editorHandle']))
+  // const store = useEngineStore(storePicker(['engine', 'editorHandle']))
+  const store = useEngineStore()
 
   return useMemo(
     () => ({
-      pap: store.engine,
+      pplc: store.engine,
       editorHandle: store.editorHandle,
     }),
     [store, store.engine, store.editorHandle],

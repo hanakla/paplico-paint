@@ -140,6 +140,14 @@ export function bindPaplico(
       })
     },
 
+    setBrushToSelectedObjects: (brushSetting: Paplico.BrushSetting) => {
+      const ids = editorStore.getState().selectedObjectIds
+
+      for (const id of Object.keys(ids)) {
+        paplico.currentDocument?.resolveVectorObject
+      }
+    },
+
     on<K extends keyof PapEditorEvents>(
       type: K,
       callback: (payload: PapEditorEvents[K]) => void,

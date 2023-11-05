@@ -10,8 +10,8 @@ import { storePicker } from '@/utils/zutrand'
 import { RasterToolModes, VectorToolModes } from '@paplico/editor'
 
 export const GlobalShortcutHandler = memo(function GlobalShortcutHandler() {
-  const { pap, editorHandle } = usePaplicoInstance()
-  const papStore = useEngineStore(storePicker(['activeLayerEntity']))
+  const { pplc: pap, editorHandle } = usePaplicoInstance()
+  const papStore = useEngineStore(storePicker(['strokeTargetVisually']))
 
   const { fileHandlers, setFileHandlerForDocument, getShortcuts } =
     useEditorStore()
@@ -19,11 +19,11 @@ export const GlobalShortcutHandler = memo(function GlobalShortcutHandler() {
   const shortcuts = getShortcuts()
 
   useGlobalMousetrap(shortcuts.global.delete, async () => {
-    if (!papStore.activeLayerEntity) return
+    if (!papStore.strokeTargetVisually) return
     const objUIDs = editorHandle!.getSelectedObjectIds()
 
     pap!.command.do(
-      new Commands.VectorUpdateLayer(papStore.activeLayerEntity.uid, {
+      new Commands.VectorUpdateLayer(papStore.strokeTargetVisually.uid, {
         updater: (layer) => {
           layer.objects = layer.objects.filter(
             (object) => !objUIDs.includes(object.uid),
@@ -77,10 +77,10 @@ export const GlobalShortcutHandler = memo(function GlobalShortcutHandler() {
   })
 
   useGlobalMousetrap(shortcuts.global.selectAll, () => {
-    if (papStore.activeLayerEntity?.layerType !== 'vector') return
+    if (papStore.strokeTargetVisually?.layerType !== 'vector') return
 
     editorHandle?.setSelectedObjectIds(
-      papStore.activeLayerEntity.objects.map((object) => object.uid),
+      papStore.strokeTargetVisually.objects.map((object) => object.uid),
     )
   })
 

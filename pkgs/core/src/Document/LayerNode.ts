@@ -1,4 +1,4 @@
 export type LayerNode = {
-  layerUid: string
+  visuUid: string
   children: LayerNode[]
 }

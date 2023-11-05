@@ -1,56 +1,18 @@
-import {
-  DragHandleDots2Icon,
-  FontBoldIcon,
-  FontItalicIcon,
-  HamburgerMenuIcon,
-  LayersIcon,
-  StrikethroughIcon,
-  TextAlignCenterIcon,
-  TextAlignLeftIcon,
-  TextAlignRightIcon,
-} from '@radix-ui/react-icons'
+import { DragHandleDots2Icon, HamburgerMenuIcon } from '@radix-ui/react-icons'
 import { TbDroplet } from 'react-icons/tb'
 import { RxLayers } from 'react-icons/rx'
 import { BsBrushFill, BsEraserFill } from 'react-icons/bs'
-import { Document } from '@paplico/core-new'
 import * as Toolbar from '@radix-ui/react-toolbar'
-import {
-  ChangeEvent,
-  KeyboardEvent,
-  MouseEvent,
-  forwardRef,
-  memo,
-  useEffect,
-  useMemo,
-  useReducer,
-} from 'react'
+import { forwardRef, memo, useMemo } from 'react'
 import { css, styled } from 'styled-components'
 // import useEvent from 'react-use-event-hook'
 import { useDrag } from '@use-gesture/react'
-import { useState } from 'react'
 import useMeasure from 'use-measure'
 import { useCombineRef, usePropsMemo } from '@/utils/hooks'
 import { Popover } from '@/components/Popover'
 import useEvent from 'react-use-event-hook'
-import { rgbToColorString } from 'polished'
-import { TextField } from '@/components/TextField'
-import {
-  DEFAULT_BRUSH_ID,
-  DEFAULT_BRUSH_VERSION,
-  usePaplicoInstance,
-  useEngineStore,
-} from '@/domains/paplico'
-import {
-  Alpha,
-  Brightness,
-  ColorChangeHandler,
-  ColorTypes,
-  Hue,
-  SatAndBright,
-  Saturation,
-  hsbaToRGBA,
-  rgbaToHSBA,
-} from '@/components/ColorPicker'
+import { usePaplicoInstance, useEngineStore } from '@/domains/paplico'
+import { rgbaToHSBA } from '@/components/ColorPicker'
 import { LayersPane } from './Floatables/LayersPane'
 import { FillSettingPane } from './MainToolbar/FillSettingPane'
 import {
@@ -70,6 +32,8 @@ import { pick } from '@/utils/object'
 import { TabPage } from '@/components/TabBar'
 import { ToolSelectPane } from './MainToolbar/ToolSelectPane'
 import { Portal } from '@/components/Portal'
+import { papColorToRGBA, useToolbarStore } from './MainToolbar/toolbar.store'
+import { StrokeColorPopoverTrigger } from './MainToolbar/StrokeColorPopover'
 
 type Props = {
   className?: string
@@ -78,62 +42,14 @@ type Props = {
   onPositionChanged: (delta: { x: number; y: number }) => void
 }
 
-function papColorToRGBA(
-  color: Document.ColorRGB | Document.ColorRGBA,
-): ColorTypes.RGBA {
-  return {
-    r: color.r * 255,
-    g: color.g * 255,
-    b: color.b * 255,
-    a: 'a' in color ? color.a : undefined,
-  }
-}
-
-function rgbaToPapColor(color: {
-  r: number
-  g: number
-  b: number
-  a?: number
-}) {
-  return {
-    r: color.r / 255,
-    g: color.g / 255,
-    b: color.b / 255,
-    a: color.a ?? 1,
-  }
-}
-
-type ToolbarStore = {
-  strokeColorHSB: ColorTypes.HSBA
-  strokeColorString: string
-
-  set: (state: Partial<ToolbarStore>) => void
-  get: () => ToolbarStore
-}
-
-const useToolbarStore = create<ToolbarStore>((set, get) => ({
-  strokeColorHSB: { h: 0, s: 0, b: 0 },
-  get strokeColorString() {
-    const color = hsbaToRGBA(get().strokeColorHSB)
-    return rgbToColorString({
-      red: color.r,
-      green: color.g,
-      blue: color.b,
-    })
-  },
-
-  set,
-  get,
-}))
-
 export const MainToolbar = memo(
   forwardRef<HTMLDivElement, Props>(function MainToolbar(
     { className, x, y, onPositionChanged },
     ref,
   ) {
-    const { pap } = usePaplicoInstance()
-    const { currentStroke, strokeComposition } = useEngineStore((s) =>
-      pick(s.engineState, ['currentStroke', 'strokeComposition']),
+    const { pplc: pap } = usePaplicoInstance()
+    const { currentBrush, strokeComposition } = useEngineStore((s) =>
+      pick(s.engineState, ['currentBrush', 'strokeComposition']),
     )
     const openModal = useModal()
     const propsMemo = usePropsMemo()
@@ -148,8 +64,8 @@ export const MainToolbar = memo(
 
     useIsomorphicLayoutEffect(() => {
       toolbarStore.set({
-        strokeColorHSB: currentStroke
-          ? rgbaToHSBA(papColorToRGBA(currentStroke.color))
+        strokeColorHSB: currentBrush
+          ? rgbaToHSBA(papColorToRGBA(currentBrush.color))
           : { h: 0, s: 0, b: 0 },
       })
     }, [])
@@ -304,92 +220,6 @@ export const MainToolbar = memo(
       </Toolbar.Root>
     )
   }),
-)
-
-const StrokeColorPopoverTrigger = memo(
-  function StrokeColorPopoverTrigger({}: {}) {
-    const { pap } = usePaplicoInstance()
-    const { strokeColorHSB, strokeColorString, set } = useToolbarStore(
-      storePicker(['strokeColorHSB', 'strokeColorString', 'set']),
-    )
-    const propsMemo = usePropsMemo()
-
-    const handleChangeStrokeColor = useEvent<ColorChangeHandler>((color) => {
-      set({ strokeColorHSB: color.hsb })
-
-      pap!.setStrokeSetting({
-        color: rgbaToPapColor(color.rgb),
-      })
-    })
-
-    return (
-      <Popover
-        trigger={propsMemo.memo(
-          'strokecolor-popover-trigger',
-          () => (
-            <svg width={32} height={32} viewBox="0 0 32 32">
-              <line
-                stroke={strokeColorString}
-                strokeWidth={2}
-                strokeLinecap="round"
-                x1={8}
-                y1={8}
-                x2={24}
-                y2={24}
-              />
-            </svg>
-          ),
-          [strokeColorString],
-        )}
-        side="top">
-        <div
-          css={css`
-            display: flex;
-            flex-flow: column;
-            gap: 8px;
-          `}>
-          <SatAndBright
-            css={css`
-              width: 100%;
-              aspect-ratio: 1;
-            `}
-            color={strokeColorHSB}
-            onChange={handleChangeStrokeColor}
-            onChangeComplete={handleChangeStrokeColor}
-          />
-          <Fieldset
-            label="Hue"
-            valueField={
-              <TextField size="1" value={Math.round(strokeColorHSB.h)} />
-            }>
-            <Hue
-              color={strokeColorHSB}
-              onChange={handleChangeStrokeColor}
-              onChangeComplete={handleChangeStrokeColor}
-            />
-          </Fieldset>
-
-          <Saturation
-            color={strokeColorHSB}
-            onChange={handleChangeStrokeColor}
-            onChangeComplete={handleChangeStrokeColor}
-          />
-
-          <Brightness
-            color={strokeColorHSB}
-            onChange={handleChangeStrokeColor}
-            onChangeComplete={handleChangeStrokeColor}
-          />
-
-          <Alpha
-            color={strokeColorHSB}
-            onChange={handleChangeStrokeColor}
-            onChangeComplete={handleChangeStrokeColor}
-          />
-        </div>
-      </Popover>
-    )
-  },
 )
 
 const s = {

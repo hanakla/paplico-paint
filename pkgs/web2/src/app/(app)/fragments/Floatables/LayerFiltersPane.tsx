@@ -21,8 +21,8 @@ import useEvent from 'react-use-event-hook'
 import styled, { css } from 'styled-components'
 
 export const LayerFiltersPane = memo(function LayerFiltersPane() {
-  const { activeLayerEntity: activeLayer } = useEngineStore(
-    storePicker(['activeLayerEntity']),
+  const { strokeTargetVisually: activeLayer } = useEngineStore(
+    storePicker(['strokeTargetVisually']),
   )
 
   return (
@@ -45,8 +45,8 @@ export const LayerFiltersPane = memo(function LayerFiltersPane() {
 })
 
 export const FilterList = memo(function FilterList() {
-  const { pap } = usePaplicoInstance()
-  const papStore = useEngineStore(storePicker(['activeLayerEntity']))
+  const { pplc: pap } = usePaplicoInstance()
+  const papStore = useEngineStore(storePicker(['strokeTargetVisually']))
   const {
     getPaneExpandedFilterUids,
     setPaneExpandedFilterState,
@@ -59,7 +59,7 @@ export const FilterList = memo(function FilterList() {
     ]),
   )
 
-  const activeLayer = papStore.activeLayerEntity!
+  const activeLayer = papStore.strokeTargetVisually!
 
   const rerender = useUpdate()
   const prevExpandedUids = useRef<string[]>([])
@@ -70,7 +70,7 @@ export const FilterList = memo(function FilterList() {
 
     if (!filterId) return
     if (!FilterClass) return
-    if (!papStore.activeLayerEntity) return
+    if (!papStore.strokeTargetVisually) return
 
     const filter = Document.createFilterEntry({
       filterId: FilterClass.metadata.id,
@@ -83,7 +83,7 @@ export const FilterList = memo(function FilterList() {
     setPaneExpandedFilterState(filter.uid, true)
 
     pap!.command.do(
-      new Commands.LayerUpdateAttributes(papStore.activeLayerEntity.uid, {
+      new Commands.LayerUpdateAttributes(papStore.strokeTargetVisually.uid, {
         updater: (layer) => {
           layer.filters.push(filter)
         },
@@ -96,7 +96,7 @@ export const FilterList = memo(function FilterList() {
       const filterUid = e.currentTarget.dataset.filterUid!
 
       pap!.command.do(
-        new Commands.LayerUpdateAttributes(papStore.activeLayerEntity!.uid, {
+        new Commands.LayerUpdateAttributes(papStore.strokeTargetVisually!.uid, {
           updater: (layer) => {
             const filter = layer.filters.find(
               (filter) => filter.uid === filterUid,
@@ -114,7 +114,7 @@ export const FilterList = memo(function FilterList() {
     const filterUid = e.currentTarget.dataset.filterUid!
 
     pap!.command.do(
-      new Commands.LayerUpdateAttributes(papStore.activeLayerEntity!.uid, {
+      new Commands.LayerUpdateAttributes(papStore.strokeTargetVisually!.uid, {
         updater: (layer) => {
           const filterIndex = layer.filters.findIndex(
             (filter) => filter.uid === filterUid,

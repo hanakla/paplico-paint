@@ -2,7 +2,7 @@ import { diff, patch, unpatch, Delta } from 'jsondiffpatch'
 // ^-- Do not use star imports or named imports from jsondiffpatch-rc, it will break the build.
 
 import { ICommand } from '../ICommand'
-import { RuntimeDocument } from '@/Engine'
+import { DocumentContext } from '@/Engine'
 import { deepClone } from '@/utils/object'
 import { VectorLayer } from '@/Document/LayerEntity'
 
@@ -27,7 +27,7 @@ export class VectorUpdateObjects implements ICommand {
     this.options = options
   }
 
-  public async do(document: RuntimeDocument): Promise<void> {
+  public async do(document: DocumentContext): Promise<void> {
     const layer = document.resolveLayer(this.layerId)?.source.deref()
     if (!layer) throw new Error('Layer not found')
     if (layer.layerType !== 'vector') return
@@ -43,7 +43,7 @@ export class VectorUpdateObjects implements ICommand {
     // document.invalidateVectorObjectCache()
   }
 
-  public async undo(document: RuntimeDocument): Promise<void> {
+  public async undo(document: DocumentContext): Promise<void> {
     const layer = document.resolveLayer(this.layerId)?.source.deref()
     if (!layer) throw new Error('Layer not found')
     if (layer.layerType !== 'vector') return
@@ -53,7 +53,7 @@ export class VectorUpdateObjects implements ICommand {
     document.invalidateLayerBitmapCache(this.layerId)
   }
 
-  public async redo(document: RuntimeDocument): Promise<void> {
+  public async redo(document: DocumentContext): Promise<void> {
     const layer = document.resolveLayer(this.layerId)?.source.deref()
     if (!layer) throw new Error('Layer not found')
     if (layer.layerType !== 'vector') return
@@ -63,7 +63,7 @@ export class VectorUpdateObjects implements ICommand {
     document.invalidateLayerBitmapCache(this.layerId)
   }
 
-  get effectedLayers() {
+  get effectedVisuUids() {
     return [this.layerId]
   }
 }

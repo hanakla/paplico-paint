@@ -1,4 +1,4 @@
-import { CompositeMode, LayerFilter } from '@/Document'
+import { BlendMode, LayerFilter, VisuElement, VisuFilter } from '@/Document'
 import {
   clearCanvas,
   freeingCanvas,
@@ -31,6 +31,7 @@ import {
 import { unreachable } from '@/utils/unreachable'
 import { PaplicoError } from '@/Errors/PaplicoError'
 import { Canvas2DAllocator } from '@/Engine/Canvas2DAllocator'
+import { logImage } from '@/utils/DebugHelper'
 
 export class RenderPipeline {
   protected filterRegistry: AppearanceRegistry
@@ -97,11 +98,13 @@ export class RenderPipeline {
       }
     | undefined
   > {
-    const { tasks: schedules } = buildRenderSchedule(docCx.rootNode, docCx, {
-      layerOverrides: override,
-    })
-
-    // console.log(schedules)
+    const { tasks: schedules } = buildRenderSchedule(
+      docCx.document.getResolvedLayerTree([]),
+      docCx,
+      {
+        layerOverrides: override,
+      },
+    )
 
     const canvasByToken = new WeakMap<CanvasToken, CanvasRenderingContext2D>()
     const canvasByRole: {
@@ -141,13 +144,14 @@ export class RenderPipeline {
             const {
               source,
               renderTarget,
-              compositeMode,
+              blendMode,
               opacity,
               clearTarget,
+              parentTransformForText,
             } = task
             if (renderTarget === RenderTargets.NONE) break
 
-            const sourceImage = await getSource(source)
+            const sourceImage = await getSource(source, parentTransformForText)
             const targetCanvas = getRenderTarget(renderTarget, {
               width: viewport.width,
               height: viewport.height,
@@ -166,7 +170,7 @@ export class RenderPipeline {
 
             saveAndRestoreCanvas(targetCanvas.x, (cx) => {
               cx.globalCompositeOperation =
-                layerCompositeModeToCanvasCompositeMode(compositeMode)
+                layerBlendModeToCanvasCompositeOperation(blendMode)
 
               cx.globalAlpha = opacity
               setCanvasSize(cx.canvas, sourceImage.width, sourceImage.height)
@@ -181,7 +185,7 @@ export class RenderPipeline {
 
           case RenderCommands.PRERENDER_SOURCE: {
             const { source } = task
-            getSource(source)
+            await getSource(source)
             break
           }
 
@@ -232,9 +236,7 @@ export class RenderPipeline {
 
             // Process overrides
             object =
-              vectorObjectOverrides?.[layerUid]?.[object.uid]?.(
-                deepClone(object),
-              ) ?? object
+              vectorObjectOverrides?.[layerUid]?.(deepClone(object)) ?? object
 
             if (filter.kind === 'fill') {
               await renderer.renderFill(
@@ -271,7 +273,7 @@ export class RenderPipeline {
           }
 
           case RenderCommands.APPLY_EXTERNAL_OBJECT_FILTER: {
-            const { source, renderTarget, layerUid, objectUid, filter } = task
+            const { source, renderTarget, filter } = task
 
             const sourceImage = await getSource(source)
             const targetCanvas = getRenderTarget(renderTarget, {
@@ -322,7 +324,7 @@ export class RenderPipeline {
               if (cx) {
                 freeingCanvas(cx.canvas)
                 canvasByToken.delete(renderTarget)
-                Canvas2DAllocator.release(cx)
+                Canvas2DAllocator.return(cx)
               }
             } else {
               throw new PaplicoError(
@@ -362,7 +364,7 @@ export class RenderPipeline {
         },
       }
     } finally {
-      borrowedCanvases.forEach((cx) => Canvas2DAllocator.release(cx))
+      borrowedCanvases.forEach((cx) => Canvas2DAllocator.return(cx))
     }
 
     // getter functions
@@ -477,7 +479,10 @@ export class RenderPipeline {
       }
     }
 
-    async function getSource(source: RenderSource): Promise<
+    async function getSource(
+      source: RenderSource,
+      parentTransform?: VisuElement.ElementTransform,
+    ): Promise<
       | 'NONE'
       | undefined
       | null
@@ -498,63 +503,62 @@ export class RenderPipeline {
       }
 
       let layerBitmap: HTMLCanvasElement | ImageBitmap
-      const { layer: sourceLayer } = source
+      const { visually: sourceVis } = source
 
-      if (override?.[sourceLayer.uid]) {
-        layerBitmap = override[sourceLayer.uid]
-      } else if (sourceLayer.layerType === 'raster') {
-        layerBitmap = (await docCx.getOrCreateLayerBitmapCache(
-          sourceLayer.uid,
-        ))!
+      if (override?.[sourceVis.uid]) {
+        layerBitmap = override[sourceVis.uid]
+      } else if (sourceVis.type === 'canvas') {
+        layerBitmap = (await docCx.getOrCreateLayerBitmapCache(sourceVis.uid))!
 
-        layerMetrics[sourceLayer.uid] ??= {
+        layerMetrics[sourceVis.uid] ??= {
           source: createBBox({
-            left: sourceLayer.transform.position.x,
-            top: sourceLayer.transform.position.y,
+            left: sourceVis.transform.position.x,
+            top: sourceVis.transform.position.y,
             width: layerBitmap.width,
             height: layerBitmap.height,
           }),
           visually: createEmptyBBox(),
         }
       } else if (
-        // sourceLayer.layerType === 'vector' ||
-        sourceLayer.layerType === 'text'
+        sourceVis.type === 'vectorObject' ||
+        sourceVis.type === 'text'
       ) {
         const requestSize = { width: viewport.width, height: viewport.height }
 
-        const hasOverrideForThisLayer =
-          !!vectorObjectOverrides?.[sourceLayer.uid]
+        const hasOverrideForThisLayer = !!vectorObjectOverrides?.[sourceVis.uid]
         const canUseBitmapCache =
-          docCx.hasLayerBitmapCache(sourceLayer.uid, requestSize) &&
-          vectorObjectOverrides?.[sourceLayer.uid] == null
+          docCx.hasLayerBitmapCache(sourceVis.uid, requestSize) &&
+          vectorObjectOverrides?.[sourceVis.uid] == null
 
         if (canUseBitmapCache) {
-          logger.info('Use cached bitmap for vector layer', sourceLayer.uid)
+          logger.info('Use cached bitmap for vector layer', sourceVis.uid)
 
           layerBitmap = (await docCx.getOrCreateLayerBitmapCache(
-            sourceLayer.uid,
+            sourceVis.uid,
             requestSize,
           ))!
         } else {
           logger.info(
             'Cache is invalidated, re-render vector layer',
-            sourceLayer.uid,
+            sourceVis.uid,
           )
 
-          const { layerBBox, objectsBBox } = await renderer.renderVectorLayer(
-            tmpVectorOutCx.canvas,
-            sourceLayer,
-            {
-              viewport,
-              pixelRatio,
-              objectOverrides: vectorObjectOverrides,
-              abort,
-              phase,
-              logger,
-            },
-          )
+          const { layerBBox, objectsBBox } =
+            await renderer.renderVectorObjectVisually(
+              tmpVectorOutCx,
+              [sourceVis],
+              {
+                viewport,
+                pixelRatio,
+                objectOverrides: vectorObjectOverrides,
+                abort,
+                phase,
+                logger,
+                parentTransform,
+              },
+            )
 
-          layerMetrics[sourceLayer.uid] = layerBBox
+          layerMetrics[sourceVis.uid] = layerBBox
           for (const [uid, bbox] of Object.entries(objectsBBox)) {
             objectMetrics[uid] = bbox
           }
@@ -569,12 +573,12 @@ export class RenderPipeline {
             })
             clearCount++
             overrided.drawImage(tmpVectorOutCx.canvas, 0, 0)
-            Canvas2DAllocator.release(overrided)
+            Canvas2DAllocator.return(overrided)
 
             layerBitmap = overrided.canvas
           } else {
             layerBitmap = await docCx.updateOrCreateLayerBitmapCache(
-              sourceLayer.uid,
+              sourceVis.uid,
               tmpVectorOutCx.getImageData(
                 0,
                 0,
@@ -600,7 +604,7 @@ export class RenderPipeline {
   public async applyFilter(
     input: TexImageSource,
     outcx: CanvasRenderingContext2D,
-    filter: Omit<LayerFilter, 'enabled'>,
+    filter: Omit<VisuFilter.ExternalFilter<any>['processor'], 'enabled'>,
     {
       abort,
       viewport,
@@ -655,7 +659,7 @@ export class RenderPipeline {
   }
 }
 
-const layerCompositeModeToCanvasCompositeMode = (mode: CompositeMode) =>
+const layerBlendModeToCanvasCompositeOperation = (mode: BlendMode) =>
   (
     ({
       normal: 'source-over',
@@ -663,5 +667,5 @@ const layerCompositeModeToCanvasCompositeMode = (mode: CompositeMode) =>
       multiply: 'multiply',
       overlay: 'overlay',
       screen: 'screen',
-    }) as { [k in CompositeMode]: GlobalCompositeOperation }
+    }) as { [k in BlendMode]: GlobalCompositeOperation }
   )[mode]

@@ -1,7 +1,7 @@
 import { ColorRGB } from '../Struct/ColorRGB'
 import { ColorStop1D } from '../Struct/ColorStop1D'
 
-export type VectorFillSetting =
+export type FillSetting =
   | {
       type: 'fill'
       color: ColorRGB

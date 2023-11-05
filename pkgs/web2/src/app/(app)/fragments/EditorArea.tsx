@@ -26,7 +26,7 @@ export const EditorArea = memo(
     { className },
     canvasRef,
   ) {
-    const { pap, editorHandle } = usePaplicoInstance()
+    const { pplc: pap, editorHandle } = usePaplicoInstance()
     const papStore = useEngineStore(
       storePicker(['_setEditorHandle', 'editorHandle']),
     )

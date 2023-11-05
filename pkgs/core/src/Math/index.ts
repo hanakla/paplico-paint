@@ -6,6 +6,7 @@ export {
   createObjectSequenceMap,
   mapLinear,
   lerp,
+  clampNumInLength,
 } from './interpolation'
 export { createSeededRandom } from './random'
 export { clamp, radToDeg, degToRad } from '@/utils/math'

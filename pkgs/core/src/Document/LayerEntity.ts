@@ -3,20 +3,16 @@ import type { VectorObject } from './LayerEntity/VectorObject'
 import type { VectorGroup } from './LayerEntity/VectorGroup'
 import { Point2D } from './Struct/Point2D'
 import { TextNode } from './LayerEntity/TextNode'
+import { TypenGlossary } from '@/TypesAndGlossary'
 
-export type CompositeMode =
-  | 'normal'
-  | 'multiply'
-  | 'screen'
-  | 'overlay'
-  | 'clipper'
+export type BlendMode = TypenGlossary.BlendMode
 
 export type LayerEntityBase = {
   uid: string
   name: string
   visible: boolean
   lock: boolean
-  compositeMode: CompositeMode
+  blendMode: BlendMode
 
   /** 0 to 1 */
   opacity: number
@@ -35,10 +31,10 @@ export type LayerTransform = {
 
 // export type LayerEntity =  | FilterLayer
 
-export type RootLayer = Omit<LayerEntityBase, 'uid'> & {
-  layerType: 'root'
-  uid: '__root__'
-}
+// export type RootLayer = Omit<LayerEntityBase, 'uid'> & {
+//   layerType: 'root'
+//   uid: '__root__'
+// }
 
 export type FilterLayer = LayerEntityBase & {
   layerType: 'filter'
@@ -85,7 +81,7 @@ export type ArtboradLayer = LayerEntityBase & {
 }
 
 export type LayerEntity =
-  | RootLayer
+  // | RootLayer
   | FilterLayer
   | RasterLayer
   | VectorLayer

@@ -1,6 +1,6 @@
 import { LayerEntity } from '@/Document'
 import { ICommand } from '../ICommand'
-import { RuntimeDocument as PaplicoDocumentContext } from '@/Engine'
+import { DocumentContext as PaplicoDocumentContext } from '@/Engine'
 
 export class DocumentCreateLayer implements ICommand {
   public readonly name = 'DocumentCreateLayer'
@@ -22,15 +22,19 @@ export class DocumentCreateLayer implements ICommand {
   }
 
   public async do(document: PaplicoDocumentContext): Promise<void> {
-    document.document.addLayer(this.layer, this.layerPath, this.indexAtSibling)
+    document.document.addLayerNode(
+      this.layer,
+      this.layerPath,
+      this.indexAtSibling,
+    )
   }
 
   public async undo(document: PaplicoDocumentContext): Promise<void> {
-    const parent = document.document.resolveNodePath(this.layerPath)
+    const parent = document.document.layerNodes.getNodeAtPath(this.layerPath)
     if (!parent) throw new Error('Parent not found')
 
     parent.children.splice(
-      parent.children.findIndex((node) => node.layerUid === this.layer.uid),
+      parent.children.findIndex((node) => node.visuUid === this.layer.uid),
       1,
     )
   }
@@ -39,7 +43,7 @@ export class DocumentCreateLayer implements ICommand {
     return this.do(document)
   }
 
-  get effectedLayers() {
+  get effectedVisuUids() {
     return [this.layer.uid]
   }
 }

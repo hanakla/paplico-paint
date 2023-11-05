@@ -157,10 +157,10 @@ export class PaneUIRenderings {
 
   public renderBrushPane(
     brushId: string,
-    settings: Paplico.StrokeSetting,
+    settings: Paplico.BrushSetting,
     {
       onSettingsChange,
-    }: { onSettingsChange: (settings: Paplico.StrokeSetting) => void },
+    }: { onSettingsChange: (settings: Paplico.BrushSetting) => void },
   ) {
     const Class = this.brushRegistry.getClass(brushId)
     if (!Class) return null

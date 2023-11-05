@@ -22,7 +22,7 @@ export class SVGExporter implements IExporter {
       throw new Error('SVGExporter: No document is opened')
     }
 
-    const targetNode = paplico.currentDocument.resolveNodePath(
+    const targetNode = paplico.currentDocument.layerNodes.getNodeAtPath(
       options.targetNodePath ?? [],
     )
     if (!targetNode) {
@@ -45,7 +45,7 @@ export class SVGExporter implements IExporter {
     return new Blob([svg], { type: 'image/svg+xml' })
 
     async function nodeToSVG(node: LayerNode): Promise<string> {
-      const layer = paplico.currentDocument!.resolveLayerEntity(node.layerUid)
+      const layer = paplico.currentDocument!.getVisuallyByUid(node.visuUid)
       if (!layer) return ''
 
       if (layer.layerType === 'root') {
@@ -134,7 +134,7 @@ export class SVGExporter implements IExporter {
         )
 
         return [
-          `<g data-pap-node-id="${node.layerUid}" data-pap-layer-name="${layer.name}">`,
+          `<g data-pap-node-id="${node.visuUid}" data-pap-layer-name="${layer.name}">`,
           objectsPathes.join('\n'),
           children.join(''),
           `</g>`,

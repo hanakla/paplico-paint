@@ -33,6 +33,8 @@ type EditorStore = {
   set: StoreApi<EditorStore>['setState']
 }
 
+type Persist = Omit<EditorStore, 'toolbarPosition'>
+
 export const useEditorStore = create(
   persist<EditorStore>(
     (set, get) => ({
@@ -77,6 +79,7 @@ export const useEditorStore = create(
       name: 'ui-state',
       version: 1,
       storage: createJSONStorage(() => localStorage),
+      partialize: ({ toolbarPosition, ...state }) => state as any,
     },
   ),
 )

@@ -2,7 +2,7 @@ import prand from 'pure-rand'
 import { ulid } from '@/utils/ulid'
 
 import { PaplicoDocument } from '@/Document/Document'
-import { VisuElement } from './VisuElement'
+import { ElementBase, VisuElement } from './VisuElement'
 import { VisuFilter } from './VisuallyFilter'
 import { LayerNode } from '../LayerNode'
 
@@ -17,7 +17,7 @@ type FactoryParameter<
   RequiredFields extends { requires: Exclude<keyof T, 'uid' | 'type'> } = never,
 > = Requires<Partial<Omit<T, 'uid' | 'type'>>, RequiredFields['requires']>
 
-const DEFAULT_TRANSFORM = () => ({
+export const DEFAULT_VISU_TRANSFORM = () => ({
   position: { x: 0, y: 0 },
   rotate: 0,
   scale: { x: 1, y: 1 },
@@ -47,19 +47,21 @@ const createElementBase = <T extends VisuElement.AnyElement['type']>({
   lock = false,
   blendMode = 'normal',
   opacity = 1,
-  transform = DEFAULT_TRANSFORM(),
+  clipByLowerLayer = false,
+  transform = DEFAULT_VISU_TRANSFORM(),
   filters = [],
   features = {},
 }: {
   type: T
-} & Requires<Partial<VisuElement.ElementBase>, 'uid'>) => ({
+} & Requires<Partial<ElementBase>, 'uid'>) => ({
   type,
   uid,
   name,
-  lock,
-  opacity,
   visible,
+  lock,
   blendMode,
+  opacity,
+  clipByLowerLayer,
   transform,
   filters,
   features,

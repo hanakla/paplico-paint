@@ -3,7 +3,7 @@
 import { MutableRefObject, forwardRef, memo, useRef } from 'react'
 import { css } from 'styled-components'
 import { EditorArea } from './fragments/EditorArea'
-import { usePaplicoInit } from '@/domains/paplico'
+import { usePaplicoInit } from '@/domains/engine'
 import { LeftSideBar } from './fragments/LeftSideBar'
 import { useIsMobileDevice } from '@/utils/hooks'
 import { GlobalShortcutHandler } from './GlobalShortcutHandler'
@@ -38,7 +38,6 @@ export default memo(function Page({ chatMode }: Props) {
         display: flex;
         width: 100%;
         height: 100%;
-        pointer-events: none;
       `}
     >
       <GlobalShortcutHandler />

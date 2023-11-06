@@ -1,7 +1,7 @@
 import { PaplicoError } from './PaplicoError'
 
-export class DisposedInstanceError extends PaplicoError {
-  readonly name = 'DisposedInstanceError'
+export class PPLCDisposedInstanceError extends PaplicoError {
+  readonly name = 'PPLCDisposedInstanceError'
 
   constructor(message?: string) {
     super(message ?? 'Dispose instance used')

@@ -1,9 +1,8 @@
-import { type Paplico } from '@paplico/core-new'
-import { type StoreApi, createStore, useStore } from 'zustand'
-import { type EditorStore } from './editor'
+import { Document, type Paplico } from '@paplico/core-new'
+import { type StoreApi, createStore } from 'zustand'
 import { useContext, useMemo } from 'react'
 import { StoresContext } from './context'
-import { BoundedUseStore, createUseStore } from '@/utils/zutrand'
+import { BoundedUseStore, createUseStore } from '@/utils/zustand'
 
 export type EngineStore = {
   paplico: Paplico
@@ -19,6 +18,8 @@ export const createEngineStore = () => {
   return createStore<EngineStore>((set, get) => ({
     paplico: null!,
     state: null!,
+    busyState: true,
+    activeVisu: null,
 
     _setPaplicoInstance: (paplico) => set({ paplico }),
     _setEngineState: (state) => set({ state }),

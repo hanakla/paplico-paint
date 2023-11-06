@@ -4,7 +4,7 @@ import { memo, useEffect, useMemo, useRef } from 'react'
 import { themeVariables } from '@/theme'
 import { createUseStyles } from 'react-jss'
 import useMeasure from 'react-use-measure'
-import { storePicker } from '@/utils/zutrand'
+import { storePicker } from '@/utils/zustand'
 import { MetricsView } from './MetricsView'
 import { TextEditor } from './TextEditor'
 
@@ -91,7 +91,8 @@ export const EditorRoot = memo(function EditorRoot({
       style={{ pointerEvents: 'none' }}
       tabIndex={-1}
       className={globalStyles.styleRoot}
-      suppressHydrationWarning>
+      suppressHydrationWarning
+    >
       <circle
         ref={brushSizePreviewRef}
         className={s.brushSize}

@@ -1,5 +1,5 @@
 import { useEngineStore } from '@/store'
-import { storePicker } from '@/utils/zutrand'
+import { storePicker } from '@/utils/zustand'
 import { roundString } from '@/utils/string'
 import { memo, useEffect, useMemo, useReducer } from 'react'
 
@@ -22,14 +22,16 @@ export const MetricsView = memo(function MetricsView({ width, height }: Props) {
       width={width}
       height={height}
       viewBox={`0 0 ${width} ${height}`}
-      style={{ pointerEvents: 'none' }}>
+      style={{ pointerEvents: 'none' }}
+    >
       <defs>
         <filter
           x="0"
           y="0"
           width="1"
           height="1"
-          id="pap-editor-metrics-text-bg">
+          id="pap-editor-metrics-text-bg"
+        >
           <feFlood floodColor="yellow" result="bg" />
           <feMerge>
             <feMergeNode in="bg" />
@@ -40,7 +42,7 @@ export const MetricsView = memo(function MetricsView({ width, height }: Props) {
 
       {[...paplico.runtimeDoc?.layerMetrics.layerMetrics!].map(
         ([layerId, metrics]) => {
-          const layer = paplico.currentDocument?.resolveVisually(layerId)!
+          const layer = paplico.currentDocument?.getVisuByUid(layerId)!
 
           return (
             <g key={layerId}>
@@ -49,7 +51,8 @@ export const MetricsView = memo(function MetricsView({ width, height }: Props) {
                 dominantBaseline="hanging"
                 x={metrics.sourceBBox.left}
                 y={metrics.sourceBBox.bottom + 2}
-                fontSize={12}>
+                fontSize={12}
+              >
                 {metrics.sourceUid}
                 &nbsp;w: {roundString(metrics.sourceBBox.width, 2)}
                 &nbsp;h: {roundString(metrics.sourceBBox.height, 2)}

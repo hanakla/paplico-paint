@@ -1,4 +1,4 @@
-import { Paplico } from '@paplico/core-new'
+import { Document, Paplico } from '@paplico/core-new'
 import { createRoot } from 'react-dom/client'
 import { EditorRoot } from './editors/EditorRoot'
 import { StoresContext, createEditorStore, createEngineStore } from './store'
@@ -48,7 +48,8 @@ export function bindPaplico(
         editor: editorStore,
         engine: engineStore,
         emitter: emitterStore,
-      }}>
+      }}
+    >
       <SyncStoreToPaplico />
       <EditorRoot />
     </StoresContext.Provider>,
@@ -57,6 +58,26 @@ export function bindPaplico(
   return {
     dispose() {
       root.unmount()
+    },
+
+    get paplico() {
+      return paplico
+    },
+
+    get currentDocument() {
+      return paplico.currentDocument
+    },
+
+    loadDocument: (doc: Document.PaplicoDocument) => {
+      paplico.loadDocument(doc)
+    },
+
+    getStrokingTarget: () => {
+      return paplico.getStrokingTarget()
+    },
+
+    setStrokingTarget: (nodePath: string[]) => {
+      paplico.setStrokingTarget(nodePath)
     },
 
     currentEditorMode: () => {
@@ -121,11 +142,11 @@ export function bindPaplico(
       editorStore.setState({ brushSizePreview: { size, durationMs } })
     },
 
-    getSelectedObjectIds: () => {
-      return Object.keys(editorStore.getState().selectedObjectIds)
+    getSelectedVisuUids: () => {
+      return Object.keys(editorStore.getState().selectedVisuUids)
     },
-    setSelectedObjectIds: (ids: ((prev: string[]) => string[]) | string[]) => {
-      const currentIds = Object.keys(editorStore.getState().selectedObjectIds)
+    setSelectedVisuUids: (ids: ((prev: string[]) => string[]) | string[]) => {
+      const currentIds = Object.keys(editorStore.getState().selectedVisuUids)
       const nextIds = typeof ids === 'function' ? ids(currentIds) : ids
 
       let nextIdState: Record<string, true> = {}
@@ -136,12 +157,12 @@ export function bindPaplico(
       })
 
       editorStore.setState({
-        selectedObjectIds: nextIdState,
+        selectedVisuUids: nextIdState,
       })
     },
 
     setBrushToSelectedObjects: (brushSetting: Paplico.BrushSetting) => {
-      const ids = editorStore.getState().selectedObjectIds
+      const ids = editorStore.getState().selectedVisuUids
 
       for (const id of Object.keys(ids)) {
         paplico.currentDocument?.resolveVectorObject

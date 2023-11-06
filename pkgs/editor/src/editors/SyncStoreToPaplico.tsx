@@ -1,5 +1,5 @@
 import { useEditorStore, useEngineStore } from '@/store'
-import { storePicker } from '@/utils/zutrand'
+import { storePicker } from '@/utils/zustand'
 import { memo, useEffect } from 'react'
 
 export const SyncStoreToPaplico = memo(function SyncStoreToPaplico() {
@@ -14,12 +14,12 @@ export const SyncStoreToPaplico = memo(function SyncStoreToPaplico() {
         ? editor.vectorToolMode === 'stroking' ? 'normal'
         : 'none'
       : editor.editorType === 'raster'
-        ? editor.rasterToolMode === 'stroking' ? 'none'
+        ? editor.rasterToolMode === 'stroking' ? 'normal'
         : editor.rasterToolMode === 'erasing' ? 'erase'
         : 'none'
       : 'none',
     )
-  }, [paplico.activeLayer, editor.vectorToolMode, editor.rasterToolMode])
+  }, [paplico.activeVisu, editor.vectorToolMode, editor.rasterToolMode])
 
   return null
 })

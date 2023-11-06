@@ -1,6 +1,6 @@
-import { PaplicoRenderWarn, RenderWarnCodes } from '../PaplicoRenderWarn'
+import { PaplicoRenderWarnAbst, RenderWarnCodes } from './PaplicoRenderWarnAbst'
 
-export class MissingFilterWarn extends PaplicoRenderWarn<{
+export class MissingFilterWarn extends PaplicoRenderWarnAbst<{
   filterId: string
   at: string
 }> {

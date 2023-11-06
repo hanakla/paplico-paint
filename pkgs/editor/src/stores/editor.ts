@@ -3,13 +3,16 @@ import { createStore, type StoreApi } from 'zustand'
 import { useContext, useMemo } from 'react'
 import { StoresContext } from './context'
 import { EditorTypes, RasterToolModes, VectorToolModes } from '@/stores/types'
-import { BoundedUseStore, createUseStore } from '@/utils/zutrand'
-import { Document } from '@paplico/core-new'
+import { BoundedUseStore, createUseStore } from '@/utils/zustand'
+import Paplico, { Document } from '@paplico/core-new'
 
 export type EditorStore = {
   _rootBBox: RectReadOnly
 
   draggingThreadholdRealPixels: number
+
+  strokingTarget: Paplico.StrokingTarget | null
+  // strokeTargetVisu: Document.VisuElement.AnyElement | null
 
   enabled: boolean
   editorType: EditorTypes
@@ -17,11 +20,11 @@ export type EditorStore = {
   vectorToolMode: VectorToolModes
   canvasScale: number
   brushSizePreview: { size: number; durationMs: number } | null
-  selectedObjectIds: Record<string, true>
+  selectedVisuUids: Record<string, true>
 
   setEditorState: StoreApi<EditorStore>['setState']
   getEditorState: StoreApi<EditorStore>['getState']
-  setSelectedObjectIds: (
+  setSelectedVisuUids: (
     updater: (prev: Record<string, true>) => Record<string, true>,
   ) => void
 }
@@ -41,6 +44,8 @@ export const createEditorStore = () => {
 
     draggingThreadholdRealPixels: 0,
 
+    strokingTarget: null,
+
     enabled: false,
     editorType: EditorTypes.none,
     rasterToolMode: RasterToolModes.stroking,
@@ -48,12 +53,12 @@ export const createEditorStore = () => {
 
     canvasScale: 1,
     brushSizePreview: null,
-    selectedObjectIds: {},
+    selectedVisuUids: {},
 
     setEditorState: set,
     getEditorState: get,
-    setSelectedObjectIds: (updater) => {
-      set((prev) => ({ selectedObjectIds: updater(prev.selectedObjectIds) }))
+    setSelectedVisuUids: (updater) => {
+      set((prev) => ({ selectedVisuUids: updater(prev.selectedVisuUids) }))
     },
   }))
 }
@@ -74,7 +79,7 @@ export const layerTypeToEditorType = (
   return (
     layerType ==='canvas' ? 'raster' :
     layerType ==='vectorObject' ? 'vector' :
-    // layerType ==='group' ? 'group' :
+    layerType ==='group' ? 'vector' :
     layerType ==='text' ? 'text' :
     'none'
   )

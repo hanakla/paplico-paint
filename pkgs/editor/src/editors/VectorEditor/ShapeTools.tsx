@@ -6,7 +6,7 @@ import {
   reveseSiding,
 } from '@/utils/math'
 import { VectorToolModes } from '@/stores/types'
-import { storePicker } from '@/utils/zutrand'
+import { storePicker } from '@/utils/zustand'
 import { Commands, Document } from '@paplico/core-new'
 
 import { memo, useState } from 'react'
@@ -19,11 +19,10 @@ type Props = {
 }
 
 export const ShapeTools = memo(function ShapeTools({ width, height }: Props) {
-  const { paplico, activeLayer } = useEngineStore((s) => ({
-    paplico: s.paplico,
-    activeLayer: s.paplico.activeLayer,
-  }))
-  const editorStore = useEditorStore(storePicker(['vectorToolMode']))
+  const { paplico } = useEngineStore()
+  const editor = useEditorStore(
+    storePicker(['vectorToolMode', 'strokingTarget']),
+  )
   const s = useStyles()
 
   const [measureRef, rootRect] = useMeasure()
@@ -44,10 +43,10 @@ export const ShapeTools = memo(function ShapeTools({ width, height }: Props) {
 
   const bindRectDrag = usePointerDrag(
     ({ offsetInitial, offsetMovement, last, event, canceled }) => {
-      if (!activeLayer?.layerUid) return
+      if (!editor.strokingTarget?.visuUid) return
 
       // rectangle tool
-      if (editorStore.vectorToolMode === VectorToolModes.rectangleTool) {
+      if (editor.vectorToolMode === VectorToolModes.rectangleTool) {
         const cursorSide = reveseSiding(
           getSideDirectionByMovement(offsetMovement),
         )
@@ -73,10 +72,10 @@ export const ShapeTools = memo(function ShapeTools({ width, height }: Props) {
           const ink = paplico.cloneInkSetting()
 
           paplico.command.do(
-            new Commands.VectorUpdateObjects(activeLayer.layerUid, {
-              updater: (objects) => {
-                objects.push(
-                  Document.createVectorObject({
+            new Commands.DocumentUpdateLayerNodes({
+              add: [
+                {
+                  visu: Document.visu.createVectorObjectVisually({
                     path: createRectPathByRect(
                       rect.x,
                       rect.y,
@@ -99,8 +98,10 @@ export const ShapeTools = memo(function ShapeTools({ width, height }: Props) {
                         : undefined,
                     ].filter((v): v is NonNullable<typeof v> => v != null),
                   }),
-                )
-              },
+                  parentNodePath: editor.strokingTarget?.nodePath,
+                  indexInNode: -1,
+                },
+              ],
             }),
           )
 
@@ -109,7 +110,7 @@ export const ShapeTools = memo(function ShapeTools({ width, height }: Props) {
         }
 
         setRectPreview(rect)
-      } else if (editorStore.vectorToolMode === VectorToolModes.ellipseTool) {
+      } else if (editor.vectorToolMode === VectorToolModes.ellipseTool) {
         const cursorSide = reveseSiding(
           getSideDirectionByMovement(offsetMovement),
         )
@@ -139,10 +140,10 @@ export const ShapeTools = memo(function ShapeTools({ width, height }: Props) {
           const ink = paplico.cloneInkSetting()
 
           paplico.command.do(
-            new Commands.VectorUpdateObjects(activeLayer.layerUid, {
-              updater: (objects) => {
-                objects.push(
-                  Document.createVectorObject({
+            new Commands.DocumentUpdateLayerNodes({
+              add: [
+                {
+                  visu: Document.visu.createVectorObjectVisually({
                     path: createCirclePathByRect(
                       rect.x,
                       rect.y,
@@ -165,8 +166,10 @@ export const ShapeTools = memo(function ShapeTools({ width, height }: Props) {
                         : undefined,
                     ].filter((v): v is NonNullable<typeof v> => v != null),
                   }),
-                )
-              },
+                  parentNodePath: editor.strokingTarget.nodePath,
+                  indexInNode: -1,
+                },
+              ],
             }),
           )
 
@@ -253,8 +256,8 @@ function createRectPathByRect(
   y: number,
   width: number,
   height: number,
-): Document.VectorPath {
-  return Document.createVectorPath({
+): Document.VisuElement.VectorPath {
+  return Document.visu.createVectorPath({
     points: [
       { isMoveTo: true, x, y },
       { x: x + width, y },
@@ -272,7 +275,7 @@ function createCirclePathByRect(
   y: number,
   width: number,
   height: number,
-): Document.VectorPath {
+): Document.VisuElement.VectorPath {
   const rx = width / 2
   const ry = height / 2
   const hrx = rx / 2

@@ -1,4 +1,4 @@
-import { clamp } from '.'
+import { clamp } from '@/utils/math'
 
 type InterpolatorFunction = (a: number, b: number, ratio: number) => number
 

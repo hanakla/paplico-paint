@@ -1,7 +1,7 @@
 import { FloatablePane } from '@/components/FloatablePane'
 import { TreeView } from '@/components/TreeView'
 import { FloatablePaneIds } from '@/domains/floatablePanes'
-import { usePaplicoInstance, useEngineStore } from '@/domains/paplico'
+import { usePaplicoInstance, useEngineStore } from '@/domains/engine'
 import { Commands, Document, Paplico } from '@paplico/core-new'
 import React, {
   ChangeEvent,
@@ -61,12 +61,12 @@ type LayerContextMenuParams = {
 export const LayersPane = memo(function LayersPane({ size = 'sm' }: Props) {
   const t = useTranslation(layersPaneTexts)
   const { pplc: pplc } = usePaplicoInstance()
-  const papStore = useEngineStore(storePicker(['strokeTargetVisually']))
+  const { canvasEditor } = useEngineStore()
   const rerender = useUpdate()
   const propsMemo = usePropsMemo()
   const layerItemMenu = useContextMenu<LayerContextMenuParams>()
 
-  const strokeTargetVis = papStore.strokeTargetVisually
+  const strokeTargetVis = canvasEditor?.getStrokingTarget()
 
   const handleChangeLayerName = useEvent((e: ChangeEvent<HTMLInputElement>) => {
     if (!strokeTargetVis) return
@@ -74,7 +74,7 @@ export const LayersPane = memo(function LayersPane({ size = 'sm' }: Props) {
     const name = e.currentTarget.value
 
     pplc?.command.do(
-      new Commands.LayerUpdateAttributes(strokeTargetVis.uid, {
+      new Commands.VisuUpdateAttributes(strokeTargetVis.visuUid, {
         updater: (layer) => {
           layer.name = name
         },
@@ -86,9 +86,9 @@ export const LayersPane = memo(function LayersPane({ size = 'sm' }: Props) {
     console.log(mode)
 
     pplc?.command.do(
-      new Commands.LayerUpdateAttributes(strokeTargetVis!.uid, {
+      new Commands.VisuUpdateAttributes(strokeTargetVis!.visuUid, {
         updater: (layer) => {
-          layer.compositeMode = mode as any
+          layer.blendMode = mode as any
         },
       }),
     )
@@ -114,21 +114,10 @@ export const LayersPane = memo(function LayersPane({ size = 'sm' }: Props) {
 
     pplc.command.do(
       new Commands.DocumentCreateLayer(layer, {
-        layerPath: [],
+        nodePath: [],
         indexAtSibling: -1,
       }),
     )
-  })
-
-  const handleLayerItemContextMenu = useEvent((e: LayerContextMenuEvent) => {
-    if (e.kind !== 'layer') return
-
-    layerItemMenu.show({
-      event: e.event,
-      props: {
-        layerUid: e.layerUid,
-      },
-    })
   })
 
   useEffect(() => {
@@ -149,7 +138,8 @@ export const LayersPane = memo(function LayersPane({ size = 'sm' }: Props) {
           />{' '}
           {t('title')}
         </>
-      }>
+      }
+    >
       <Box
         css={css`
           display: flex;
@@ -159,7 +149,8 @@ export const LayersPane = memo(function LayersPane({ size = 'sm' }: Props) {
           padding: 8px;
           background-color: var(--gray-3);
           border-radius: 4px;
-        `}>
+        `}
+      >
         {!strokeTargetVis ? (
           <PlaceholderString>
             Select a layer to show properties
@@ -177,14 +168,16 @@ export const LayersPane = memo(function LayersPane({ size = 'sm' }: Props) {
 
             <Fieldset
               label={t('compositeMode')}
-              valueField={strokeTargetVis?.compositeMode ?? '<Blend mode>'}>
+              valueField={strokeTargetVis?.compositeMode ?? '<Blend mode>'}
+            >
               {propsMemo.memo(
                 'blendmode-fieldset-root',
                 () => (
                   <Select.Root
                     size="1"
                     value={strokeTargetVis?.compositeMode}
-                    onValueChange={handleChangeCompositeMode}>
+                    onValueChange={handleChangeCompositeMode}
+                  >
                     <>
                       <Select.Trigger />
                       <Select.Content>
@@ -205,7 +198,8 @@ export const LayersPane = memo(function LayersPane({ size = 'sm' }: Props) {
               valueField={`${roundPrecision(
                 (strokeTargetVis?.opacity ?? 1) * 100,
                 1,
-              )}%`}>
+              )}%`}
+            >
               <Slider
                 css={css`
                   padding: 8px 0;
@@ -226,14 +220,9 @@ export const LayersPane = memo(function LayersPane({ size = 'sm' }: Props) {
           min-height: 300px;
           max-height: 600px;
           border-radius: 4px 4px 0 0;
-        `}>
-        {!!pplc?.currentDocument && (
-          <NewTreeView
-          // root={pplc.currentDocument.layerTreeRoot}
-          // size={size}
-          // onLayerItemContextMenu={handleLayerItemContextMenu}
-          />
-        )}
+        `}
+      >
+        {!!pplc?.currentDocument && <NewTreeView mode={'desktop'} />}
       </ScrollArea>
       <div
         css={css`
@@ -243,7 +232,8 @@ export const LayersPane = memo(function LayersPane({ size = 'sm' }: Props) {
           background-color: var(--gray-3);
           border-top: 1px solid var(--gray-6);
           border-radius: 0 0 4px 4px;
-        `}>
+        `}
+      >
         <DropdownMenu
           trigger={
             <Button
@@ -252,25 +242,321 @@ export const LayersPane = memo(function LayersPane({ size = 'sm' }: Props) {
                 color: var(--gray-11);
               `}
               variant="ghost"
-              size="1">
+              size="1"
+            >
               <RxPlus />
             </Button>
-          }>
+          }
+        >
           <DropdownMenuItem
             data-layer-type="normal"
-            onClick={handleClickAddLayer}>
+            onClick={handleClickAddLayer}
+          >
             Normal Layer
           </DropdownMenuItem>
           <DropdownMenuItem
             data-layer-type="vector"
-            onClick={handleClickAddLayer}>
+            onClick={handleClickAddLayer}
+          >
             Vector Layer
           </DropdownMenuItem>
         </DropdownMenu>
       </div>
+
+      {/* <LayerItemContextMenu id={layerItemMenu.id} /> */}
     </FloatablePane>
   )
 })
+
+// const LayerItemContextMenu = memo<{ id: string }>(
+//   function LayerItemContextMenu({ id }) {
+//     const { pplc: pap } = usePaplicoInstance()
+
+//     const onClickRemove = useEvent<
+//       ContextMenuItemClickHandler<LayerContextMenuParams>
+//     >(({ props }) => {
+//       pap?.command.do(new Commands.DocumentRemoveLayer(props!.layerUid))
+//     })
+
+//     return (
+//       <ContextMenu.Menu id={id}>
+//         <ContextMenu.Item onClick={onClickRemove}>Remove</ContextMenu.Item>
+//       </ContextMenu.Menu>
+//     )
+//   },
+// )
+
+// const LayerTreeView = memo(
+//   ({
+//     root,
+//     size,
+//     onLayerItemContextMenu,
+//   }: Props & {
+//     root: Document.LayerNode
+//     onLayerItemContextMenu: (e: LayerContextMenuEvent) => void
+//   }) => {
+//     // const pap = usePaplicoInstance().pplc!
+
+//     // const rerender = useUpdate()
+//     // const [tree, setTree] = useState<LayerTreeNode | null>(() => {
+//     //   return pap?.currentDocument
+//     //     ? convertLayerNodeToTreeViewNode(pap.currentDocument, root)
+//     //     : null
+//     // })
+
+//     // const update = useCallback(() => {
+//     //   // setTree(tree)
+//     //   rerender()
+//     // }, [])
+
+//     // const handleClickItem = useEvent((item: LayerTreeNode) => {
+//     //   if (item instanceof LayerTreeNode) {
+//     //     pap!.setStrokingTargetLayer(item.nodePath)
+//     //     rerender()
+//     //   }
+//     // })
+
+//     // const handleDragStart = useEvent<TreeView.DragStartCallback<LayerTreeNode>>(
+//     //   ({ item }) => {
+//     //     // if (!item.node.selected) {
+//     //     //   item.node.root.deselect()
+//     //     //   item.node.select()
+//     //     //   update()
+//     //     // }
+//     //     return true
+//     //   },
+//     // )
+
+//     // const handleDrop = useEvent<TreeView.DropCallback<LayerTreeNode>>(
+//     //   ({ item, draggedItem, before }) => {
+//     //     console.log({ draggedItem, item, before })
+//     //     // if (!draggedItem) return
+
+//     //     // for (const node of item.node.root.selectedDescendants) {
+//     //     //   item.insertBefore(node, before)
+//     //     // }
+//     //     // update()
+//     //   },
+//     // )
+
+//     // const canDrop = useEvent<TreeView.CanDropCallback<LayerTreeNode>>(
+//     //   ({ item, draggedItem }) => {
+//     //     return !!draggedItem && item.canDroppable(draggedItem)
+//     //   },
+//     // )
+
+//     // const updateTree = useStableLatestRef(() => {
+//     //   if (!pap.currentDocument || !tree) return
+
+//     //   updateLayerTree(pap!.currentDocument, root, tree)
+//     // })
+
+//     // const BindedLayerTreeRow = useMemo(() => {
+//     //   return (props: TreeView.RowRenderProps<LayerTreeNode>) => {
+//     //     return (
+//     //       <LayerTreeRow
+//     //         {...props}
+//     //         size={size}
+//     //         onClick={handleClickItem}
+//     //         onChange={update}
+//     //         onContextMenu={onLayerItemContextMenu}
+//     //       />
+//     //     )
+//     //   }
+//     // }, [size, handleClickItem, update])
+
+//     // useEffect(() => {
+//     //   const changed = () => {
+//     //     updateTree.current()
+//     //   }
+
+//     //   pap!.on('documentChanged', changed)
+//     //   pap!.on('activeLayerChanged', changed)
+//     //   pap!.on('history:affect', changed)
+//     //   return () => {
+//     //     pap!.off('documentChanged', changed)
+//     //     pap!.off('activeLayerChanged', changed)
+//     //     pap!.off('history:affect', changed)
+//     //   }
+//     // }, [])
+
+//     // if (!tree) return null
+
+//     return (
+//       <NewTreeView
+//       // rootItem={tree}
+//       // background={
+//       //   <div
+//       //     style={{
+//       //       position: 'absolute',
+//       //       inset: 0,
+//       //     }}
+//       //     // onClick={(e, item) => {
+//       //     //   tree.node.deselect()
+//       //     //   update()
+//       //     // }}
+//       //   />
+//       // }
+//       // canDrop={canDrop}
+//       // onDragStart={handleDragStart}
+//       // onDrop={handleDrop}
+//       // dropBetweenIndicator={BetweenIndicator}
+//       // dropOverIndicator={OverIndicator!}
+//       // renderRow={BindedLayerTreeRow}
+//       />
+//     )
+//   },
+// )
+
+// const BetweenIndicator = function BetweenIndicator({
+//   top,
+//   left,
+// }: TreeView.DropBetweenIndicatorRenderProps) {
+//   return (
+//     <div
+//       style={{
+//         position: 'absolute',
+//         top,
+//         left,
+//         width: '100%',
+//         height: '1px',
+//         background: 'var(--sky-8)',
+//       }}
+//     />
+//   )
+// }
+
+// const OverIndicator = function OverIndicator({
+//   top,
+//   height,
+// }: TreeView.DropOverIndicatorRenderProps) {
+//   return (
+//     <div
+//       style={{
+//         position: 'absolute',
+//         top,
+//         left: 0,
+//         width: '100%',
+//         height,
+//         background: 'var(--sky-5)',
+//         opacity: 0.5,
+//       }}
+//     />
+//   )
+// }
+
+// const LayerTreeRow = ({
+//   item,
+//   depth,
+//   size,
+//   onChange,
+//   onClick,
+//   onContextMenu,
+// }: TreeView.RowRenderProps<LayerTreeNode> & {
+//   size: 'sm' | 'lg'
+//   onChange: () => void
+//   onClick: (item: LayerNodes) => void
+//   onContextMenu: (entity: LayerContextMenuEvent) => void
+// }) => {
+//   const { pplc: pap } = usePaplicoInstance()
+//   const papStore = useEngineStore(storePicker(['engineState']))
+
+//   const handleCollapseButtonClick = useEvent((e: MouseEvent) => {
+//     e.stopPropagation()
+//     item.collapsed = !item.collapsed
+//     onChange()
+//   })
+
+//   const handleClick = useEvent(() => {
+//     onClick(item)
+//   })
+
+//   const handleContextMenu = useEvent((e: MouseEvent) => {
+//     onContextMenu({ kind: 'layer', event: e, layerUid: item.layerNode.uid })
+//   })
+
+//   const layerImage = pap!.previews.getForLayer(item.key)
+
+//   return (
+//     <div
+//       css={css`
+//         display: flex;
+//         align-items: center;
+//         padding: 2px;
+//         font-size: var(--font-size-2);
+//         line-height: var(--line-height-2);
+
+//         & + & {
+//           border-top: 1px solid var(--gray-8);
+//         }
+//       `}
+//       style={{
+//         background:
+//           item instanceof LayerTreeNode &&
+//           pap?.activeLayer?.layerUid === item.layerNode.uid
+//             ? 'var(--sky-5)'
+//             : 'transparent',
+//       }}
+//       onClick={handleClick}
+//       onContextMenu={handleContextMenu}>
+//       <span
+//         css={css`
+//           display: inline-flex;
+//           min-width: 16px;
+//           align-items: center;
+//           opacity: 0.5;
+
+//           &:hover {
+//             opacity: 1;
+//           }
+//         `}
+//         style={{
+//           marginRight: 2 + depth * 12,
+//         }}
+//         onClick={handleCollapseButtonClick}>
+//         {item.hasChildren() &&
+//           (item.collapsed ? <TriangleUpIcon /> : <TriangleDownIcon />)}
+//       </span>
+
+//       <img
+//         css={css`
+//           border: none;
+//           /* border: 1px solid var(--gray-8); */
+//         `}
+//         src={layerImage?.url}
+//         style={
+//           size == 'sm'
+//             ? {
+//                 width: 16,
+//                 marginRight: 4,
+//                 aspectRatio: '1',
+//               }
+//             : {
+//                 width: 32,
+//                 marginRight: 8,
+//                 aspectRatio: '1 / 1.6',
+//               }
+//         }
+//         decoding="async"
+//         loading="lazy"
+//       />
+
+//       {item instanceof LayerTreeNode
+//         ? emptyCoalease(
+//             item.layerNode.name,
+//             <PlaceholderString>
+//               {
+//                 // prettier-ignore
+//                 item.layerNode.layerType === 'vector'? '<Vector Layer>'
+//                 : item.layerNode.layerType === 'text' ? '<Text Layer>'
+//                 : '<Normal Layer>'
+//               }
+//             </PlaceholderString>,
+//           )
+//         : 'Vector Object'}
+//     </div>
+//   )
+// }
 
 const PlaceholderString = styled.span`
   color: var(--gray-10);

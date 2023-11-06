@@ -8,6 +8,10 @@ import { Emitter } from '@/utils/Emitter'
 import { LayerMetrics } from './LayerMetrics'
 import { VectorObject, VisuElement } from '@/Document'
 import { createImageBitmapImpl, createImageData } from '../CanvasFactory'
+import {
+  PPLCInvalidOptionOrStateError,
+  PPLCInvariantViolationError,
+} from '@/Errors'
 
 export namespace DocumentContext {
   export type VisuallyPointer = {
@@ -22,18 +26,21 @@ export namespace DocumentContext {
     height: number
   }
 
-  export type ActiveLayer = {
-    visuType: VisuElement.AnyElement['type']
-    layerUid: string
-    pathToLayer: string[]
+  export type StrokingTarget = {
+    visuType:
+      | VisuElement.GroupElement['type']
+      | VisuElement.CanvasElement['type']
+    visuUid: string
+    nodePath: string[]
+    visu: VisuElement.GroupElement | VisuElement.CanvasElement
   }
 
   export type Events = {
     invalidateVectorPathCacheRequested: {
       object: VectorObject
     }
-    activeLayerChanged: {
-      current: ActiveLayer | null
+    strokingTargetChanged: {
+      current: StrokingTarget | null
     }
     'preview:updated': PreviewStore.Events['updated']
   }
@@ -43,7 +50,7 @@ export class DocumentContext extends Emitter<DocumentContext.Events> {
   public document: PaplicoDocument
   public history: History
 
-  public layerImageCache: Map<string, ImageBitmap> = new Map()
+  public layerNodeBitmapCache: Map<string, ImageBitmap> = new Map()
   public blobCaches: Map<string, WeakRef<any>> = new Map()
 
   public layerMetrics = new LayerMetrics(this)
@@ -52,8 +59,10 @@ export class DocumentContext extends Emitter<DocumentContext.Events> {
 
   public updaterLock = new AtomicResource({}, 'RuntimeDocument#updateLock')
 
-  protected _activeVisually: DocumentContext.ActiveLayer | null = null
-  protected _activeVisuallyEntity: VisuElement.AnyElement | null = null
+  protected _strokingTarget: DocumentContext.StrokingTarget | null = null
+  protected _strokingTargetVisu:
+    | (VisuElement.GroupElement | VisuElement.CanvasElement)
+    | null = null
 
   constructor(document: PaplicoDocument) {
     super()
@@ -68,8 +77,8 @@ export class DocumentContext extends Emitter<DocumentContext.Events> {
   }
 
   public dispose() {
-    this._activeVisually = null
-    this._activeVisuallyEntity = null
+    this._strokingTarget = null
+    this._strokingTargetVisu = null
 
     this.mitt.all.clear()
     this.updaterLock.clearQueue()
@@ -77,8 +86,8 @@ export class DocumentContext extends Emitter<DocumentContext.Events> {
     this.previews.dispose()
     this.history.dispose()
     this.layerMetrics.dispose()
-    this.layerImageCache.forEach((bitmap) => bitmap.close())
-    this.layerImageCache.clear()
+    this.layerNodeBitmapCache.forEach((bitmap) => bitmap.close())
+    this.layerNodeBitmapCache.clear()
     this.blobCaches.clear()
   }
 
@@ -94,15 +103,16 @@ export class DocumentContext extends Emitter<DocumentContext.Events> {
     canRedo: () => this.history.canRedo(),
   }
 
-  public get activeLayer() {
-    return this._activeVisually
+  public get strokingTarget() {
+    return this._strokingTarget
   }
 
-  public get activeVisuallyEntity() {
-    return this._activeVisuallyEntity
+  /** @deprecated use `strokingTarget` instead */
+  public get strokingTargetVisu() {
+    return this._strokingTargetVisu
   }
 
-  public setStrokeTargetVisually(
+  public setStrokingTarget(
     path: string[] | null | undefined,
     {
       __internal_skipEmit,
@@ -110,34 +120,44 @@ export class DocumentContext extends Emitter<DocumentContext.Events> {
       __internal_skipEmit?: boolean
     } = {},
   ) {
-    if (!path || path.length === 0) {
-      this._activeVisually = null
-      this._activeVisuallyEntity = null
-      this.emit('activeLayerChanged', { current: null })
+    if (!path) {
+      this._strokingTarget = null
+      this._strokingTargetVisu = null
+      this.emit('strokingTargetChanged', { current: null })
       return
     }
 
-    const target = this.document.layerNodes.getNodeAtPath(path)
+    const doc = this.document
+
+    const target = doc.layerNodes.getNodeAtPath(path)
     if (!target) {
-      console.warn(
+      throw new PPLCInvalidOptionOrStateError(
         `Paplico.enterLayer: Layer node not found: /${path.join('/')}`,
       )
-      return
     }
 
-    const layer = this.document.getVisuallyByUid(target.visuUid)!
-
-    this._activeVisually = {
-      visuType: layer.type,
-      layerUid: target!.visuUid,
-      pathToLayer: path,
+    const visu = doc.getVisuByUid(target.visuUid)!
+    if (!doc.isStrokeableVisu(visu)) {
+      throw new PPLCInvalidOptionOrStateError(
+        `Paplico.enterLayer: Layer node is can not be stroking target: /${path.join(
+          '/',
+        )}`,
+      )
     }
-    this._activeVisuallyEntity = layer
 
-    console.info(`Enter layer: ${path.join('/')}`)
+    this._strokingTarget = {
+      visuType: visu.type,
+      visuUid: target!.visuUid,
+      nodePath: path,
+      visu,
+    }
+
+    this._strokingTargetVisu = visu
+
+    console.info(`Enter layer: /${path.join('/')}`)
 
     if (!__internal_skipEmit) {
-      this.emit('activeLayerChanged', { current: this._activeVisually })
+      this.emit('strokingTargetChanged', { current: this._strokingTarget })
     }
   }
 
@@ -150,7 +170,7 @@ export class DocumentContext extends Emitter<DocumentContext.Events> {
     let runtimeEntity = this.visuElements.get(uid)
     if (runtimeEntity) return runtimeEntity
 
-    const layer = this.document.getVisuallyByUid(uid)
+    const layer = this.document.getVisuByUid(uid)
     if (!layer) return undefined
 
     runtimeEntity = {
@@ -167,51 +187,49 @@ export class DocumentContext extends Emitter<DocumentContext.Events> {
   }
 
   /** Check valid bitmap cache in requested size availablity */
-  public hasLayerBitmapCache(
-    layerUid: string,
+  public hasLayerNodeBitmapCache(
+    visuNodeUid: string,
     size: { width: number; height: number },
   ) {
-    const layer = this.document.visuElements.find((l) => l.uid === layerUid)
-    if (!layer) return false
-
-    const bitmap = this.layerImageCache.get(layerUid)
+    const bitmap = this.layerNodeBitmapCache.get(visuNodeUid)
     if (!bitmap) return false
 
-    if (layer.type === 'vectorObject') {
-      return bitmap.width === size.width && bitmap.height === size.height
-    }
-
-    return true
+    return bitmap.width === size.width && bitmap.height === size.height
   }
 
-  public getLayerBitmapCache(layerUid: string) {
-    return this.layerImageCache.get(layerUid)
+  public getLayerNodeBitmapCache(layerUid: string) {
+    return this.layerNodeBitmapCache.get(layerUid)
   }
 
-  public async getOrCreateLayerBitmapCache(
+  public async getOrCreateLayerNodeBitmapCache(
     visUid: string,
     size?: { width: number; height: number },
   ) {
-    const vis = this.document.getVisuallyByUid(visUid)
-    if (!vis) return null
+    const visu = this.document.getVisuByUid(visUid)
+    if (!visu) return null
+
+    // Don't cache orphaned and vector Visu
+    if (visu.type !== 'group' && visu.type !== 'canvas') {
+      return null
+    }
 
     const runtimeEntity = this.visuElements.get(visUid) ?? {
       lastUpdated: 0,
-      source: new WeakRef(vis),
+      source: new WeakRef(visu),
     }
     this.visuElements.set(visUid, runtimeEntity)
 
-    if (vis?.type !== 'canvas' && !size) {
+    if (visu?.type !== 'canvas' && !size) {
       throw new Error(
         'Cannot create bitmap cache without size when layer is not CanvasVisually',
       )
     }
 
-    let bitmap = this.layerImageCache.get(visUid)
+    let bitmap = this.layerNodeBitmapCache.get(visUid)
 
     // if different size needed in vector layer, dispose current cache
     if (
-      vis.type === 'vectorObject' &&
+      visu.type === 'group' &&
       (bitmap?.width !== size?.width || bitmap?.height !== size?.height)
     ) {
       bitmap?.close()
@@ -220,18 +238,18 @@ export class DocumentContext extends Emitter<DocumentContext.Events> {
 
     if (bitmap) return bitmap
 
-    if (vis.type === 'canvas') {
+    if (visu.type === 'canvas') {
       bitmap = await createImageBitmapImpl(
-        vis.bitmap
-          ? createImageData(vis.bitmap, vis.width, vis.height)
-          : createImageData(vis.width, vis.height),
+        visu.bitmap
+          ? createImageData(visu.bitmap, visu.width, visu.height)
+          : createImageData(visu.width, visu.height),
       )
 
       runtimeEntity.lastUpdated = Date.now()
 
-      this.layerImageCache.set(visUid, bitmap)
+      this.layerNodeBitmapCache.set(visUid, bitmap)
       await this.previews.generateAndSet(visUid, bitmap)
-    } else if (vis.type === 'vectorObject') {
+    } else if (visu.type === 'group') {
       bitmap = await createImageBitmapImpl(
         createImageData(size!.width, size!.height),
       )
@@ -239,7 +257,7 @@ export class DocumentContext extends Emitter<DocumentContext.Events> {
       runtimeEntity.lastUpdated = Date.now()
 
       this.visuElements.set(visUid, runtimeEntity)
-      this.layerImageCache.set(visUid, bitmap)
+      this.layerNodeBitmapCache.set(visUid, bitmap)
       await this.previews.generateAndSet(visUid, bitmap)
     }
 
@@ -247,12 +265,12 @@ export class DocumentContext extends Emitter<DocumentContext.Events> {
   }
 
   public invalidateLayerBitmapCache(visuUid: string) {
-    this.layerImageCache.delete(visuUid)
+    this.layerNodeBitmapCache.delete(visuUid)
   }
 
   public invalidateAllLayerBitmapCache() {
-    this.layerImageCache.forEach((bitmap) => bitmap.close())
-    this.layerImageCache.clear()
+    this.layerNodeBitmapCache.forEach((bitmap) => bitmap.close())
+    this.layerNodeBitmapCache.clear()
   }
 
   public invalidateVectorObjectCache(vectorObject: VectorObject) {
@@ -262,26 +280,31 @@ export class DocumentContext extends Emitter<DocumentContext.Events> {
   // public getLayerImageBitmap(layerUid: string) {}
 
   public async updateOrCreateLayerBitmapCache(
-    visuallyUid: string,
+    visuUid: string,
     newBitmap: ImageData,
   ) {
-    const visually = this.document.getVisuallyByUid(visuallyUid)
-    const bitmap = this.layerImageCache.get(visuallyUid)
-    bitmap?.close()
-
-    if (visually?.type !== 'group') {
-      console.warn(
-        'Primitive Visually usign bitmap cache it performs bad memory usage',
+    const visu = this.document.getVisuByUid(visuUid)
+    if (!visu) {
+      throw new PPLCInvariantViolationError(
+        `Visu not found in updateOrCreateLayerBitmapCache: ${visuUid}`,
       )
     }
 
-    if (visually?.type === 'canvas') {
-      visually.bitmap = newBitmap.data
+    if (visu.type !== 'group' && visu.type !== 'canvas') {
+      console.warn('Update bitmap cache ignoring for primitive Visu', visu)
+      return
+    }
+
+    const bitmap = this.layerNodeBitmapCache.get(visuUid)
+    bitmap?.close()
+
+    if (visu?.type === 'canvas') {
+      visu.bitmap = newBitmap.data
     }
 
     const nextBitmap = await createImageBitmapImpl(newBitmap)
-    this.layerImageCache.set(visuallyUid, nextBitmap)
-    this.previews.generateAndSet(visuallyUid, nextBitmap)
+    this.layerNodeBitmapCache.set(visuUid, nextBitmap)
+    this.previews.generateAndSet(visuUid, nextBitmap)
 
     return nextBitmap
   }

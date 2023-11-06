@@ -1,5 +1,5 @@
 import { memo, useEffect, useRef } from 'react'
-import { usePaplicoInstance, useEngineStore } from '@/domains/paplico'
+import { usePaplicoInstance, useEngineStore } from '@/domains/engine'
 import { FloatablePaneIds } from '@/domains/floatablePanes'
 import { FloatablePane } from '@/components/FloatablePane'
 import { Listbox, ListboxItem } from '@/components/Listbox'
@@ -15,7 +15,7 @@ import useMeasure from 'use-measure'
 
 export const BrushSettingPane = memo(function BrushSetting() {
   const t = useTranslation(brushesSettingPaneTexts)
-  const { pplc: pap, editorHandle } = usePaplicoInstance()
+  const { pplc: pap, canvasEditor: editorHandle } = usePaplicoInstance()
   const { currentBrush } = useEngineStore((s) => ({
     currentBrush: s.engineState?.currentBrush,
   }))
@@ -82,10 +82,12 @@ export const BrushSettingPane = memo(function BrushSetting() {
       <div
         css={css`
           margin-bottom: 8px;
-        `}>
+        `}
+      >
         <Listbox
           value={currentBrush ? [currentBrush.brushId] : []}
-          onChange={handleChangeBrush}>
+          onChange={handleChangeBrush}
+        >
           {pap?.brushes.brushEntries.map((entry) => (
             <ListboxItem key={entry.metadata.id} value={entry.metadata.id}>
               {entry.metadata.name}
@@ -100,7 +102,8 @@ export const BrushSettingPane = memo(function BrushSetting() {
             padding: 4px 8px;
             background-color: var(--gray-3);
             border-radius: 4px;
-          `}>
+          `}
+        >
           <canvas
             ref={previewRef}
             css={css`

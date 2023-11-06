@@ -40,7 +40,7 @@ export type RenderTask = {
   | {
       command: typeof RenderCommands.APPLY_INTERNAL_OBJECT_FILTER
       layerUid: string
-      object: VisuElement.VectorObjectElement
+      object: VisuElement.VectorObjectElement | VisuElement.TextElement
       filter: VisuFilter.FillFilter | VisuFilter.StrokeFilter
       parentTransform: VisuElement.ElementTransform
     }
@@ -77,14 +77,21 @@ export type CanvasToken = {
   __canvasToken: true
 }
 
-export const RenderTargets = km({
-  LAYER_PRE_FILTER: null,
-  VECTOR_OBJECT_PRE_FILTER: null,
-  SHARED_FILTER_BUF: null,
-  PREDEST: null,
-  GL_RENDER_TARGET1: null,
-  NONE: null,
+const NEW_CANVAS_TARGET = (
+  label?: string,
+): CanvasToken & { label?: string } => ({
+  __canvasToken: true as const,
+  label,
 })
+
+// Value is unique object, it usually used as key of Map
+export const RenderTargets = {
+  LAYER_PRE_FILTER: NEW_CANVAS_TARGET(),
+  VECTOR_OBJECT_PRE_FILTER: NEW_CANVAS_TARGET(),
+  SHARED_FILTER_BUF: NEW_CANVAS_TARGET(),
+  PREDEST: NEW_CANVAS_TARGET(),
+  NONE: null,
+} as const
 
 export type RenderTargets =
   | (typeof RenderTargets)[keyof typeof RenderTargets]
@@ -92,16 +99,9 @@ export type RenderTargets =
 
 export type RenderSource =
   | RenderTargets
-  | { visually: VisuElement.AnyElement }
+  | { visuNode: PaplicoDocument.ResolvedLayerNode }
   | { bitmap: HTMLCanvasElement | ImageBitmap }
   | CanvasToken
-
-const NEW_CANVAS_TARGET = (
-  label?: string,
-): CanvasToken & { label?: string } => ({
-  __canvasToken: true as const,
-  label,
-})
 
 function km<T extends object>(obj: T): { [K in keyof T]: K } {
   return Object.keys(obj).reduce((acc, key) => {
@@ -114,9 +114,9 @@ export function buildRenderSchedule(
   node: PaplicoDocument.ResolvedLayerNode,
   ctx: DocumentContext,
   {
-    layerOverrides,
+    layerNodeOverides: layerOverrides,
   }: {
-    layerOverrides?: { [layerId: string]: HTMLCanvasElement | ImageBitmap }
+    layerNodeOverides?: { [layerId: string]: HTMLCanvasElement | ImageBitmap }
   } = {},
 ) {
   const tasks: RenderTask[] = []
@@ -124,7 +124,7 @@ export function buildRenderSchedule(
 
   // Pre-rendering tasks
   for (const child of node.children) {
-    const vis = child.visually
+    const vis = child.visu
 
     if (vis.type === 'reference') {
       // const refLayer = ctx.resolveLayer(layer.referencedLayerId)?.source.deref()
@@ -159,25 +159,39 @@ export function buildRenderSchedule(
     node: PaplicoDocument.ResolvedLayerNode,
     parentTransform: VisuElement.ElementTransform,
   ) {
-    const vis = node.visually
+    const nodeVisu = node.visu
 
-    const hasExternalFilter = vis.filters.some((f) => {
+    const hasExternalFilter = nodeVisu.filters.some((f) => {
       return f.kind === 'external' && f.enabled && f.processor.opacity > 0
     })
 
     const [canUseGroupRenderTarget, CHILDREN_AGGREGATE_TARGET] = [
-      vis.blendMode === 'normal' && !hasExternalFilter,
+      nodeVisu.blendMode === 'normal' && !hasExternalFilter,
       NEW_CANVAS_TARGET(),
     ] as [true, null] | [false, CanvasToken]
 
-    if (vis.type === 'group') {
+    if (
+      layerOverrides?.[node.uid] &&
+      (nodeVisu.type === 'group' || nodeVisu.type === 'canvas')
+    ) {
+      tasks.push({
+        command: RenderCommands.DRAW_SOURCE_TO_DEST,
+        source: { bitmap: layerOverrides[node.uid] },
+        renderTarget: canUseGroupRenderTarget
+          ? GROUP_RENDER_TARGET
+          : RenderTargets.LAYER_PRE_FILTER,
+        blendMode: nodeVisu.blendMode,
+        opacity: nodeVisu.opacity,
+        _debug: ['hasLayerOverrides'],
+      })
+    } else if (nodeVisu.type === 'group') {
       for (const child of node.children) {
         scheduleForTree(
           canUseGroupRenderTarget
             ? GROUP_RENDER_TARGET
             : CHILDREN_AGGREGATE_TARGET,
           child,
-          addTransform(parentTransform, vis.transform),
+          addTransform(parentTransform, nodeVisu.transform),
         )
       }
 
@@ -186,31 +200,31 @@ export function buildRenderSchedule(
           command: RenderCommands.DRAW_SOURCE_TO_DEST,
           source: CHILDREN_AGGREGATE_TARGET,
           renderTarget: RenderTargets.LAYER_PRE_FILTER,
-          blendMode: vis.blendMode,
-          opacity: vis.opacity,
+          blendMode: nodeVisu.blendMode,
+          opacity: nodeVisu.opacity,
           _debug: ['group', 'disableDirectOutput'],
         })
       }
-    } else if (vis.type === 'canvas') {
+    } else if (nodeVisu.type === 'canvas') {
       tasks.push({
         command: RenderCommands.DRAW_SOURCE_TO_DEST,
-        source: { visually: vis },
+        source: { visuNode: node },
         renderTarget: canUseGroupRenderTarget
           ? GROUP_RENDER_TARGET
           : RenderTargets.LAYER_PRE_FILTER,
-        blendMode: vis.blendMode,
-        opacity: vis.opacity,
+        blendMode: nodeVisu.blendMode,
+        opacity: nodeVisu.opacity,
         _debug: ['canvas'],
       })
-    } else if (vis.type === 'text') {
+    } else if (nodeVisu.type === 'text') {
       tasks.push({
         command: RenderCommands.DRAW_SOURCE_TO_DEST,
-        source: { visually: vis },
+        source: { visuNode: node },
         renderTarget: canUseGroupRenderTarget
           ? GROUP_RENDER_TARGET
           : RenderTargets.LAYER_PRE_FILTER,
-        blendMode: vis.blendMode,
-        opacity: vis.opacity,
+        blendMode: nodeVisu.blendMode,
+        opacity: nodeVisu.opacity,
         _debug: ['text'],
         parentTransformForText: parentTransform,
       })
@@ -224,11 +238,11 @@ export function buildRenderSchedule(
       })
     }
 
-    for (const filter of vis.filters) {
+    for (const filter of nodeVisu.filters) {
       if (!filter.enabled) continue
 
       if (filter.kind !== 'external') {
-        if (vis.type === 'vectorObject' || vis.type === 'text') {
+        if (nodeVisu.type === 'vectorObject' || nodeVisu.type === 'text') {
           // internal filters
           tasks.push({
             command: RenderCommands.APPLY_INTERNAL_OBJECT_FILTER,
@@ -237,13 +251,17 @@ export function buildRenderSchedule(
               ? GROUP_RENDER_TARGET
               : RenderTargets.LAYER_PRE_FILTER,
             layerUid: node.uid,
-            object: vis,
+            object: nodeVisu,
             filter,
             parentTransform,
             _debug: ['internalFilterProceed'],
           })
         } else {
-          console.warn('internal filter not supported for ', vis.type, vis)
+          console.warn(
+            'internal filter not supported for ',
+            nodeVisu.type,
+            nodeVisu,
+          )
         }
       } else {
         if (filter.processor.opacity <= 0) continue
@@ -276,11 +294,11 @@ export function buildRenderSchedule(
         command: RenderCommands.DRAW_SOURCE_TO_DEST,
         source: RenderTargets.LAYER_PRE_FILTER,
         renderTarget: GROUP_RENDER_TARGET,
-        blendMode: vis.blendMode,
-        opacity: vis.opacity,
+        blendMode: nodeVisu.blendMode,
+        opacity: nodeVisu.opacity,
       })
     }
-  })(RenderTargets.PREDEST, node, node.visually.transform)
+  })(RenderTargets.PREDEST, node, node.visu.transform)
 
   return { tasks, stats: { usingCanvaes: 1 } }
 }

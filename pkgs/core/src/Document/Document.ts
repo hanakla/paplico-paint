@@ -4,7 +4,7 @@ import { LayerNode } from './LayerNode'
 import { PaplicoBlob } from './PaplicoBlob'
 import { VisuElement } from './Visually'
 import { createGroupVisually } from './Visually/factory'
-import { createNodesController } from './Document.Nodes'
+import { createNodesController } from './Document.LayerNodes'
 
 export namespace PaplicoDocument {
   export type Meta = {
@@ -19,7 +19,7 @@ export namespace PaplicoDocument {
   export type SerializedSchema = {
     uid: string
     meta: Meta
-    visuallies: VisuElement.AnyElement[]
+    visues: VisuElement.AnyElement[]
     layerTree: LayerNode
     blobs: PaplicoBlob[]
   }
@@ -27,7 +27,7 @@ export namespace PaplicoDocument {
   export type ResolvedLayerNode = {
     /** uid for Visually */
     uid: string
-    visually: VisuElement.AnyElement
+    visu: VisuElement.AnyElement
     children: ResolvedLayerNode[]
   }
 }
@@ -42,7 +42,7 @@ export class PaplicoDocument {
       {
         uid: data.uid,
         meta: data.meta,
-        visuElements: data.visuallies,
+        visuElements: data.visues,
         layerTreeRoot: data.layerTree,
         blobs: data.blobs,
       },
@@ -89,22 +89,20 @@ export class PaplicoDocument {
     if (!node)
       throw new Error(`PaplicoDocument.getResolvedLayerTree: node not found`)
 
-    const layer = this.getVisuallyByUid(node.visuUid)
+    const layer = this.getVisuByUid(node.visuUid)
     if (!layer)
-      throw new Error(`PaplicoDocument.getResolvedLayerTree: layer not found`)
+      throw new Error(`PaplicoDocument.getResolvedLayerTree: Visu not found`)
 
     return {
       uid: node.visuUid,
-      visually: layer,
+      visu: layer,
       children: node.children.map((child) => {
         return this.getResolvedLayerTree([...path, child.visuUid])
       }),
     }
   }
 
-  public getVisuallyByUid(
-    visuallyUid: string,
-  ): VisuElement.AnyElement | undefined {
+  public getVisuByUid(visuallyUid: string): VisuElement.AnyElement | undefined {
     if (visuallyUid === '__root__') {
       const vis = createGroupVisually({})
       vis.uid = '__root__'
@@ -112,6 +110,18 @@ export class PaplicoDocument {
     }
 
     return this.visuElements.find((layer) => layer.uid === visuallyUid)
+  }
+
+  public isStrokeableVisu(
+    visu: VisuElement.AnyElement,
+  ): visu is VisuElement.CanvasElement | VisuElement.GroupElement {
+    return visu.type === 'canvas' || visu.type === 'group'
+  }
+
+  public isChildrenContainableVisu(
+    visu: VisuElement.AnyElement,
+  ): visu is VisuElement.GroupElement {
+    return visu.type === 'group'
   }
 
   /** @deprecated */
@@ -126,18 +136,11 @@ export class PaplicoDocument {
     )
   }
 
-  public isChildrenContainableNode(node: LayerNode) {
-    const vis = this.getVisuallyByUid(node.visuUid)
-    if (!vis) return false
-
-    return vis.type === 'group'
-  }
-
   public serialize(): PaplicoDocument.SerializedSchema {
     return deepClone({
       uid: this.uid,
       meta: this.meta,
-      visuallies: this.visuElements,
+      visues: this.visuElements,
       layerTree: this.layerTreeRoot,
       blobs: this.blobs,
     })

@@ -75,7 +75,10 @@ const Item = memo<ItemProps>(function ContextMenuItm({
           }
         }
       `}
-      onClick={onClick}
+      onClick={(e) => {
+        console.log('hi')
+        onClick?.(e)
+      }}
       data={data}
       {...props}
     >

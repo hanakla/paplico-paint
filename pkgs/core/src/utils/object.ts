@@ -54,6 +54,8 @@ export const shallowEquals = (prev: any, next: any) => {
     prev !== null &&
     next !== null
   ) {
+    if (Object.keys(prev).length !== Object.keys(next).length) return false
+
     for (const key in prev) {
       if (!Object.hasOwn(next, key)) continue
       if (!Object.is(prev[key], next[key])) return false

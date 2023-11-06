@@ -28,7 +28,7 @@ export class BrushRegistry extends Emitter<Events> {
     this.emit('entriesChanged')
   }
 
-  public get brushEntries(): BrushClass[] {
+  public get brushEntries(): readonly BrushClass[] {
     return [...this.brushes.values()]
   }
 

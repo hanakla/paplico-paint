@@ -6,31 +6,31 @@ export class DocumentCreateLayer implements ICommand {
   public readonly name = 'DocumentCreateLayer'
 
   protected layer: LayerEntity
-  protected layerPath: string[] = []
+  protected nodePath: string[] = []
   protected indexAtSibling = -1
 
   constructor(
     addingLayer: LayerEntity,
     {
-      layerPath,
+      nodePath,
       indexAtSibling,
-    }: { layerPath: string[]; indexAtSibling: number },
+    }: { nodePath: string[]; indexAtSibling: number },
   ) {
     this.layer = addingLayer
-    this.layerPath = layerPath
+    this.nodePath = nodePath
     this.indexAtSibling = indexAtSibling
   }
 
   public async do(document: PaplicoDocumentContext): Promise<void> {
     document.document.addLayerNode(
       this.layer,
-      this.layerPath,
+      this.nodePath,
       this.indexAtSibling,
     )
   }
 
   public async undo(document: PaplicoDocumentContext): Promise<void> {
-    const parent = document.document.layerNodes.getNodeAtPath(this.layerPath)
+    const parent = document.document.layerNodes.getNodeAtPath(this.nodePath)
     if (!parent) throw new Error('Parent not found')
 
     parent.children.splice(

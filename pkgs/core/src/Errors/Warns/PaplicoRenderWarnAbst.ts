@@ -1,4 +1,4 @@
-import { IWarn } from './Warns/IWarn'
+import { IWarn } from './IWarn'
 
 export const RenderWarnCodes = {
   MISSING_FILTER: 'MISSING_FILTER',
@@ -6,7 +6,7 @@ export const RenderWarnCodes = {
 export type RenderWarnCodes =
   (typeof RenderWarnCodes)[keyof typeof RenderWarnCodes]
 
-export class PaplicoRenderWarn<T extends Record<string, any> = any>
+export abstract class PaplicoRenderWarnAbst<T extends Record<string, any> = any>
   implements IWarn<T>
 {
   public readonly name: string

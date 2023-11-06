@@ -45,7 +45,7 @@ export class SVGExporter implements IExporter {
     return new Blob([svg], { type: 'image/svg+xml' })
 
     async function nodeToSVG(node: LayerNode): Promise<string> {
-      const layer = paplico.currentDocument!.getVisuallyByUid(node.visuUid)
+      const layer = paplico.currentDocument!.getVisuByUid(node.visuUid)
       if (!layer) return ''
 
       if (layer.layerType === 'root') {

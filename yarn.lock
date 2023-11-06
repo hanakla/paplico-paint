@@ -7142,7 +7142,6 @@ __metadata:
     crypto-js: ^4.1.1
     fast-random: ^2.0.4
     fast-shallow-equal: ^1.0.0
-    immer: ^9.0.16
     is-ios: ^2.1.0
     jsondiffpatch: ^0.5.0
     math.gl: ^3.6.3
@@ -7423,10 +7422,11 @@ __metadata:
     styled-components: ^6.0.4
     styled-reset: 4.5.1
     tsx: ^3.14.0
+    use-long-press: ^3.2.0
     use-measure: ^0.3.0
     vitest: 0.33.0
     ws: ^8.14.2
-    zustand: ^4.4.4
+    zustand: ^4.4.6
   languageName: unknown
   linkType: soft
 
@@ -21448,6 +21448,15 @@ __metadata:
   languageName: node
   linkType: hard
 
+"husky@npm:^8.0.0":
+  version: 8.0.3
+  resolution: "husky@npm:8.0.3"
+  bin:
+    husky: lib/bin.js
+  checksum: 837bc7e4413e58c1f2946d38fb050f5d7324c6f16b0fd66411ffce5703b294bd21429e8ba58711cd331951ee86ed529c5be4f76805959ff668a337dbfa82a1b0
+  languageName: node
+  linkType: hard
+
 "hyphenate-style-name@npm:^1.0.2, hyphenate-style-name@npm:^1.0.3":
   version: 1.0.4
   resolution: "hyphenate-style-name@npm:1.0.4"
@@ -21575,13 +21584,6 @@ __metadata:
   version: 9.0.12
   resolution: "immer@npm:9.0.12"
   checksum: bcbec6d76dac65e49068eb67ece4d407116e62b8cde3126aa89c801e408f5047763ba0aeb62f1938c1aa704bb6612f1d8302bb2a86fa1fc60fcc12d8b25dc895
-  languageName: node
-  linkType: hard
-
-"immer@npm:^9.0.16":
-  version: 9.0.16
-  resolution: "immer@npm:9.0.16"
-  checksum: e9a5ca65c929b329da7a3b7beccf7984271cda7bdd47b2cab619eac3277dcd56598c211b55cc340786b6eff0c06652ac018808d9fd744443f06882364dece6bc
   languageName: node
   linkType: hard
 
@@ -29005,8 +29007,9 @@ next@latest:
     "@next/mdx": ^14.0.1
     "@types/mdx": ^2.0.9
     autoprefixer: ^10.4.16
+    husky: ^8.0.0
     postcss: ^8.4.31
-    prettier: ^3.0.0
+    prettier: ^3.0.3
     tailwindcss: ^3.3.5
     wsrun: ^5.2.4
   languageName: unknown
@@ -30144,12 +30147,12 @@ next@latest:
   languageName: node
   linkType: hard
 
-"prettier@npm:^3.0.0":
-  version: 3.0.0
-  resolution: "prettier@npm:3.0.0"
+"prettier@npm:^3.0.3":
+  version: 3.0.3
+  resolution: "prettier@npm:3.0.3"
   bin:
     prettier: bin/prettier.cjs
-  checksum: 6a832876a1552dc58330d2467874e5a0b46b9ccbfc5d3531eb69d15684743e7f83dc9fbd202db6270446deba9c82b79d24383d09924c462b457136a759425e33
+  checksum: e10b9af02b281f6c617362ebd2571b1d7fc9fb8a3bd17e371754428cda992e5e8d8b7a046e8f7d3e2da1dcd21aa001e2e3c797402ebb6111b5cd19609dd228e0
   languageName: node
   linkType: hard
 
@@ -35972,6 +35975,15 @@ next@latest:
   languageName: node
   linkType: hard
 
+"use-long-press@npm:^3.2.0":
+  version: 3.2.0
+  resolution: "use-long-press@npm:3.2.0"
+  peerDependencies:
+    react: ">=16.8.0"
+  checksum: 7f43316d8578a84df6362b7cd795bb97fccfce3805bcab7ca63d0ea5b3046252bfe6842195844b360489ac57746045bc69ef36e45acaeb7c8d978de5cbbd9a54
+  languageName: node
+  linkType: hard
+
 "use-measure@npm:^0.3.0":
   version: 0.3.0
   resolution: "use-measure@npm:0.3.0"
@@ -37964,6 +37976,26 @@ next@latest:
     react:
       optional: true
   checksum: 371fd842dc704ed5983c6d64a77994c9c91867338c742d162ac95c4252b5f98fc38aeb2d5a07f48311babed5ca7dbff2d2258301db0ae143d32897bcf3ae651b
+  languageName: node
+  linkType: hard
+
+"zustand@npm:^4.4.6":
+  version: 4.4.6
+  resolution: "zustand@npm:4.4.6"
+  dependencies:
+    use-sync-external-store: 1.2.0
+  peerDependencies:
+    "@types/react": ">=16.8"
+    immer: ">=9.0"
+    react: ">=16.8"
+  peerDependenciesMeta:
+    "@types/react":
+      optional: true
+    immer:
+      optional: true
+    react:
+      optional: true
+  checksum: da7b00cc6dbe5cf5fc2e3fbca745317da4bbaf53bf4a6909bbd3e335242704df9689027f613461aff07eb5f672d5570bc1a2ef99d0ad7bc868920a3b331613d4
   languageName: node
   linkType: hard
 

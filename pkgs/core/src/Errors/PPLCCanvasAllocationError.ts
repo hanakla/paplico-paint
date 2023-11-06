@@ -1,7 +1,7 @@
 import { PaplicoError } from './PaplicoError'
 
-export class PaplicoCanvasAllocationError extends PaplicoError {
-  readonly name = 'PaplicoCanvasAllocationError'
+export class PPLCCanvasAllocationError extends PaplicoError {
+  readonly name = 'PPLCCanvasAllocationError'
 
   constructor(message?: string) {
     super(message ?? 'Failed to locate canvas')

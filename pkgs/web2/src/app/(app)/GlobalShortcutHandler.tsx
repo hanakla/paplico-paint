@@ -1,4 +1,4 @@
-import { usePaplicoInstance, useEngineStore } from '@/domains/paplico'
+import { usePaplicoInstance, useEngineStore } from '@/domains/engine'
 import { useEditorStore } from '@/domains/uiState'
 import { useGlobalMousetrap } from '@/utils/hooks'
 import { memo, use } from 'react'
@@ -10,8 +10,8 @@ import { storePicker } from '@/utils/zutrand'
 import { RasterToolModes, VectorToolModes } from '@paplico/editor'
 
 export const GlobalShortcutHandler = memo(function GlobalShortcutHandler() {
-  const { pplc: pap, editorHandle } = usePaplicoInstance()
-  const papStore = useEngineStore(storePicker(['strokeTargetVisually']))
+  const { pplc: pap, canvasEditor: editorHandle } = usePaplicoInstance()
+  const papStore = useEngineStore()
 
   const { fileHandlers, setFileHandlerForDocument, getShortcuts } =
     useEditorStore()
@@ -19,16 +19,17 @@ export const GlobalShortcutHandler = memo(function GlobalShortcutHandler() {
   const shortcuts = getShortcuts()
 
   useGlobalMousetrap(shortcuts.global.delete, async () => {
-    if (!papStore.strokeTargetVisually) return
-    const objUIDs = editorHandle!.getSelectedObjectIds()
+    const currentDocument = editorHandle?.currentDocument
+    if (!currentDocument) return
+
+    const visuUids = editorHandle!.getSelectedVisuUids()
+    const removePaths = visuUids.map(
+      (uid) => currentDocument.layerNodes.findNodePathByVisu(uid)!,
+    )
 
     pap!.command.do(
-      new Commands.VectorUpdateLayer(papStore.strokeTargetVisually.uid, {
-        updater: (layer) => {
-          layer.objects = layer.objects.filter(
-            (object) => !objUIDs.includes(object.uid),
-          )
-        },
+      new Commands.DocumentUpdateLayerNodes({
+        remove: removePaths,
       }),
     )
   })
@@ -77,15 +78,24 @@ export const GlobalShortcutHandler = memo(function GlobalShortcutHandler() {
   })
 
   useGlobalMousetrap(shortcuts.global.selectAll, () => {
-    if (papStore.strokeTargetVisually?.layerType !== 'vector') return
+    const doc = editorHandle!.currentDocument
+    const strokingTarget = editorHandle?.getStrokingTarget()
+    if (!doc || !strokingTarget) return
 
-    editorHandle?.setSelectedObjectIds(
-      papStore.strokeTargetVisually.objects.map((object) => object.uid),
+    const flatten = doc.layerNodes.getFlattenNodesUnderPath(
+      strokingTarget.nodePath,
     )
+    if (!flatten) return
+
+    const visuUids = flatten.map((node) => node.visuUid)
+
+    console.log(visuUids)
+
+    editorHandle?.setSelectedVisuUids(visuUids)
   })
 
   useGlobalMousetrap(shortcuts.global.unselectAll, () => {
-    editorHandle?.setSelectedObjectIds([])
+    editorHandle?.setSelectedVisuUids([])
   })
 
   useGlobalMousetrap(shortcuts.global.brushTool, () => {

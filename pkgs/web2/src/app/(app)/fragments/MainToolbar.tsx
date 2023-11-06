@@ -11,7 +11,7 @@ import useMeasure from 'use-measure'
 import { useCombineRef, usePropsMemo } from '@/utils/hooks'
 import { Popover } from '@/components/Popover'
 import useEvent from 'react-use-event-hook'
-import { usePaplicoInstance, useEngineStore } from '@/domains/paplico'
+import { usePaplicoInstance, useEngineStore } from '@/domains/engine'
 import { rgbaToHSBA } from '@/components/ColorPicker'
 import { LayersPane } from './Floatables/LayersPane'
 import { FillSettingPane } from './MainToolbar/FillSettingPane'
@@ -137,7 +137,8 @@ export const MainToolbar = memo(
           [x, y],
         )}
         aria-label="Formatting options"
-        className={className}>
+        className={className}
+      >
         <span role="none" css={s.drag} {...bindDrag()}>
           <DragHandleDots2Icon width={28} height={28} />
         </span>
@@ -148,7 +149,8 @@ export const MainToolbar = memo(
         <ActionSheet
           opened={menuOpened}
           fill={false}
-          onClose={() => toggleMenuOpened(false)}>
+          onClose={() => toggleMenuOpened(false)}
+        >
           <ActionSheetItemGroup>
             <ActionSheetItem onClick={handleClickNewDocument}>
               New paper
@@ -171,7 +173,8 @@ export const MainToolbar = memo(
               )}
             </div>
           }
-          side="top">
+          side="top"
+        >
           <ToolSelectPane />
         </Popover>
 
@@ -192,7 +195,8 @@ export const MainToolbar = memo(
             ),
             [toolbarStore.strokeColorString],
           )}
-          side="top">
+          side="top"
+        >
           <FillSettingPane />
         </Popover>
 
@@ -204,7 +208,8 @@ export const MainToolbar = memo(
               <TbDroplet size={30} />
             </div>
           }
-          side="top">
+          side="top"
+        >
           <div>Inks</div>
         </Popover>
 
@@ -214,7 +219,8 @@ export const MainToolbar = memo(
               <RxLayers size={32} />
             </div>
           }
-          side="top">
+          side="top"
+        >
           <LayersPane size="lg" />
         </Popover>
       </Toolbar.Root>
@@ -226,7 +232,7 @@ const s = {
   toolbarRoot: css`
     position: absolute;
     display: flex;
-    gap: 8px;
+    gap: 16px;
     align-items: center;
     padding: 10px 16px;
     width: 100%;

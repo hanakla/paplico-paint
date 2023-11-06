@@ -1,15 +1,19 @@
-import { TreeNodeBase } from '@/components/TreeView'
+import { Active, Over } from '@dnd-kit/core'
 import { Document } from '@paplico/core-new'
-import { produce } from 'immer'
+import { produce, setAutoFreeze } from 'immer'
 
 export type LayerTreeNode = {
   id: string
   visUid: string
-  vis: Document.VisuElement.AnyElement
+  visu: Document.VisuElement.AnyElement
   path: string[]
   depth: number
-  childrenCollapsed: boolean
-  collapsed?: boolean
+
+  collapsed: boolean
+
+  dragging: boolean
+  collapsedByParent: boolean
+  invisibleByParent: boolean
 }
 
 export function convertLayerNodeToTreeViewNode(
@@ -22,19 +26,30 @@ export function convertLayerNodeToTreeViewNode(
     node: Document.LayerNode,
     parentPath: string[],
     depth: number,
+    parentVisibility: boolean | null = null,
   ) => {
+    const visu = document.getVisuByUid(node.visuUid)!
+    parentVisibility ??= visu.visible
+
     items.push({
       id: node.visuUid,
       visUid: node.visuUid,
-      vis: document.getVisuallyByUid(node.visuUid)!,
+      visu,
       path: [...parentPath, node.visuUid],
       depth,
-      childrenCollapsed: true,
-      collapsed: depth > 0,
+      dragging: false,
+      collapsed: true,
+      collapsedByParent: depth > 0,
+      invisibleByParent: !parentVisibility,
     })
 
     node.children.toReversed().forEach((child) => {
-      flattenChildren(child, [...parentPath, node.visuUid], depth + 1)
+      flattenChildren(
+        child,
+        [...parentPath, node.visuUid],
+        depth + 1,
+        parentVisibility,
+      )
     })
   }
 
@@ -48,17 +63,48 @@ export function convertLayerNodeToTreeViewNode(
 export function updateTree(
   tree: LayerTreeNode[],
   targetVisUid: string,
-  { childrenCollapsed }: { childrenCollapsed?: boolean },
+  {
+    visible,
+    childrenCollapsed,
+    dragging,
+  }: { visible?: boolean; childrenCollapsed?: boolean; dragging?: boolean },
 ) {
+  setAutoFreeze(false)
+
   return produce(tree, (d) => {
+    if (visible != null) {
+      const targetIdx = d.findIndex((node) => node.visUid === targetVisUid)
+      if (targetIdx === -1) return
+
+      d[targetIdx].invisibleByParent = !visible
+      d.slice(targetIdx + 1).forEach((node) => {
+        if (isChildNode(d[targetIdx].path, node.path)) {
+          node.invisibleByParent = !visible
+        }
+      })
+    }
+
     if (childrenCollapsed != null) {
       const targetIdx = d.findIndex((node) => node.visUid === targetVisUid)
       if (targetIdx === -1) return
 
-      d[targetIdx].childrenCollapsed = childrenCollapsed
+      d[targetIdx].collapsed = childrenCollapsed
       d.slice(targetIdx + 1).forEach((node) => {
         if (isChildNode(d[targetIdx].path, node.path)) {
-          node.collapsed = childrenCollapsed
+          node.collapsedByParent = childrenCollapsed
+        }
+      })
+    }
+
+    if (dragging != null) {
+      const targetIdx = d.findIndex((node) => node.visUid === targetVisUid)
+      if (targetIdx === -1) return
+
+      d[targetIdx].dragging = dragging
+
+      d.slice(targetIdx + 1).forEach((node) => {
+        if (isChildNode(d[targetIdx].path, node.path)) {
+          node.collapsedByParent = d[targetIdx].collapsed || dragging
         }
       })
     }
@@ -77,10 +123,32 @@ export function mergeNextTree(
 
     return {
       ...node,
-      childrenCollapsed: oldNode.childrenCollapsed,
       collapsed: oldNode.collapsed,
+      collapsedByParent: oldNode.collapsedByParent,
+      invisibleByParent: oldNode.invisibleByParent,
     }
   })
+}
+
+export function getNextNodePath(
+  document: Document.PaplicoDocument,
+  tree: LayerTreeNode[],
+  active: Active,
+  /** Will insert to */
+  over: Over | null,
+) {
+  if (active.id === over?.id) return null
+  if (!over) return null
+
+  const activeNode = tree.find((node) => node.visUid === active.id)
+  const overNode = tree.find((node) => node.visUid === over.id)
+  if (!activeNode || !overNode) return null
+
+  const overParentPath = overNode.path.slice(0, -1)
+  const overParent = document.layerNodes.getNodeAtPath(overParentPath)
+  if (!overParent) return null
+
+  console.log(document.layerNodes.isChildrenContainableNode(overParent))
 }
 
 function isChildNode(parentPath: string[], matchPath: string[]) {

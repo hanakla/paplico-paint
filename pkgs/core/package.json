@@ -58,7 +58,6 @@
     "crypto-js": "^4.1.1",
     "fast-random": "^2.0.4",
     "fast-shallow-equal": "^1.0.0",
-    "immer": "^9.0.16",
     "is-ios": "^2.1.0",
     "jsondiffpatch": "^0.5.0",
     "math.gl": "^3.6.3",

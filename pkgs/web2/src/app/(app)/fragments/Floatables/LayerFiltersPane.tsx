@@ -8,7 +8,7 @@ import { DisplayContents } from '@/components/DisplayContents'
 import { DropdownMenu, DropdownMenuItem } from '@/components/DropdownMenu'
 import { FloatablePane } from '@/components/FloatablePane'
 import { FloatablePaneIds } from '@/domains/floatablePanes'
-import { usePaplicoInstance, useEngineStore } from '@/domains/paplico'
+import { usePaplicoInstance, useEngineStore } from '@/domains/engine'
 import { useEditorStore } from '@/domains/uiState'
 import { storePicker } from '@/utils/zutrand'
 import { Commands, Document } from '@paplico/core-new'
@@ -21,9 +21,7 @@ import useEvent from 'react-use-event-hook'
 import styled, { css } from 'styled-components'
 
 export const LayerFiltersPane = memo(function LayerFiltersPane() {
-  const { strokeTargetVisually: activeLayer } = useEngineStore(
-    storePicker(['strokeTargetVisually']),
-  )
+  const { strokeTargetVisu } = useEngineStore(storePicker(['strokeTargetVisu']))
 
   return (
     <FloatablePane paneId={FloatablePaneIds.filters} title="Filters">
@@ -31,22 +29,17 @@ export const LayerFiltersPane = memo(function LayerFiltersPane() {
         css={css`
           background-color: var(--gray-3);
           border-radius: 4px;
-        `}>
-        {!activeLayer ? (
-          <NoLayerSelected />
-        ) : !isFilterAvailableType(activeLayer) ? (
-          <NoAvailable>Can't available for current layer</NoAvailable>
-        ) : (
-          <FilterList />
-        )}
+        `}
+      >
+        {!strokeTargetVisu ? <NoLayerSelected /> : <FilterList />}
       </Box>
     </FloatablePane>
   )
 })
 
 export const FilterList = memo(function FilterList() {
-  const { pplc: pap } = usePaplicoInstance()
-  const papStore = useEngineStore(storePicker(['strokeTargetVisually']))
+  const { pplc } = usePaplicoInstance()
+  const papStore = useEngineStore(storePicker(['strokeTargetVisu']))
   const {
     getPaneExpandedFilterUids,
     setPaneExpandedFilterState,
@@ -59,18 +52,18 @@ export const FilterList = memo(function FilterList() {
     ]),
   )
 
-  const activeLayer = papStore.strokeTargetVisually!
+  const activeLayer = papStore.strokeTargetVisu!
 
   const rerender = useUpdate()
   const prevExpandedUids = useRef<string[]>([])
 
   const handleClickAddFilter = useEvent((e: MouseEvent<HTMLDivElement>) => {
     const filterId = e.currentTarget.dataset.filterId!
-    const FilterClass = pap!.filters.getClass(filterId)
+    const FilterClass = pplc!.filters.getClass(filterId)
 
     if (!filterId) return
     if (!FilterClass) return
-    if (!papStore.strokeTargetVisually) return
+    if (!papStore.strokeTargetVisu) return
 
     const filter = Document.createFilterEntry({
       filterId: FilterClass.metadata.id,
@@ -82,10 +75,10 @@ export const FilterList = memo(function FilterList() {
 
     setPaneExpandedFilterState(filter.uid, true)
 
-    pap!.command.do(
-      new Commands.LayerUpdateAttributes(papStore.strokeTargetVisually.uid, {
-        updater: (layer) => {
-          layer.filters.push(filter)
+    pplc!.command.do(
+      new Commands.VisuUpdateAttributes(papStore.strokeTargetVisu.uid, {
+        updater: (visu) => {
+          visu.filters.push(filter)
         },
       }),
     )
@@ -95,8 +88,8 @@ export const FilterList = memo(function FilterList() {
     (e: MouseEvent<HTMLSpanElement>) => {
       const filterUid = e.currentTarget.dataset.filterUid!
 
-      pap!.command.do(
-        new Commands.LayerUpdateAttributes(papStore.strokeTargetVisually!.uid, {
+      pplc!.command.do(
+        new Commands.VisuUpdateAttributes(papStore.strokeTargetVisu!.uid, {
           updater: (layer) => {
             const filter = layer.filters.find(
               (filter) => filter.uid === filterUid,
@@ -113,8 +106,8 @@ export const FilterList = memo(function FilterList() {
   const handleClickRemoveFilter = useEvent((e: MouseEvent<HTMLDivElement>) => {
     const filterUid = e.currentTarget.dataset.filterUid!
 
-    pap!.command.do(
-      new Commands.LayerUpdateAttributes(papStore.strokeTargetVisually!.uid, {
+    pplc!.command.do(
+      new Commands.VisuUpdateAttributes(papStore.strokeTargetVisu!.uid, {
         updater: (layer) => {
           const filterIndex = layer.filters.findIndex(
             (filter) => filter.uid === filterUid,
@@ -145,10 +138,10 @@ export const FilterList = memo(function FilterList() {
   )
 
   useEffect(() => {
-    return pap?.on('history:affect', ({ layerIds }) => {
+    return pplc?.on('history:affect', ({ layerIds }) => {
       if (layerIds.includes(activeLayer.uid)) rerender()
     })
-  }, [pap, activeLayer.uid])
+  }, [pplc, activeLayer.uid])
 
   console.log(activeLayer)
 
@@ -161,7 +154,8 @@ export const FilterList = memo(function FilterList() {
           <AccordionRoot
             type="multiple"
             value={paneExpandedFilterUids}
-            onValueChange={handleChangeExpandedFilters}>
+            onValueChange={handleChangeExpandedFilters}
+          >
             {activeLayer.filters.map((filter) => (
               <AccordionItem key={filter.uid} value={filter.uid}>
                 <div
@@ -170,10 +164,12 @@ export const FilterList = memo(function FilterList() {
                     align-items: center;
                     padding: 8px;
                     line-height: 1;
-                  `}>
+                  `}
+                >
                   <span
                     onClick={handleClickToggleEnabled}
-                    data-filter-uid={filter.uid}>
+                    data-filter-uid={filter.uid}
+                  >
                     {filter.enabled ? (
                       <RxEyeOpen size={16} />
                     ) : (
@@ -188,9 +184,10 @@ export const FilterList = memo(function FilterList() {
                           css={css`
                             margin-left: 8px;
                             padding: 0;
-                          `}>
+                          `}
+                        >
                           {
-                            pap?.filters.getClass(filter.filterId)?.metadata
+                            pplc?.filters.getClass(filter.filterId)?.metadata
                               .name
                           }
                         </AccordionTrigger>
@@ -200,7 +197,8 @@ export const FilterList = memo(function FilterList() {
                     <ContextMenu.Content size="1">
                       <ContextMenu.Item
                         onClick={handleClickRemoveFilter}
-                        data-filter-uid={filter.uid}>
+                        data-filter-uid={filter.uid}
+                      >
                         Remove
                       </ContextMenu.Item>
                     </ContextMenu.Content>
@@ -211,7 +209,8 @@ export const FilterList = memo(function FilterList() {
                   css={css`
                     position: relative;
                     padding: 2px 8px 8px 0;
-                  `}>
+                  `}
+                >
                   <div
                     css={css`
                       position: absolute;
@@ -230,8 +229,9 @@ export const FilterList = memo(function FilterList() {
                       & :not(input, textarea, select) {
                         user-select: none;
                       }
-                    `}>
-                    {pap?.paneUI.renderFilterPane(activeLayer.uid, filter)}
+                    `}
+                  >
+                    {pplc?.paneUI.renderFilterPane(activeLayer.uid, filter)}
                   </div>
                 </AccordionContent>
               </AccordionItem>
@@ -247,7 +247,8 @@ export const FilterList = memo(function FilterList() {
           background-color: var(--gray-3);
           border-top: 1px solid var(--gray-6);
           border-radius: 0 0 4px 4px;
-        `}>
+        `}
+      >
         <DropdownMenu
           trigger={
             <Button
@@ -256,15 +257,18 @@ export const FilterList = memo(function FilterList() {
                 color: var(--gray-11);
               `}
               variant="ghost"
-              size="1">
+              size="1"
+            >
               <RxPlus />
             </Button>
-          }>
-          {pap?.filters.appearanceEntries.map((Class) => (
+          }
+        >
+          {pplc?.filters.appearanceEntries.map((Class) => (
             <DropdownMenuItem
               key={Class.metadata.id}
               data-filter-id={Class.metadata.id}
-              onClick={handleClickAddFilter}>
+              onClick={handleClickAddFilter}
+            >
               {Class.metadata.name}
             </DropdownMenuItem>
           ))}
@@ -278,14 +282,14 @@ export const NoLayerSelected = memo(function NoLayerSelected() {
   return <NoAvailable>Layer not selected</NoAvailable>
 })
 
-function isFilterAvailableType(
-  layer: Document.LayerEntity,
-): layer is Exclude<
-  Document.LayerEntity,
-  Document.LayerEntityTypes.ArtboradLayer | Document.LayerEntityTypes.RootLayer
-> {
-  return !(layer?.layerType === 'artboard' || layer?.layerType === 'root')
-}
+// function isFilterAvailableType(
+//   layer: Document.LayerEntity,
+// ): layer is Exclude<
+//   Document.LayerEntity,
+//   Document.LayerEntityTypes.ArtboradLayer | Document.LayerEntityTypes.RootLayer
+// > {
+//   return !(layer?.layerType === 'artboard' || layer?.layerType === 'root')
+// }
 
 const NoAvailable = styled.span`
   display: inline-block;

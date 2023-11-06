@@ -49,20 +49,29 @@ export type ColorChangeHandler = (
   event: globalThis.PointerEvent | globalThis.KeyboardEvent,
 ) => void
 
+export type CursorComponentType = ComponentType<{
+  style?: CSSProperties
+  color?: ColorTypes.HSBA
+}>
+
 type Props = {
   color: ColorTypes.RGBA | ColorTypes.HSBA
   className?: string
-  Cursor?: ComponentType<{ style?: CSSProperties }>
+  Cursor?: CursorComponentType
   onChange?: ColorChangeHandler
   onChangeComplete?: ColorChangeHandler
 }
 
-const DefaultCursor = styled.div`
-  height: 100%;
+const DefaultCursor: CursorComponentType = styled.div.withConfig({
+  shouldForwardProp: (prop) => prop !== 'color',
+})`
+  height: 130%;
   border-radius: 50%;
   border: 2px solid white;
-  box-shadow: 0 0 0 2px black;
+  box-shadow: 0 0 0 1px black;
   aspect-ratio: 1;
+  background-color: ${({ color }, hsl = hsvToHsl(color)) =>
+    `hsl(${hsl.h}deg ${hsl.s * 100}% ${hsl.l * 100}% / ${hsl.a})`};
 `
 
 export const Hue = memo(function Hue({
@@ -85,6 +94,11 @@ export const Hue = memo(function Hue({
   )
 
   const hue = hsba.h / 360
+
+  const cursorHsba = useMemo<ColorTypes.HSBA>(
+    () => ({ h: hsba.h, s: 1, b: 1, a: 1 }),
+    [hsba],
+  )
 
   const handleOnChange = useEvent(
     (value: number, e: globalThis.PointerEvent | globalThis.KeyboardEvent) => {
@@ -110,6 +124,7 @@ export const Hue = memo(function Hue({
       min={0}
       aria-label="Color hue"
       color={hsba}
+      cursorColor={cursorHsba}
       onChange={handleOnChange}
       onChangeComplete={handleOnChangeComplete}
     />
@@ -295,7 +310,7 @@ export const SatAndBright = memo(function HueSaturation({
             userSelect: 'none',
           }}
         >
-          <Cursor />
+          <Cursor color={hsba} />
         </div>
       </div>
     </div>
@@ -323,6 +338,11 @@ export const Saturation = memo(function Saturation({
 
   const saturation = hsba.s
 
+  const cursorHsba = useMemo<ColorTypes.HSBA>(
+    () => ({ h: hsba.h, s: hsba.s, b: 1, a: 1 }),
+    [hsba],
+  )
+
   const handleOnChange = useEvent(
     (value: number, e: globalThis.PointerEvent | globalThis.KeyboardEvent) => {
       const nextHsb = { ...hsba, s: value }
@@ -347,6 +367,7 @@ export const Saturation = memo(function Saturation({
       min={0}
       aria-label="Color saturation"
       color={hsba}
+      cursorColor={cursorHsba}
       onChange={handleOnChange}
       onChangeComplete={handleOnChangeComplete}
     />
@@ -398,6 +419,11 @@ export const Brightness = memo(function Brightness({
 
   const brightness = hsba.b
 
+  const cursorHsba = useMemo<ColorTypes.HSBA>(
+    () => ({ h: hsba.h, s: 1, b: hsba.b, a: 1 }),
+    [hsba],
+  )
+
   const handleOnChange = useEvent(
     (value: number, e: globalThis.PointerEvent | globalThis.KeyboardEvent) => {
       const nextHsb = { ...hsba, b: value }
@@ -422,6 +448,7 @@ export const Brightness = memo(function Brightness({
       min={0}
       aria-label="Color brightness"
       color={hsba}
+      cursorColor={cursorHsba}
       onChange={handleOnChange}
       onChangeComplete={handleOnChangeComplete}
     />
@@ -472,6 +499,11 @@ export const Alpha = memo(function Alpha({
 
   const alpha = hsba.a ?? 0
 
+  const cursorHsba = useMemo<ColorTypes.HSBA>(
+    () => ({ h: 0, s: 0, b: 0, a: alpha }),
+    [hsba],
+  )
+
   const handleOnChange = useEvent(
     (value: number, e: globalThis.PointerEvent | globalThis.KeyboardEvent) => {
       const nextHsb = { ...hsba, a: value }
@@ -499,6 +531,7 @@ export const Alpha = memo(function Alpha({
       aria-valuemin={0}
       aria-valuenow={alpha}
       color={hsba}
+      cursorColor={cursorHsba}
       onChange={handleOnChange}
       onChangeComplete={handleOnChangeComplete}
     />
@@ -573,6 +606,8 @@ const SingleSlider = memo(function SingleSlider({
   amount = 0.01,
   amountOnShift = 0.1,
   value,
+  color,
+  cursorColor,
   max,
   min,
   className,
@@ -581,7 +616,7 @@ const SingleSlider = memo(function SingleSlider({
   ...aria
 }: {
   Component: ForwardRefExoticComponent<SliderRendererProps>
-  Cursor?: ComponentType<{ style?: CSSProperties }>
+  Cursor?: CursorComponentType
   amount?: number
   amountOnShift?: number
   value: number
@@ -590,6 +625,7 @@ const SingleSlider = memo(function SingleSlider({
   className?: string
   'aria-label': string
   color: ColorTypes.HSBA
+  cursorColor: ColorTypes.HSBA
   onChange: (
     value: number,
     event: globalThis.PointerEvent | globalThis.KeyboardEvent,
@@ -670,12 +706,16 @@ const SingleSlider = memo(function SingleSlider({
       aria-valuemin={min}
       aria-valuenow={value}
       tabIndex={0}
+      color={color}
       {...aria}
     >
       <div
         ref={cursorRef}
         style={{
           position: 'absolute',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
           height: 12,
           left: `${value * 100}%`,
           top: '50%',
@@ -683,7 +723,7 @@ const SingleSlider = memo(function SingleSlider({
           userSelect: 'none',
         }}
       >
-        <Cursor />
+        <Cursor color={cursorColor} />
       </div>
     </Component>
   )
@@ -795,4 +835,16 @@ export function hsbaToRGBA(hsba: ColorTypes.HSBA): ColorTypes.RGBA {
     b: Math.round(b * 255),
     a: hsba.a,
   }
+}
+// FROM: https://stackoverflow.com/a/54116681
+function hsvToHsl({ h, s, b, a }: ColorTypes.HSBA): {
+  h: number
+  s: number
+  l: number
+  a: number
+} {
+  const l = b - (b * s) / 2,
+    m = Math.min(l, 1 - l)
+
+  return { h, s: m ? (b - l) / m : 0, l, a: a ?? 1 }
 }

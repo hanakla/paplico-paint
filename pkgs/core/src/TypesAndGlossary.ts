@@ -6,7 +6,7 @@ export namespace TypenGlossary {
     | 'overlay'
     | 'clipper'
 
-  export type CompositeMode = 'normal' | 'erase'
+  export type StrokeCompositeMode = 'normal' | 'erase' | 'none'
 
   export type SupportedLocales = 'en' | 'ja'
 }

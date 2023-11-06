@@ -1,8 +1,8 @@
 import { useEditorStore, useEngineStore } from '@/store'
 import { memo, useCallback, useEffect, useMemo, useReducer } from 'react'
-import { ObjectPath } from './VectorEditor/ObjectPath'
+import { ObjectPathOrGroup } from './VectorEditor/ObjectPath'
 import { RectReadOnly } from 'react-use-measure'
-import { storePicker } from '@/utils/zutrand'
+import { storePicker } from '@/utils/zustand'
 import { ShapeTools } from './VectorEditor/ShapeTools'
 import { isVectorShapeToolMode } from '@/stores/editor'
 
@@ -17,29 +17,25 @@ export const VectorEditor = memo(function VectorEditor({
   height,
 }: Props) {
   const { paplico } = useEngineStore(storePicker(['paplico']))
-  const editorStore = useEditorStore(
-    storePicker(['setSelectedObjectIds', 'vectorToolMode']),
-  )
+  const editorStore = useEditorStore()
   const rerender = useReducer((x) => x + 1, 0)[1]
 
-  const activeLayer = useMemo(() => {
-    if (!paplico.activeLayer?.layerUid) return null
+  const strokingTarget = paplico.activeVisu
 
-    const entity = paplico.currentDocument?.resolveVisually(
-      paplico.activeLayer.layerUid,
+  const layerNode = useMemo(() => {
+    if (!strokingTarget) return null
+    return paplico.currentDocument?.layerNodes.getNodeAtPath(
+      strokingTarget.nodePath,
     )
-    if (entity?.layerType !== 'vector') return null
-
-    return entity
-  }, [paplico.activeLayer?.layerUid])
+  }, [strokingTarget?.visuUid])
 
   const handleClickRoot = useCallback(() => {
-    editorStore.setSelectedObjectIds(() => ({}))
+    editorStore.setSelectedVisuUids(() => ({}))
   }, [])
 
   useEffect(() => {
-    paplico.on('history:affect', ({ layerIds }) => {
-      if (!layerIds.includes(paplico.activeLayer?.layerUid ?? '')) return
+    return paplico.on('history:affect', ({ layerIds }) => {
+      if (!layerIds.includes(paplico.activeVisu?.visuUid ?? '')) return
       rerender()
     })
   })
@@ -55,7 +51,8 @@ export const VectorEditor = memo(function VectorEditor({
         pointerEvents: 'none',
       }}
       tabIndex={-1}
-      id="--paplico-vector-editor-vector">
+      id="--paplico-vector-editor-vector"
+    >
       {/* Layer outline */}
       <rect
         width={width}
@@ -74,12 +71,8 @@ export const VectorEditor = memo(function VectorEditor({
         <ShapeTools width={width} height={height} />
       )}
 
-      {activeLayer?.objects.map((object) => (
-        <ObjectPath
-          key={object.uid}
-          layerUid={activeLayer.uid}
-          object={object}
-        />
+      {layerNode?.children.map((node) => (
+        <ObjectPathOrGroup key={node.visuUid} visuUid={node.visuUid} />
       ))}
     </svg>
   )

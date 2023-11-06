@@ -1,52 +1,54 @@
 import { PaneUIImpls } from '@/components/FilterPane'
-import { storePicker } from '@/utils/zutrand'
 import {
   Brushes,
   Document,
   ExtraBrushes,
-  Filters,
   Inks,
   Paplico,
 } from '@paplico/core-new'
 import { PapEditorHandle } from '@paplico/editor'
 import { RefObject, createElement, useEffect, useMemo, useRef } from 'react'
-import { create } from 'zustand'
+import { createStore } from 'zustand/vanilla'
 import { PaplicoChatWebSocketBackend, paplicoChat } from '@paplico/chat/client'
 import { useDangerouslyEffectAsync } from '@/utils/hooks'
 import { useUpdate } from 'react-use'
 import { useNotifyStore } from './notifications'
+import { createUseStore } from '@/utils/zustand'
 
-interface Store {
-  engine: Paplico | null
+interface EngineStore {
+  _engine: Paplico | null
+  canvasEditor: PapEditorHandle | null
+
   engineState: Paplico.State | null
-  editorHandle: PapEditorHandle | null
-  strokeTargetVisually: Document.visu.AnyElement | null
+  strokeTargetVisu: Document.VisuElement.AnyElement | null
 
   initialize(engine: Paplico): void
   _setEditorHandle: (handle: PapEditorHandle | null) => void
   _setEngineState: (state: Paplico.State) => void
-  _setActiveLayerEntity: (vis: Document.visu.AnyElement | null) => void
+  _setActiveLayerEntity: (vis: Document.VisuElement.AnyElement | null) => void
 }
-
-export const useEngineStore = create<Store>((set, get) => ({
-  engine: null,
-  engineState: null,
-  strokeTargetVisually: null,
-  editorHandle: null,
-
-  initialize: (engine: Paplico) => {
-    set({ engine })
-  },
-
-  _setEditorHandle: (handle) => {
-    set({ editorHandle: handle })
-  },
-  _setEngineState: (state) => set({ engineState: state }),
-  _setActiveLayerEntity: (layer) => set({ strokeTargetVisually: layer }),
-}))
 
 export const DEFAULT_BRUSH_ID = Brushes.CircleBrush.metadata.id
 export const DEFAULT_BRUSH_VERSION = '0.0.1'
+
+const engineStore = createStore<EngineStore>((set, get) => ({
+  _engine: null,
+  engineState: null,
+  strokeTargetVisu: null,
+  canvasEditor: null,
+
+  initialize: (engine: Paplico) => {
+    set({ _engine: engine })
+  },
+
+  _setEditorHandle: (handle) => {
+    set({ canvasEditor: handle })
+  },
+  _setEngineState: (state) => set({ engineState: state }),
+  _setActiveLayerEntity: (layer) => set({ strokeTargetVisu: layer }),
+}))
+
+export const useEngineStore = createUseStore(engineStore)
 
 export function usePaplicoInit(
   canvasRef: RefObject<HTMLCanvasElement | null>,
@@ -54,71 +56,61 @@ export function usePaplicoInit(
 ) {
   const papRef = useRef<Paplico | null>(null)
   const rerender = useUpdate()
-  const engineStore = useEngineStore(
-    storePicker([
-      '_setEngineState',
-      '_setActiveLayerEntity',
-      'initialize',
-      'editorHandle',
-    ]),
-  )
+  const engineStore = useEngineStore()
   const notifyStore = useNotifyStore()
 
   useDangerouslyEffectAsync(async () => {
-    const pap = new Paplico(canvasRef.current!, {
+    const pplc = new Paplico(canvasRef.current!, {
       paneComponentImpls: PaneUIImpls,
       paneCreateElement: createElement,
     })
 
-    ;(window as any).pap = pap
+    ;(window as any).pplc = pplc
 
-    await pap.brushes.register(ExtraBrushes.ScatterBrush)
-    await pap.fonts.requestToRegisterLocalFonts()
+    await pplc.brushes.register(ExtraBrushes.ScatterBrush)
+    await pplc.fonts.requestToRegisterLocalFonts()
 
-    pap.on('stateChanged', () => {
-      engineStore._setEngineState(pap.state)
+    pplc.on('stateChanged', () => {
+      engineStore._setEngineState(pplc.state)
     })
 
-    pap.on('document:layerUpdated', ({ current }) => {
-      if (!current) {
-        engineStore._setActiveLayerEntity(null)
-        return
-      }
-
-      const vis = pap.currentDocument!.getVisuallyByUid(current.layerUid)
-      engineStore._setActiveLayerEntity(vis!)
+    pplc.on('document:layerUpdated', ({ layerEntityUid }) => {
+      // if (!current) {
+      //   engineStore._setActiveLayerEntity(null)
+      //   return
+      // }
+      // const vis = pap.currentDocument!.getVisuByUid(current.layerUid)
+      // engineStore._setActiveLayerEntity(vis!)
     })
 
-    pap.on('documentChanged', () => {
+    pplc.on('documentChanged', () => {
       engineStore._setActiveLayerEntity(null)
     })
 
-    pap.on('document:onUndo', () => {
+    pplc.on('document:onUndo', () => {
       notifyStore.emit({ type: 'undo' })
     })
-    pap.on('document:onRedo', () => {
+    pplc.on('document:onRedo', () => {
       notifyStore.emit({ type: 'redo' })
     })
 
-    pap.on('activeLayerChanged', ({ current }) => {
+    pplc.on('activeLayerChanged', ({ current }) => {
       engineStore._setActiveLayerEntity(
-        current
-          ? pap.currentDocument!.getVisuallyByUid(current.layerUid)!
-          : null,
+        current ? pplc.currentDocument!.getVisuByUid(current.layerUid)! : null,
       )
     })
 
-    papRef.current = pap
+    papRef.current = pplc
     rerender()
-    engineStore.initialize(pap)
+    engineStore.initialize(pplc)
 
     return () => {
-      pap.dispose()
+      pplc.dispose()
     }
   }, [])
 
   useDangerouslyEffectAsync(() => {
-    const handler = engineStore.editorHandle
+    const handler = engineStore.canvasEditor
     if (!handler) return
 
     const offs = [
@@ -133,7 +125,7 @@ export function usePaplicoInit(
     return () => {
       offs.forEach((off) => off())
     }
-  }, [engineStore.editorHandle])
+  }, [engineStore.canvasEditor])
 
   useDangerouslyEffectAsync(() => {
     let pap = papRef.current
@@ -255,7 +247,7 @@ export function usePaplicoInit(
       pap.loadDocument(doc)
       // pap.setStrokingTargetLayer([raster.uid])
 
-      pap!.setStrokingTargetLayer([vectorGroupVis.uid, vector.uid])
+      pap!.setStrokingTarget([vectorGroupVis.uid])
       pap!.rerender()
     }
 
@@ -287,10 +279,10 @@ export function usePaplicoInstance() {
 
   return useMemo(
     () => ({
-      pplc: store.engine,
-      editorHandle: store.editorHandle,
+      pplc: store._engine,
+      canvasEditor: store.canvasEditor,
     }),
-    [store, store.engine, store.editorHandle],
+    [store, store._engine, store.canvasEditor],
   )
 }
 

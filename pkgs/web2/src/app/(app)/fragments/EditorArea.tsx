@@ -9,7 +9,7 @@ import {
 import { useGesture } from '@use-gesture/react'
 import { css } from 'styled-components'
 import { checkerBoard } from '@/utils/cssMixin'
-import { usePaplicoInstance, useEngineStore } from '@/domains/paplico'
+import { usePaplicoInstance, useEngineStore } from '@/domains/engine'
 import { useCombineRef, usePropsMemo } from '@/utils/hooks'
 import useEvent from 'react-use-event-hook'
 import { MainToolbar } from './MainToolbar'
@@ -26,10 +26,8 @@ export const EditorArea = memo(
     { className },
     canvasRef,
   ) {
-    const { pplc: pap, editorHandle } = usePaplicoInstance()
-    const papStore = useEngineStore(
-      storePicker(['_setEditorHandle', 'editorHandle']),
-    )
+    const { pplc: pap, canvasEditor } = usePaplicoInstance()
+    const papStore = useEngineStore()
     const propsMemo = usePropsMemo()
 
     const editorStore = useEditorStore()
@@ -83,7 +81,7 @@ export const EditorArea = memo(
             const newX = prev.x - offsetX
             const newY = prev.y - offsetY
 
-            editorHandle?.setCanvasScaledScale(newScale)
+            canvasEditor?.setCanvasScaledScale(newScale)
 
             return {
               ...prev,
@@ -156,7 +154,8 @@ export const EditorArea = memo(
       <div
         ref={rootRef}
         css={css`
-          touch-action: none;
+          touch-action: manipulation !important;
+          user-select: none !important;
           background-color: var(--gray-3);
         `}
         className={className}
@@ -165,7 +164,8 @@ export const EditorArea = memo(
           width: '100%',
           height: '100%',
         }}
-        data-editorarea-root>
+        data-editorarea-root
+      >
         <div
           ref={transformRootRef}
           suppressHydrationWarning
@@ -176,7 +176,8 @@ export const EditorArea = memo(
           style={{
             transformOrigin: /* center */ '50% 50%',
             transform: `scale(${canvasTransform.scale}) rotate(${canvasTransform.rotateDeg}deg) translate(${canvasTransform.x}px, ${canvasTransform.y}px)`,
-          }}>
+          }}
+        >
           <div
             ref={vectorEditorRef}
             css={css`

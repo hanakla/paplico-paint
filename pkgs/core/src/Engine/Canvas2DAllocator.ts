@@ -1,9 +1,9 @@
 import { clearCanvas, freeingCanvas, setCanvasSize } from '@/utils/canvas'
 import { createContext2D } from './CanvasFactory'
 import { shallowEquals } from '@/utils/object'
-import { PaplicoCanvasAllocationError } from '@/Errors'
+import { PPLCCanvasAllocationError } from '@/Errors'
 
-type Allocced = {
+type AllocatedCanvasData = {
   used: boolean
   ctx: StateSafeCanvasRenderingContext2D
   createOpt: CanvasRenderingContext2DSettings
@@ -13,19 +13,33 @@ type Allocced = {
 
 const EXPIRE_TIME = 1000 * 60
 
-export class Canvas2DAllocator {
-  protected static _allocated: Array<Allocced> = []
+export type Canvas2DAllocator = {
+  readonly allocated: AllocatedCanvasData[]
+  borrow: (
+    opt: { width: number; height: number } & CanvasRenderingContext2DSettings,
+  ) => CanvasRenderingContext2D
+  return: (ctx: CanvasRenderingContext2D | null | undefined) => void
+  gc: (options?: { __testOnlyForceCollectAll?: true }) => void
+}
 
-  private constructor() {}
+let _allocated: Array<AllocatedCanvasData> = []
 
-  public static borrow({
+const allocator: Canvas2DAllocator = {
+  get allocated() {
+    return _allocated
+  },
+
+  borrow: ({
     width,
     height,
     ...canvasOpt
-  }: { width: number; height: number } & CanvasRenderingContext2DSettings) {
-    let lend: Allocced | null = null
+  }: {
+    width: number
+    height: number
+  } & CanvasRenderingContext2DSettings) => {
+    let lend: AllocatedCanvasData | null = null
 
-    for (const entry of this._allocated) {
+    for (const entry of _allocated) {
       const optionsMatched = shallowEquals(canvasOpt, entry.createOpt)
 
       if (
@@ -34,23 +48,30 @@ export class Canvas2DAllocator {
         entry.ctx.canvas.height === height &&
         optionsMatched
       ) {
+        // If size and options matched, we can reuse it.
         entry.used = true
         entry.stack = new Error().stack
+        entry.expireAt = Date.now() + EXPIRE_TIME
+        entry.ctx.save()
         clearCanvas(entry.ctx)
         return entry.ctx
       } else if (!entry.used && optionsMatched) {
+        // If size unmatched but options matched, mark it a candidate for reuse
         lend = entry
       }
     }
 
     if (lend) {
+      // Unused canvas found, lend it.
       lend.used = true
       lend.stack = new Error().stack
       lend.expireAt = Date.now() + EXPIRE_TIME
+      lend.ctx.save()
       setCanvasSize(lend.ctx.canvas, width, height)
       return lend.ctx
     } else {
-      const entry: Allocced = retry(1, {
+      // If no unused canvas found, create a new one.
+      const entry: AllocatedCanvasData = retry(1, {
         trying: () => {
           return {
             used: true,
@@ -60,32 +81,35 @@ export class Canvas2DAllocator {
             stack: new Error().stack,
           }
         },
-        beforeRetry: () => this.gc(),
+        beforeRetry: () => Canvas2DAllocator.gc(),
         onFailed: () => {
-          throw new PaplicoCanvasAllocationError()
+          throw new PPLCCanvasAllocationError()
         },
       })
 
+      entry.ctx.save()
       setCanvasSize(entry.ctx.canvas, width, height)
-      this._allocated.push(entry)
+      _allocated.push(entry)
       return entry.ctx
     }
-  }
+  },
 
-  public static return(ctx: CanvasRenderingContext2D | null | undefined) {
+  return: (ctx: CanvasRenderingContext2D | null | undefined) => {
     if (ctx == null) return
 
-    const entry = this._allocated.find((a) => a.ctx === ctx)
+    const entry = _allocated.find((a) => a.ctx === ctx)
     if (!entry) return
 
     entry.used = false
     entry.stack = null
     restoreToInitialState(entry.ctx)
-  }
+  },
 
-  public static gc() {
+  gc: (options: { __testOnlyForceCollectAll?: true } = {}) => {
     const now = Date.now()
-    const expired = this._allocated.filter((a) => a.expireAt < now)
+    const expired = options.__testOnlyForceCollectAll
+      ? _allocated
+      : _allocated.filter((a) => !a.used && a.expireAt < now)
 
     expired.forEach((a) => {
       freeingCanvas(a.ctx.canvas)
@@ -93,9 +117,21 @@ export class Canvas2DAllocator {
       a.ctx = null!
     })
 
-    this._allocated = this._allocated.filter((a) => !expired.includes(a))
-  }
+    _allocated = _allocated.filter((a) => !expired.includes(a))
+  },
 }
+
+export const Canvas2DAllocator: Canvas2DAllocator = Object.defineProperties(
+  Object.assign(Object.create(null), allocator),
+  {
+    allocated: {
+      enumerable: true,
+      get() {
+        return allocator.allocated
+      },
+    },
+  },
+)
 
 const SAVE_RESTORE_STATE_SYMBOL = Symbol('saveRestoreState')
 
@@ -136,27 +172,25 @@ function saveRestoreHook(
   ctx: CanvasRenderingContext2D,
 ): StateSafeCanvasRenderingContext2D {
   const { save, restore } = ctx
-  let saveCount = 0
-  let restoreCount = 0
+  let stackCount = 0
 
   ctx.save = function () {
-    saveCount++
+    stackCount++
     save.call(ctx)
   }
 
   ctx.restore = function () {
-    restoreCount++
+    if (stackCount < 1) return
+
+    stackCount--
+
     restore.call(ctx)
   }
   ;(ctx as StateSafeCanvasRenderingContext2D)[SAVE_RESTORE_STATE_SYMBOL] = {
     restoration() {
-      if (saveCount > restoreCount) {
-        while (saveCount > restoreCount) {
-          ctx.restore()
-          restoreCount++
-        }
-      } else if (saveCount < restoreCount) {
-        return
+      while (stackCount > 0) {
+        ctx.restore()
+        stackCount--
       }
     },
   }

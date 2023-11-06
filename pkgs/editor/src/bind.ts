@@ -17,10 +17,11 @@ export function bind(
 ) {
   engineStore.getState()._setPaplicoInstance(paplico)
   engineStore.getState()._setEngineState(paplico.state)
+  engineStore.getState().set({ busyState: paplico.state.busy })
 
   {
     const currentEditorType = editorStore.getState().editorType
-    const nextEditorType = layerTypeToEditorType(paplico.activeLayer?.visuType)
+    const nextEditorType = layerTypeToEditorType(paplico.activeVisu?.visuType)
 
     if (currentEditorType !== nextEditorType) {
       emitterStore.emit('editorTypeChanged', {
@@ -44,8 +45,14 @@ export function bind(
     engineStore.setState((prv) => ({ state, busyState: busy }))
   })
 
+  paplico.on('strokingTargetChanged', ({ current }) => {
+    editorStore.setState({
+      strokingTarget: current,
+    })
+  })
+
   paplico.on('documentChanged', ({ current }) => {
-    const visuType = paplico.activeLayer?.visuType
+    const visuType = paplico.activeVisu?.visuType
     const nextEditorType = layerTypeToEditorType(visuType)
 
     emitterStore.emit('editorTypeChanged', {
@@ -60,7 +67,7 @@ export function bind(
   })
 
   // const cancelStrokeIfNeeded = (e: Paplico.StrokeEvent) => {
-  //   const layerType = paplico.activeLayer?.layerType
+  //   const layerType = paplico.activeVisu?.layerType
   //   const { vectorToolMode, rasterToolMode } = editorStore.getState()
 
   //   if (layerType === 'raster') {
@@ -82,8 +89,8 @@ export function bind(
   // paplico.on('strokePreChange', cancelStrokeIfNeeded)
   // paplico.on('strokePreComplete', cancelStrokeIfNeeded)
 
-  paplico.on('activeLayerChanged', ({ current }) => {
-    const layerType = paplico.activeLayer?.visuType
+  paplico.on('strokingTargetChanged', ({ current }) => {
+    const layerType = paplico.activeVisu?.visuType
     const nextEditorType = layerTypeToEditorType(layerType)
 
     emitterStore.emit('editorTypeChanged', {

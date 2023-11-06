@@ -3,30 +3,32 @@ import { Point2D } from '../Struct/Point2D'
 import { ColorRGBA } from '../Struct/ColorRGBA'
 import { VisuFilter } from './VisuallyFilter'
 
+/** Paplico internal use only */
+export type ElementBase = {
+  uid: string
+  name: string
+  visible: boolean
+  lock: boolean
+  blendMode: VisuElement.BlendMode
+
+  /** 0 to 1 */
+  opacity: number
+
+  transform: VisuElement.ElementTransform
+  filters: VisuFilter.AnyFilter[]
+  clipByLowerLayer: boolean
+
+  features: { [featureName: string]: Record<string, any> }
+}
+
 export namespace VisuElement {
   export type BlendMode = TypenGlossary.BlendMode
-  export type CompositeMode = TypenGlossary.CompositeMode
+  export type CompositeMode = TypenGlossary.StrokeCompositeMode
 
   export type ElementTransform = {
     position: Point2D
     scale: Point2D
     rotate: number
-  }
-
-  type ElementBase = {
-    uid: string
-    name: string
-    visible: boolean
-    lock: boolean
-    blendMode: BlendMode
-
-    /** 0 to 1 */
-    opacity: number
-
-    transform: ElementTransform
-    filters: VisuFilter.AnyFilter[]
-
-    features: { [featureName: string]: Record<string, any> }
   }
 
   export type FilterElement = ElementBase & {
@@ -87,6 +89,33 @@ export namespace VisuElement {
 
   export type VectorPath = {
     points: VectorPathPoint[]
+
+    /** reserved, must be po asc ordered array */
+    // weightMap: {
+    //   /** 0 to 1 */
+    //   pos: number
+    //   /** 0 to 1 */
+    //   pressure: number
+    //   /** weight balance, Left: -1 to Right: 1.
+    //    * "Left" is Left side of top to bottom draw line. */
+    //   balance: number
+    // }[]
+
+    /** reserved, must be po asc ordered array */
+    // tiltMap: {
+    //   /** 0 to 1 */
+    //   pos: number
+    //   tilt: Point2D
+    // }[]
+
+    /** reserved, must be po asc ordered array */
+    // deltaTimeMap: {
+    //   /** 0 to 1 */
+    //   pos: number
+    //   /** milliseconds */
+    //   deltaTime: number
+    // }[]
+
     /** Should default to nonzero */
     fillRule: 'nonzero' | 'evenodd'
     randomSeed: number

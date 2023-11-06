@@ -2,7 +2,7 @@ import { ICommand } from '@/History/ICommand'
 import { DocumentContext } from '@/Engine'
 import { LayerNode, VisuElement } from '@/Document'
 import { rescue } from '@/utils/rescue'
-import { PaplicoIgnoreableError } from '@/Errors'
+import { PPLCIgnoreableError } from '@/Errors'
 import { PaplicoError } from '@/Errors/PaplicoError'
 
 type NodeLocation = {
@@ -10,10 +10,10 @@ type NodeLocation = {
   index: number
 }
 
-export class DocumentRemoveLayerNode implements ICommand {
-  public readonly name = 'DocumentRemoveLayerNode'
+export class DocumentRemoveLayerNodes implements ICommand {
+  public readonly name = 'DocumentRemoveLayerNodes'
 
-  protected layerPaths: Array<string[]>
+  protected nodePaths: Array<string[]>
 
   protected nodeLocations: Record<string, NodeLocation> = {}
   protected removedNodes: LayerNode[] = []
@@ -22,7 +22,7 @@ export class DocumentRemoveLayerNode implements ICommand {
   public effectedVisuUids: string[] = []
 
   constructor(targetNodePaths: Array<string[]>) {
-    this.layerPaths = targetNodePaths
+    this.nodePaths = targetNodePaths
   }
 
   public async do(docx: DocumentContext): Promise<void> {
@@ -31,12 +31,12 @@ export class DocumentRemoveLayerNode implements ICommand {
     const removedVisues: VisuElement.AnyElement[] = []
     const effected = new Set<string>()
 
-    for (const path of this.layerPaths) {
+    for (const path of this.nodePaths) {
       const result = rescue(
         () => {
           return docx.document.layerNodes.removeNodeAt(path)
         },
-        { expects: [PaplicoIgnoreableError] },
+        { expects: [PPLCIgnoreableError] },
       )
 
       if (result.success) {
@@ -48,7 +48,7 @@ export class DocumentRemoveLayerNode implements ICommand {
           index: result.result.indexInParent,
         }
         removedNodes.push(result.result.node)
-        removedVisues.push(result.result.visually)
+        removedVisues.push(result.result.visu)
 
         docx.invalidateLayerBitmapCache(visuUid)
       }

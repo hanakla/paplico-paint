@@ -1,4 +1,8 @@
-import { PaplicoIgnoreableError } from '@/Errors'
+import {
+  PPLCIgnoreableError,
+  PPLCInvalidOptionOrStateError,
+  PPLCTargetNodeNotFoundError,
+} from '@/Errors'
 import { type PaplicoDocument } from './Document'
 import { type LayerNode } from './LayerNode'
 import { VisuElement } from './Visually'
@@ -6,6 +10,8 @@ import { VisuElement } from './Visually'
 export type NodesController = {
   getRootNode(): LayerNode
   getNodeAtPath(path: string[]): LayerNode | null
+
+  getFlattenNodesUnderPath(path: string[]): LayerNode[] | null
 
   /**
    * Get ancestor of specified node contained node (likes GroupVisuallly)
@@ -17,25 +23,31 @@ export type NodesController = {
    *  Add new Visually into specified node,
    * @param pathToParent Default to point Root node
    * @param positionInNode Index in siblings, default to most priorize position in render order
+   * @return Added node position and Visu
    */
-  addLayerNode(
-    vissualy: VisuElement.AnyElement,
+  addLayerNode<T extends VisuElement.AnyElement>(
+    visu: T,
     pathToParent?: string[],
     positionInNode?: number,
-  ): void
+  ): {
+    visu: T
+    nodePath: string[]
+    indexInParent: number
+  }
 
   /**
    * @returns Removed node and Visually
-   * @throws PaplicoIgnoreableError when node not found
+   * @throws PPLCTargetNodeNotFoundError when node not found
    */
   removeNodeAt(path: string[]): {
-    visually: VisuElement.AnyElement
+    visu: VisuElement.AnyElement
     node: LayerNode
     indexInParent: number
   }
 
-  findNodePathByVisually(visuallyUid: string): string[] | null
+  findNodePathByVisu(visuallyUid: string): string[] | null
 
+  isChildrenContainableNode(path: string[]): boolean
   isChildrenContainableNode(node: LayerNode): boolean
 }
 
@@ -63,11 +75,27 @@ export function createNodesController(doc: PaplicoDocument): NodesController {
       return cursor
     },
 
+    getFlattenNodesUnderPath(path: string[]) {
+      const node = me.getNodeAtPath(path)
+      if (!node) return null
+
+      const flatten: LayerNode[] = []
+
+      const dig = (node: LayerNode) => {
+        flatten.push(node)
+        node.children.forEach(dig)
+      }
+
+      dig(node)
+
+      return flatten
+    },
+
     getAncestorContainerNode(path: string[]) {
       if (path[0] === '__root__') path = path.slice(1)
       if (path.length === 0) return [rootNode]
 
-      const ancestors: LayerNode[] = []
+      const ancestors: LayerNode[] = [rootNode]
 
       let cursor = rootNode
       for (const uid of path) {
@@ -76,53 +104,59 @@ export function createNodesController(doc: PaplicoDocument): NodesController {
         ancestors.push(found)
       }
 
+      console.log([...ancestors])
       // pop leaf node
       ancestors.pop()
 
       return ancestors
     },
 
-    addLayerNode(
-      vissualy: VisuElement.AnyElement,
+    addLayerNode<T extends VisuElement.AnyElement>(
+      visu: T,
       pathToParent: string[] = [],
       positionInNode: number = -1,
     ) {
-      if (doc.visuElements.find((l) => l.uid === vissualy.uid)) {
-        console.warn(
-          `Document.addLayer: Layer already exists (uid: ${vissualy.uid})`,
-        )
-        return
+      if (!doc.visuElements.find((l) => l.uid === visu.uid)) {
+        doc.visuElements.push(visu)
       }
-
-      doc.visuElements.push(vissualy)
 
       const parent = me.getNodeAtPath(pathToParent)
       if (!parent) {
-        throw new Error(
+        throw new PPLCTargetNodeNotFoundError(
           `Document.addLayer: Parent node not found (path: ${pathToParent.join(
             ' > ',
           )})`,
         )
       }
 
-      // this
+      let indexInParent: number
 
       if (positionInNode === -1) {
-        parent?.children.push({ visuUid: vissualy.uid, children: [] })
+        parent?.children.push({ visuUid: visu.uid, children: [] })
+        indexInParent = parent.children.length - 1
       } else {
         parent?.children.splice(positionInNode, 0, {
-          visuUid: vissualy.uid,
+          visuUid: visu.uid,
           children: [],
         })
+
+        indexInParent = positionInNode
+      }
+
+      return {
+        visu: visu,
+        nodePath: [...pathToParent, visu.uid],
+        indexInParent,
       }
     },
 
     removeNodeAt(path: string[]) {
       const targetNodeUid = path.at(-1)
 
+      console.log(this.getAncestorContainerNode(path))
       const parent = this.getAncestorContainerNode(path)?.at(-1)
       if (!parent) {
-        throw new PaplicoIgnoreableError(
+        throw new PPLCTargetNodeNotFoundError(
           `Document.layerNodes.removeNodeAt: Node not found (on removing ${path.join(
             '/',
           )})`,
@@ -140,13 +174,13 @@ export function createNodesController(doc: PaplicoDocument): NodesController {
       const [removedVis] = doc.visuElements.splice(idxInElements, 1)
 
       return {
-        visually: removedVis,
+        visu: removedVis,
         node: removedNode,
         indexInParent: idxInNodes,
       }
     },
 
-    findNodePathByVisually(visuallyUid: string): string[] | null {
+    findNodePathByVisu(visuallyUid: string): string[] | null {
       if (visuallyUid === '__root__') return ['__root__']
 
       const path: string[] = []
@@ -173,11 +207,27 @@ export function createNodesController(doc: PaplicoDocument): NodesController {
       return null
     },
 
-    isChildrenContainableNode(node: LayerNode) {
-      const vis = doc.getVisuallyByUid(node.visuUid)
-      if (!vis) return false
+    isChildrenContainableNode(nodeOrPath: LayerNode | string[]) {
+      let node: LayerNode
 
-      return vis.type === 'group'
+      if (Array.isArray(nodeOrPath)) {
+        const target = me.getNodeAtPath(nodeOrPath)
+
+        if (!target) {
+          throw new PPLCTargetNodeNotFoundError(
+            `Node not found: ${nodeOrPath.join('/')}`,
+          )
+        }
+
+        node = target
+      } else {
+        node = nodeOrPath
+      }
+
+      const visu = doc.getVisuByUid(node.visuUid)
+      if (!visu) return false
+
+      return doc.isChildrenContainableVisu(visu)
     },
   })
 }

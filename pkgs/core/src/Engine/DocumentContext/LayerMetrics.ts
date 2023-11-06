@@ -101,7 +101,7 @@ export class LayerMetrics extends Emitter<LayerMetrics.Events> {
         node.children.forEach(flatProc)
       } else if ('type' in node && node.type === 'vectorObject') {
       } else {
-        const layer = this.doocument.document.getVisuallyByUid(node.visuUid)
+        const layer = this.doocument.document.getVisuByUid(node.visuUid)
         if (layer?.layerType === 'vector') {
           layer.objects.forEach(flatProc)
         }

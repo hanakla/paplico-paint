@@ -1,13 +1,16 @@
 'use client'
 
 import type {} from '@/lib/cssprop'
-import { createGlobalStyle } from 'styled-components'
+import { createGlobalStyle, css } from 'styled-components'
 import reset from 'styled-reset'
-import React from 'react'
+import React, { useEffect } from 'react'
 import { Theme } from '@radix-ui/themes'
 import StyledComponentsRegistry from '@/lib/StyledComponentsRegistry'
 import { ModalProvider } from '@/components/Dialog'
 import '@radix-ui/themes/styles.css'
+// import { LongPressEventType, useLongPress } from 'use-long-press'
+import Head from 'next/head'
+import { useLongPress } from 'react-use'
 
 // export const metadata = {
 //   title: 'Next.js',
@@ -19,14 +22,49 @@ export default function RootLayout({
 }: {
   children: React.ReactNode
 }) {
+  const bindLongPress = useLongPress(
+    (e) => {
+      // e.preventDefault()
+
+      const init: MouseEventInit = { ...e }
+      if ('touches' in e) {
+        init.clientX = e.touches[0].clientX
+        init.clientY = e.touches[0].clientY
+      }
+
+      console.log(init, e)
+
+      e.target?.dispatchEvent(new MouseEvent('contextmenu', init))
+    },
+    {
+      isPreventDefault: false,
+    },
+  )
+
   return (
     <html lang="en">
+      <Head>
+        <meta
+          name="viewport"
+          content="width=device-width, initial-scale=1.0, viewport-fit=cover"
+        />
+        <meta name="mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta
+          name="apple-mobile-web-app-status-bar-style"
+          content="black-translucent"
+        />
+        <meta name="theme-color" content="#ee89b6" />
+
+        <title>Paplico</title>
+      </Head>
       <StyledComponentsRegistry>
         <Theme
           asChild
           style={{ width: '100%', height: '100%' }}
-          accentColor="lime">
-          <body>
+          accentColor="lime"
+        >
+          <body {...bindLongPress}>
             <GlobalStyle />
             <ModalProvider>{children}</ModalProvider>
           </body>
@@ -48,11 +86,12 @@ const GlobalStyle = createGlobalStyle`
     height: 100%;
     margin: 0;
     padding: 0;
-    touch-action: manipulation;
+    touch-action: none;
     overflow: hidden;
 
     *:not(input, textarea){
       user-select: none;
+      -webkit-user-select: none;
     }
   }
 

@@ -14,6 +14,7 @@ type Options = {
   updater: (objects: VectorLayer['objects']) => void
 }
 
+/** @deprecated */
 export class VectorUpdateObjects implements ICommand {
   public readonly name = 'VectorUpdateObjects'
 

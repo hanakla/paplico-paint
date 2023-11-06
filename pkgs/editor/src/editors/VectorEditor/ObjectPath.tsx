@@ -6,9 +6,9 @@ import {
   memo,
   useCallback,
   useEffect,
+  useMemo,
   useState,
 } from 'react'
-import { useDrag } from '@use-gesture/react'
 import { useEditorStore, useEngineStore } from '@/store'
 import { createUseStyles } from 'react-jss'
 import {
@@ -17,51 +17,50 @@ import {
   usePropsMemo,
 } from '@/utils/hooks'
 import { unstable_batchedUpdates } from 'react-dom'
-import { storePicker } from '@/utils/zutrand'
-import { VectorObject } from '@paplico/core-new/dist/Document'
+import { storePicker } from '@/utils/zustand'
 import { VectorToolModes } from '@/stores/types'
 import { getTangent } from '@/utils/math'
 
 type Props = {
-  layerUid: string
-  object: Document.VectorObject | Document.VectorGroup
+  visuUid: string
 }
 
-export const ObjectPath = memo(function ObjectPath({
-  layerUid,
-  object,
-}: Props) {
-  if (object.type === 'vectorGroup') return null
+export const ObjectPathOrGroup = memo(function ObjectPath({ visuUid }: Props) {
+  const { paplico } = useEngineStore()
 
-  return <ObjectPathInternal layerUid={layerUid} object={object} />
+  const visu = useMemo(() => {
+    return paplico.currentDocument?.getVisuByUid(visuUid)
+  }, [visuUid])
+
+  if (!visu) return null
+
+  if (visu.type === 'group') {
+    return <Group visuUid={visuUid} />
+  } else if (visu.type === 'vectorObject') {
+    return <ObjectPathInternal layerUid={visuUid} visu={visu} />
+  }
+
+  return null
 })
 
-export const ObjectPathInternal = memo(function ObjectPath({
+const Group = memo(function Group({ visuUid }: Props) {
+  return null
+})
+
+const ObjectPathInternal = memo(function ObjectPath({
   layerUid,
-  object,
+  visu,
 }: {
   layerUid: string
-  object: VectorObject
+  visu: Document.VisuElement.VectorObjectElement
 }) {
-  const {
-    canvasScale,
-    setSelectedObjectIds,
-    selectedObjectIds,
-    vectorToolMode,
-  } = useEditorStore(
-    storePicker([
-      'canvasScale',
-      'setSelectedObjectIds',
-      'selectedObjectIds',
-      'vectorToolMode',
-    ]),
-  )
+  const editor = useEditorStore()
 
   const { paplico } = useEngineStore()
   const s = usePathStyle()
   const propsMemo = usePropsMemo()
 
-  const elementScale = 1 / canvasScale
+  const elementScale = 1 / editor.canvasScale
 
   const [pointMoveOverride, setPointMoveOverride] = useState<{
     idxs: number[]
@@ -86,30 +85,26 @@ export const ObjectPathInternal = memo(function ObjectPath({
   } | null>(null)
 
   const onClickPath = useCallback((e: MouseEvent) => {
-    setSelectedObjectIds((prev) => {
-      const inSelecton = prev[object.uid]
+    editor.setSelectedVisuUids((prev) => {
+      const inSelecton = prev[visu.uid]
 
       if (e.shiftKey && inSelecton) {
-        delete prev[object.uid]
+        delete prev[visu.uid]
         return { ...prev }
       }
 
-      return e.shiftKey
-        ? { ...prev, [object.uid]: true }
-        : { [object.uid]: true }
+      return e.shiftKey ? { ...prev, [visu.uid]: true } : { [visu.uid]: true }
     })
   }, [])
 
   const bindDrag = usePointerDrag(({ movement, last, event }) => {
     if (!last) {
-      paplico.requestIdleRerender({
+      paplico.rerender({
         vectorObjectOverrides: {
-          [layerUid]: {
-            [object.uid]: (base) => {
-              base.transform.position.x += movement[0] / canvasScale
-              base.transform.position.y += movement[1] / canvasScale
-              return base
-            },
+          [visu.uid]: (base) => {
+            base.transform.position.x += movement[0] / editor.canvasScale
+            base.transform.position.y += movement[1] / editor.canvasScale
+            return base
           },
         },
       })
@@ -117,13 +112,13 @@ export const ObjectPathInternal = memo(function ObjectPath({
       paplico.command.do(
         new Commands.VectorUpdateObjects(layerUid, {
           updater: (objects) => {
-            const target = objects.find((obj) => obj.uid === object.uid)
+            const target = objects.find((obj) => obj.uid === visu.uid)
             if (!target) return
 
             const prevPosition = target.transform.position
             target.transform.position = {
-              x: prevPosition.x + movement[0] / canvasScale,
-              y: prevPosition.y + movement[1] / canvasScale,
+              x: prevPosition.x + movement[0] / editor.canvasScale,
+              y: prevPosition.y + movement[1] / editor.canvasScale,
             }
           },
         }),
@@ -156,32 +151,32 @@ export const ObjectPathInternal = memo(function ObjectPath({
     }
 
     if (!last) {
-      paplico.requestIdleRerender({
+      paplico.rerender({
         vectorObjectOverrides: {
-          [layerUid]: {
-            [object.uid]: (base) => {
-              patchPointIndices.forEach((idx) => {
-                const point = base.path.points[idx]
-                const next = base.path.points[+idx + 1]
+          [visu.uid]: (base) => {
+            if (base.type !== 'vectorObject') return base
 
-                if (!point) return base
+            patchPointIndices.forEach((idx) => {
+              const point = base.path.points[idx]
+              const next = base.path.points[+idx + 1]
 
-                point.x += moveX
-                point.y += moveY
+              if (!point) return base
 
-                if (point.end) {
-                  point.end.x += moveX
-                  point.end.y += moveY
-                }
+              point.x += moveX
+              point.y += moveY
 
-                if (next?.begin) {
-                  next.begin.x += moveX
-                  next.begin.y += moveY
-                }
-              })
+              if (point.end) {
+                point.end.x += moveX
+                point.end.y += moveY
+              }
 
-              return base
-            },
+              if (next?.begin) {
+                next.begin.x += moveX
+                next.begin.y += moveY
+              }
+            })
+
+            return base
           },
         },
       })
@@ -199,7 +194,7 @@ export const ObjectPathInternal = memo(function ObjectPath({
       paplico.command.do(
         new Commands.VectorUpdateObjects(layerUid, {
           updater: (objects) => {
-            const target = objects.find((obj) => obj.uid === object.uid)
+            const target = objects.find((obj) => obj.uid === visu.uid)
             if (!target || target.type !== 'vectorObject') return
 
             patchPointIndices.forEach((idx) => {
@@ -207,17 +202,17 @@ export const ObjectPathInternal = memo(function ObjectPath({
               const next = target.path.points[idx + 1]
               if (!point) return
 
-              point.x += moveX / canvasScale
-              point.y += moveY / canvasScale
+              point.x += moveX / editor.canvasScale
+              point.y += moveY / editor.canvasScale
 
               if (point.end) {
-                point.end.x += moveX / canvasScale
-                point.end.y += moveY / canvasScale
+                point.end.x += moveX / editor.canvasScale
+                point.end.y += moveY / editor.canvasScale
               }
 
               if (next?.begin) {
-                next.begin.x += moveX / canvasScale
-                next.begin.y += moveY / canvasScale
+                next.begin.x += moveX / editor.canvasScale
+                next.begin.y += moveY / editor.canvasScale
               }
             })
           },
@@ -231,16 +226,16 @@ export const ObjectPathInternal = memo(function ObjectPath({
   const onDblClickPoint = useCallback((e: MouseEvent) => {
     const pointIdx = +e.currentTarget.dataset.pointIdx!
 
-    const prevPt = object.path.points[pointIdx - 1]
-    const pt = object.path.points[pointIdx]
-    const nextPt = object.path.points[pointIdx + 1]
+    const prevPt = visu.path.points[pointIdx - 1]
+    const pt = visu.path.points[pointIdx]
+    const nextPt = visu.path.points[pointIdx + 1]
 
     if (!pt || !prevPt || !nextPt) return
 
     paplico.command.do(
       new Commands.VectorUpdateObjects(layerUid, {
         updater: (objects) => {
-          const target = objects.find((obj) => obj.uid === object.uid)
+          const target = objects.find((obj) => obj.uid === visu.uid)
           if (!target || target.type !== 'vectorObject') return
 
           const prev = target.path.points[pointIdx - 1]
@@ -264,18 +259,18 @@ export const ObjectPathInternal = memo(function ObjectPath({
       const pointIdx = event.currentTarget!.dataset!.pointIdx!
 
       if (!last) {
-        paplico.requestIdleRerender({
+        paplico.rerender({
           vectorObjectOverrides: {
-            [layerUid]: {
-              [object.uid]: (base) => {
-                const point = base.path.points[pointIdx]
-                if (!point?.begin) return base
+            [visu.uid]: (base) => {
+              if (base.type !== 'vectorObject') return base
 
-                point.begin.x += movement[0] / canvasScale
-                point.begin.y += movement[1] / canvasScale
+              const point = base.path.points[pointIdx]
+              if (!point?.begin) return base
 
-                return base
-              },
+              point.begin.x += movement[0] / editor.canvasScale
+              point.begin.y += movement[1] / editor.canvasScale
+
+              return base
             },
           },
         })
@@ -289,14 +284,14 @@ export const ObjectPathInternal = memo(function ObjectPath({
         paplico.command.do(
           new Commands.VectorUpdateObjects(layerUid, {
             updater: (objects) => {
-              const target = objects.find((obj) => obj.uid === object.uid)
+              const target = objects.find((obj) => obj.uid === visu.uid)
               if (!target || target.type !== 'vectorObject') return
 
               const point = target.path.points[pointIdx]
               if (!point) return
 
-              point.begin!.x += movement[0] / canvasScale
-              point.begin!.y += movement[1] / canvasScale
+              point.begin!.x += movement[0] / editor.canvasScale
+              point.begin!.y += movement[1] / editor.canvasScale
             },
           }),
         )
@@ -310,18 +305,18 @@ export const ObjectPathInternal = memo(function ObjectPath({
     const pointIdx = event.currentTarget!.dataset!.pointIdx!
 
     if (!last) {
-      paplico.requestIdleRerender({
+      paplico.rerender({
         vectorObjectOverrides: {
-          [layerUid]: {
-            [object.uid]: (base) => {
-              const point = base.path.points[pointIdx]
-              if (!point?.end) return base
+          [visu.uid]: (base) => {
+            if (base.type !== 'vectorObject') return base
 
-              point.end.x += movement[0] / canvasScale
-              point.end.y += movement[1] / canvasScale
+            const point = base.path.points[pointIdx]
+            if (!point?.end) return base
 
-              return base
-            },
+            point.end.x += movement[0] / editor.canvasScale
+            point.end.y += movement[1] / editor.canvasScale
+
+            return base
           },
         },
       })
@@ -331,14 +326,14 @@ export const ObjectPathInternal = memo(function ObjectPath({
       paplico.command.do(
         new Commands.VectorUpdateObjects(layerUid, {
           updater: (objects) => {
-            const target = objects.find((obj) => obj.uid === object.uid)
+            const target = objects.find((obj) => obj.uid === visu.uid)
             if (!target || target.type !== 'vectorObject') return
 
             const point = target.path.points[pointIdx]
             if (!point) return
 
-            point.end!.x += movement[0] / canvasScale
-            point.end!.y += movement[1] / canvasScale
+            point.end!.x += movement[0] / editor.canvasScale
+            point.end!.y += movement[1] / editor.canvasScale
           },
         }),
       )
@@ -359,7 +354,7 @@ export const ObjectPathInternal = memo(function ObjectPath({
   })
 
   const [pathElement, revalidatePathElement] = useMemoRevailidatable(() => {
-    const d = SVGPathManipul.vectorPathPointsToSVGPathString(object.path.points)
+    const d = SVGPathManipul.vectorPathPointsToSVGPathString(visu.path.points)
 
     return (
       <>
@@ -374,7 +369,7 @@ export const ObjectPathInternal = memo(function ObjectPath({
         />
       </>
     )
-  }, [/* FIXME: */ object.path, onClickPath])
+  }, [/* FIXME: */ visu.path, onClickPath])
 
   const [
     {
@@ -393,9 +388,9 @@ export const ObjectPathInternal = memo(function ObjectPath({
     const anchorLineElements: ReactNode[] = []
 
     let currentMoveToIdx = 0
-    object.path.points.forEach((pt, idx, list) => {
-      if (!selectedObjectIds[object.uid]) return
-      if (vectorToolMode !== VectorToolModes.pointTool) return
+    visu.path.points.forEach((pt, idx, list) => {
+      if (!editor.selectedVisuUids[visu.uid]) return
+      if (editor.vectorToolMode !== VectorToolModes.pointTool) return
       if (pt.isMoveTo) currentMoveToIdx = idx
       if (pt.isClose) return
 
@@ -433,7 +428,7 @@ export const ObjectPathInternal = memo(function ObjectPath({
           className={s.disableTouchAction}
           {...bindDragPoint()}
           onDoubleClick={onDblClickPoint}
-          data-object-uid={object.uid}
+          data-object-uid={visu.uid}
           data-point-idx={idx}
           {...(isCloseToPathHeadPoint
             ? {
@@ -555,9 +550,9 @@ export const ObjectPathInternal = memo(function ObjectPath({
       endAnchorElements,
     }
   }, [
-    object.path,
-    object.path.points,
-    selectedObjectIds[object.uid],
+    visu.path,
+    visu.path.points,
+    editor.selectedVisuUids[visu.uid],
     pointMoveOverride,
     beginAnchorOverride,
     endAnchorOverride,
@@ -567,9 +562,10 @@ export const ObjectPathInternal = memo(function ObjectPath({
     <g
       data-pap-component="PathObject"
       style={{
-        pointerEvents: selectedObjectIds[object.uid] ? 'painted' : 'stroke',
-        transform: `translate(${object.transform.position.x}px, ${object.transform.position.y}px)`,
-      }}>
+        pointerEvents: editor.selectedVisuUids[visu.uid] ? 'painted' : 'stroke',
+        transform: `translate(${visu.transform.position.x}px, ${visu.transform.position.y}px)`,
+      }}
+    >
       {propsMemo.memo(
         'object-children',
         () => (

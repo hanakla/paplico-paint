@@ -22,10 +22,10 @@ runs:
     - name: Install native libs
       shell: bash
       run: |
-        apt-get update -y
+        sudo apt-get update -y
 
         # for node-canvas
-        apt-get install xserver-xorg-dev libxi-dev libxext-dev
+        sudo apt-get install xserver-xorg-dev libxi-dev libxext-dev
 
     - name: Setup Node.js for use with actions
       uses: actions/setup-node@v4

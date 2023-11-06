@@ -8,6 +8,7 @@ export const createEmitterStore = () => {
   return emitter
 }
 
+/** Event emitter for out of editor */
 export type EmitterStore = ReturnType<typeof createEmitterStore>
 
 export const useEmitterStore = () => {

@@ -5,9 +5,9 @@ import { Canvas2DAllocator } from './Canvas2DAllocator'
 import { DEFAULT_INK_SETTING, DEFAULT_BRUSH_SETTING } from './constants'
 import { deepClone } from '@/utils/object'
 import { clearCanvas, setCanvasSize } from '@/utils/canvas'
-import { DisposedInstanceError } from '@/Errors/DisposedInstanceError'
+import { PPLCDisposedInstanceError } from '@/Errors/PPLCDisposedInstanceError'
 import { Emitter } from '@/utils/Emitter'
-import { VectorPath } from '@/Document'
+import { VectorPath, VisuFilter } from '@/Document'
 
 export namespace MicroCanvas {
   export type Events = {
@@ -29,9 +29,10 @@ export class MicroCanvas extends Emitter<MicroCanvas.Events> {
   protected commitedCx: CanvasRenderingContext2D | null
   // protected history: MicroCanvasHistory = new MicroCanvasHistory()
 
-  protected brushSetting: Paplico.BrushSetting | null = DEFAULT_BRUSH_SETTING()
-  protected inkSetting: Paplico.InkSetting = DEFAULT_INK_SETTING()
-  protected fillSetting: Paplico.FillSetting | null = null
+  protected brushSetting: VisuFilter.Structs.BrushSetting | null =
+    DEFAULT_BRUSH_SETTING()
+  protected inkSetting: VisuFilter.Structs.InkSetting = DEFAULT_INK_SETTING()
+  protected fillSetting: VisuFilter.Structs.FillSetting | null = null
 
   protected _inputEnabled = true
 
@@ -95,7 +96,7 @@ export class MicroCanvas extends Emitter<MicroCanvas.Events> {
     return deepClone(this.brushSetting)
   }
 
-  public setBrushSetting(setting: Paplico.BrushSetting | null) {
+  public setBrushSetting(setting: VisuFilter.Structs.BrushSetting | null) {
     this.brushSetting = setting
   }
 
@@ -103,7 +104,7 @@ export class MicroCanvas extends Emitter<MicroCanvas.Events> {
     return deepClone(this.inkSetting)
   }
 
-  public setInkSetting(setting: Paplico.InkSetting) {
+  public setInkSetting(setting: VisuFilter.Structs.InkSetting) {
     this.inkSetting = setting
   }
 
@@ -111,7 +112,7 @@ export class MicroCanvas extends Emitter<MicroCanvas.Events> {
     return deepClone(this.fillSetting)
   }
 
-  public setFillSetting(setting: Paplico.FillSetting) {
+  public setFillSetting(setting: VisuFilter.Structs.FillSetting) {
     this.fillSetting = setting
   }
 
@@ -223,5 +224,5 @@ export class MicroCanvas extends Emitter<MicroCanvas.Events> {
 }
 
 const disposeCheck = (disposed: boolean) => {
-  if (disposed) throw new DisposedInstanceError()
+  if (disposed) throw new PPLCDisposedInstanceError()
 }

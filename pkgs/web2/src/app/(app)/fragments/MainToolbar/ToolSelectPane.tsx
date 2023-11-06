@@ -1,5 +1,5 @@
 import { TabPage } from '@/components/TabBar'
-import { usePaplicoInstance, useEngineStore } from '@/domains/paplico'
+import { usePaplicoInstance, useEngineStore } from '@/domains/engine'
 import { MouseEvent, ReactNode, memo } from 'react'
 import { BsBrushFill, BsEraserFill } from 'react-icons/bs'
 import { RiCircleLine, RiRectangleFill, RiRectangleLine } from 'react-icons/ri'
@@ -12,46 +12,46 @@ import { mainToolbarTexts } from '@/locales'
 
 export const ToolSelectPane = memo(function ToolSelectPane() {
   const t = useTranslation(mainToolbarTexts)
-  const { pplc: pap, editorHandle } = usePaplicoInstance()
+  const { pplc, canvasEditor } = usePaplicoInstance()
   const editorStore = useEditorStore()
-  const paplicoStore = useEngineStore()
 
   const handleClickTool = useEvent((e: MouseEvent<HTMLElement>) => {
     const type = e.currentTarget.dataset.type!
 
     if (type === 'brush') {
-      pap?.setStrokeCompositionMode('normal')
+      pplc?.setStrokeCompositionMode('normal')
     } else if (type === 'eraser') {
-      pap?.setStrokeCompositionMode('erase')
+      pplc?.setStrokeCompositionMode('erase')
     }
 
-    editorHandle?.setVectorToolMode(VectorToolModes.none)
+    canvasEditor?.setVectorToolMode(VectorToolModes.none)
   })
 
   const handleClickVectorTool = useEvent((e: MouseEvent<HTMLElement>) => {
     const type = e.currentTarget.dataset.type!
 
     editorStore.set({
-      strokeCompositonBeforeChnageToVectorTool: pap!.state.strokeComposition,
+      strokeCompositonBeforeChnageToVectorTool: pplc!.state.strokeComposition,
     })
 
     if (type === 'rectangle') {
-      editorHandle?.setVectorToolMode(VectorToolModes.rectangleTool)
+      canvasEditor?.setVectorToolMode(VectorToolModes.rectangleTool)
     } else if (type === 'ellipse') {
-      editorHandle?.setVectorToolMode(VectorToolModes.ellipseTool)
+      canvasEditor?.setVectorToolMode(VectorToolModes.ellipseTool)
     }
 
-    pap?.setStrokeCompositionMode('none')
+    pplc?.setStrokeCompositionMode('none')
   })
 
-  const isVectorLayerActive =
-    paplicoStore.strokeTargetVisually?.layerType === 'vector'
+  const isCanvasVisuTarget =
+    canvasEditor?.getStrokingTarget()?.visuType === 'canvas'
 
   return (
     <ul
       css={css`
         padding: 2px 0;
-      `}>
+      `}
+    >
       <TabPage.Root defaultPage="raster">
         <TabPage.Content pageId="raster">
           <ToolItem onClick={handleClickTool} data-type="brush">
@@ -66,18 +66,12 @@ export const ToolSelectPane = memo(function ToolSelectPane() {
         </TabPage.Content>
 
         <TabPage.Content pageId="vector">
-          <ToolItem
-            onClick={handleClickVectorTool}
-            data-type="rectangle"
-            disabled={!isVectorLayerActive}>
+          <ToolItem onClick={handleClickVectorTool} data-type="rectangle">
             <RiRectangleLine css={s.toolIcon} size={28} />
             {t('tools.shapeRect')}
           </ToolItem>
 
-          <ToolItem
-            onClick={handleClickVectorTool}
-            data-type="ellipse"
-            disabled={!isVectorLayerActive}>
+          <ToolItem onClick={handleClickVectorTool} data-type="ellipse">
             <RiCircleLine css={s.toolIcon} size={28} />
             {t('tools.shapeEllipse')}
           </ToolItem>
@@ -85,7 +79,8 @@ export const ToolSelectPane = memo(function ToolSelectPane() {
           <ToolItem
             onClick={handleClickVectorTool}
             data-type="brush"
-            disabled={!isVectorLayerActive}>
+            disabled={!isCanvasVisuTarget}
+          >
             <BsBrushFill css={s.toolIcon} size={28} />
             {t('tools.brush')}
           </ToolItem>
@@ -95,7 +90,7 @@ export const ToolSelectPane = memo(function ToolSelectPane() {
             Eraser
           </ToolItem> */}
 
-          {!isVectorLayerActive && (
+          {!isCanvasVisuTarget && (
             <div
               css={css`
                 font-size: var(--font-size-2);
@@ -103,7 +98,8 @@ export const ToolSelectPane = memo(function ToolSelectPane() {
                 margin-top: 8px;
                 padding: 0 8px;
                 color: var(--slate-9);
-              `}>
+              `}
+            >
               {t('vectorToolOnlyOnVectorLayer')}
             </div>
           )}
@@ -112,7 +108,8 @@ export const ToolSelectPane = memo(function ToolSelectPane() {
         <TabPage.List
           css={`
             margin-top: 8px;
-          `}>
+          `}
+        >
           <TabPage.Tab pageId="raster">{t('tabs.normalLayer')}</TabPage.Tab>
           <TabPage.Tab pageId="vector">{t('tabs.vectorLayer')}</TabPage.Tab>
         </TabPage.List>
@@ -166,7 +163,8 @@ const ToolItem = memo(function ToolItem({
       `}
       aria-disabled={disabled}
       {...props}
-      onClick={onClick}>
+      onClick={onClick}
+    >
       {children}
     </li>
   )

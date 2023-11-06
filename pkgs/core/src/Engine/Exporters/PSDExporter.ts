@@ -3,7 +3,7 @@ import { IExporter } from './IExporter'
 import { createContext2D } from '@/Engine/CanvasFactory'
 import { setCanvasSize, freeingCanvas } from '@/utils/canvas'
 import { rescue } from '@/utils/rescue'
-import { ExportError } from '@/Errors/ExportError'
+import { PPLCExportError } from '@/Errors'
 import { imageBitmapToImageData } from '@/utils/imageObject'
 import { BlendMode } from '@/Document'
 import { unreachable } from '@/utils/unreachable'
@@ -22,7 +22,7 @@ export class PSDExporter implements IExporter {
     const importResult = await rescue(() => import('ag-psd'))
 
     if (!importResult.success) {
-      throw new Error(
+      throw new PPLCExportError(
         'PSDExporter: importing `ag-psd` was failed, please check to `ag-psd` is installed',
         { cause: importResult.error },
       )
@@ -39,7 +39,9 @@ export class PSDExporter implements IExporter {
     )
 
     if (targetNodePath && targetNodePath.length > 0) {
-      throw new ExportError('PSDExporter: targetNodePath is not supported yet')
+      throw new PPLCExportError(
+        'PSDExporter: targetNodePath is not supported yet',
+      )
     }
 
     try {
@@ -49,12 +51,12 @@ export class PSDExporter implements IExporter {
 
       if (keepLayers) {
         for (const node of runtimeDocument.document.layerTreeRoot.children) {
-          const layer = runtimeDocument.document.getVisuallyByUid(node.visuUid)!
+          const layer = runtimeDocument.document.getVisuByUid(node.visuUid)!
 
-          const bitmap = runtimeDocument.getLayerBitmapCache(node.visuUid)
+          const bitmap = runtimeDocument.getLayerNodeBitmapCache(node.visuUid)
 
           if (!bitmap) {
-            throw new ExportError(
+            throw new PPLCExportError(
               `PSDExporter: bitmap not found for layer ${node.visuUid}`,
             )
           }

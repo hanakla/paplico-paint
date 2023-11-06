@@ -22,7 +22,7 @@ import {
 import { FuncStats } from './utils/perfstats'
 import { degToRad } from './utils/math'
 
-export { PaplicoAbortError } from '@/Errors/PaplicoAbortError'
+export { PPLCAbortError as PaplicoAbortError } from '@/Errors/PPLCPaplicoAbortError'
 export {
   createBrush,
   type IBrush,

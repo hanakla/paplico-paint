@@ -1,4 +1,4 @@
-import { usePaplicoInstance } from '@/domains/paplico'
+import { usePaplicoInstance } from '@/domains/engine'
 import { memo } from 'react'
 import { rgbaToPapColor, useToolbarStore } from './toolbar.store'
 import { storePicker } from '@/utils/zutrand'
@@ -52,13 +52,15 @@ export const StrokeColorPopoverTrigger = memo(
           ),
           [strokeColorString],
         )}
-        side="top">
+        side="top"
+      >
         <div
           css={css`
             display: flex;
             flex-flow: column;
             gap: 8px;
-          `}>
+          `}
+        >
           <SatAndBright
             css={css`
               width: 100%;
@@ -76,7 +78,8 @@ export const StrokeColorPopoverTrigger = memo(
                 size="1"
                 value={Math.round(strokeColorHSB.h)}
               />
-            }>
+            }
+          >
             <Hue
               color={strokeColorHSB}
               onChange={handleChangeStrokeColor}

@@ -1,5 +1,5 @@
 import { VectorBrushSetting } from '@/Document/LayerEntity/VectorBrushSetting'
-import { PaplicoAbortError } from '@/Errors'
+import { PPLCAbortError, PPLCInvalidOptionOrStateError } from '@/Errors'
 import { AtomicResource } from '@/utils/AtomicResource'
 import { saveAndRestoreCanvas, setCanvasSize } from '@/utils/canvas'
 import { deepClone, shallowEquals } from '@/utils/object'
@@ -25,15 +25,19 @@ import {
   createEmptyBBox,
 } from './DocumentContext/LayerMetrics'
 import { VectorAppearance } from '@/Document/LayerEntity/VectorAppearance'
-import { PaplicoRenderWarn } from '@/Errors/PaplicoRenderWarn'
+import { PaplicoRenderWarnAbst } from '@/Errors/Warns/PaplicoRenderWarnAbst'
 import { reduceAsync } from '@/utils/array'
 import { MissingFilterWarn } from '@/Errors/Warns/MissingFilterWarn'
 import { PaplicoDocument, VisuElement, VisuFilter } from '@/Document'
-import { createVectorObjectVisually } from '@/Document/Visually/factory'
+import {
+  DEFAULT_VISU_TRANSFORM,
+  createVectorObjectVisually,
+} from '@/Document/Visually/factory'
+import { LogChannel } from '@/ChannelLog'
 
-export type VectorObjectOverrides = {
+export type VisuOverrides = {
   [visuallyUid: string]: {
-    (base: VisuElement.VectorObjectElement): VisuElement.VectorObjectElement
+    <T extends VisuElement.AnyElement>(base: T): T
   }
 }
 
@@ -80,11 +84,9 @@ export class VectorRenderer {
     this.strokeMemo.delete(path)
   }
 
-  public async renderVectorObjectVisually(
+  public async renderVectorVisu(
     output: CanvasRenderingContext2D,
-    visuallies: Array<
-      VisuElement.VectorObjectElement | VisuElement.TextElement
-    >,
+    visu: VisuElement.TextElement | VisuElement.VectorObjectElement,
     {
       viewport,
       pixelRatio,
@@ -92,15 +94,15 @@ export class VectorRenderer {
       logger,
       phase,
       objectOverrides,
-      parentTransform,
+      parentTransform = DEFAULT_VISU_TRANSFORM(),
     }: {
       viewport: Viewport
       pixelRatio: number
       abort?: AbortSignal
       logger?: RenderCycleLogger
       phase: RenderPhase
-      objectOverrides?: VectorObjectOverrides
-      parentTransform: VisuElement.ElementTransform
+      objectOverrides?: VisuOverrides
+      parentTransform?: VisuElement.ElementTransform
     },
   ): Promise<{
     layerBBox: {
@@ -114,34 +116,70 @@ export class VectorRenderer {
       }
     }
   }> {
-    const objectsBBox: Record<string, LayerMetrics.BBoxSet> = {}
+    // if (visu.type === 'group') {
+    //   throw new PPLCInvalidOptionOrStateError(
+    //     'Group node is can not be rendering in VectorRenderer, ' +
+    //       'use RenderPipeline.renderNode instead',
+    //   )
+    // }
 
+    const objectsBBox: Record<string, LayerMetrics.BBoxSet> = {}
     let objects: VisuElement.VectorObjectElement[] = []
 
-    for (const vis of visuallies) {
-      if (vis.type === 'text') {
-        objects = await this.generateTextVectorObject(vis)
-      } else if (vis.type === 'vectorObject') {
-        objects = [vis]
+    if (visu.type === 'text') {
+      LogChannel.l.vectorRenderer.info('Text node found', visu)
+      objects = await this.generateTextVectorObject(visu)
+    } else if (visu.type === 'vectorObject') {
+      objects = [visu]
+    }
+
+    for (let obj of objects) {
+      if (!obj.visible) continue
+
+      const sourceBBox = calcVectorBoundingBox(obj) // Ignore override for source
+      let visuallyBBox = sourceBBox
+
+      if (objectOverrides?.[visu.uid]) {
+        obj = objectOverrides?.[visu.uid]!(deepClone(obj))
       }
 
-      for (let obj of objects) {
-        if (!obj.visible) continue
+      await saveAndRestoreCanvas(output, async () => {
+        // if (obj.type === 'vectorGroup') return { objectsBBox } // for typecheck
 
-        const sourceBBox = calcVectorBoundingBox(obj) // Ignore override for source
-        let visuallyBBox = sourceBBox
+        for (const ap of obj.filters) {
+          if (ap.kind === 'fill') {
+            this.renderFill(output, obj.path, ap.fill, {
+              pixelRatio: pixelRatio,
+              transform: {
+                position: addPoint2D(
+                  parentTransform.position,
+                  obj.transform.position,
+                ),
+                scale: multiplyPoint2D(
+                  parentTransform.scale,
+                  obj.transform.scale,
+                ),
+                rotate: parentTransform.rotate + obj.transform.rotate,
+              },
+              phase,
+              abort,
+              logger,
+            })
+          } else if (ap.kind === 'stroke') {
+            const brush = this.brushRegistry.getInstance(ap.stroke.brushId)
 
-        if (objectOverrides?.[vis.uid]) {
-          obj = objectOverrides?.[vis.uid]!(deepClone(obj))
-        }
+            if (brush == null) {
+              throw new Error(`Unregistered brush ${ap.stroke.brushId}`)
+            }
 
-        await saveAndRestoreCanvas(output, async () => {
-          // if (obj.type === 'vectorGroup') return { objectsBBox } // for typecheck
-
-          for (const ap of obj.filters) {
-            if (ap.kind === 'fill') {
-              this.renderFill(output, obj.path, ap.fill, {
-                pixelRatio: pixelRatio,
+            const { bbox } = await this.renderStroke(
+              output.canvas,
+              obj.path,
+              ap.stroke,
+              {
+                abort: abort,
+                inkSetting: ap.ink,
+                pixelRatio,
                 transform: {
                   position: addPoint2D(
                     parentTransform.position,
@@ -153,58 +191,27 @@ export class VectorRenderer {
                   ),
                   rotate: parentTransform.rotate + obj.transform.rotate,
                 },
-                phase,
-                abort,
-                logger,
-              })
-            } else if (ap.kind === 'stroke') {
-              const brush = this.brushRegistry.getInstance(ap.stroke.brushId)
+                phase: phase,
+                logger: logger,
+              },
+            )
 
-              if (brush == null) {
-                throw new Error(`Unregistered brush ${ap.stroke.brushId}`)
-              }
-
-              const { bbox } = await this.renderStroke(
-                output.canvas,
-                obj.path,
-                ap.stroke,
-                {
-                  abort: abort,
-                  inkSetting: ap.ink,
-                  pixelRatio,
-                  transform: {
-                    position: addPoint2D(
-                      parentTransform.position,
-                      obj.transform.position,
-                    ),
-                    scale: multiplyPoint2D(
-                      parentTransform.scale,
-                      obj.transform.scale,
-                    ),
-                    rotate: parentTransform.rotate + obj.transform.rotate,
-                  },
-                  phase: phase,
-                  logger: logger,
-                },
-              )
-
-              visuallyBBox = {
-                ...bbox,
-                width: bbox.right - bbox.left,
-                height: bbox.bottom - bbox.top,
-                centerX: bbox.left + (bbox.right - bbox.left) / 2,
-                centerY: bbox.top + (bbox.bottom - bbox.top) / 2,
-              }
-            } else if (ap.kind === 'external') {
-              continue
+            visuallyBBox = {
+              ...bbox,
+              width: bbox.right - bbox.left,
+              height: bbox.bottom - bbox.top,
+              centerX: bbox.left + (bbox.right - bbox.left) / 2,
+              centerY: bbox.top + (bbox.bottom - bbox.top) / 2,
             }
+          } else if (ap.kind === 'external') {
+            continue
           }
-        })
-
-        objectsBBox[obj.uid] = {
-          source: sourceBBox,
-          visually: visuallyBBox,
         }
+      })
+
+      objectsBBox[obj.uid] = {
+        source: sourceBBox,
+        visually: visuallyBBox,
       }
     }
 
@@ -243,14 +250,14 @@ export class VectorRenderer {
   /** @deprecated */
   public async renderVectorLayer(
     output: HTMLCanvasElement,
-    sourceVis: VisuElement.VectorObjectElement | VisuElement.TextElement,
+    visu: VisuElement.VectorObjectElement | VisuElement.TextElement,
     options: {
       viewport: Viewport
       pixelRatio: number
       abort?: AbortSignal
       logger?: RenderCycleLogger
       phase: RenderPhase
-      objectOverrides?: VectorObjectOverrides
+      objectOverrides?: VisuOverrides
     },
   ): Promise<{
     layerBBox: {
@@ -279,25 +286,23 @@ export class VectorRenderer {
       for (const child of node.children) {
         await renderLayerTree.call(this, child, {
           position: {
-            x:
-              currentTransform.position.x + child.visually.transform.position.x,
-            y:
-              currentTransform.position.y + child.visually.transform.position.y,
+            x: currentTransform.position.x + child.visu.transform.position.x,
+            y: currentTransform.position.y + child.visu.transform.position.y,
           },
           scale: {
-            x: currentTransform.scale.x * child.visually.transform.scale.x,
-            y: currentTransform.scale.y * child.visually.transform.scale.y,
+            x: currentTransform.scale.x * child.visu.transform.scale.x,
+            y: currentTransform.scale.y * child.visu.transform.scale.y,
           },
-          rotate: currentTransform.rotate + child.visually.transform.rotate,
+          rotate: currentTransform.rotate + child.visu.transform.rotate,
         })
       }
 
       let objects: VisuElement.VectorObjectElement[] = []
 
-      if (node.visually.type === 'text') {
-        objects = await this.generateTextVectorObject(sourceVis)
-      } else if (node.visually.type === 'vectorObject') {
-        objects = [node.visually]
+      if (node.visu.type === 'text') {
+        objects = await this.generateTextVectorObject(visu)
+      } else if (node.visu.type === 'vectorObject') {
+        objects = [node.visu]
       }
 
       for (let obj of objects) {
@@ -306,8 +311,8 @@ export class VectorRenderer {
         const sourceBBox = calcVectorBoundingBox(obj) // Ignore override for source
         let visuallyBBox = sourceBBox
 
-        if (options.objectOverrides?.[sourceVis.uid]) {
-          obj = options.objectOverrides?.[sourceVis.uid]!(deepClone(obj))
+        if (options.objectOverrides?.[visu.uid]) {
+          obj = options.objectOverrides?.[visu.uid]!(deepClone(obj))
         }
 
         await saveAndRestoreCanvas(outcx, async () => {
@@ -383,7 +388,7 @@ export class VectorRenderer {
 
         outcx.resetTransform()
       }
-    }).call(this, sourceVis, sourceVis.visually.transform)
+    }).call(this, visu, visu.visually.transform)
 
     let layerSourceBBox: LayerMetrics.BBox = createEmptyBBox()
     let layerVisuallyBBox: LayerMetrics.BBox = createEmptyBBox()
@@ -475,7 +480,8 @@ export class VectorRenderer {
     lineBreakedNodes.push(currentLine)
     // #endregion
 
-    console.log({ lineBreakedNodes })
+    LogChannel.l.vectorRenderer('generateTextVectorObject: ', lineBreakedNodes)
+
     for (const lineNodes of lineBreakedNodes) {
       const loadFont = (node: TextNode) => {
         return this.fontRegistry.getFont(
@@ -524,7 +530,11 @@ export class VectorRenderer {
           const unitToPxScale = (1 / font.unitsPerEm) * fontSize
           const glyphHeightPx = glyph.yMax! - glyph.yMin! * unitToPxScale
 
-          console.log({ maxLineHeightPx, glyphHeightPx, unitToPxScale })
+          LogChannel.l.vectorRenderer(
+            'generateTextVectorObject: Glyph metrics',
+            { maxLineHeightPx, glyphHeightPx, unitToPxScale },
+          )
+
           const path = glyph.getPath(curX, curY + maxLineHeightPx, fontSize)
 
           curX += glyph.advanceWidth! * unitToPxScale
@@ -588,14 +598,14 @@ export class VectorRenderer {
       pixelRatio: number
       abort?: AbortSignal
       phase: RenderPhase
-      logger: RenderCycleLogger
+      logger?: RenderCycleLogger
       compositionMode?: VisuElement.CompositeMode
       filtersForPathTransform?: VectorAppearance[]
     },
   ): Promise<{
-    warns: PaplicoRenderWarn[]
+    warns: PaplicoRenderWarnAbst[]
   }> {
-    let warns: PaplicoRenderWarn[] = []
+    let warns: PaplicoRenderWarnAbst[] = []
 
     const transformedPath = await reduceAsync(
       filtersForPathTransform,
@@ -717,7 +727,7 @@ export class VectorRenderer {
       pixelRatio: number
       abort?: AbortSignal
       phase: RenderPhase
-      logger: RenderCycleLogger
+      logger?: RenderCycleLogger
     },
   ): Promise<BrushLayoutData> {
     const brush = this.brushRegistry.getInstance(brushSetting.brushId)
@@ -775,7 +785,7 @@ export class VectorRenderer {
         return await brush.render({
           abort: abort ?? new AbortController().signal,
           throwIfAborted: () => {
-            if (abort?.aborted) throw new PaplicoAbortError()
+            if (abort?.aborted) throw new PPLCAbortError()
           },
           destContext: dstctx,
           pixelRatio,
@@ -792,7 +802,7 @@ export class VectorRenderer {
             rotate: transform.rotate,
           },
           phase,
-          logger,
+          logger: logger ?? new RenderCycleLogger(),
           useMemoForPath,
         })
       })

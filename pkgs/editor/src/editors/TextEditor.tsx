@@ -12,15 +12,15 @@ export const TextEditor = memo(function TextEditor({ width, height }: Props) {
   const rerender = useReducer((x) => x + 1, 0)[1]
 
   const layer = useMemo(() => {
-    if (!engineState.activeLayer?.layerUid) return null
+    if (!editorStore.strokingTarget?.visuUid) return null
 
-    const entity = paplico.currentDocument?.resolveVisually(
-      engineState.activeLayer.layerUid,
+    const entity = paplico.currentDocument?.getVisuByUid(
+      editorStore.strokingTarget.visuUid,
     )
-    if (entity?.layerType !== 'text') return null
+    if (entity?.type !== 'text') return null
 
     return entity
-  }, [engineState.activeLayer?.layerUid])
+  }, [editorStore.strokingTarget?.visuUid])
 
   const metrics = useMemo(() => {
     if (!layer?.uid) return null
@@ -28,12 +28,12 @@ export const TextEditor = memo(function TextEditor({ width, height }: Props) {
   }, [layer?.uid])
 
   const handleClickRoot = useCallback(() => {
-    editorStore.setSelectedObjectIds(() => ({}))
+    editorStore.setSelectedVisuUids(() => ({}))
   }, [])
 
   useEffect(() => {
     paplico.on('history:affect', ({ layerIds }) => {
-      if (!layerIds.includes(engineState.activeLayer?.layerUid ?? '')) return
+      if (!layerIds.includes(editorStore.strokingTarget?.visuUid ?? '')) return
       rerender()
     })
   })
@@ -47,9 +47,10 @@ export const TextEditor = memo(function TextEditor({ width, height }: Props) {
         fill: 'transparent',
         outline: 'none',
         pointerEvents: 'none',
-        // engineState.activeLayer?.layerType === 'vector' ? 'none' : 'none',
+        // engineState.activeVisu?.layerType === 'vector' ? 'none' : 'none',
       }}
       tabIndex={-1}
-      id="--paplico-vector-editor-text"></svg>
+      id="--paplico-vector-editor-text"
+    ></svg>
   )
 })

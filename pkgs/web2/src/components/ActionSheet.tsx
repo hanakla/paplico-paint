@@ -75,59 +75,59 @@ export const ActionSheet = memo(
 
     return (
       <ActionSheetContext.Provider value={fill ? 'fill' : 'split'}>
-        <div {...props} {...(fill ? { 'data-state-filled': true } : {})}>
-          {backdrop && (
+        <FocusTrap paused={!opened}>
+          <div {...props} {...(fill ? { 'data-state-filled': true } : {})}>
+            {backdrop && (
+              <animated.div
+                // backdrop
+                css={css`
+                  position: fixed;
+                  top: 0;
+                  left: 0;
+                  width: 100vw;
+                  height: 100vh;
+                  z-index: 1;
+                  background-color: ${rgba('#000', 0.5)};
+                `}
+                style={{
+                  ...backdropStyle,
+                  pointerEvents: opened ? 'all' : 'none',
+                }}
+                onClick={handleClickBackdrop}
+              />
+            )}
             <animated.div
-              // backdrop
+              ref={ref}
               css={css`
                 position: fixed;
-                top: 0;
-                left: 0;
-                width: 100vw;
-                height: 100vh;
-                z-index: 1;
-                background-color: ${rgba('#000', 0.5)};
+                left: 50%;
+                bottom: 0;
+                z-index: 2;
+                display: flex;
+                flex-flow: column;
+                width: 100%;
+                max-width: 400px;
+                padding: 12px;
+                padding-bottom: max(16px, env(safe-area-inset-bottom, 16px));
+                overflow: auto;
+                filter: drop-shadow(0 0 16px ${rgba('#000', 0.2)});
+
+                ${fill &&
+                css`
+                  min-height: 50vh;
+                  box-shadow: 0 0 8px ${rgba('#000', 0.2)};
+                  backdrop-filter: blur(8px);
+                  border-radius: 4px;
+                `};
               `}
               style={{
-                ...backdropStyle,
+                ...styles,
                 pointerEvents: opened ? 'all' : 'none',
+                backgroundColor: fill ? 'var(--gray-2)' : 'transparent',
+                // color: fill ? theme.exactColors.black50 : 'transparent',
               }}
-              onClick={handleClickBackdrop}
-            />
-          )}
-          <animated.div
-            ref={ref}
-            css={css`
-              position: fixed;
-              left: 50%;
-              bottom: 0;
-              z-index: 2;
-              display: flex;
-              flex-flow: column;
-              width: 100%;
-              max-width: 400px;
-              padding: 12px;
-              padding-bottom: max(16px, env(safe-area-inset-bottom, 16px));
-              overflow: auto;
-              filter: drop-shadow(0 0 16px ${rgba('#000', 0.2)});
-
-              ${fill &&
-              css`
-                min-height: 50vh;
-                box-shadow: 0 0 8px ${rgba('#000', 0.2)};
-                backdrop-filter: blur(8px);
-                border-radius: 4px;
-              `};
-            `}
-            style={{
-              ...styles,
-              pointerEvents: opened ? 'all' : 'none',
-              backgroundColor: fill ? 'var(--gray-2)' : 'transparent',
-              // color: fill ? theme.exactColors.black50 : 'transparent',
-            }}
-            className={className}
-          >
-            <FocusTrap paused={!opened}>
+              className={className}
+            >
               <div>
                 <div
                   css={css`
@@ -178,9 +178,9 @@ export const ActionSheet = memo(
                   {children}
                 </div>
               </div>
-            </FocusTrap>
-          </animated.div>
-        </div>
+            </animated.div>
+          </div>
+        </FocusTrap>
       </ActionSheetContext.Provider>
     )
   }),

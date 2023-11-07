@@ -354,7 +354,7 @@ const ObjectPathInternal = memo(function ObjectPath({
   })
 
   const [pathElement, revalidatePathElement] = useMemoRevailidatable(() => {
-    const d = SVGPathManipul.vectorPathPointsToSVGPathString(visu.path.points)
+    const d = SVGPathManipul.vectorPathPointsToSVGPath(visu.path.points)
 
     return (
       <>

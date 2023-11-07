@@ -28,7 +28,7 @@ export const Popover = memo(function Popover({
   }, [])
 
   return (
-    <RPopover.Root c>
+    <RPopover.Root>
       <RPopover.Trigger asChild className={className}>
         {trigger}
       </RPopover.Trigger>
@@ -36,8 +36,9 @@ export const Popover = memo(function Popover({
         <RPopover.Content
           css={css`
             border-radius: 4px;
-            padding: 8px;
-            width: 260px;
+            padding: 16px;
+            width: max-content;
+            padding-top: 40px;
             background-color: white;
             box-shadow:
               hsl(206 22% 7% / 35%) 0px 10px 38px -10px,
@@ -146,16 +147,17 @@ const s = {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    color: var(--violet-11);
+    color: var(--accent-11);
     position: absolute;
     top: 5px;
     right: 5px;
+    border: none;
 
     &:hover {
-      background-color: var(--violet-4);
+      background-color: var(--accent-4);
     }
     &:focus {
-      box-shadow: 0 0 0 2px var(--violet-7);
+      box-shadow: 0 0 0 2px var(--accent-7);
     }
   `,
   iconButton: css`

@@ -12,6 +12,8 @@ import { VectorToolModes } from '@paplico/editor'
 import { useEditorStore } from '@/domains/uiState'
 import { useTranslation } from '@/lib/i18n'
 import { mainToolbarTexts } from '@/locales'
+import { Grid } from '@radix-ui/themes'
+import { GhostButton } from '@/components/GhostButton'
 
 export const ToolSelectPane = memo(function ToolSelectPane() {
   const t = useTranslation(mainToolbarTexts)
@@ -50,43 +52,66 @@ export const ToolSelectPane = memo(function ToolSelectPane() {
     canvasEditor?.getStrokingTarget()?.visuType === 'canvas'
 
   return (
-    <ul
-      css={css`
-        padding: 2px 0;
-      `}
-    >
-      <TabPage.Root defaultPage="raster">
+    <div>
+      <TabPage.Root
+        css={css`
+          max-width: calc(100vw - 32px);
+        `}
+        defaultPage="raster"
+      >
         <TabPage.Content pageId="raster">
-          <ToolItem onClick={handleClickTool} data-type="brush">
-            <BsBrushFill css={s.toolIcon} size={28} />
-            {t('tools.brush')}
-          </ToolItem>
-
-          <ToolItem onClick={handleClickTool} data-type="eraser">
-            <BsEraserFill css={s.toolIcon} size={28} />
-            {t('tools.eraser')}
-          </ToolItem>
-        </TabPage.Content>
-
-        <TabPage.Content pageId="vector">
-          <ToolItem onClick={handleClickVectorTool} data-type="rectangle">
-            <RiRectangleLine css={s.toolIcon} size={28} />
-            {t('tools.shapeRect')}
-          </ToolItem>
-
-          <ToolItem onClick={handleClickVectorTool} data-type="ellipse">
-            <RiCircleLine css={s.toolIcon} size={28} />
-            {t('tools.shapeEllipse')}
-          </ToolItem>
-
-          <ToolItem
-            onClick={handleClickVectorTool}
-            data-type="brush"
-            disabled={!isCanvasVisuTarget}
+          <div
+            css={css`
+              display: grid;
+              grid-template-columns: repeat(4, 1fr);
+              gap: 8px;
+            `}
           >
-            <BsBrushFill css={s.toolIcon} size={28} />
-            {t('tools.brush')}
-          </ToolItem>
+            <ToolItem
+              name={t('tools.brush')}
+              onClick={handleClickTool}
+              data-type="brush"
+            >
+              <BsBrushFill css={s.toolIcon} size={28} />
+              {t('tools.brush')}
+            </ToolItem>
+
+            <ToolItem
+              onClick={handleClickTool}
+              data-type="eraser"
+              name={t('tools.eraser')}
+            >
+              <BsEraserFill css={s.toolIcon} size={28} />
+              {t('tools.eraser')}
+            </ToolItem>
+
+            <ToolItem
+              onClick={handleClickVectorTool}
+              data-type="rectangle"
+              name={t('tools.shapeRect')}
+            >
+              <RiRectangleLine css={s.toolIcon} size={28} />
+              {t('tools.shapeRect')}
+            </ToolItem>
+
+            <ToolItem
+              onClick={handleClickVectorTool}
+              data-type="ellipse"
+              name={t('tools.shapeEllipse')}
+            >
+              <RiCircleLine css={s.toolIcon} size={28} />
+              {t('tools.shapeEllipse')}
+            </ToolItem>
+
+            <ToolItem
+              onClick={handleClickVectorTool}
+              data-type="brush"
+              disabled={!isCanvasVisuTarget}
+            >
+              <BsBrushFill css={s.toolIcon} size={28} />
+              {t('tools.brush')}
+            </ToolItem>
+          </div>
 
           {/* <ToolItem onClick={handleClickTool} data-type="eraser">
             <BsEraserFill css={s.toolIcon} size={28} />
@@ -117,7 +142,7 @@ export const ToolSelectPane = memo(function ToolSelectPane() {
           <TabPage.Tab pageId="vector">{t('tabs.vectorLayer')}</TabPage.Tab>
         </TabPage.List>
       </TabPage.Root>
-    </ul>
+    </div>
   )
 })
 
@@ -132,22 +157,32 @@ const ToolItem = memo(function ToolItem({
   children,
   disabled,
   onClick,
+  name,
   ...props
 }: {
   children?: ReactNode
   disabled?: boolean
-  onClick?: (e: MouseEvent<HTMLLIElement>) => void
+  name: string
+  onClick?: (e: MouseEvent<HTMLButtonElement>) => void
 }) {
   return (
-    <li
+    <GhostButton
+      tabIndex={0}
       css={css`
-        display: flex;
+        display: inline-flex;
+        flex-flow: column;
+        gap: 8px;
+        justify-content: center;
         align-items: center;
-        width: 100%;
-        padding: 8px;
+        aspect-ratio: 1 / 1;
         cursor: pointer;
         user-select: none;
         border-radius: 4px;
+        transition-property: background-color, color;
+        transition: 0.2s ease-in-out;
+        background-color: var(--gray-2);
+        line-height: 1;
+        vertical-align: bottom;
 
         &:hover {
           color: var(--gray-1);
@@ -159,16 +194,14 @@ const ToolItem = memo(function ToolItem({
           cursor: not-allowed;
           pointer-events: none;
         }
-
-        & + & {
-          margin-top: 8px;
-        }
       `}
+      disabled={disabled}
       aria-disabled={disabled}
-      {...props}
       onClick={onClick}
+      {...props}
+      aria-label={name}
     >
       {children}
-    </li>
+    </GhostButton>
   )
 })

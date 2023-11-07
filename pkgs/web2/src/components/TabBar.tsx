@@ -1,4 +1,4 @@
-import React, { ReactNode, memo } from 'react'
+import React, { ComponentProps, ReactNode, memo } from 'react'
 import * as Tabs from '@radix-ui/react-tabs'
 import { css } from 'styled-components'
 // import './styles.css'
@@ -6,11 +6,16 @@ import { css } from 'styled-components'
 export const TabRoot = memo(function TabRoot({
   children,
   defaultPage,
+  ...props
 }: {
   children: ReactNode
   defaultPage?: string
-}) {
-  return <Tabs.Root defaultValue={defaultPage}>{children}</Tabs.Root>
+} & ComponentProps<typeof Tabs.Root>) {
+  return (
+    <Tabs.Root defaultValue={defaultPage} {...props}>
+      {children}
+    </Tabs.Root>
+  )
 })
 
 export const TabList = memo(function TabList({
@@ -63,14 +68,15 @@ export const Tab = memo(function Tab({
 export const TabContent = memo(function TabContent({
   children,
   pageId,
-  className,
+  value,
+  ...props
 }: {
   children: ReactNode
   pageId: string
   className?: string
-}) {
+} & Omit<ComponentProps<typeof Tabs.Content>, 'value'>) {
   return (
-    <Tabs.Content className="TabsContent" value={pageId}>
+    <Tabs.Content value={pageId} {...props}>
       {children}
     </Tabs.Content>
   )

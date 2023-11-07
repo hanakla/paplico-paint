@@ -78,9 +78,7 @@ export const layerTypeToEditorType = (
   // prettier-ignore
   return (
     layerType ==='canvas' ? 'raster' :
-    layerType ==='vectorObject' ? 'vector' :
     layerType ==='group' ? 'vector' :
-    layerType ==='text' ? 'text' :
     'none'
   )
 }

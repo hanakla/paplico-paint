@@ -193,11 +193,7 @@ export const usePropsMemo = () => {
 
   return useMemo(
     () => ({
-      memo: <T extends (() => any) | object | any[]>(
-        key: string,
-        value: T,
-        deps: DependencyList,
-      ) => {
+      memo: <T>(key: string, value: () => T, deps: DependencyList): T => {
         const prev = store.get(key)
         let returnValue = prev?.value
 

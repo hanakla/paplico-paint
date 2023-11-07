@@ -132,7 +132,7 @@ export function usePaplicoInit(
     let pap = papRef.current
     if (!pap) return
 
-    const doc = Document.createDocument({ width: 1000, height: 1400 })
+    const doc = Document.visu.createDocument({ width: 1000, height: 1400 })
 
     const raster = Document.visu.createCanvasVisually({
       width: 1000,

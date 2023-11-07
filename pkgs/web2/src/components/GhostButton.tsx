@@ -15,8 +15,10 @@ export const GhostButton = memo(
           appearance: none;
           background-color: transparent;
           border: none;
+          padding: 0;
         `}
         ref={ref}
+        type={props.type ?? 'button'}
         {...props}
       />
     )

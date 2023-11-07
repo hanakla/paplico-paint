@@ -3,7 +3,7 @@ import { TbDroplet } from 'react-icons/tb'
 import { RxLayers } from 'react-icons/rx'
 import { BsBrushFill, BsEraserFill } from 'react-icons/bs'
 import * as Toolbar from '@radix-ui/react-toolbar'
-import { forwardRef, memo, useMemo } from 'react'
+import { forwardRef, memo, useMemo, useState } from 'react'
 import { css, styled } from 'styled-components'
 // import useEvent from 'react-use-event-hook'
 import { useDrag } from '@use-gesture/react'
@@ -27,14 +27,10 @@ import { useIsomorphicLayoutEffect, useToggle } from 'react-use'
 import { useModal } from '@/components/Dialog'
 import { FileSaveDialog } from '@/modals/FileSaveDialog'
 import { letDownload } from '@hanakla/arma'
-import { Fieldset } from '@/components/Fieldset'
 import { storePicker } from '@/utils/zutrand'
-import { create } from 'zustand'
 import { Skeleton } from '@/components/Skeleton'
 import { pick } from '@/utils/object'
-import { TabPage } from '@/components/TabBar'
 import { ToolSelectPane } from './MainToolbar/ToolSelectPane'
-import { Portal } from '@/components/Portal'
 import { papColorToRGBA, useToolbarStore } from './MainToolbar/toolbar.store'
 import { StrokeColorPopoverTrigger } from './MainToolbar/StrokeColorPopover'
 
@@ -60,6 +56,7 @@ export const MainToolbar = memo(
     const rootRef = useCombineRef<HTMLDivElement | null>(ref)
 
     const [menuOpened, toggleMenuOpened] = useToggle(false)
+    const [toolbarDragged, setToolbarDragged] = useState(false)
 
     const toolbarStore = useToolbarStore(
       storePicker(['set', 'strokeColorString']),
@@ -79,7 +76,10 @@ export const MainToolbar = memo(
     //     : { h: 0, s: 0, b: 0 }
     // }, [])
 
-    const bindDrag = useDrag(({ delta: [x, y] }) => {
+    const bindDrag = useDrag(({ delta: [x, y], first, last }) => {
+      if (first) setToolbarDragged(true)
+      if (last) setToolbarDragged(false)
+
       onPositionChanged({ x, y })
     })
 
@@ -125,8 +125,6 @@ export const MainToolbar = memo(
       URL.revokeObjectURL(url)
     })
 
-    const fillColor = useMemo(() => {}, [])
-
     return (
       <Toolbar.Root
         css={s.toolbarRoot}
@@ -136,8 +134,11 @@ export const MainToolbar = memo(
           {
             left: x - bbox.width / 2,
             top: y - bbox.height / 2,
+            boxShadow: toolbarDragged
+              ? '0px 4px 24px var(--slate-a7)'
+              : undefined,
           },
-          [x, y],
+          [x, y, toolbarDragged],
         )}
         aria-label="Formatting options"
         className={className}
@@ -159,8 +160,13 @@ export const MainToolbar = memo(
               New paper
             </ActionSheetItem>
           </ActionSheetItemGroup>
+
           <ActionSheetItemGroup>
             <ActionSheetItem onClick={handleClickSave}>Save</ActionSheetItem>
+          </ActionSheetItemGroup>
+
+          <ActionSheetItemGroup>
+            <ActionSheetItem onClick={toggleMenuOpened}>Cancel</ActionSheetItem>
           </ActionSheetItemGroup>
         </ActionSheet>
 
@@ -243,7 +249,8 @@ const s = {
     min-width: max-content;
     border-radius: 100px;
     background-color: #fff;
-    box-shadow: 0 2px 10px var(--pap-sufrace-dropshadow);
+    box-shadow: 0 2px 10px var(--slate-a6);
+    transition: box-shadow 0.2s ease-in-out;
 
     svg {
       vertical-align: bottom;

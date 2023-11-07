@@ -1,5 +1,4 @@
-import { VectorBrushSetting } from '@/Document/LayerEntity/VectorBrushSetting'
-import { PPLCAbortError, PPLCOptionInvariantViolationError } from '@/Errors'
+import { PPLCAbortError } from '@/Errors'
 import { AtomicResource } from '@/utils/AtomicResource'
 import { saveAndRestoreCanvas, setCanvasSize } from '@/utils/canvas'
 import { deepClone, shallowEquals } from '@/utils/object'
@@ -16,14 +15,12 @@ import {
 } from './VectorUtils'
 import { AppearanceRegistry } from './Registry/AppearanceRegistry'
 import { FontRegistry } from './Registry/FontRegistry'
-import { TextNode } from '@/Document/LayerEntity/TextNode'
 import { BrushLayoutData, IBrush } from './Brush/Brush'
 import {
   LayerMetrics,
   createBBox,
   createEmptyBBox,
 } from './DocumentContext/LayerMetrics'
-import { VectorAppearance } from '@/Document/LayerEntity/VectorAppearance'
 import { PaplicoRenderWarnAbst } from '@/Errors/Warns/PaplicoRenderWarnAbst'
 import { reduceAsync } from '@/utils/array'
 import { MissingFilterWarn } from '@/Errors/Warns/MissingFilterWarn'
@@ -434,9 +431,9 @@ export class VectorRenderer {
     let curBaseline = 0
 
     // #region Linebreak nomarlize
-    const lineBreakedNodes: TextNode[][] = []
-    let currentLine: TextNode[] = []
-    let currentNode: TextNode
+    const lineBreakedNodes: VisuElement.TextNode[][] = []
+    let currentLine: VisuElement.TextNode[] = []
+    let currentNode: VisuElement.TextNode
 
     for (
       let nodeIdx = 0, nodeLen = layer.textNodes.length;
@@ -483,7 +480,7 @@ export class VectorRenderer {
     LogChannel.l.vectorRenderer('generateTextVectorObject: ', lineBreakedNodes)
 
     for (const lineNodes of lineBreakedNodes) {
-      const loadFont = (node: TextNode) => {
+      const loadFont = (node: VisuElement.TextNode) => {
         return this.fontRegistry.getFont(
           node.fontFamily ?? layer.fontFamily,
           node.fontStyle ?? layer.fontStyle,
@@ -598,7 +595,7 @@ export class VectorRenderer {
       phase: RenderPhase
       logger?: RenderCycleLogger
       compositionMode?: VisuElement.CompositeMode
-      filtersForPathTransform?: VectorAppearance[]
+      filtersForPathTransform?: VisuFilter.ExternalFilter[]
     },
   ): Promise<{
     warns: PaplicoRenderWarnAbst[]
@@ -711,7 +708,7 @@ export class VectorRenderer {
   public async renderStroke(
     dest: HTMLCanvasElement,
     path: VisuElement.VectorPath,
-    brushSetting: VectorBrushSetting,
+    brushSetting: VisuFilter.Structs.BrushSetting,
     {
       inkSetting,
       transform,

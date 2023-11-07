@@ -3,16 +3,12 @@
 import fastRandom from 'fast-random'
 import { rgb } from 'polished'
 import {
-  type VectorPath,
-  type VectorPathPoint,
-} from '@/Document/LayerEntity/VectorPath'
-import {
   IndexedPointAtLength,
   indexedPointAtLength,
   SequencialPointAtLength,
   SVGDCommand,
 } from './fastsvg/IndexedPointAtLength'
-import { ColorRGB } from './Document'
+import { ColorRGB, VisuElement } from './Document'
 import {
   createNumSequenceMap,
   createObjectSequenceMap,
@@ -54,7 +50,7 @@ export const rgbToHexColorString = (color: ColorRGB) => {
   return rgb(color.r * 255, color.g * 255, color.b * 255)
 }
 
-type ScatteredPoint = VectorPathPoint & {
+type ScatteredPoint = VisuElement.VectorPathPoint & {
   /** 1 is straight size */
   scale: number
   /** radian */
@@ -62,7 +58,7 @@ type ScatteredPoint = VectorPathPoint & {
 }
 
 export const createStreamScatter = (
-  path: VectorPath,
+  path: VisuElement.VectorPath,
   pal: IndexedPointAtLength,
   {
     scatterRange,
@@ -143,7 +139,7 @@ export const createStreamScatter = (
 
 /** @deprecated */
 export const scatterPlot = (
-  path: VectorPath,
+  path: VisuElement.VectorPath,
   pal: IndexedPointAtLength,
   {
     counts,

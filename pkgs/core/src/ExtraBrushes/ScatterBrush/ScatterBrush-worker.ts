@@ -5,12 +5,9 @@ import {
 } from '@/index-ext-brush'
 import { Matrix4 } from '@/Math'
 import { indexedPointAtLength } from '@/fastsvg/IndexedPointAtLength'
-import { type VectorPath } from '@/Document/LayerEntity/VectorPath'
 import { mapLinear } from '@/Math/interpolation'
-import {
-  vectorPathPointsToSVGCommandArray,
-  vectorPathPointsToSVGPath,
-} from '@/SVGPathManipul'
+import { vectorPathPointsToSVGCommandArray } from '@/SVGPathManipul'
+import { VisuElement } from '@/Document'
 
 export type Payload =
   | { type: 'warming' }
@@ -18,7 +15,7 @@ export type Payload =
   | {
       id: string
       type: 'getPoints'
-      path: VectorPath
+      path: VisuElement.VectorPath
       destSize: { width: number; height: number }
       pixelRatio: number
       brushSize: number

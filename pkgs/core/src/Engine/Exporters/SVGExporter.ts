@@ -1,13 +1,16 @@
 import { IExporter } from './IExporter'
-import { ColorRGB, ColorRGBA, LayerNode } from '@/Document'
+import {
+  ColorRGB,
+  ColorRGBA,
+  PaplicoDocument,
+  VisuElement,
+  VisuFilter,
+} from '@/Document'
 import { createContext2D } from '../../Infra/CanvasFactory'
 import { setCanvasSize } from '@/utils/canvas'
 import { vectorPathPointsToSVGPath } from '@/SVGPathManipul'
-import {
-  VectorAppearanceFill,
-  VectorAppearanceStroke,
-} from '@/Document/LayerEntity/VectorAppearance'
 import { ulid } from '@/utils/ulid'
+import { unreachable } from '@/utils/unreachable'
 
 export namespace SVGExporter {
   export type Options = IExporter.Options<{ looseSVGOriginalStrict: boolean }>
@@ -22,7 +25,7 @@ export class SVGExporter implements IExporter {
       throw new Error('SVGExporter: No document is opened')
     }
 
-    const targetNode = paplico.currentDocument.layerNodes.getNodeAtPath(
+    const targetNode = paplico.currentDocument.getResolvedLayerTree(
       options.targetNodePath ?? [],
     )
     if (!targetNode) {
@@ -44,106 +47,155 @@ export class SVGExporter implements IExporter {
 
     return new Blob([svg], { type: 'image/svg+xml' })
 
-    async function nodeToSVG(node: LayerNode): Promise<string> {
-      const layer = paplico.currentDocument!.getVisuByUid(node.visuUid)
-      if (!layer) return ''
+    async function nodeToSVG(
+      node: PaplicoDocument.ResolvedLayerNode,
+    ): Promise<string> {
+      const { visu } = node
+      const blendMode = paplicoBlendModeToSVGMixBlendMode(visu.blendMode)
 
-      if (layer.layerType === 'root') {
+      if (visu.type === 'group') {
         const children = await Promise.all(
           node.children.map((n) => nodeToSVG(n)),
         )
 
-        return children.join('')
-      } else if (layer.layerType === 'raster') {
+        return svgElement(
+          'g',
+          {
+            'data-pplc-id': visu.uid,
+            'data-pplc-layer-name': visu.name ?? 'Group',
+            style: `mix-blend-mode:${blendMode};`,
+          },
+          children.join(''),
+        )
+
+        // return `<g style="mix-blend-mode:${blendMode};">${children.join(
+        //   '',
+        // )}</g>`
+      } else if (visu.type === 'canvas') {
         setCanvasSize(
           cx.canvas,
-          Math.round(layer.width * pixelRatio),
-          Math.round(layer.height * pixelRatio),
+          Math.round(visu.width * pixelRatio),
+          Math.round(visu.height * pixelRatio),
         )
 
         cx.drawImage(
           await createImageBitmap(
-            new ImageData(layer.bitmap, layer.width, layer.height),
+            new ImageData(visu.bitmap, visu.width, visu.height),
           ),
-          layer.transform.position.x * pixelRatio,
-          layer.transform.position.y * pixelRatio,
-          layer.width * pixelRatio,
-          layer.height * pixelRatio,
+          visu.transform.position.x * pixelRatio,
+          visu.transform.position.y * pixelRatio,
+          visu.width * pixelRatio,
+          visu.height * pixelRatio,
         )
 
         const datauri = cx.canvas.toDataURL('image/png')
 
-        // prettier-ignore
-        return `<g data-pap-id="${quoteattr(layer.uid,)}" data-pap-layer-name="${quoteattr(layer.name ?? 'Raster layer')}">`
-          + `<image href="${datauri}" width="${layer.width}" height="${layer.height}" />`
-          + `</g>`
-      } else if (layer.layerType === 'vector') {
-        const objectsPathes = layer.objects.map((obj) => {
-          if (obj.type === 'vectorObject') {
-            function toCSSColor(color: ColorRGB | ColorRGBA, alpha?: number) {
-              // prettier-ignore
-              if (alpha != null) return `rgba(${color.r * 255}, ${color.g * 255}, ${color.b * 255}, ${alpha})`
-              else if ('a' in color)return `rgba(${color.r * 255}, ${color.g * 255}, ${color.b * 255}, ${color.a})`
-              else return `rgb(${color.r * 255}, ${color.g * 255}, ${color.b * 255})`
-            }
-
-            const path = vectorPathPointsToSVGPath(obj.path)
-            const fill = findLast(
-              obj.filters,
-              (a): a is VectorAppearanceFill => a.kind === 'fill',
-            )
-            const stroke = findLast(
-              obj.filters,
-              (a): a is VectorAppearanceStroke => a.kind === 'stroke',
-            )
-
-            const defsUid = ulid()
-
-            if (fill?.fill.type === 'linear-gradient') {
-              // prettier-ignore
-              defs.push(
-                [
-                  `<linearGradient id="${defsUid}" x1="${fill.fill.start.x}" y1="${fill.fill.start.y}" x2="${fill.fill.end.x}" y2="${fill.fill.end.y}">`,
-                  ...fill.fill.colorStops.map((stop) => {
-                    return `<stop offset="${stop.position * 100}%" stop-color="${toCSSColor(stop.color)}" />`
-                  }),
-                  '</linearGradient>',
-                ].join(''),
-              )
-            }
-
-            // prettier-ignore
-            const fillAttr =
-              fill?.fill.type === 'fill' ? ` fill="${toCSSColor(fill.fill.color, fill.fill.opacity)}"`
-              : fill?.fill.type === 'linear-gradient' ? ` fill="url(#${defsUid})"`
-              : ' fill="none"'
-
-            // prettier-ignore
-            const strokeAttr =
-              stroke?.kind === 'stroke' ? ` stroke="${toCSSColor(stroke.stroke.color, stroke.stroke.opacity)}" strokeWidth="${stroke.stroke.size}"`
-              : ' stroke="none"'
-
-            return `<path d="${path}"${fillAttr}${strokeAttr} />`
-          } else {
-            return ''
-          }
+        return svgElement('image', {
+          'data-pplc-id': (visu.uid),
+          'data-pplc-layer-name': (visu.name ?? 'Raster layer'),
+          style: `mix-blend-mode:${blendMode};`,
+          href: datauri,
+          width: visu.width,
+          height: visu.height,
         })
 
-        const children = await Promise.all(
-          node.children.map((n) => nodeToSVG(n)),
+        // prettier-ignore
+        // return `<g data-pap-id="${quoteattr(visu.uid,)}" data-pap-layer-name="${quoteattr(visu.name ?? 'Raster layer')}" style="mix-blend-mode:${blendMode};">`
+        //   + `<image href="${datauri}" width="${visu.width}" height="${visu.height}" />`
+        //   + `</g>`
+      } else if (visu.type === 'vectorObject') {
+        function toCSSColor(color: ColorRGB | ColorRGBA, alpha?: number) {
+          // prettier-ignore
+          if (alpha != null) return `rgba(${color.r * 255}, ${color.g * 255}, ${color.b * 255}, ${alpha})`
+              else if ('a' in color)return `rgba(${color.r * 255}, ${color.g * 255}, ${color.b * 255}, ${color.a})`
+              else return `rgb(${color.r * 255}, ${color.g * 255}, ${color.b * 255})`
+        }
+
+        const path = vectorPathPointsToSVGPath(visu.path.points)
+        const fill = findLast(
+          visu.filters,
+          (a): a is VisuFilter.FillFilter => a.kind === 'fill',
+        )
+        const stroke = findLast(
+          visu.filters,
+          (a): a is VisuFilter.StrokeFilter => a.kind === 'stroke',
         )
 
-        return [
-          `<g data-pap-node-id="${node.visuUid}" data-pap-layer-name="${layer.name}">`,
-          objectsPathes.join('\n'),
-          children.join(''),
-          `</g>`,
-        ].join('')
+        const defsUid = ulid()
+
+        if (fill?.fill.type === 'linear-gradient') {
+          // prettier-ignore
+          defs.push(
+            svgElement('linearGradient', {
+              id: defsUid,
+              x1: fill.fill.start.x,
+              y1: fill.fill.start.y,
+              x2: fill.fill.end.x,
+              y2: fill.fill.end.y,
+            }, fill.fill.colorStops.map((stop) => {
+              return svgElement('stop', {offset: `${stop.position * 100}%`, "stop-color": toCSSColor(stop.color)})
+            }).join(''))
+          )
+        }
+
+        return svgElement('path', {
+          'fill-rule': visu.path.fillRule,
+          style: `mix-blend-mode:${blendMode};`,
+          ...(stroke
+            ? {
+                stroke: toCSSColor(stroke.stroke.color, stroke.stroke.opacity),
+                strokeWidth: stroke.stroke.size,
+              }
+            : { stroke: 'none' }),
+          ...(fill
+            ? {
+                fill:
+                  fill?.fill.type === 'fill'
+                    ? toCSSColor(fill.fill.color, fill.fill.opacity)
+                    : fill?.fill.type === 'linear-gradient'
+                    ? 'url(#${defsUid})'
+                    : unreachable(fill.fill),
+              }
+            : { fill: 'none' }),
+        })
+      } else if (visu.type === 'text') {
+        const styleAttr = ` style="mix-blend-mode:${blendMode};"`
+
+        return svgElement(
+          'text',
+          {
+            x: visu.transform.position.x,
+            y: visu.transform.position.y,
+            'font-size': visu.fontSize,
+            ...((visu.fontFamily ?? 'Poppins') !== 'Poppins'
+              ? { 'font-family': visu.fontFamily }
+              : {}),
+            ...((visu.fontStyle ?? 'Regular') !== 'Regular'
+              ? { 'font-style': visu.fontStyle }
+              : {}),
+          },
+          visu.textNodes.map((tn) => quoteattr(tn.text)).join(''),
+        )
       } else {
         return ''
       }
     }
   }
+}
+
+function svgElement(
+  type: string,
+  attr: Record<string, any>,
+  children?: string,
+) {
+  const attrString = Object.entries(attr)
+    .map(([key, value]) => {
+      return value == null ? null : `${key}="${quoteattr(value.toString())}"`
+    })
+    .filter((s): s is string => typeof s === 'string')
+    .join(' ')
+
+  return `<${type} ${attrString} ${children ? children + `</${type}>` : '/>'}`
 }
 
 // FROM: https://stackoverflow.com/questions/7753448/how-do-i-escape-quotes-in-html-attribute-values
@@ -180,4 +232,14 @@ function findLast<T, S extends T>(
   const idx = arr.findIndex(predicate)
   if (idx === -1) return
   return arr[idx] as S
+}
+
+function paplicoBlendModeToSVGMixBlendMode(blend: VisuElement.BlendMode) {
+  // prettier-ignore
+  return blend === 'normal' ? 'normal'
+    : blend === 'multiply' ? 'multiply'
+    : blend === 'screen' ? 'screen'
+    : blend === 'overlay' ? 'overlay'
+    : unreachable(blend)
+  // : blend === 'clipper' ? { special: 'clip'}
 }

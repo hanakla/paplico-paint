@@ -158,7 +158,7 @@ export function usePaplicoInit(
     // const vectorGroupNode = Document.visu.createLayerNode(vectorGroupVis)
 
     const vector = Document.visu.createVectorObjectVisually({
-      path: Document.createVectorPath({
+      path: Document.visu.createVectorPath({
         points: [
           { isMoveTo: true, x: 0, y: 0 },
           { x: 1000, y: 1000, begin: null, end: null },

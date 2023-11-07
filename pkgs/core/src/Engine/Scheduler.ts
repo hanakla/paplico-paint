@@ -1,11 +1,4 @@
-import {
-  BlendMode,
-  LayerEntity,
-  LayerFilter,
-  PaplicoDocument,
-  VisuElement,
-  VisuFilter,
-} from '@/Document'
+import { BlendMode, PaplicoDocument, VisuElement, VisuFilter } from '@/Document'
 import { DocumentContext } from './DocumentContext/DocumentContext'
 
 export type RenderTask = {
@@ -31,7 +24,7 @@ export type RenderTask = {
   //   }
   | {
       command: typeof RenderCommands.APPLY_LAYER_FILTER
-      filter: LayerFilter
+      filter: VisuFilter.Structs.ExternalFilterSetting
     }
   // | {
   //     command: typeof RenderCommands.SWAP_SOURCE_AND_TARGET
@@ -120,7 +113,7 @@ export function buildRenderSchedule(
   } = {},
 ) {
   const tasks: RenderTask[] = []
-  const preResolvedLayers = new Map<string, LayerEntity>()
+  const preResolvedLayers = new Map<string, VisuElement.AnyElement>()
 
   // Pre-rendering tasks
   for (const child of node.children) {

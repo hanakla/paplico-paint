@@ -8,12 +8,7 @@ import {
 import { VisuTransformOverrides, VectorRenderer } from '@/Engine/VectorRenderer'
 import { UICanvas } from '@/UI/UICanvas'
 import { UIStroke } from '@/UI/UIStroke'
-import {
-  PaplicoDocument,
-  VectorPath,
-  VisuElement,
-  VisuFilter,
-} from '../Document'
+import { PaplicoDocument, VisuElement, VisuFilter } from '../Document'
 import {
   clearCanvas,
   freeingCanvas,
@@ -21,12 +16,9 @@ import {
   setCanvasSize,
 } from '@/utils/canvas'
 import { DocumentContext } from './DocumentContext/DocumentContext'
-import { VectorBrushSetting } from '../Document/LayerEntity/VectorBrushSetting'
-import { InkSetting as _InkSetting } from '../Document/LayerEntity/InkSetting'
 import { deepClone } from '../utils/object'
 import { CircleBrush } from '../Brushes/CircleBrush'
 import { Emitter } from '../utils/Emitter'
-import { BrushClass } from './Brush/Brush'
 import { RenderCycleLogger } from './RenderCycleLogger'
 import { PlainInk } from '../Inks/PlainInk'
 import { InkRegistry } from './Registry/InkRegistry'
@@ -69,7 +61,7 @@ import { LogChannel } from '@/Debugging/LogChannel'
 
 export namespace Paplico {
   export type BrushSetting<T extends Record<string, any> = any> =
-    VectorBrushSetting<T>
+    VisuFilter.Structs.BrushSetting<T>
 
   export type StrokingTarget = DocumentContext.StrokingTarget
 

@@ -1,5 +1,4 @@
-import { ColorRGBA } from '@/Document'
-import { VectorPathPoint } from '@/Document/LayerEntity/VectorPath'
+import { ColorRGBA, VisuElement } from '@/Document'
 import { Camera, WebGLRenderer } from 'three'
 
 export type InkMetadata = {
@@ -10,7 +9,7 @@ export type InkMetadata = {
 
 export interface InkGetColorContext<T extends Record<string, any>> {
   pointIndex: number
-  points: VectorPathPoint[]
+  points: VisuElement.VectorPathPoint[]
   pointAtLength: number
   totalLength: number
   baseColor: ColorRGBA

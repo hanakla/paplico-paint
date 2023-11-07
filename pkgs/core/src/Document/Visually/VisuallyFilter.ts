@@ -1,7 +1,4 @@
-import { FillSetting } from '../LayerEntity/VectorFillSetting'
-import { ExternalFilterSetting } from './Settings/ExternalFilterSetting'
 import { InkSetting } from './Settings/InkFilterSetting'
-import { BrushSetting } from './Settings/StrokeSetting'
 import * as FilterStructs from './_FilterStructs'
 
 type FilterBase = {
@@ -12,19 +9,19 @@ type FilterBase = {
 export namespace VisuFilter {
   export type StrokeFilter<T extends Record<string, any> = {}> = FilterBase & {
     kind: 'stroke'
-    stroke: BrushSetting<T>
+    stroke: FilterStructs.BrushSetting<T>
     ink: InkSetting
   }
 
   export type FillFilter = FilterBase & {
     kind: 'fill'
-    fill: FillSetting
+    fill: FilterStructs.FillSetting
   }
 
   export type ExternalFilter<T extends Record<string, any> = {}> =
     FilterBase & {
       kind: 'external'
-      processor: ExternalFilterSetting<T>
+      processor: FilterStructs.ExternalFilterSetting<T>
     }
 
   export type AnyFilter = StrokeFilter | FillFilter | ExternalFilter<any>

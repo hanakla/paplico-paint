@@ -1,10 +1,10 @@
-import { VectorLayer } from '@/Document/LayerEntity'
+import { VisuElement } from '@/Document'
 import { Canvas2DAllocator } from '@/Infra/Canvas2DAllocator'
 import { lerp, clampNumInLength, clamp } from '@/index-math-utils'
 
 export function remapStrokeWeights(
   map: HTMLCanvasElement | ImageBitmap,
-  vectorLayer: VectorLayer,
+  vectorLayer: VisuElement.GroupElement,
 ) {
   const buf = Canvas2DAllocator.borrow({
     width: map.width,

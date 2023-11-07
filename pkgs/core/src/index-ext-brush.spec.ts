@@ -1,4 +1,4 @@
-import { createVectorPath } from './Document'
+import { createVectorPath } from './Document/Visually/factory'
 import {
   indexedPointAtLength,
   vectorPathPointsToSVGPathString,
@@ -35,14 +35,17 @@ describe('scatterPlot', () => {
 
     const path = createVectorPath({
       randomSeed: 0,
-      points: Array.from({ length: POINTS }, (_, i) => ({
-        ...(i === 0 ? { isMoveTo: true } : {}),
-        x: i,
-        y: i,
-        in: null,
-        out: null,
-        pressure: 1,
-      })),
+      points: Array.from({ length: POINTS }, (_, i) =>
+        i === 0
+          ? { isMoveTo: true, x: i, y: y }
+          : {
+              x: i,
+              y: i,
+              in: null,
+              out: null,
+              pressure: 1,
+            },
+      ),
     })
 
     const pal = indexedPointAtLength(

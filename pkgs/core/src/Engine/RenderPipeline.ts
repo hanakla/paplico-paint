@@ -1,10 +1,4 @@
-import {
-  BlendMode,
-  LayerFilter,
-  PaplicoDocument,
-  VisuElement,
-  VisuFilter,
-} from '@/Document'
+import { PaplicoDocument, VisuElement, VisuFilter } from '@/Document'
 import {
   clearCanvas,
   freeingCanvas,
@@ -598,7 +592,7 @@ export class RenderPipeline {
   public async applyFilter(
     input: TexImageSource,
     outcx: CanvasRenderingContext2D,
-    filter: Omit<VisuFilter.ExternalFilter<any>['processor'], 'enabled'>,
+    filter: Omit<VisuFilter.Structs.ExternalFilterSetting, 'enabled'>,
     {
       abort,
       viewport,
@@ -653,7 +647,9 @@ export class RenderPipeline {
   }
 }
 
-const layerBlendModeToCanvasCompositeOperation = (mode: BlendMode) =>
+const layerBlendModeToCanvasCompositeOperation = (
+  mode: VisuElement.BlendMode,
+) =>
   (
     ({
       normal: 'source-over',
@@ -661,5 +657,5 @@ const layerBlendModeToCanvasCompositeOperation = (mode: BlendMode) =>
       multiply: 'multiply',
       overlay: 'overlay',
       screen: 'screen',
-    }) as { [k in BlendMode]: GlobalCompositeOperation }
+    }) as { [k in VisuElement.BlendMode]: GlobalCompositeOperation }
   )[mode]

@@ -71,12 +71,14 @@ export const FilterList = memo(function FilterList() {
     if (!FilterClass) return
     if (!strokingTarget) return
 
-    const filter = Document.createFilterEntry({
-      filterId: FilterClass.metadata.id,
-      filterVersion: FilterClass.metadata.version,
-      settings: FilterClass.getInitialSetting(),
-      enabled: true,
-      opacity: 1,
+    const filter = Document.visu.createVisuallyFilter('external', {
+      processor: {
+        filterId: FilterClass.metadata.id,
+        filterVersion: FilterClass.metadata.version,
+        settings: FilterClass.getInitialSetting(),
+        enabled: true,
+        opacity: 1,
+      },
     })
 
     setPaneExpandedFilterState(filter.uid, true)

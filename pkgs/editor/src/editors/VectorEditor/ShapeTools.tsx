@@ -72,7 +72,7 @@ export const ShapeTools = memo(function ShapeTools({ width, height }: Props) {
           const ink = paplico.cloneInkSetting()
 
           paplico.command.do(
-            new Commands.DocumentUpdateLayerNodes({
+            new Commands.DocumentManipulateLayerNodes({
               add: [
                 {
                   visu: Document.visu.createVectorObjectVisually({
@@ -84,15 +84,13 @@ export const ShapeTools = memo(function ShapeTools({ width, height }: Props) {
                     ),
                     filters: [
                       stroke
-                        ? Document.createVectorAppearance({
-                            kind: 'stroke',
+                        ? Document.visu.createVisuallyFilter('stroke', {
                             stroke,
                             ink: ink,
                           })
                         : undefined,
                       fill
-                        ? Document.createVectorAppearance({
-                            kind: 'fill',
+                        ? Document.visu.createVisuallyFilter('fill', {
                             fill: fill,
                           })
                         : undefined,
@@ -140,7 +138,7 @@ export const ShapeTools = memo(function ShapeTools({ width, height }: Props) {
           const ink = paplico.cloneInkSetting()
 
           paplico.command.do(
-            new Commands.DocumentUpdateLayerNodes({
+            new Commands.DocumentManipulateLayerNodes({
               add: [
                 {
                   visu: Document.visu.createVectorObjectVisually({
@@ -152,15 +150,13 @@ export const ShapeTools = memo(function ShapeTools({ width, height }: Props) {
                     ),
                     filters: [
                       stroke
-                        ? Document.createVectorAppearance({
-                            kind: 'stroke',
+                        ? Document.visu.createVisuallyFilter('stroke', {
                             stroke,
                             ink: ink,
                           })
                         : undefined,
                       fill
-                        ? Document.createVectorAppearance({
-                            kind: 'fill',
+                        ? Document.visu.createVisuallyFilter('fill', {
                             fill: fill,
                           })
                         : undefined,
@@ -287,7 +283,7 @@ function createCirclePathByRect(
   const bottom = y + height
 
   // Define the path data using Cubic Bezier curves to approximate the ellipse
-  return Document.createVectorPath({
+  return Document.visu.createVectorPath({
     // prettier-ignore
     points:[
       {isMoveTo: true, x: cx, y: y},

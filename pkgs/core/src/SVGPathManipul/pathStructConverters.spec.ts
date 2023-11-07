@@ -1,10 +1,10 @@
-import { TypeStrictVectorPathPoint } from '@/Document/LayerEntity/VectorPath'
+import { VisuElement } from '@/Document'
 import { vectorPathPointsToSVGCommandArray } from './pathStructConverters'
 
 describe('pathStructConverters', () => {
   describe('vectorPathPointsToSVGCommandArray', () => {
     it('works?', () => {
-      const points: TypeStrictVectorPathPoint[] = [
+      const points: VisuElement.VectorPathPoint[] = [
         { isMoveTo: true, x: 0, y: 0 },
         { x: 10, y: 10, begin: { x: 5, y: 5 }, end: { x: 5, y: 5 } },
         { x: 20, y: 20, begin: null, end: null },

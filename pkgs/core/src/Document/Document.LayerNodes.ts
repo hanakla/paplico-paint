@@ -1,6 +1,5 @@
 import {
-  PPLCIgnoreableError,
-  PPLCInvalidOptionOrStateError,
+  PPLCOptionInvariantViolationError,
   PPLCTargetNodeNotFoundError,
 } from '@/Errors'
 import { type PaplicoDocument } from './Document'
@@ -17,13 +16,17 @@ export type NodesController = {
    * Get ancestor of specified node contained node (likes GroupVisuallly)
    * @param Ancestor node list. first is root. last is parent
    */
-  getAncestorContainerNode(path: string[]): LayerNode[] | null
+  getAncestorContainerNodes(
+    path: string[],
+    includeSelf?: boolean,
+  ): LayerNode[] | null
 
   /**
    *  Add new Visually into specified node,
    * @param pathToParent Default to point Root node
    * @param positionInNode Index in siblings, default to most priorize position in render order
    * @return Added node position and Visu
+   * @throws PPLCTargetNodeNotFoundError when target parent not found
    */
   addLayerNode<T extends VisuElement.AnyElement>(
     visu: T,
@@ -39,16 +42,35 @@ export type NodesController = {
    * @returns Removed node and Visually
    * @throws PPLCTargetNodeNotFoundError when node not found
    */
-  removeNodeAt(path: string[]): {
+  removeLayerNode(path: string[]): {
     visu: VisuElement.AnyElement
     node: LayerNode
     indexInParent: number
   }
 
-  findNodePathByVisu(visuallyUid: string): string[] | null
+  /**
+   * Move layer to position of `overNode`
+   * if last fragment of overPath is PLACE_IT, move to top of group
+   *
+   * Ex. move target is empty group (/group2/ fo below)
+   *
+   *  /__root__
+   *    /group1/
+   *      /canvas-visu
+   *    /group2/
+   *     ## Want to place it##
+   *
+   *  Specify overPath as `/group2/PLACE_IT`
+   */
+  moveLayerNodeOver(
+    sourcePath: string[],
+    overPath: [...string[], 'PLACE_IT'] | string[],
+  ): { newPath: string[] }
 
-  isChildrenContainableNode(path: string[]): boolean
-  isChildrenContainableNode(node: LayerNode): boolean
+  findNodePathByVisu(visuUid: string): string[] | null
+
+  isChildContainableNode(path: string[]): boolean
+  isChildContainableNode(node: LayerNode): boolean
 }
 
 export function createNodesController(doc: PaplicoDocument): NodesController {
@@ -91,7 +113,7 @@ export function createNodesController(doc: PaplicoDocument): NodesController {
       return flatten
     },
 
-    getAncestorContainerNode(path: string[]) {
+    getAncestorContainerNodes(path: string[], includeSelf = false) {
       if (path[0] === '__root__') path = path.slice(1)
       if (path.length === 0) return [rootNode]
 
@@ -101,12 +123,15 @@ export function createNodesController(doc: PaplicoDocument): NodesController {
       for (const uid of path) {
         let found = cursor.children.find((child) => child.visuUid === uid)
         if (!found) return null
+
+        cursor = found
         ancestors.push(found)
       }
 
-      console.log([...ancestors])
-      // pop leaf node
-      ancestors.pop()
+      if (!includeSelf) {
+        // pop leaf node
+        ancestors.pop()
+      }
 
       return ancestors
     },
@@ -150,14 +175,13 @@ export function createNodesController(doc: PaplicoDocument): NodesController {
       }
     },
 
-    removeNodeAt(path: string[]) {
+    removeLayerNode(path: string[]) {
       const targetNodeUid = path.at(-1)
 
-      console.log(this.getAncestorContainerNode(path))
-      const parent = this.getAncestorContainerNode(path)?.at(-1)
+      const parent = this.getAncestorContainerNodes(path)?.at(-1)
       if (!parent) {
         throw new PPLCTargetNodeNotFoundError(
-          `Document.layerNodes.removeNodeAt: Node not found (on removing ${path.join(
+          `Document.layerNodes.removeNodeAt: Parent node not found (on removing ${path.join(
             '/',
           )})`,
         )
@@ -178,6 +202,65 @@ export function createNodesController(doc: PaplicoDocument): NodesController {
         node: removedNode,
         indexInParent: idxInNodes,
       }
+    },
+
+    moveLayerNodeOver(sourcePath, overPath) {
+      // Stash 'PLACE_IT' fragment before searching target node
+      const placeItMark = overPath.at(-1) === 'PLACE_IT'
+      overPath = placeItMark ? overPath.slice(0, -1) : overPath
+
+      const sourceNodeAncestors = me.getAncestorContainerNodes(sourcePath, true)
+      const sourceNode = sourceNodeAncestors?.at(-1)!
+      const sourceParent = sourceNodeAncestors?.at(-2)
+
+      const overNodeAncestors = me.getAncestorContainerNodes(overPath, true)
+      const overNode = overNodeAncestors?.at(-1)
+      const overParentNode = placeItMark ? overNode : overNodeAncestors?.at(-2)
+
+      if (
+        !sourceNodeAncestors ||
+        !overNode ||
+        !overParentNode ||
+        !sourceParent
+      ) {
+        // prettier-ignore
+        throw new PPLCTargetNodeNotFoundError(
+          `Document.layerNodes.moveNodeOver: target node not found for ${
+            !sourceNodeAncestors ? `source /${sourcePath.join('/')}`
+              : !overNode ? `over /${overPath.join('/')}`
+              : !overParentNode ? `parent of over /${overPath.join('/')}`
+              : !sourceParent ? `parent of source /${sourcePath.join('/')}`
+              : 'unknown reason'
+          }`,
+        )
+      }
+
+      console.log(overParentNode)
+
+      if (placeItMark) {
+        if (!me.isChildContainableNode(overParentNode)) {
+          throw new PPLCOptionInvariantViolationError(
+            `Document.layerNodes.moveNodeOver: PLACE_IT mark can only use on group node, comes in ${overPath.join(
+              '/',
+            )}`,
+          )
+        }
+      }
+
+      const overIdxInParent = placeItMark
+        ? overParentNode.children.length
+        : overParentNode.children.findIndex(
+            (n) => n.visuUid === overNode.visuUid,
+          )
+
+      const sourceIdxInParent = sourceParent.children.findIndex(
+        (n) => n.visuUid === sourceNode.visuUid,
+      )
+
+      const [removed] = sourceParent.children.splice(sourceIdxInParent, 1)
+      overParentNode.children.splice(overIdxInParent, 0, removed)
+
+      return { newPath: [...overPath, removed.visuUid] }
     },
 
     findNodePathByVisu(visuallyUid: string): string[] | null {
@@ -207,7 +290,7 @@ export function createNodesController(doc: PaplicoDocument): NodesController {
       return null
     },
 
-    isChildrenContainableNode(nodeOrPath: LayerNode | string[]) {
+    isChildContainableNode(nodeOrPath: LayerNode | string[]) {
       let node: LayerNode
 
       if (Array.isArray(nodeOrPath)) {
@@ -227,7 +310,7 @@ export function createNodesController(doc: PaplicoDocument): NodesController {
       const visu = doc.getVisuByUid(node.visuUid)
       if (!visu) return false
 
-      return doc.isChildrenContainableVisu(visu)
+      return doc.isChildContainableVisu(visu)
     },
   })
 }

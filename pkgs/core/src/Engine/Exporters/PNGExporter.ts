@@ -1,5 +1,5 @@
 import { canvasToBlob, setCanvasSize } from '@/utils/canvas'
-import { createContext2D } from '../CanvasFactory'
+import { createContext2D } from '../../Infra/CanvasFactory'
 import { IExporter } from './IExporter'
 import { freeingCanvas } from '@/utils/canvas'
 

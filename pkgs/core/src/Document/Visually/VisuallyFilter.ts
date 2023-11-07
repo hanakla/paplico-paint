@@ -10,22 +10,22 @@ type FilterBase = {
 }
 
 export namespace VisuFilter {
-  export type StrokeFilter<T extends Record<string, any> | null = null> =
-    FilterBase & {
-      kind: 'stroke'
-      stroke: BrushSetting<T>
-      ink: InkSetting
-    }
+  export type StrokeFilter<T extends Record<string, any> = {}> = FilterBase & {
+    kind: 'stroke'
+    stroke: BrushSetting<T>
+    ink: InkSetting
+  }
 
   export type FillFilter = FilterBase & {
     kind: 'fill'
     fill: FillSetting
   }
 
-  export type ExternalFilter<T extends Record<string, any>> = FilterBase & {
-    kind: 'external'
-    processor: ExternalFilterSetting<T>
-  }
+  export type ExternalFilter<T extends Record<string, any> = {}> =
+    FilterBase & {
+      kind: 'external'
+      processor: ExternalFilterSetting<T>
+    }
 
   export type AnyFilter = StrokeFilter | FillFilter | ExternalFilter<any>
 
@@ -36,11 +36,13 @@ export namespace VisuFilter {
   }
 
   export namespace Structs {
-    export type ExternalFilterSetting<T extends Record<string, any>> =
+    export type ExternalFilterSetting<T extends Record<string, any> = {}> =
       FilterStructs.ExternalFilterSetting<T>
 
     export type FillSetting = FilterStructs.FillSetting
-    export type InkSetting = FilterStructs.InkSetting
-    export type BrushSetting = FilterStructs.BrushSetting
+    export type InkSetting<T extends Record<string, any> = {}> =
+      FilterStructs.InkSetting<T>
+    export type BrushSetting<T extends Record<string, any> = {}> =
+      FilterStructs.BrushSetting<T>
   }
 }

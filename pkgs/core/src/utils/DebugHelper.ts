@@ -1,4 +1,4 @@
-import { createCanvas } from '@/Engine/CanvasFactory'
+import { createCanvas } from '@/Infra/CanvasFactory'
 import { setCanvasSize } from './canvas'
 
 export const logImage = async (

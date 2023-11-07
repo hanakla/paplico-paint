@@ -37,7 +37,7 @@ type LocalFontData = {
 }
 
 export class FontRegistry extends Emitter<{}> {
-  protected cache: Map<string, FontEntry> = new Map()
+  protected cache: Map</* Family name */ string, FontEntry> = new Map()
 
   public async requestToRegisterLocalFonts() {
     if (!('queryLocalFonts' in window)) {
@@ -157,7 +157,14 @@ export class FontRegistry extends Emitter<{}> {
     return null
   }
 
-  public getEntries() {
-    return [...this.cache.values()]
+  public get entries() {
+    return [...this.cache].filter(([, entry]) => ({
+      family: entry.family,
+      styles: entry.styles.map((s) => s.name),
+    }))
   }
+
+  // public getEntries() {
+  //   return [...this.cache.values()]
+  // }
 }

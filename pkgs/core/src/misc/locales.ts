@@ -1,4 +1,4 @@
-import { Paplico } from './Engine/Paplico'
+import { Paplico } from '../Engine/Paplico'
 
 export type LocaleStrings<
   T extends Record<string, any> = Record<string, string>,

@@ -1,6 +1,6 @@
 export { PPLCAbortError } from './PPLCPaplicoAbortError'
 export { PPLCIgnoreableError } from './PPLCIgnoreableError'
-export { PPLCInvalidOptionOrStateError } from './PPLCInvalidOptionOrStateError'
+export { PPLCOptionInvariantViolationError } from './PPLCOptionInvariantViolationError'
 export { PPLCDisposedInstanceError } from './PPLCDisposedInstanceError'
 export { PPLCCanvasAllocationError } from './PPLCCanvasAllocationError'
 export { PPLCCommandExecutionError } from './PPLCCommandExecutionError'

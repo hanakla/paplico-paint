@@ -1,29 +1,22 @@
 import { diff, patch, unpatch, Delta } from 'jsondiffpatch'
-// ^-- Do not use star imports or named imports from jsondiffpatch-rc, it will break the build.
 
-import { ICommand } from '../ICommand'
+import { ICommand } from '../Engine/History/ICommand'
 import { DocumentContext } from '@/Engine'
 import { deepClone } from '@/utils/object'
-import { VectorLayer } from '@/Document/LayerEntity'
+import { VisuallyElement } from '@/Document/LayerEntity'
 
-type Options = {
-  /**
-   * objects can no be modified by this command for performance reason.
-   * use `VectorUpdateObject` instead.
-   */
-  updater: (objects: VectorLayer['objects']) => void
-}
+type Options = { updater: (layer: VisuallyElement) => void }
 
-/** @deprecated */
-export class VectorUpdateObjects implements ICommand {
-  public readonly name = 'VectorUpdateObjects'
+export class CommandGroup implements ICommand {
+  public readonly name = 'CommandGroup'
 
+  protected freezed: boolean = false
   protected layerId: string
   protected options: Options
 
-  protected changesPatch: Delta | undefined = undefined
+  protected changesPatch: Delta | null = null
 
-  constructor(targetLayerId: string, options: Options) {
+  constructor(c) {
     this.layerId = targetLayerId
     this.options = options
   }
@@ -33,15 +26,13 @@ export class VectorUpdateObjects implements ICommand {
     if (!layer) throw new Error('Layer not found')
     if (layer.layerType !== 'vector') return
 
-    const original = layer.objects
+    const original = deepClone(layer)
     const next = deepClone(original)
     this.options.updater(next)
 
-    this.changesPatch = diff(original, next)
-    patch(layer.objects, this.changesPatch!)
-
+    this.changesPatch = diff(original, next)!
+    patch(layer, this.changesPatch!)
     document.invalidateLayerBitmapCache(this.layerId)
-    // document.invalidateVectorObjectCache()
   }
 
   public async undo(document: DocumentContext): Promise<void> {
@@ -50,7 +41,7 @@ export class VectorUpdateObjects implements ICommand {
     if (layer.layerType !== 'vector') return
     if (!this.changesPatch) return
 
-    unpatch(layer.objects, this.changesPatch)
+    unpatch(layer, this.changesPatch)
     document.invalidateLayerBitmapCache(this.layerId)
   }
 
@@ -60,7 +51,7 @@ export class VectorUpdateObjects implements ICommand {
     if (layer.layerType !== 'vector') return
     if (!this.changesPatch) return
 
-    patch(layer.objects, this.changesPatch)
+    patch(layer, this.changesPatch)
     document.invalidateLayerBitmapCache(this.layerId)
   }
 

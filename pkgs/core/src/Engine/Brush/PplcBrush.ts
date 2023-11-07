@@ -5,4 +5,5 @@ export type {
   BrushMetadata,
   BrushPaneContext,
   IBrush,
+  ScaledTransform,
 } from './Brush'

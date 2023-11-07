@@ -8,7 +8,10 @@ import { DisplayContents } from '@/components/DisplayContents'
 import { DropdownMenu, DropdownMenuItem } from '@/components/DropdownMenu'
 import { FloatablePane } from '@/components/FloatablePane'
 import { FloatablePaneIds } from '@/domains/floatablePanes'
-import { usePaplicoInstance, useEngineStore } from '@/domains/engine'
+import {
+  usePaplicoInstance,
+  initializeOnlyUseEngineStore,
+} from '@/domains/engine'
 import { useEditorStore } from '@/domains/uiState'
 import { storePicker } from '@/utils/zutrand'
 import { Commands, Document } from '@paplico/core-new'
@@ -21,7 +24,7 @@ import useEvent from 'react-use-event-hook'
 import styled, { css } from 'styled-components'
 
 export const LayerFiltersPane = memo(function LayerFiltersPane() {
-  const { strokeTargetVisu } = useEngineStore(storePicker(['strokeTargetVisu']))
+  const { canvasEditor } = usePaplicoInstance()
 
   return (
     <FloatablePane paneId={FloatablePaneIds.filters} title="Filters">
@@ -31,15 +34,18 @@ export const LayerFiltersPane = memo(function LayerFiltersPane() {
           border-radius: 4px;
         `}
       >
-        {!strokeTargetVisu ? <NoLayerSelected /> : <FilterList />}
+        {!canvasEditor?.getStrokingTarget() ? (
+          <NoLayerSelected />
+        ) : (
+          <FilterList />
+        )}
       </Box>
     </FloatablePane>
   )
 })
 
 export const FilterList = memo(function FilterList() {
-  const { pplc } = usePaplicoInstance()
-  const papStore = useEngineStore(storePicker(['strokeTargetVisu']))
+  const { pplc, canvasEditor } = usePaplicoInstance()
   const {
     getPaneExpandedFilterUids,
     setPaneExpandedFilterState,
@@ -52,7 +58,7 @@ export const FilterList = memo(function FilterList() {
     ]),
   )
 
-  const activeLayer = papStore.strokeTargetVisu!
+  const strokingTarget = canvasEditor?.getStrokingTarget()!
 
   const rerender = useUpdate()
   const prevExpandedUids = useRef<string[]>([])
@@ -63,7 +69,7 @@ export const FilterList = memo(function FilterList() {
 
     if (!filterId) return
     if (!FilterClass) return
-    if (!papStore.strokeTargetVisu) return
+    if (!strokingTarget) return
 
     const filter = Document.createFilterEntry({
       filterId: FilterClass.metadata.id,
@@ -76,7 +82,7 @@ export const FilterList = memo(function FilterList() {
     setPaneExpandedFilterState(filter.uid, true)
 
     pplc!.command.do(
-      new Commands.VisuUpdateAttributes(papStore.strokeTargetVisu.uid, {
+      new Commands.VisuUpdateAttributes(strokingTarget.visuUid, {
         updater: (visu) => {
           visu.filters.push(filter)
         },
@@ -89,7 +95,7 @@ export const FilterList = memo(function FilterList() {
       const filterUid = e.currentTarget.dataset.filterUid!
 
       pplc!.command.do(
-        new Commands.VisuUpdateAttributes(papStore.strokeTargetVisu!.uid, {
+        new Commands.VisuUpdateAttributes(strokingTarget!.visuUid, {
           updater: (layer) => {
             const filter = layer.filters.find(
               (filter) => filter.uid === filterUid,
@@ -107,14 +113,14 @@ export const FilterList = memo(function FilterList() {
     const filterUid = e.currentTarget.dataset.filterUid!
 
     pplc!.command.do(
-      new Commands.VisuUpdateAttributes(papStore.strokeTargetVisu!.uid, {
-        updater: (layer) => {
-          const filterIndex = layer.filters.findIndex(
+      new Commands.VisuUpdateAttributes(strokingTarget!.visuUid, {
+        updater: (visu) => {
+          const filterIndex = visu.filters.findIndex(
             (filter) => filter.uid === filterUid,
           )
           if (filterIndex === -1) return
 
-          layer.filters.splice(filterIndex, 1)
+          visu.filters.splice(filterIndex, 1)
         },
       }),
     )
@@ -139,16 +145,16 @@ export const FilterList = memo(function FilterList() {
 
   useEffect(() => {
     return pplc?.on('history:affect', ({ layerIds }) => {
-      if (layerIds.includes(activeLayer.uid)) rerender()
+      if (layerIds.includes(strokingTarget.visuUid)) rerender()
     })
-  }, [pplc, activeLayer.uid])
+  }, [pplc, strokingTarget.visuUid])
 
-  console.log(activeLayer)
+  console.log(strokingTarget)
 
   return (
     <>
       <div>
-        {activeLayer.filters.length === 0 ? (
+        {strokingTarget.visu.filters.length === 0 ? (
           <NoAvailable>No filters</NoAvailable>
         ) : (
           <AccordionRoot
@@ -156,7 +162,7 @@ export const FilterList = memo(function FilterList() {
             value={paneExpandedFilterUids}
             onValueChange={handleChangeExpandedFilters}
           >
-            {activeLayer.filters.map((filter) => (
+            {strokingTarget.visu.filters.map((filter) => (
               <AccordionItem key={filter.uid} value={filter.uid}>
                 <div
                   css={css`
@@ -231,7 +237,10 @@ export const FilterList = memo(function FilterList() {
                       }
                     `}
                   >
-                    {pplc?.paneUI.renderFilterPane(activeLayer.uid, filter)}
+                    {pplc?.paneUI.renderFilterPane(
+                      strokingTarget.visuUid,
+                      filter,
+                    )}
                   </div>
                 </AccordionContent>
               </AccordionItem>
@@ -263,7 +272,7 @@ export const FilterList = memo(function FilterList() {
             </Button>
           }
         >
-          {pplc?.filters.appearanceEntries.map((Class) => (
+          {canvasEditor?.availableFilters.map((Class) => (
             <DropdownMenuItem
               key={Class.metadata.id}
               data-filter-id={Class.metadata.id}

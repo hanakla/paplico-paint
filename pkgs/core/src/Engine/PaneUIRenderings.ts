@@ -7,8 +7,8 @@ import {
   VNode,
   type AbstractElementCreator,
 } from '@/UI/PaneUI/AbstractComponent'
-import { FilterUpdateParameter } from '@/History/Commands/index'
-import { LocaleStrings } from '@/locales'
+import { FilterUpdateParameter } from '@/Commands/index'
+import { LocaleStrings } from '@/misc/locales'
 
 export namespace PaneUIRenderings {
   /** Passing context object to Brush/Filter#renderPane */

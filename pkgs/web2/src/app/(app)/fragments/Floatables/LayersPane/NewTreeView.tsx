@@ -9,6 +9,7 @@ import { CSS } from '@dnd-kit/utilities'
 import {
   DndContext,
   DragEndEvent,
+  DragMoveEvent,
   DragOverlay,
   DragStartEvent,
   KeyboardSensor,
@@ -25,11 +26,14 @@ import {
 import {
   LayerTreeNode,
   convertLayerNodeToTreeViewNode,
-  getNextNodePath,
-  mergeNextTree,
+  getMoveToNodePath,
+  syncAndBuildNextTree,
   updateTree,
 } from './structs'
-import { useEngineStore, usePaplicoInstance } from '@/domains/engine'
+import {
+  initializeOnlyUseEngineStore,
+  usePaplicoInstance,
+} from '@/domains/engine'
 import useEvent from 'react-use-event-hook'
 import { emptyCoalease } from '@/utils/lang'
 import styled, { css } from 'styled-components'
@@ -38,8 +42,7 @@ import {
   ContextMenuItemClickHandler,
   useContextMenu,
 } from '@/components/ContextMenu'
-import { Commands } from '@paplico/core-new'
-import { TriangleDownIcon, TriangleUpIcon } from '@radix-ui/react-icons'
+import { Commands, Document } from '@paplico/core-new'
 import {
   RxEyeNone,
   RxEyeOpen,
@@ -49,11 +52,12 @@ import {
   RxTriangleDown,
   RxTriangleUp,
 } from 'react-icons/rx'
-import { usePropsMemo } from '@/utils/hooks'
+import { usePropsMemo, useStateSync } from '@/utils/hooks'
 import { GhostButton } from '@/components/GhostButton'
 import { DisplayContents } from '@/components/DisplayContents'
 import { createUseStore } from '@/utils/zustand'
 import { StoreApi, createStore } from 'zustand/vanilla'
+import { clamp } from '@/utils/math'
 
 type LayerContextMenuEvent = {
   event: MouseEvent
@@ -66,11 +70,13 @@ type LayerContextMenuParams = {
 
 type TreeViewProps = {
   mode: 'desktop' | 'mobile'
+  className?: string
 }
 
 type Store = {
   set: StoreApi<Store>['setState']
   items: LayerTreeNode[]
+  syncFromSource(doc: Document.PaplicoDocument): void
   toggleDragging(item: string, dragging: boolean): void
   toggleVisible(item: string, visible: boolean): void
   toggleCollapse(item: string, collapsed: boolean): void
@@ -82,10 +88,19 @@ const useLayerTreeStore = createUseStore(
 
     items: [],
 
+    syncFromSource(doc: Document.PaplicoDocument) {
+      set((prev) => ({
+        items: syncAndBuildNextTree(
+          prev.items,
+          convertLayerNodeToTreeViewNode(doc, doc.layerTreeRoot),
+        ),
+      }))
+    },
+
     toggleDragging(visuUid: string, dragging: boolean) {
       set((prev) => ({
         items: updateTree(prev.items, visuUid, {
-          dragging: true,
+          dragging,
         }),
       }))
     },
@@ -108,12 +123,13 @@ const useLayerTreeStore = createUseStore(
 
 export const NewTreeView = memo(function NewTreeView({
   mode = 'desktop',
+  className,
 }: TreeViewProps) {
   const { pplc } = usePaplicoInstance()
   const menu = useContextMenu<LayerContextMenuParams>()
 
   const treeStore = useLayerTreeStore()
-  useMemo(() => {
+  useStateSync(() => {
     treeStore.set({
       items: pplc?.currentDocument
         ? convertLayerNodeToTreeViewNode(
@@ -126,13 +142,14 @@ export const NewTreeView = memo(function NewTreeView({
 
   const [activeItem, setActiveItem] = useState<LayerTreeNode | null>(null)
 
-  // const [items, setItems] = useState([1, 2, 3])
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
     useSensor(KeyboardSensor, {
       coordinateGetter: sortableKeyboardCoordinates,
     }),
   )
+  const modifiers = useMemo(() => [looseRestrictToParentElement], [])
+
   const handleItemContextMenu = useEvent((e: LayerContextMenuEvent) => {
     menu.show({
       event: e.event,
@@ -144,15 +161,32 @@ export const NewTreeView = memo(function NewTreeView({
 
   const handleDragStart = useEvent((e: DragStartEvent) => {
     treeStore.toggleDragging(e.active.id as string, true)
+    setActiveItem(treeStore.items[e.active.data.current!.sortable.index])
   })
 
+  // const handleDragMove = useEvent((e: DragMoveEvent) => {
+  //   e
+  // })
+
   const handleDragEnd = useEvent((e: DragEndEvent) => {
-    const { active, over } = e
+    const { active, over, delta, collisions } = e
 
-    treeStore.toggleDragging(e.active.id as string, true)
+    console.log({ active, over, delta, collisions })
 
-    console.log({ active, over })
-    console.log(getNextNodePath(pplc!.currentDocument!, items, active, over))
+    setActiveItem(null)
+    treeStore.toggleDragging(e.active.id as string, false)
+
+    const moves = getMoveToNodePath(treeStore.items, active, over, delta.x)
+
+    if (!moves) return
+
+    const [sourcePath, overPath] = moves
+
+    pplc?.command.do(
+      new Commands.DocumentUpdateLayerNodes({
+        move: [{ sourceNodePath: sourcePath, targetNodePath: overPath }],
+      }),
+    )
 
     // if (active.id !== over.id) {
     //   setItems((items) => {
@@ -165,21 +199,12 @@ export const NewTreeView = memo(function NewTreeView({
 
   useEffect(() => {
     const changed = () => {
-      console.log('change!')
-      // if (!pplc?.currentDocument) {
-      //   setItems([])
-      //   return
-      // }
+      if (!pplc?.currentDocument) {
+        treeStore.set({ items: [] })
+        return
+      }
 
-      // setItems((items) => {
-      //   return mergeNextTree(
-      //     items,
-      //     convertLayerNodeToTreeViewNode(
-      //       pplc!.currentDocument!,
-      //       pplc!.currentDocument!.layerTreeRoot,
-      //     ),
-      //   )
-      // })
+      treeStore.syncFromSource(pplc!.currentDocument!)
     }
 
     pplc!.on('documentChanged', changed)
@@ -197,23 +222,18 @@ export const NewTreeView = memo(function NewTreeView({
   }
 
   return (
-    <DisplayContents
-      css={css`
-        & > *:not(input) {
-          user-select: none;
-        }
-      `}
-    >
+    <div className={className}>
       <DndContext
         sensors={sensors}
         collisionDetection={closestCenter}
-        modifiers={[restrictToVerticalAxis, restrictToParentElement]}
+        modifiers={modifiers}
         onDragStart={handleDragStart}
         onDragEnd={handleDragEnd}
       >
         <SortableContext
           items={treeStore.items}
-          strategy={verticalListSortingStrategy}
+
+          // strategy={verticalListSortingStrategy}
         >
           {treeStore.items.map((item) => (
             <SortableItem
@@ -226,7 +246,7 @@ export const NewTreeView = memo(function NewTreeView({
           ))}
         </SortableContext>
 
-        <DragOverlay modifiers={[]}>
+        <DragOverlay modifiers={modifiers}>
           {activeItem && (
             <SortableItem
               key={activeItem.id}
@@ -234,12 +254,13 @@ export const NewTreeView = memo(function NewTreeView({
               item={activeItem}
               mode={mode}
               onContextMenu={handleItemContextMenu}
+              ghost
             />
           )}
         </DragOverlay>
       </DndContext>
       <LayerItemContextMenu id={menu.id} />
-    </DisplayContents>
+    </div>
   )
 })
 
@@ -248,18 +269,20 @@ export const SortableItem = memo(function SortableItem({
   item,
   mode,
   onContextMenu,
+  ghost,
 }: {
   id: string
   item: LayerTreeNode
   mode: TreeViewProps['mode']
   onContextMenu: (e: LayerContextMenuEvent) => void
+  ghost?: boolean
 }) {
   const { pplc } = usePaplicoInstance()
-  const { canvasEditor } = useEngineStore()
+  const { canvasEditor } = initializeOnlyUseEngineStore()
   const treeStore = useLayerTreeStore()
   const propsMemo = usePropsMemo()
 
-  const { attributes, listeners, setNodeRef, transform, transition } =
+  const { attributes, listeners, setNodeRef, transform, transition, active } =
     useSortable({ id: id })
 
   const sortableStyle = propsMemo.memo(
@@ -307,17 +330,18 @@ export const SortableItem = memo(function SortableItem({
     <div
       ref={setNodeRef}
       css={css`
-        display: flex;
-        align-items: center;
-        gap: 2px;
-        padding: 2px 8px;
         font-size: var(--font-size-2);
         line-height: var(--line-height-2);
         touch-action: none;
         user-select: none;
+        overflow: visible;
+
+        &:hover {
+          background-color: var(--blue-a2);
+        }
 
         & + & {
-          border-top: 1px solid var(--slate-5);
+          border-top: 0.5px solid var(--slate-a5);
         }
       `}
       style={propsMemo.memo(
@@ -327,113 +351,140 @@ export const SortableItem = memo(function SortableItem({
           background:
             canvasEditor?.getStrokingTarget()?.visuUid === item.visUid
               ? 'var(--sky-5)'
-              : 'transparent',
+              : undefined,
+          opacity: ghost ? 0.5 : undefined,
         }),
-        [sortableStyle, canvasEditor?.getStrokingTarget()?.visuUid],
+        [sortableStyle, canvasEditor?.getStrokingTarget()?.visuUid, ghost],
       )}
       onClick={handleClick}
       onContextMenu={handleContextMenu}
+      {...attributes}
+      {...listeners}
     >
-      <GhostButton
-        css={s.layerControlIcon}
-        onClick={handleClickToggleVisible}
-        data-filter-uid={item.visUid}
-        style={{
-          opacity: item.invisibleByParent ? 0.3 : 1,
-        }}
-      >
-        {item.visu.visible ? <RxEyeOpen size={12} /> : <RxEyeNone size={12} />}
-      </GhostButton>
-
-      <GhostButton
-        css={s.layerControlIcon}
-        onClick={handleClickToggleVisible}
-        data-filter-uid={item.visUid}
-      >
-        {item.visu.lock ? (
-          <RxLockClosed size={12} />
-        ) : (
-          <RxLockOpen2 size={12} />
-        )}
-      </GhostButton>
-
-      <GhostButton
-        css={css`
-          position: relative;
-          ${s.layerControlIcon}
-
-          &:hover {
-            opacity: 1;
-          }
-        `}
-        style={{
-          marginRight: 2 + item.depth * 12,
-        }}
-        onClick={handleClickCollapse}
-        tabIndex={item.visu.type === 'group' ? undefined : -1}
-      >
-        {item.visu.type === 'group' ? (
-          item.collapsed ? (
-            <RxTriangleUp />
-          ) : (
-            <RxTriangleDown />
-          )
-        ) : (
-          <>
-            <div
-              role="none"
-              css={css`
-                position: absolute;
-                top: -4px;
-                bottom: -4px;
-                left: 50%;
-                border-left: 0.5px solid var(--gray-10);
-              `}
-            />
-            &zwnj;
-          </>
-        )}
-      </GhostButton>
+      {item.dragging && (
+        <div
+          css={css`
+            height: 4px;
+            background-color: var(--blue-9);
+          `}
+        >
+          &zwnj;
+        </div>
+      )}
 
       <div
         css={css`
           display: flex;
           align-items: center;
-
-          font-size: var(--font-size-2);
+          gap: 2px;
+          padding: 2px 4px;
         `}
-        // {...attributes}
-        {...listeners}
+        style={{
+          display: item.dragging ? 'none' : undefined,
+        }}
       >
-        <img
-          css={css`
-            border: none;
-            vertical-align: bottom;
-            line-height: 1;
-            border: 0.5px solid var(--gray-8);
-          `}
-          src={layerImage?.url}
-          style={
-            mode == 'desktop'
-              ? {
-                  width: 16,
-                  marginRight: 4,
-                  aspectRatio: '1',
-                  objectFit: 'contain',
-                }
-              : {
-                  width: 32,
-                  marginRight: 8,
-                  aspectRatio: '1 / 1.6',
-                }
-          }
-          decoding="async"
-          loading="lazy"
-        />
+        <GhostButton
+          css={s.layerControlButton}
+          onClick={handleClickToggleVisible}
+          data-filter-uid={item.visUid}
+          style={{
+            opacity: item.invisibleByParent ? 0.3 : 1,
+          }}
+        >
+          {item.visu.visible ? (
+            <RxEyeOpen size={12} />
+          ) : (
+            <RxEyeNone size={12} />
+          )}
+        </GhostButton>
 
-        {
-          // prettier-ignore
-          emptyCoalease(
+        <GhostButton
+          css={s.layerControlButton}
+          onClick={handleClickToggleVisible}
+          data-filter-uid={item.visUid}
+        >
+          {item.visu.lock ? (
+            <RxLockClosed size={12} />
+          ) : (
+            <RxLockOpen2 size={12} />
+          )}
+        </GhostButton>
+
+        <GhostButton
+          css={css`
+            ${s.layerControlButton}
+
+            &:hover {
+              opacity: 1;
+            }
+          `}
+          style={{
+            marginLeft: item.depth * 16,
+          }}
+          onClick={handleClickCollapse}
+          tabIndex={item.visu.type === 'group' ? undefined : -1}
+        >
+          {item.visu.type === 'group' ? (
+            item.collapsed ? (
+              <RxTriangleUp />
+            ) : (
+              <RxTriangleDown />
+            )
+          ) : (
+            <>
+              <div
+                role="none"
+                css={css`
+                  position: absolute;
+                  top: -4px;
+                  bottom: -4px;
+                  left: 50%;
+                  border-left: 0.5px solid var(--gray-10);
+                `}
+              />
+              &zwnj;
+            </>
+          )}
+        </GhostButton>
+
+        <div
+          css={css`
+            display: flex;
+            align-items: center;
+
+            font-size: var(--font-size-2);
+          `}
+        >
+          <img
+            css={css`
+              border: none;
+              vertical-align: bottom;
+              line-height: 1;
+              border: 0.5px solid var(--gray-8);
+            `}
+            src={layerImage?.url}
+            style={
+              mode == 'desktop'
+                ? {
+                    width: 16,
+                    marginRight: 4,
+                    aspectRatio: '1',
+                    objectFit: 'contain',
+                  }
+                : {
+                    width: 32,
+                    marginRight: 8,
+                    aspectRatio: '1 / 1.6',
+                  }
+            }
+            decoding="async"
+            loading="lazy"
+          />
+
+          <span>
+            {
+              // prettier-ignore
+              emptyCoalease(
             item.visu.name,
             <PlaceholderString>
               {item.visu.type === 'group' ? '<Group Layer>'
@@ -442,7 +493,9 @@ export const SortableItem = memo(function SortableItem({
               : '<Normal Layer>'}
             </PlaceholderString>
           )
-        }
+            }
+          </span>
+        </div>
       </div>
     </div>
   )
@@ -469,16 +522,62 @@ const LayerItemContextMenu = memo<{ id: string }>(
 )
 
 const s = {
-  layerControlIcon: css`
+  layerControlButton: css`
+    position: relative;
     display: inline-flex;
-    padding: 2px;
+    width: 16px;
+    height: 16px;
+    padding: 0;
     align-items: center;
     justify-content: center;
-    min-width: 16px;
+    vertical-align: bottom;
     line-height: 1;
+    transition-property: transform;
+    transition: 0.1s ease-out;
+
+    &:hover {
+      transform: scale(1.3);
+    }
   `,
 }
 
 const PlaceholderString = styled.span`
   color: var(--gray-10);
 `
+
+function looseRestrictToBoundingRect(
+  transform: Parameters<Modifier>[0]['transform'],
+  rect: NonNullable<Parameters<Modifier>[0]['draggingNodeRect']>,
+  boundingRect: NonNullable<Parameters<Modifier>[0]['containerNodeRect']>,
+) {
+  const value = { ...transform }
+
+  // y is restricted to the bounding rect
+  value.y = clamp(
+    value.y,
+    boundingRect.top - rect.top,
+    boundingRect.top + boundingRect.height - rect.bottom,
+  )
+
+  value.x = clamp(
+    value.x,
+    boundingRect.left - rect.left - 100,
+    boundingRect.left + boundingRect.width - rect.right + 100,
+  )
+
+  return value
+}
+
+const looseRestrictToParentElement: Modifier = (_ref) => {
+  let { containerNodeRect, draggingNodeRect, transform } = _ref
+
+  if (!draggingNodeRect || !containerNodeRect) {
+    return transform
+  }
+
+  return looseRestrictToBoundingRect(
+    transform,
+    draggingNodeRect,
+    containerNodeRect,
+  )
+}

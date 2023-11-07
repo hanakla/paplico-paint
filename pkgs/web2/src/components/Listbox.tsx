@@ -12,6 +12,7 @@ import {
 } from 'react'
 import useEvent from 'react-use-event-hook'
 import { css } from 'styled-components'
+import { GhostButton } from './GhostButton'
 
 type Props = {
   // items: string[]
@@ -162,7 +163,7 @@ export const ListboxItem = memo(function ListboxItem({
   children?: React.ReactNode
 }) {
   const handleClick = useCallback(
-    (e: MouseEvent<HTMLLIElement>) => {
+    (e: MouseEvent<HTMLButtonElement>) => {
       onClick?.(e, value)
     },
     [value],
@@ -171,18 +172,26 @@ export const ListboxItem = memo(function ListboxItem({
   return (
     <li
       css={css`
-        display: flex;
-        align-content: center;
-        padding: 8px 16px;
-        user-select: none;
+        display: contents;
       `}
-      style={{
-        backgroundColor: selected ? '#ddd' : 'transparent',
-      }}
-      className={className}
-      onClick={handleClick}
     >
-      {children}
+      <GhostButton
+        role="none"
+        css={css`
+          display: flex;
+          width: 100%;
+          align-content: center;
+          padding: 8px 16px;
+          user-select: none;
+        `}
+        style={{
+          backgroundColor: selected ? '#ddd' : 'transparent',
+        }}
+        className={className}
+        onClick={handleClick}
+      >
+        {children}
+      </GhostButton>
     </li>
   )
 })

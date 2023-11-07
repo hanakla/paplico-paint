@@ -48,7 +48,7 @@ const engineStore = createStore<EngineStore>((set, get) => ({
   _setActiveLayerEntity: (layer) => set({ strokeTargetVisu: layer }),
 }))
 
-export const useEngineStore = createUseStore(engineStore)
+export const initializeOnlyUseEngineStore = createUseStore(engineStore)
 
 export function usePaplicoInit(
   canvasRef: RefObject<HTMLCanvasElement | null>,
@@ -56,13 +56,14 @@ export function usePaplicoInit(
 ) {
   const papRef = useRef<Paplico | null>(null)
   const rerender = useUpdate()
-  const engineStore = useEngineStore()
+  const engineStore = initializeOnlyUseEngineStore()
   const notifyStore = useNotifyStore()
 
   useDangerouslyEffectAsync(async () => {
     const pplc = new Paplico(canvasRef.current!, {
       paneComponentImpls: PaneUIImpls,
       paneCreateElement: createElement,
+      // colorSpace: 'display-p3',
     })
 
     ;(window as any).pplc = pplc
@@ -131,11 +132,11 @@ export function usePaplicoInit(
     let pap = papRef.current
     if (!pap) return
 
-    const doc = Document.createDocument({ width: 1000, height: 1000 })
+    const doc = Document.createDocument({ width: 1000, height: 1400 })
 
     const raster = Document.visu.createCanvasVisually({
       width: 1000,
-      height: 1000,
+      height: 1400,
       // compositeMode: 'multiply',
     })
 
@@ -275,7 +276,7 @@ export function usePaplicoInit(
 
 export function usePaplicoInstance() {
   // const store = useEngineStore(storePicker(['engine', 'editorHandle']))
-  const store = useEngineStore()
+  const store = initializeOnlyUseEngineStore()
 
   return useMemo(
     () => ({

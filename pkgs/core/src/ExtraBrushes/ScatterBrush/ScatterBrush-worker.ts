@@ -2,14 +2,14 @@ import {
   BrushLayoutData,
   createStreamScatter,
   getRadianFromTangent,
-} from '@/ext-brush'
+} from '@/index-ext-brush'
 import { Matrix4 } from '@/Math'
 import { indexedPointAtLength } from '@/fastsvg/IndexedPointAtLength'
 import { type VectorPath } from '@/Document/LayerEntity/VectorPath'
 import { mapLinear } from '@/Math/interpolation'
 import {
   vectorPathPointsToSVGCommandArray,
-  vectorPathPointsToSVGPathString,
+  vectorPathPointsToSVGPath,
 } from '@/SVGPathManipul'
 
 export type Payload =

@@ -1,40 +1,24 @@
 import { FloatablePane } from '@/components/FloatablePane'
 import { TreeView } from '@/components/TreeView'
 import { FloatablePaneIds } from '@/domains/floatablePanes'
-import { usePaplicoInstance, useEngineStore } from '@/domains/engine'
-import { Commands, Document, Paplico } from '@paplico/core-new'
-import React, {
-  ChangeEvent,
-  MouseEvent,
-  memo,
-  useCallback,
-  useEffect,
-  useMemo,
-  useState,
-} from 'react'
+import {
+  usePaplicoInstance,
+  initializeOnlyUseEngineStore,
+} from '@/domains/engine'
+import { Commands, Document } from '@paplico/core-new'
+import React, { ChangeEvent, MouseEvent, memo, useEffect } from 'react'
 import { useUpdate } from 'react-use'
 import useEvent from 'react-use-event-hook'
-import {
-  //   LayerTreeNode,
-  convertLayerNodeToTreeViewNode,
-  //   updateLayerTree,
-} from './LayersPaZne/structs'
 import { RxPlus } from 'react-icons/rx'
-import { emptyCoalease } from '@/utils/lang'
 import { css, styled } from 'styled-components'
-import {
-  LayersIcon,
-  TriangleDownIcon,
-  TriangleUpIcon,
-} from '@radix-ui/react-icons'
+import { LayersIcon } from '@radix-ui/react-icons'
 import { ScrollArea } from '@/components/ScrollArea'
 import { DropdownMenu, DropdownMenuItem } from '@/components/DropdownMenu'
 import { Box, Button, Select, Slider } from '@radix-ui/themes'
 import { TextField } from '@/components/TextField'
 import { Fieldset } from '@/components/Fieldset'
 import { roundPrecision } from '@/utils/math'
-import { storePicker } from '@/utils/zutrand'
-import { usePropsMemo, useStableLatestRef } from '@/utils/hooks'
+import { useStateSync, usePropsMemo } from '@/utils/hooks'
 import {
   ContextMenu,
   ContextMenuItemClickHandler,
@@ -43,6 +27,7 @@ import {
 import { useTranslation } from '@/lib/i18n'
 import { layersPaneTexts } from '@/locales'
 import { NewTreeView } from './LayersPane/NewTreeView'
+import { StoreApi, create } from 'zustand'
 
 type Props = {
   size?: 'sm' | 'lg'
@@ -58,23 +43,40 @@ type LayerContextMenuParams = {
   layerUid: string
 }
 
+type LayersPaneStore = {
+  selectedVisu: Document.VisuElement.AnyElement | null
+  set: StoreApi<LayersPaneStore>['setState']
+}
+
+const useLayersPaneStore = create<LayersPaneStore>((get, set) => ({
+  selectedVisu: null,
+  set,
+}))
+
 export const LayersPane = memo(function LayersPane({ size = 'sm' }: Props) {
   const t = useTranslation(layersPaneTexts)
   const { pplc: pplc } = usePaplicoInstance()
-  const { canvasEditor } = useEngineStore()
+  const { canvasEditor } = initializeOnlyUseEngineStore()
   const rerender = useUpdate()
   const propsMemo = usePropsMemo()
   const layerItemMenu = useContextMenu<LayerContextMenuParams>()
 
-  const strokeTargetVis = canvasEditor?.getStrokingTarget()
+  const layersPaneStore = useLayersPaneStore()
+  useStateSync(() => {
+    layersPaneStore.set({
+      selectedVisu: canvasEditor?.getStrokingTarget()?.visu,
+    })
+  }, [canvasEditor?.getStrokingTarget()?.visuUid])
+
+  const strokeTarget = canvasEditor?.getStrokingTarget()
 
   const handleChangeLayerName = useEvent((e: ChangeEvent<HTMLInputElement>) => {
-    if (!strokeTargetVis) return
+    if (!strokeTarget) return
 
     const name = e.currentTarget.value
 
     pplc?.command.do(
-      new Commands.VisuUpdateAttributes(strokeTargetVis.visuUid, {
+      new Commands.VisuUpdateAttributes(strokeTarget.visuUid, {
         updater: (layer) => {
           layer.name = name
         },
@@ -86,7 +88,7 @@ export const LayersPane = memo(function LayersPane({ size = 'sm' }: Props) {
     console.log(mode)
 
     pplc?.command.do(
-      new Commands.VisuUpdateAttributes(strokeTargetVis!.visuUid, {
+      new Commands.VisuUpdateAttributes(strokeTarget!.visuUid, {
         updater: (layer) => {
           layer.blendMode = mode as any
         },
@@ -100,31 +102,30 @@ export const LayersPane = memo(function LayersPane({ size = 'sm' }: Props) {
     const type = e.currentTarget.dataset.layerType!
 
     // prettier-ignore
-    const layer =
+    const visu =
       type === 'normal'
-        ? Document.createRasterLayerEntity({
+        ? Document.visu.createCanvasVisually({
             width: pplc?.currentDocument.meta.mainArtboard.width,
             height: pplc?.currentDocument.meta.mainArtboard.height,
           })
       : type === 'vector'
-        ? Document.createVectorLayerEntity({})
+        ? Document.visu.createGroupVisually({})
       : null
 
-    if (!layer) return
+    if (!visu) return
 
     pplc.command.do(
-      new Commands.DocumentCreateLayer(layer, {
-        nodePath: [],
-        indexAtSibling: -1,
+      new Commands.DocumentUpdateLayerNodes({
+        add: [{ visu, parentNodePath: [], indexInNode: -1 }],
       }),
     )
   })
 
   useEffect(() => {
     return pplc?.on('history:affect', ({ layerIds }) => {
-      if (layerIds.includes(strokeTargetVis?.uid ?? '')) rerender()
+      if (layerIds.includes(strokeTarget?.visuUid ?? '')) rerender()
     })
-  }, [pplc, strokeTargetVis?.uid])
+  }, [pplc, strokeTarget?.visuUid])
 
   return (
     <FloatablePane
@@ -145,22 +146,22 @@ export const LayersPane = memo(function LayersPane({ size = 'sm' }: Props) {
           display: flex;
           flex-flow: column;
           gap: 4px;
-          margin: 8px 0 12px;
+          margin: 0 0 8px;
           padding: 8px;
           background-color: var(--gray-3);
           border-radius: 4px;
         `}
       >
-        {!strokeTargetVis ? (
-          <PlaceholderString>
+        {!layersPaneStore.selectedVisu ? (
+          <PlaceholderStringSpan>
             Select a layer to show properties
-          </PlaceholderString>
+          </PlaceholderStringSpan>
         ) : (
           <>
             <Fieldset label={t('layerName')}>
               <TextField
                 size="1"
-                value={strokeTargetVis?.name ?? ''}
+                value={strokeTarget?.vi ?? ''}
                 placeholder={`<${t('layerName')}>`}
                 onChange={handleChangeLayerName}
               />
@@ -168,14 +169,16 @@ export const LayersPane = memo(function LayersPane({ size = 'sm' }: Props) {
 
             <Fieldset
               label={t('compositeMode')}
-              valueField={strokeTargetVis?.compositeMode ?? '<Blend mode>'}
+              valueField={
+                layersPaneStore.selectedVisu?.blendMode ?? '<Blend mode>'
+              }
             >
               {propsMemo.memo(
                 'blendmode-fieldset-root',
                 () => (
                   <Select.Root
                     size="1"
-                    value={strokeTargetVis?.compositeMode}
+                    value={layersPaneStore.selectedVisu?.blendMode}
                     onValueChange={handleChangeCompositeMode}
                   >
                     <>
@@ -196,7 +199,7 @@ export const LayersPane = memo(function LayersPane({ size = 'sm' }: Props) {
             <Fieldset
               label={t('opacity')}
               valueField={`${roundPrecision(
-                (strokeTargetVis?.opacity ?? 1) * 100,
+                (strokeTarget?.opacity ?? 1) * 100,
                 1,
               )}%`}
             >
@@ -204,7 +207,7 @@ export const LayersPane = memo(function LayersPane({ size = 'sm' }: Props) {
                 css={css`
                   padding: 8px 0;
                 `}
-                value={[strokeTargetVis?.opacity ?? 1]}
+                value={[strokeTarget?.opacity ?? 1]}
                 min={0}
                 max={1}
                 step={0.01}
@@ -216,14 +219,24 @@ export const LayersPane = memo(function LayersPane({ size = 'sm' }: Props) {
 
       <ScrollArea
         css={css`
+          display: flex;
+          flex: 1;
           background-color: var(--gray-3);
           min-height: 300px;
           max-height: 600px;
           border-radius: 4px 4px 0 0;
         `}
       >
-        {!!pplc?.currentDocument && <NewTreeView mode={'desktop'} />}
+        {!!pplc?.currentDocument && (
+          <NewTreeView
+            css={`
+              flex: 1;
+            `}
+            mode={'desktop'}
+          />
+        )}
       </ScrollArea>
+
       <div
         css={css`
           display: flex;
@@ -232,6 +245,7 @@ export const LayersPane = memo(function LayersPane({ size = 'sm' }: Props) {
           background-color: var(--gray-3);
           border-top: 1px solid var(--gray-6);
           border-radius: 0 0 4px 4px;
+          pointer-events: all;
         `}
       >
         <DropdownMenu
@@ -262,8 +276,6 @@ export const LayersPane = memo(function LayersPane({ size = 'sm' }: Props) {
           </DropdownMenuItem>
         </DropdownMenu>
       </div>
-
-      {/* <LayerItemContextMenu id={layerItemMenu.id} /> */}
     </FloatablePane>
   )
 })
@@ -275,7 +287,11 @@ export const LayersPane = memo(function LayersPane({ size = 'sm' }: Props) {
 //     const onClickRemove = useEvent<
 //       ContextMenuItemClickHandler<LayerContextMenuParams>
 //     >(({ props }) => {
-//       pap?.command.do(new Commands.DocumentRemoveLayer(props!.layerUid))
+//       pap?.command.do(
+//         new Commands.DocumentUpdateLayerNodes({
+//           remove: [props!.layerUid],
+//         }),
+//       )
 //     })
 
 //     return (
@@ -558,6 +574,6 @@ export const LayersPane = memo(function LayersPane({ size = 'sm' }: Props) {
 //   )
 // }
 
-const PlaceholderString = styled.span`
+const PlaceholderStringSpan = styled.span`
   color: var(--gray-10);
 `

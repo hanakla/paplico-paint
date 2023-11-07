@@ -1,4 +1,4 @@
-import { createContext2D } from '../CanvasFactory'
+import { createContext2D } from '../../Infra/CanvasFactory'
 import { canvasToBlob, freeingCanvas, setCanvasSize } from '@/utils/canvas'
 import { Emitter } from '@/utils/Emitter'
 

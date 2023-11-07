@@ -3,7 +3,7 @@
  */
 
 import { SVGDCommand } from '@/fastsvg/IndexedPointAtLength'
-import { parseSVGPath, svgDCommandArrayToSVGPathString } from '.'
+import { parseSVGPath, svgDCommandArrayToSVGPath } from '.'
 
 export function roundPathCorners(
   path: SVGDCommand[],
@@ -102,7 +102,7 @@ if (import.meta.vitest) {
       const path = parseSVGPath('M0,0 L100,0 L100,100 L0,100 Z')
 
       const newPath = roundPathCorners(path, 10)
-      console.log(svgDCommandArrayToSVGPathString(newPath))
+      console.log(svgDCommandArrayToSVGPath(newPath))
 
       // expect(newPath).toEqual([
       //   ['M', 0, 0],

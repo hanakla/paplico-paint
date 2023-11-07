@@ -21,9 +21,9 @@ import {
 import {
   InputSource,
   OutputTarget,
-  PapRenderTarget,
-  PapFilterProgram,
-  PapUniforms,
+  PPLCRenderTarget,
+  PPLCFilterProgram,
+  PPLCUniforms,
   __papRenderTargetMark,
   __paplicoFilterProgram,
   WebGLTypes,
@@ -31,8 +31,8 @@ import {
   FilterWebGLContext,
 } from './FilterContextAbst'
 
-type PapThreeFilterProgram = PapFilterProgram<RawShaderMaterial>
-type PapThreeRenderTarget = PapRenderTarget<WebGLRenderTarget>
+type PapThreeFilterProgram = PPLCFilterProgram<RawShaderMaterial>
+type PapThreeRenderTarget = PPLCRenderTarget<WebGLRenderTarget>
 
 export class ThreeFilterContext implements FilterWebGLContext {
   protected renderer: WebGLRenderer
@@ -131,9 +131,9 @@ export class ThreeFilterContext implements FilterWebGLContext {
   }
 
   public uni(
-    type: Omit<PapUniforms['type'], 'texture2d'>,
+    type: Omit<PPLCUniforms['type'], 'texture2d'>,
     values: number[] | Float32Array,
-  ): PapUniforms {
+  ): PPLCUniforms {
     return {
       type: type as any,
       value: values,
@@ -142,8 +142,8 @@ export class ThreeFilterContext implements FilterWebGLContext {
   }
 
   public apply(
-    program: PapFilterProgram,
-    uniforms: Record<string, PapUniforms>,
+    program: PPLCFilterProgram,
+    uniforms: Record<string, PPLCUniforms>,
     input: InputSource,
     output: OutputTarget,
   ) {

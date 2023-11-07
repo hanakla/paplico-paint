@@ -1,6 +1,6 @@
 import type { Psd, Layer } from 'ag-psd'
 import { IExporter } from './IExporter'
-import { createContext2D } from '@/Engine/CanvasFactory'
+import { createContext2D } from '@/Infra/CanvasFactory'
 import { setCanvasSize, freeingCanvas } from '@/utils/canvas'
 import { rescue } from '@/utils/rescue'
 import { PPLCExportError } from '@/Errors'

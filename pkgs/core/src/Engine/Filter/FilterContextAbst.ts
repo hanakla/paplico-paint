@@ -1,21 +1,21 @@
-export type PapFilterProgram<T = any> = {
+export type PPLCFilterProgram<T = any> = {
   [__paplicoFilterProgram]: true
   program: T
 }
 
-export type PapRenderTarget<T = any> = {
+export type PPLCRenderTarget<T = any> = {
   [__papRenderTargetMark]: true
   renderTarget: T
 }
 
-export type InputSource = TexImageSource | PapRenderTarget
+export type InputSource = TexImageSource | PPLCRenderTarget
 
 export type OutputTarget =
   | CanvasRenderingContext2D
   | OffscreenCanvasRenderingContext2D
-  | PapRenderTarget
+  | PPLCRenderTarget
 
-export type PapUniforms =
+export type PPLCUniforms =
   | {
       type:
         | `${1 | 2 | 3 | 4}${'i' | 'ui' | 'f' | 'iv' | 'fv' | 'uiv'}`
@@ -62,8 +62,8 @@ export declare namespace WebGLTypes {
 
 export interface FilterWebGLContext {
   dispose(): void
-  createRenderTarget(width: number, height: number): PapRenderTarget<any>
-  createProgram(frag: string, vert?: string): PapFilterProgram<any>
+  createRenderTarget(width: number, height: number): PPLCRenderTarget<any>
+  createProgram(frag: string, vert?: string): PPLCFilterProgram<any>
   createTexture(
     tex: TexImageSource,
     options?: {
@@ -72,12 +72,12 @@ export interface FilterWebGLContext {
     },
   ): TexUniform
   uni(
-    type: Omit<PapUniforms['type'], 'texture2d'>,
+    type: Omit<PPLCUniforms['type'], 'texture2d'>,
     values: number[] | Float32Array,
-  ): PapUniforms
+  ): PPLCUniforms
   apply(
-    program: PapFilterProgram,
-    uniforms: Record<string, PapUniforms>,
+    program: PPLCFilterProgram,
+    uniforms: Record<string, PPLCUniforms>,
     input: InputSource,
     output: OutputTarget,
   ): void

@@ -4,7 +4,7 @@ import {
   vectorPathPointsToSVGPathString,
   scatterPlot,
   vectorPathPointsToSVGDCommandArray,
-} from './ext-brush'
+} from './index-ext-brush'
 import { FuncStats } from './utils/perfstats'
 
 describe('scatterPlot', () => {

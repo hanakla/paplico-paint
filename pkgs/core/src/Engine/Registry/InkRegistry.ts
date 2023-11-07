@@ -26,7 +26,7 @@ export class InkRegistry extends Emitter<Events> {
     this.emit('entriesChanged')
   }
 
-  public get brushEntries(): InkClass<any>[] {
+  public get entries(): InkClass<any>[] {
     return [...this.brushes.values()]
   }
 

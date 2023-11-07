@@ -26,6 +26,8 @@ export const FloatablePane = memo(
       <div
         ref={ref}
         css={css`
+          display: flex;
+          flex-flow: column;
           padding: 8px 12px;
           border-radius: 8px;
           overflow: hidden;
@@ -35,21 +37,21 @@ export const FloatablePane = memo(
           boxShadow: isFloating ? '0 0 8px rgba(0, 0, 0, 0.15)' : 'none',
         }}
       >
-        <Box>
-          <h1
-            css={css`
-              display: flex;
-              align-items: center;
-              margin-bottom: 4px;
-              font-weight: bold;
-              font-size: var(--font-size-1);
-              color: var(--gray-9);
-            `}
-          >
-            {title}
-          </h1>
-          {children}
-        </Box>
+        <h1
+          css={css`
+            display: flex;
+            align-items: center;
+            margin-bottom: 4px;
+            font-weight: bold;
+            font-size: var(--font-size-1);
+            line-height: var(--line-height-1);
+            color: var(--gray-9);
+          `}
+        >
+          {title}
+        </h1>
+
+        {children}
       </div>
     )
   }),

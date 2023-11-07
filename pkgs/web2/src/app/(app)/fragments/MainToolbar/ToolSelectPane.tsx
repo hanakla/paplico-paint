@@ -1,5 +1,8 @@
 import { TabPage } from '@/components/TabBar'
-import { usePaplicoInstance, useEngineStore } from '@/domains/engine'
+import {
+  usePaplicoInstance,
+  initializeOnlyUseEngineStore,
+} from '@/domains/engine'
 import { MouseEvent, ReactNode, memo } from 'react'
 import { BsBrushFill, BsEraserFill } from 'react-icons/bs'
 import { RiCircleLine, RiRectangleFill, RiRectangleLine } from 'react-icons/ri'

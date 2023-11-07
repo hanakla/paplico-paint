@@ -34,9 +34,9 @@ export {
 } from './Engine/Brush/Brush'
 
 export {
-  vectorPathPointsToSVGPathString,
+  vectorPathPointsToSVGPath as vectorPathPointsToSVGPathString,
   vectorPathPointsToSVGCommandArray as vectorPathPointsToSVGDCommandArray,
-  svgDCommandArrayToSVGPathString,
+  svgDCommandArrayToSVGPath as svgDCommandArrayToSVGPathString,
 } from './SVGPathManipul/index'
 export { getRadianFromTangent } from '@/Math/getRadianFromTangent'
 

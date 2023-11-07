@@ -38,8 +38,8 @@ export function convertLayerNodeToTreeViewNode(
       path: [...parentPath, node.visuUid],
       depth,
       dragging: false,
-      collapsed: true,
-      collapsedByParent: depth > 0,
+      collapsed: false,
+      collapsedByParent: false, //depth > 0,
       invisibleByParent: !parentVisibility,
     })
 
@@ -111,7 +111,7 @@ export function updateTree(
   })
 }
 
-export function mergeNextTree(
+export function syncAndBuildNextTree(
   oldTree: LayerTreeNode[],
   newTree: LayerTreeNode[],
 ) {
@@ -125,30 +125,38 @@ export function mergeNextTree(
       ...node,
       collapsed: oldNode.collapsed,
       collapsedByParent: oldNode.collapsedByParent,
-      invisibleByParent: oldNode.invisibleByParent,
+      invisibleByParent: node.invisibleByParent,
     }
   })
 }
 
-export function getNextNodePath(
-  document: Document.PaplicoDocument,
-  tree: LayerTreeNode[],
+export const INDENT_WIDTH = 12
+
+export function getMoveToNodePath(
+  items: LayerTreeNode[],
   active: Active,
   /** Will insert to */
   over: Over | null,
+  offsetLeft: number,
 ) {
   if (active.id === over?.id) return null
   if (!over) return null
 
-  const activeNode = tree.find((node) => node.visUid === active.id)
-  const overNode = tree.find((node) => node.visUid === over.id)
+  const activeNode = items.find((node) => node.visUid === active.id)
+  const overNode = items.find((node) => node.visUid === over.id)
   if (!activeNode || !overNode) return null
 
-  const overParentPath = overNode.path.slice(0, -1)
-  const overParent = document.layerNodes.getNodeAtPath(overParentPath)
-  if (!overParent) return null
+  console.log(offsetLeft)
+  return [activeNode.path, overNode.path]
 
-  console.log(document.layerNodes.isChildrenContainableNode(overParent))
+  // const overParentPath = overNode.path.slice(0, -1)
+  // const overParent = document.layerNodes.getNodeAtPath(overParentPath)
+  // if (!overParent) return null
+
+  // if (document.layerNodes.isChildContainableNode(overParent)) {
+  // }
+
+  // return source overNode.path
 }
 
 function isChildNode(parentPath: string[], matchPath: string[]) {

@@ -1,4 +1,4 @@
-export type InkSetting<T extends Record<string, any> | null = {}> = {
+export type InkSetting<T extends Record<string, any> = {}> = {
   inkId: string
   inkVersion: string
 

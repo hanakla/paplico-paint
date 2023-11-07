@@ -4,7 +4,8 @@ export { roundPathCorners } from './roundPathCorners'
 export { parseSVGPath } from '../fastsvg/parse'
 
 export {
-  svgDCommandArrayToSVGPathString,
-  vectorPathPointsToSVGPathString,
+  svgDCommandArrayToSVGPath,
+  vectorPathPointsToSVGPath,
   vectorPathPointsToSVGCommandArray,
+  svgPathToVisuVectorPath,
 } from './pathStructConverters'

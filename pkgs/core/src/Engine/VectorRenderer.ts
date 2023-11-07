@@ -1,5 +1,5 @@
 import { VectorBrushSetting } from '@/Document/LayerEntity/VectorBrushSetting'
-import { PPLCAbortError, PPLCInvalidOptionOrStateError } from '@/Errors'
+import { PPLCAbortError, PPLCOptionInvariantViolationError } from '@/Errors'
 import { AtomicResource } from '@/utils/AtomicResource'
 import { saveAndRestoreCanvas, setCanvasSize } from '@/utils/canvas'
 import { deepClone, shallowEquals } from '@/utils/object'
@@ -13,7 +13,6 @@ import {
   calcVectorBoundingBox,
   calcVectorPathBoundingBox,
   multiplyPoint2D,
-  svgCommandToVectoPath,
 } from './VectorUtils'
 import { AppearanceRegistry } from './Registry/AppearanceRegistry'
 import { FontRegistry } from './Registry/FontRegistry'
@@ -33,9 +32,10 @@ import {
   DEFAULT_VISU_TRANSFORM,
   createVectorObjectVisually,
 } from '@/Document/Visually/factory'
-import { LogChannel } from '@/ChannelLog'
+import { LogChannel } from '@/Debugging/LogChannel'
+import { svgPathToVisuVectorPath } from '@/SVGPathManipul/pathStructConverters'
 
-export type VisuOverrides = {
+export type VisuTransformOverrides = {
   [visuallyUid: string]: {
     <T extends VisuElement.AnyElement>(base: T): T
   }
@@ -93,7 +93,7 @@ export class VectorRenderer {
       abort,
       logger,
       phase,
-      objectOverrides,
+      transformOverrides: objectOverrides,
       parentTransform = DEFAULT_VISU_TRANSFORM(),
     }: {
       viewport: Viewport
@@ -101,7 +101,7 @@ export class VectorRenderer {
       abort?: AbortSignal
       logger?: RenderCycleLogger
       phase: RenderPhase
-      objectOverrides?: VisuOverrides
+      transformOverrides?: VisuTransformOverrides
       parentTransform?: VisuElement.ElementTransform
     },
   ): Promise<{
@@ -210,8 +210,8 @@ export class VectorRenderer {
       })
 
       objectsBBox[obj.uid] = {
-        source: sourceBBox,
-        visually: visuallyBBox,
+        original: sourceBBox,
+        postFilter: visuallyBBox,
       }
     }
 
@@ -219,7 +219,7 @@ export class VectorRenderer {
     let layerVisuallyBBox: LayerMetrics.BBox = createEmptyBBox()
 
     for (const obj of objects) {
-      const { source, visually } = objectsBBox[obj.uid]
+      const { original: source, postFilter: visually } = objectsBBox[obj.uid]
 
       layerSourceBBox.left = Math.min(layerSourceBBox.left, source.left)
       layerSourceBBox.top = Math.min(layerSourceBBox.top, source.top)
@@ -257,7 +257,7 @@ export class VectorRenderer {
       abort?: AbortSignal
       logger?: RenderCycleLogger
       phase: RenderPhase
-      objectOverrides?: VisuOverrides
+      objectOverrides?: VisuTransformOverrides
     },
   ): Promise<{
     layerBBox: {
@@ -382,8 +382,8 @@ export class VectorRenderer {
         })
 
         objectsBBox[obj.uid] = {
-          source: sourceBBox,
-          visually: visuallyBBox,
+          original: sourceBBox,
+          postFilter: visuallyBBox,
         }
 
         outcx.resetTransform()
@@ -540,40 +540,38 @@ export class VectorRenderer {
           curX += glyph.advanceWidth! * unitToPxScale
 
           const metrics = glyph.getMetrics()
-          const charPaths = svgCommandToVectoPath(path.toPathData(5))
+          const charPath = svgPathToVisuVectorPath(path.toPathData(5))
 
-          for (let path of charPaths) {
-            objects.push(
-              createVectorObjectVisually({
-                opacity: 1,
-                blendMode: 'normal',
-                path,
-                transform: {
-                  position: {
-                    x: node.position.x,
-                    y: node.position.y,
-                  },
-                  scale: {
-                    x: 1,
-                    y: 1,
-                  },
-                  rotate: 0,
+          objects.push(
+            createVectorObjectVisually({
+              opacity: 1,
+              blendMode: 'normal',
+              path: charPath,
+              transform: {
+                position: {
+                  x: node.position.x,
+                  y: node.position.y,
                 },
-                filters: [
-                  {
-                    uid: '__TEXT__',
-                    enabled: true,
-                    kind: 'fill',
-                    fill: {
-                      type: 'fill',
-                      color: { r: 0, g: 0, b: 0 },
-                      opacity: 1,
-                    },
+                scale: {
+                  x: 1,
+                  y: 1,
+                },
+                rotate: 0,
+              },
+              filters: [
+                {
+                  uid: '__TEXT__',
+                  enabled: true,
+                  kind: 'fill',
+                  fill: {
+                    type: 'fill',
+                    color: { r: 0, g: 0, b: 0 },
+                    opacity: 1,
                   },
-                ],
-              }),
-            )
-          }
+                },
+              ],
+            }),
+          )
         }
       }
     }

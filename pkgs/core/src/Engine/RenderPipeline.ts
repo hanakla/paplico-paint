@@ -12,7 +12,7 @@ import {
   setCanvasSize,
 } from '@/utils/canvas'
 import { RenderCycleLogger } from './RenderCycleLogger'
-import { VisuOverrides, VectorRenderer } from './VectorRenderer'
+import { VisuTransformOverrides, VectorRenderer } from './VectorRenderer'
 import { DocumentContext } from './DocumentContext/DocumentContext'
 import { RenderPhase, Viewport } from './types'
 import { PPLCAbortError, PPLCInvariantViolationError } from '@/Errors'
@@ -36,16 +36,17 @@ import {
 } from './Scheduler'
 import { unreachable } from '@/utils/unreachable'
 import { PaplicoError } from '@/Errors/PaplicoError'
-import { Canvas2DAllocator } from '@/Engine/Canvas2DAllocator'
+import { Canvas2DAllocator } from '@/Infra/Canvas2DAllocator'
 import { logImage } from '@/utils/DebugHelper'
-import { LogChannel } from '@/ChannelLog'
+import { LogChannel } from '@/Debugging/LogChannel'
+import { layerTransformToMatrix } from './VectorUtils'
 
 export namespace RenderPipeline {
   export type RenderOptions = {
     abort?: AbortSignal
     viewport: Viewport
     override?: { [layerId: string]: HTMLCanvasElement | ImageBitmap }
-    vectorObjectOverrides?: VisuOverrides
+    transformOverrides?: VisuTransformOverrides
     pixelRatio: number
     phase: RenderPhase
     logger: RenderCycleLogger
@@ -119,7 +120,7 @@ export class RenderPipeline {
       abort,
       viewport,
       override,
-      vectorObjectOverrides,
+      transformOverrides,
       pixelRatio,
       phase,
       logger,
@@ -175,11 +176,11 @@ export class RenderPipeline {
               blendMode,
               opacity,
               clearTarget,
-              parentTransformForText,
+              transform,
             } = task
             if (renderTarget === RenderTargets.NONE) break
 
-            const sourceImage = await getSource(source, parentTransformForText)
+            const sourceImage = await getSource(source, transform)
             const targetCanvas = getRenderTarget(renderTarget, {
               width: viewport.width,
               height: viewport.height,
@@ -199,6 +200,10 @@ export class RenderPipeline {
 
               cx.globalAlpha = opacity
               setCanvasSize(cx.canvas, sourceImage.width, sourceImage.height)
+
+              if (transform && !sourceImage.transformResolved) {
+                cx.setTransform(layerTransformToMatrix(transform))
+              }
 
               if (clearTarget) clearCanvas(cx)
 
@@ -261,7 +266,7 @@ export class RenderPipeline {
 
             // Process overrides
             object =
-              vectorObjectOverrides?.[layerUid]?.(deepClone(object)) ?? object
+              transformOverrides?.[layerUid]?.(deepClone(object)) ?? object
 
             if (filter.kind === 'fill') {
               await renderer.renderFill(
@@ -422,10 +427,12 @@ export class RenderPipeline {
       source: RenderSource,
       parentTransform?: VisuElement.ElementTransform,
     ): Promise<null | {
+      transformResolved: boolean
       image: HTMLCanvasElement | ImageBitmap
       width: number
       height: number
     }> {
+      let transformResolved = false
       let layerBitmap: HTMLCanvasElement | ImageBitmap | null = null
 
       if (source == null) return null
@@ -433,12 +440,14 @@ export class RenderPipeline {
         const cx = getRenderTarget(source, null)!
 
         return {
+          transformResolved,
           image: cx.canvas,
           width: cx.canvas.width,
           height: cx.canvas.height,
         }
       } else if ('bitmap' in source) {
         return {
+          transformResolved,
           image: source.bitmap,
           width: source.bitmap.width,
           height: source.bitmap.height,
@@ -457,18 +466,19 @@ export class RenderPipeline {
             visuNode,
           )
 
+          transformResolved = false
           layerBitmap = (await docCx.getOrCreateLayerNodeBitmapCache(
             visuNode.uid,
           ))!
 
           layerMetrics[visuNode.uid] ??= {
-            source: createBBox({
+            original: createBBox({
               left: visuNode.visu.transform.position.x,
               top: visuNode.visu.transform.position.y,
               width: layerBitmap.width,
               height: layerBitmap.height,
             }),
-            visually: createEmptyBBox(),
+            postFilter: createEmptyBBox(),
           }
         } else if (
           visuNode.visu.type === 'vectorObject' ||
@@ -481,17 +491,18 @@ export class RenderPipeline {
 
           const requestSize = { width: viewport.width, height: viewport.height }
 
-          const hasOverrideForThisLayer =
-            !!vectorObjectOverrides?.[visuNode.uid]
+          const hasOverrideForThisVectorVisu =
+            !!transformOverrides?.[visuNode.uid]
 
           const canUseBitmapCache =
             docCx.hasLayerNodeBitmapCache(visuNode.uid, requestSize) &&
-            vectorObjectOverrides?.[visuNode.uid] == null
+            !hasOverrideForThisVectorVisu
 
           if (canUseBitmapCache) {
             LogChannel.l.pipeline.info(`Use bitmap cache for ${visuNode.uid}`)
             logger.info('Use cached bitmap for vector layer', visuNode.uid)
 
+            transformResolved = true
             layerBitmap = (await docCx.getOrCreateLayerNodeBitmapCache(
               visuNode.uid,
               requestSize,
@@ -508,7 +519,7 @@ export class RenderPipeline {
               {
                 viewport,
                 pixelRatio,
-                objectOverrides: vectorObjectOverrides,
+                transformOverrides,
                 abort,
                 phase,
                 logger,
@@ -523,7 +534,7 @@ export class RenderPipeline {
 
             if (abort?.aborted) throw new PPLCAbortError()
 
-            if (hasOverrideForThisLayer) {
+            if (hasOverrideForThisVectorVisu) {
               // For perfomance, avoid getImageData when using override
               const overrided = Canvas2DAllocator.borrow({
                 width: viewport.width,
@@ -531,8 +542,9 @@ export class RenderPipeline {
               })
               clearCount++
               overrided.drawImage(tmpVectorOutCx.canvas, 0, 0)
-              Canvas2DAllocator.return(overrided)
+              // Canvas2DAllocator.return(overrided)
 
+              transformResolved = true
               layerBitmap = overrided.canvas
             } else {
               if (updateCache) {
@@ -575,6 +587,7 @@ export class RenderPipeline {
       }
 
       return {
+        transformResolved,
         image: layerBitmap,
         width: layerBitmap.width,
         height: layerBitmap.height,

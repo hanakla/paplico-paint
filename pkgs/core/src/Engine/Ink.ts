@@ -26,7 +26,9 @@ export interface InkApplyTextureContext<
   settings: SettingType
 }
 
-export interface InkClass<SettingType extends Record<string, any>> {
+export interface InkClass<
+  SettingType extends Record<string, any> = Record<string, any>,
+> {
   readonly metadata: InkMetadata
   getInitialSetting(): SettingType
   new (): IInk<any>

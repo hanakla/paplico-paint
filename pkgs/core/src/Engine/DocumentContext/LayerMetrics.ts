@@ -1,15 +1,16 @@
 import { Emitter } from '@/utils/Emitter'
 import { DocumentContext } from './DocumentContext'
-import { LayerNode, VectorGroup, VectorObject } from '@/Document'
+import { PaplicoDocument } from '@/Document'
+import { ROOT_LAYER_NODE_UID } from '@/Document/LayerNode'
 
 export namespace LayerMetrics {
   export type MetricsData = {
     sourceUid: string
-    type: 'raster' | 'vectorObject' | 'vectorGroup' | 'text' | undefined
-    sourceBBox: BBox
+    type: 'canvas' | 'vectorObject' | 'group' | 'text' | undefined
+    originalBBox: BBox
     visuallyBBox: BBox
-    containedLayerUid: string
-    // 0 is the bottom layer
+    pathToParent: string[]
+    /* 0 is the bottom layer */
     zIndex: number
   }
 
@@ -25,8 +26,8 @@ export namespace LayerMetrics {
   }
 
   export type BBoxSet = {
-    source: LayerMetrics.BBox
-    visually: LayerMetrics.BBox
+    original: LayerMetrics.BBox
+    postFilter: LayerMetrics.BBox
   }
 
   export type Events = {
@@ -66,14 +67,17 @@ export function createBBox(args: {
 }
 
 export class LayerMetrics extends Emitter<LayerMetrics.Events> {
-  public layerMetrics = new Map<
+  protected layerMetrics = new Map<
     /* layerUid */ string,
     LayerMetrics.MetricsData
   >()
 
+  // must to shared metrics data object reference to `layerMetrics` map
+  protected zIndexOrderMetrices: LayerMetrics.MetricsData[] = []
+
   protected batchEmitTimerId: any = null
 
-  constructor(protected doocument: DocumentContext) {
+  constructor(protected docx: DocumentContext) {
     super()
   }
 
@@ -82,97 +86,118 @@ export class LayerMetrics extends Emitter<LayerMetrics.Events> {
     this.layerMetrics.clear()
   }
 
-  protected recaluculateZIndex() {
-    const flatten: [string, LayerNode | VectorObject | VectorGroup][] = []
+  protected updateZIndex() {
+    // last is most top in render order
+    const existVisuUids = new Set<string>()
+    const flatten: [
+      string,
+      LayerMetrics.MetricsData | undefined,
+      PaplicoDocument.ResolvedLayerNode,
+      string[],
+    ][] = []
 
-    const flatProc = (node: LayerNode | VectorObject | VectorGroup) => {
-      if (
-        (node as LayerNode).visuUid !== '__root__' &&
-        (node as VectorObject | VectorGroup).type !== 'vectorGroup'
-      ) {
-        flatten.push([
-          (node as LayerNode).visuUid ??
-            (node as VectorObject | VectorGroup).uid,
-          node,
-        ])
-      }
+    const flatProc = (
+      node: PaplicoDocument.ResolvedLayerNode,
+      parentNodePath: string[],
+    ) => {
+      existVisuUids.add(node.uid)
 
-      if ('type' in node && node.type === 'vectorGroup') {
-        node.children.forEach(flatProc)
-      } else if ('type' in node && node.type === 'vectorObject') {
-      } else {
-        const layer = this.doocument.document.getVisuByUid(node.visuUid)
-        if (layer?.layerType === 'vector') {
-          layer.objects.forEach(flatProc)
-        }
-
-        node.children.forEach(flatProc)
-      }
-    }
-
-    flatProc(this.doocument.layerTreeRoot)
-
-    flatten.forEach(([id, entity], index) => {
-      const data = this.layerMetrics.get(id)
-      if (!data) {
-        // TODO
+      if (node.uid !== ROOT_LAYER_NODE_UID) {
+        node.children.forEach((n) => flatProc(n, parentNodePath))
         return
       }
 
-      data.zIndex = index
-    })
+      const metrics = this.layerMetrics.get(node.uid)
+      const { visu } = node
 
-    return flatten
+      if (visu.type === 'group') {
+        node.children.forEach((node) => {
+          flatProc(node, [...parentNodePath, node.uid])
+        })
+
+        flatten.push([node.uid, metrics, node, parentNodePath])
+      } else if (visu.type === 'filter') {
+        return
+      } else {
+        flatten.push([node.uid, metrics, node, parentNodePath])
+      }
+    }
+
+    flatProc(this.docx.document.getResolvedLayerTree([]), [])
+
+    flatten
+      .map(([, metrics, , path], index) => {
+        if (metrics) {
+          metrics.zIndex = index
+          metrics.pathToParent = path
+        }
+
+        return [index, metrics] as const
+      })
+      .sort((a, b) => {
+        return a[0] - b[0]
+      })
+
+    this.zIndexOrderMetrices
   }
 
   public getLayerMetrics(entityUid: string) {
     return this.layerMetrics.get(entityUid)
   }
 
-  public setEntityMetrice(
-    entityUid: string,
-    sourceBBox: LayerMetrics.BBox,
-    visuallyBBox: LayerMetrics.BBox,
-  ) {
-    const layer = this.doocument.resolveLayer(entityUid)?.source.deref()
-    const vectorObj = this.doocument.resolveVectorObject(entityUid)
-
-    if (!layer && !vectorObj) return
-    if (layer && layer.layerType !== 'raster' && layer.layerType !== 'text')
-      return
-
+  public setVisuMetrices(metrices: {
+    [visuUid: string]: LayerMetrics.BBoxSet
+  }) {
     clearTimeout(this.batchEmitTimerId)
 
-    const data: LayerMetrics.MetricsData = this.layerMetrics.get(entityUid) ?? {
-      sourceUid: entityUid,
-      // prettier-ignore
-      type:
-        layer?.layerType === 'raster' ? 'raster'
-        : vectorObj?.type === 'vectorObject' ? 'vectorObject'
-        : vectorObj?.type === 'vectorGroup' ? 'vectorGroup'
-        : layer?.layerType === 'text' ? 'text'
-        : undefined,
-      sourceBBox,
-      visuallyBBox,
-      containedLayerUid: entityUid,
-      zIndex: 0,
+    for (const [visuUid, { original, postFilter: visually }] of Object.entries(
+      metrices,
+    )) {
+      const visu = this.docx.resolveVisuByUid(visuUid)
+      if (!visu) return
+
+      const data: LayerMetrics.MetricsData = this.layerMetrics.get(visuUid) ?? {
+        sourceUid: visuUid,
+        // prettier-ignore
+        type:
+          visu?.type === 'canvas' ? 'canvas'
+          : visu?.type === 'vectorObject' ? 'vectorObject'
+          : visu?.type === 'group' ? 'group'
+          : visu?.type === 'text' ? 'text'
+          : undefined,
+        originalBBox: original,
+        visuallyBBox: visually,
+        pathToParent: null!,
+        zIndex: 0,
+      }
+
+      this.layerMetrics.set(visuUid, data)
     }
 
-    if (!sourceBBox) debugger
-    data.sourceBBox = sourceBBox
-    data.visuallyBBox = visuallyBBox
-
-    this.layerMetrics.set(entityUid, data)
-    this.recaluculateZIndex()
+    this.updateZIndex()
 
     this.batchEmitTimerId = setTimeout(() => {
       this.emit('update')
     }, 10)
   }
 
+  /** @deprecated */
+  public setEntityMetrics(
+    visuUid: string,
+    sourceBBox: LayerMetrics.BBox,
+    visuallyBBox: LayerMetrics.BBox,
+  ) {
+    this.setVisuMetrices({
+      [visuUid]: {
+        original: sourceBBox,
+        postFilter: visuallyBBox,
+      },
+    })
+  }
+
   public layerAtPoint(x: number, y: number) {
     return [...this.layerMetrics].filter(([uid, data]) => {
-      const { left, top, width, height } = data.sourceBBox
+      const { left, top, width, height } = data.originalBBox
       return left <= x && x <= left + width && top <= y && y <= top + height
     })
   }

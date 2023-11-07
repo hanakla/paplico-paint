@@ -11,7 +11,7 @@ import {
   IFilter,
   createFilter,
 } from '@/Engine/Filter/Filter'
-import { PapFilter } from '..'
+import { PplcFilter } from '..'
 
 declare namespace ZoomBlurFilter {
   export type State = {
@@ -43,7 +43,7 @@ export const ZoomBlurFilter = createFilter<ZoomBlurFilter.State>(
       h,
       state,
       setState,
-    }: PapFilter.PaneContext<ZoomBlurFilter.State>) {
+    }: PplcFilter.PaneContext<ZoomBlurFilter.State>) {
       const onStrengthChange = (value: number) => {
         setState({ strength: value / 100 })
       }
@@ -94,7 +94,7 @@ export const ZoomBlurFilter = createFilter<ZoomBlurFilter.State>(
       return ZoomBlurFilter.id
     }
 
-    private program: PapFilter.PapFilterProgram | null = null
+    private program: PplcFilter.PPLCFilterProgram | null = null
 
     public async initialize({ gl }: FilterInitContext) {
       this.program = gl.createProgram(FRAGMENT_SHADER)

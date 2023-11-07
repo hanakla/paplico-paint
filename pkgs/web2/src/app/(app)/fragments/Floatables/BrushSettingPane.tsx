@@ -1,37 +1,46 @@
 import { memo, useEffect, useRef } from 'react'
-import { usePaplicoInstance, useEngineStore } from '@/domains/engine'
+import {
+  usePaplicoInstance,
+  initializeOnlyUseEngineStore,
+} from '@/domains/engine'
 import { FloatablePaneIds } from '@/domains/floatablePanes'
 import { FloatablePane } from '@/components/FloatablePane'
 import { Listbox, ListboxItem } from '@/components/Listbox'
 import { Box } from '@radix-ui/themes'
 import useEvent from 'react-use-event-hook'
 import { css } from 'styled-components'
-import { type Paplico, type MicroCanvas, Brushes } from '@paplico/core-new'
+import {
+  type Paplico,
+  type MicroCanvas,
+  SVGConversion,
+} from '@paplico/core-new'
 import { FieldSet } from '@/components/FilterPane/FieldSet'
 import { Slider } from '@/components/FilterPane/Slider'
 import { useTranslation } from '@/lib/i18n'
 import { brushesSettingPaneTexts } from '@/locales'
 import useMeasure from 'use-measure'
+import { useUpdate } from 'react-use'
 
 export const BrushSettingPane = memo(function BrushSetting() {
   const t = useTranslation(brushesSettingPaneTexts)
-  const { pplc: pap, canvasEditor: editorHandle } = usePaplicoInstance()
-  const { currentBrush } = useEngineStore((s) => ({
-    currentBrush: s.engineState?.currentBrush,
-  }))
+  const rerender = useUpdate()
+
+  const { pplc, canvasEditor } = usePaplicoInstance()
+
+  const currentBrush = pplc?.state.currentBrush
 
   const previewRef = useRef<HTMLCanvasElement | null>(null)
   const canvasRect = useMeasure(previewRef)
   const microCanvasRef = useRef<MicroCanvas | null>(null)
 
   const handleChangeBrush = useEvent((value: string[]) => {
-    const target = pap!.brushes.brushEntries.find(
+    const target = pplc!.brushes.entries.find(
       (entry) => entry.metadata.id === value[0],
     )
 
     if (!target) return
 
-    pap!.setBrushSetting({
+    pplc!.setBrushSetting({
       brushId: target.metadata.id,
       brushVersion: '0.0.1',
       specific: {},
@@ -39,42 +48,43 @@ export const BrushSettingPane = memo(function BrushSetting() {
   })
 
   const handleChangeBrushSize = useEvent((value: number) => {
-    editorHandle?.showBrushSizePreview(value, { durationMs: 800 })
-    pap!.setBrushSetting({
+    canvasEditor?.showBrushSizePreview(value, { durationMs: 800 })
+    pplc!.setBrushSetting({
       size: value,
     })
   })
 
   useEffect(() => {
-    if (!pap || !previewRef.current) return
+    if (!pplc || !previewRef.current) return
 
-    const mc = (microCanvasRef.current = pap.createMicroCanvas(
+    const mc = (microCanvasRef.current = pplc.createMicroCanvas(
       previewRef.current!.getContext('2d')!,
     ))
 
     return () => {
       mc.dispose()
     }
-  }, [pap, previewRef.current])
+  }, [pplc, previewRef.current])
+
+  // useEffect(() => {
+  //   return pplc?.on('stateChanged', rerender)
+  // }, [])
 
   useEffect(() => {
     if (!microCanvasRef.current) return
 
-    console.log('canvasRect', canvasRect)
-
-    const cx = previewRef.current!.getContext('2d')!
     const mc = microCanvasRef.current
-    mc.setBrushSetting({
-      brushId: Brushes.CircleBrush.metadata.id,
-      brushVersion: Brushes.CircleBrush.metadata.version,
-      color: { r: 0, g: 0, b: 0 },
-      opacity: 1,
-      size: 10,
-      settings: { lineCap: 'round' } satisfies Brushes.CircleBrush.Settings,
-    })
 
-    // cx.clearRect(0, 0, cx.canvas.width, cx.canvas.height)
-    // mc.
+    mc.setBrushSetting(currentBrush)
+
+    mc.drawPath(
+      SVGConversion.parseSVGPathToVisuVectorPath(
+        'm1.16,34.09c39.38,35.09,140.13,72.91,261.85,10.02,121.72-62.88,232.86-48.28,283.51-10.02',
+      ),
+      { clearDestination: true },
+    )
+
+    return mc.on('strokeStart', () => mc.clearCanvas())
   }, [canvasRect, currentBrush])
 
   return (
@@ -88,7 +98,7 @@ export const BrushSettingPane = memo(function BrushSetting() {
           value={currentBrush ? [currentBrush.brushId] : []}
           onChange={handleChangeBrush}
         >
-          {pap?.brushes.brushEntries.map((entry) => (
+          {pplc?.brushes.entries.map((entry) => (
             <ListboxItem key={entry.metadata.id} value={entry.metadata.id}>
               {entry.metadata.name}
             </ListboxItem>
@@ -109,6 +119,7 @@ export const BrushSettingPane = memo(function BrushSetting() {
             css={css`
               width: 100%;
               height: 40px;
+              border: 1px solid var(--gray-a4);
             `}
           />
 
@@ -134,23 +145,23 @@ export const BrushSettingPane = memo(function BrushSetting() {
 })
 
 const CustomPane = memo(function CustomPane() {
-  const { pplc: pap } = usePaplicoInstance()
+  const { pplc } = usePaplicoInstance()
 
-  const { currentBrush } = useEngineStore((s) => ({
+  const { currentBrush } = initializeOnlyUseEngineStore((s) => ({
     currentBrush: s.engineState?.currentBrush,
   }))
 
   const onSettingsChange = useEvent((settings: Paplico.BrushSetting) => {
-    pap!.setBrushSetting(settings)
+    pplc!.setBrushSetting(settings)
   })
 
   const brushSetting = currentBrush
-  const BrushClass = pap?.brushes.getClass(currentBrush?.brushId ?? '')
+  const BrushClass = pplc?.brushes.getClass(currentBrush?.brushId ?? '')
 
   return (
     BrushClass &&
     brushSetting &&
-    pap?.paneUI.renderBrushPane(BrushClass?.metadata.id, brushSetting, {
+    pplc?.paneUI.renderBrushPane(BrushClass?.metadata.id, brushSetting, {
       onSettingsChange,
     })
   )

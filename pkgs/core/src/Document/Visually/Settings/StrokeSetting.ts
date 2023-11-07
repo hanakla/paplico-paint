@@ -1,6 +1,6 @@
 import { ColorRGB } from '../../Struct/ColorRGB'
 
-export type BrushSetting<T extends Record<string, any> | null = null> = {
+export type BrushSetting<T extends Record<string, any>> = {
   brushId: string
   brushVersion: string
 

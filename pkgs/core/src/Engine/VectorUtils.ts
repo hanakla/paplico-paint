@@ -1,14 +1,9 @@
 import { pathBounds } from '@/fastsvg/pathBounds'
-import { VisuElement, type VectorObject } from '@/Document'
-import {
-  VectorPath,
-  type VectorPathPoint,
-} from '@/Document/LayerEntity/VectorPath'
+import { VisuElement } from '@/Document'
 import { type Point2D } from '@/Document/Struct/Point2D'
-import { vectorPathPointsToSVGDCommandArray } from '@/ext-brush'
+import { vectorPathPointsToSVGDCommandArray } from '@/index-ext-brush'
 import { absNormalizePath } from '@/fastsvg/absNormalizePath'
 import DOMMatrix from '@thednp/dommatrix'
-import { LayerTransform } from '@/Document/LayerEntity'
 
 export const addPoint2D = (a: Point2D, b: Point2D) => ({
   x: a.x + b.x,
@@ -24,14 +19,16 @@ export const matrixToCanvasMatrix = (m: DOMMatrix) => {
   return [m.a, m.b, m.c, m.d, m.e, m.f] as const
 }
 
-export const layerTransformToMatrix = (trns: LayerTransform) => {
+export const layerTransformToMatrix = (trns: VisuElement.ElementTransform) => {
   return new DOMMatrix()
     .translate(trns.position.x, trns.position.y)
     .scale(trns.scale.x, trns.scale.y)
     .rotate(0, 0, trns.rotate)
 }
 
-export const vectorObjectTransformToMatrix = (obj: VectorObject) => {
+export const vectorObjectTransformToMatrix = (
+  obj: VisuElement.VectorObjectElement,
+) => {
   const bbx = calcVectorBoundingBox(obj)
 
   return new DOMMatrix()
@@ -42,7 +39,7 @@ export const vectorObjectTransformToMatrix = (obj: VectorObject) => {
     .translate(-bbx.width / 2, -bbx.height / 2)
 }
 
-export const calcVectorPathBoundingBox = (path: VectorPath) => {
+export const calcVectorPathBoundingBox = (path: VisuElement.VectorPath) => {
   const bbox = pathBounds(vectorPathPointsToSVGDCommandArray(path.points))
   const left = bbox.left
   const top = bbox.top
@@ -80,72 +77,4 @@ export const calcVectorBoundingBox = (obj: VisuElement.VectorObjectElement) => {
     width,
     height,
   }
-}
-
-export function svgCommandToVectoPath(
-  path: string,
-  splitByM: boolean = false,
-): VectorPath[] {
-  // FIXME: Boolean path
-  let norm = absNormalizePath(path)
-
-  const paths: VectorPath[] = []
-  let currentPath: VectorPath = {
-    points: [],
-    randomSeed: 0,
-  }
-
-  for (const [cmd, ...args] of norm) {
-    if (cmd === 'M') {
-      if (splitByM) {
-        paths.push(currentPath)
-        currentPath = {
-          points: [],
-          randomSeed: 0,
-        }
-      }
-
-      currentPath.points.push({
-        isMoveTo: true,
-        x: args[0],
-        y: args[1],
-        begin: null,
-        end: null,
-      })
-    } else if (cmd === 'L') {
-      currentPath.points.push({
-        x: args[0],
-        y: args[1],
-        begin: null,
-        end: null,
-      })
-    } else if (cmd === 'C') {
-      currentPath.points.push({
-        x: args[4],
-        y: args[5],
-        begin: {
-          x: args[0],
-          y: args[1],
-        },
-        end: {
-          x: args[2],
-          y: args[3],
-        },
-      })
-    } else if (cmd === 'Q') {
-      throw new Error('Quadratic Bezier is not supported')
-    } else if (cmd === 'Z') {
-      currentPath.points.push({
-        isClose: true,
-        x: 0,
-        y: 0,
-        begin: null,
-        end: null,
-      })
-    }
-  }
-
-  paths.push(currentPath)
-
-  return paths
 }

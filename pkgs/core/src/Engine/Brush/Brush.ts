@@ -8,6 +8,10 @@ import { PaneUIRenderings } from '../PaneUIRenderings'
 
 export type BrushPaneContext<T> = PaneUIRenderings.PaneUIContext<T>
 
+export type ScaledTransform = {
+  scale: { x: number; y: number }
+}
+
 export type BrushContext<T extends Record<string | symbol, any>, M> = {
   abort: AbortSignal
   throwIfAborted: () => never | void
@@ -24,7 +28,7 @@ export type BrushContext<T extends Record<string | symbol, any>, M> = {
     scale: { x: number; y: number }
     translate: { x: number; y: number }
   }
-  ink: InkGenerator
+  ink: InkGenerator<any>
   brushSetting: VectorBrushSetting<T | null>
   /** Expected destination canvas size */
   destSize: { width: number; height: number }
@@ -59,12 +63,21 @@ export type BrushMetadata = {
   readonly name?: string
 }
 
-export interface BrushClass<T = any> {
+export interface BrushClass<
+  Settings extends Record<string, any> = Record<string, any>,
+> {
   readonly metadata: BrushMetadata
 
   getInitialSetting(): any
 
-  renderPane(context: PaneUIRenderings.PaneUIContext<T>): VNode
+  renderPane(context: PaneUIRenderings.PaneUIContext<Settings>): VNode
+
+  onRescaled(
+    brushSetting: Settings,
+    transform: {
+      scale: { x: number; y: number }
+    },
+  ): Settings
 
   new (): IBrush
 }

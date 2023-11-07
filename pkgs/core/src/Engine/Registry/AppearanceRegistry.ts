@@ -27,7 +27,7 @@ export class AppearanceRegistry extends Emitter<Events> {
     this.emit('entriesChanged')
   }
 
-  public get appearanceEntries(): FilterClass<any>[] {
+  public get entries(): FilterClass<any>[] {
     return [...this.filters.values()]
   }
 

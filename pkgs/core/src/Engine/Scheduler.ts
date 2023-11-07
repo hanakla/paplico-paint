@@ -21,7 +21,7 @@ export type RenderTask = {
       command: typeof RenderCommands.DRAW_SOURCE_TO_DEST
       blendMode: BlendMode
       opacity: number
-      parentTransformForText?: VisuElement.ElementTransform
+      transform?: VisuElement.ElementTransform
     }
   // | {
   //     command: typeof RenderCommands.DRAW_VECTOR_OBJECT
@@ -42,7 +42,7 @@ export type RenderTask = {
       layerUid: string
       object: VisuElement.VectorObjectElement | VisuElement.TextElement
       filter: VisuFilter.FillFilter | VisuFilter.StrokeFilter
-      parentTransform: VisuElement.ElementTransform
+      transform: VisuElement.ElementTransform
     }
   | {
       command: typeof RenderCommands.APPLY_EXTERNAL_OBJECT_FILTER
@@ -158,8 +158,10 @@ export function buildRenderSchedule(
     GROUP_RENDER_TARGET: RenderTargets,
     node: PaplicoDocument.ResolvedLayerNode,
     parentTransform: VisuElement.ElementTransform,
-  ) {
+  ): void {
     const nodeVisu = node.visu
+
+    if (nodeVisu.visible == false || nodeVisu.opacity === 0) return
 
     const hasExternalFilter = nodeVisu.filters.some((f) => {
       return f.kind === 'external' && f.enabled && f.processor.opacity > 0
@@ -182,6 +184,7 @@ export function buildRenderSchedule(
           : RenderTargets.LAYER_PRE_FILTER,
         blendMode: nodeVisu.blendMode,
         opacity: nodeVisu.opacity,
+        transform: addTransform(parentTransform, nodeVisu.transform),
         _debug: ['hasLayerOverrides'],
       })
     } else if (nodeVisu.type === 'group') {
@@ -214,6 +217,7 @@ export function buildRenderSchedule(
           : RenderTargets.LAYER_PRE_FILTER,
         blendMode: nodeVisu.blendMode,
         opacity: nodeVisu.opacity,
+        transform: addTransform(parentTransform, nodeVisu.transform),
         _debug: ['canvas'],
       })
     } else if (nodeVisu.type === 'text') {
@@ -226,7 +230,7 @@ export function buildRenderSchedule(
         blendMode: nodeVisu.blendMode,
         opacity: nodeVisu.opacity,
         _debug: ['text'],
-        parentTransformForText: parentTransform,
+        transform: addTransform(parentTransform, nodeVisu.transform),
       })
     }
 
@@ -253,7 +257,7 @@ export function buildRenderSchedule(
             layerUid: node.uid,
             object: nodeVisu,
             filter,
-            parentTransform,
+            transform: addTransform(parentTransform, nodeVisu.transform),
             _debug: ['internalFilterProceed'],
           })
         } else {

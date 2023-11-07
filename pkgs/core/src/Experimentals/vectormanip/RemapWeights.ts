@@ -1,6 +1,6 @@
 import { VectorLayer } from '@/Document/LayerEntity'
-import { Canvas2DAllocator } from '@/Engine/Canvas2DAllocator'
-import { lerp, clampNumInLength, clamp } from '@/math-utils'
+import { Canvas2DAllocator } from '@/Infra/Canvas2DAllocator'
+import { lerp, clampNumInLength, clamp } from '@/index-math-utils'
 
 export function remapStrokeWeights(
   map: HTMLCanvasElement | ImageBitmap,

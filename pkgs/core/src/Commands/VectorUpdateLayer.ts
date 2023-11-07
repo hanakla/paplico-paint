@@ -1,7 +1,7 @@
 import { diff, patch, unpatch, Delta } from 'jsondiffpatch'
 // ^-- Do not use star imports or named imports from jsondiffpatch-rc, it will break the build.
 
-import { ICommand } from '../ICommand'
+import { ICommand } from '../Engine/History/ICommand'
 import { DocumentContext } from '@/Engine'
 import { deepClone } from '@/utils/object'
 import { VectorLayer } from '@/Document/LayerEntity'

@@ -34,7 +34,7 @@ export namespace PaplicoDocument {
 
 export class PaplicoDocument {
   public static deserialize(data: PaplicoDocument.SerializedSchema) {
-    return assign(
+    const doc = assign(
       new PaplicoDocument({
         width: data.meta.mainArtboard.width,
         height: data.meta.mainArtboard.height,
@@ -47,6 +47,10 @@ export class PaplicoDocument {
         blobs: data.blobs,
       },
     )
+
+    doc.indexingVisues()
+
+    return doc
   }
 
   public uid: string = ulid()
@@ -58,6 +62,12 @@ export class PaplicoDocument {
       height: 100,
     },
   }
+
+  /**
+   * it for performance reason cache for finding visu
+   * Source of truth is `visuElements`
+   */
+  protected readonly visuByIdMap: Record<string, VisuElement.AnyElement> = {}
 
   public readonly visuElements: VisuElement.AnyElement[] = []
   public readonly layerTreeRoot: LayerNode = {
@@ -102,14 +112,20 @@ export class PaplicoDocument {
     }
   }
 
-  public getVisuByUid(visuallyUid: string): VisuElement.AnyElement | undefined {
-    if (visuallyUid === '__root__') {
+  public getVisuByUid(visuUid: string): VisuElement.AnyElement | undefined {
+    if (visuUid === '__root__') {
       const vis = createGroupVisually({})
       vis.uid = '__root__'
       return vis
     }
 
-    return this.visuElements.find((layer) => layer.uid === visuallyUid)
+    let v: VisuElement.AnyElement | undefined = this.visuByIdMap[visuUid]
+    if (v) return v
+
+    v = this.visuElements.find((layer) => layer.uid === visuUid)
+    if (v) this.visuByIdMap[visuUid] = v
+
+    return v
   }
 
   public isStrokeableVisu(
@@ -118,10 +134,31 @@ export class PaplicoDocument {
     return visu.type === 'canvas' || visu.type === 'group'
   }
 
-  public isChildrenContainableVisu(
+  public isChildContainableVisu(
     visu: VisuElement.AnyElement,
   ): visu is VisuElement.GroupElement {
     return visu.type === 'group'
+  }
+
+  protected indexingVisues() {
+    for (const visu of this.visuElements) {
+      this.visuByIdMap[visu.uid] = visu
+    }
+  }
+
+  /** Internal usage only */
+  public __internal_AddLayerNode(
+    visu: VisuElement.AnyElement,
+    pathToParent: string[],
+    positionInNode: number,
+  ) {
+    this.layerNodes.addLayerNode(visu, pathToParent, positionInNode)
+    this.visuByIdMap[visu.uid] = visu
+  }
+
+  public __internal_RemoveLayerNode(path: string[]) {
+    this.layerNodes.removeLayerNode(path)
+    delete this.visuByIdMap[path[path.length - 1]]
   }
 
   /** @deprecated */

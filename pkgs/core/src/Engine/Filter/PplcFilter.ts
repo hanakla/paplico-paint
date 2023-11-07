@@ -1,14 +1,16 @@
 export type {
-  PapFilterProgram,
-  PapRenderTarget,
+  PPLCFilterProgram as PPLCFilterProgram,
+  PPLCRenderTarget as PapRenderTarget,
   FilterWebGLContext,
-  PapUniforms,
+  PPLCUniforms as PapUniforms,
   TexUniform,
   WebGLTypes,
   InputSource,
   OutputTarget,
 } from './FilterContextAbst'
+
 export type {
+  FilterClass,
   FilterPaneContext,
   IFilter,
   RasterFilterContext,

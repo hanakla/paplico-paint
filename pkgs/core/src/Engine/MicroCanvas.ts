@@ -1,16 +1,20 @@
 import { Paplico } from '@/Engine/Paplico'
 import { UICanvas } from '@/UI/UICanvas'
 import { UIStroke } from '@/UI/UIStroke'
-import { Canvas2DAllocator } from './Canvas2DAllocator'
+import { Canvas2DAllocator } from '../Infra/Canvas2DAllocator'
 import { DEFAULT_INK_SETTING, DEFAULT_BRUSH_SETTING } from './constants'
 import { deepClone } from '@/utils/object'
 import { clearCanvas, setCanvasSize } from '@/utils/canvas'
 import { PPLCDisposedInstanceError } from '@/Errors/PPLCDisposedInstanceError'
 import { Emitter } from '@/utils/Emitter'
-import { VectorPath, VisuFilter } from '@/Document'
+import { VectorPath, VisuElement, VisuFilter } from '@/Document'
 
 export namespace MicroCanvas {
   export type Events = {
+    strokeStart: void
+    strokeChange: void
+    strokeCancel: void
+    strokeComplete: void
     contentUpdated: void
   }
 }
@@ -44,7 +48,6 @@ export class MicroCanvas extends Emitter<MicroCanvas.Events> {
   constructor(canvas: HTMLCanvasElement, paplico: Paplico) {
     super()
 
-    console.log('micro canvas')
     this.destCanvas = canvas
     this.destcx = canvas.getContext('2d')!
 
@@ -72,6 +75,13 @@ export class MicroCanvas extends Emitter<MicroCanvas.Events> {
 
   protected bindListeners() {
     this.uiCanvas.activate()
+
+    this.uiCanvas.on('strokeStart', () => {
+      disposeCheck(this.#disposed)
+      if (!this._inputEnabled) return
+
+      this.emit('strokeStart', undefined)
+    })
     this.uiCanvas.on('strokeChange', this.onStrokeChange)
     this.uiCanvas.on('strokeCancel', this.onStrokeCancel)
     this.uiCanvas.on('strokeComplete', this.onStrokeComplete)
@@ -116,8 +126,15 @@ export class MicroCanvas extends Emitter<MicroCanvas.Events> {
     this.fillSetting = setting
   }
 
+  public clearCanvas() {
+    disposeCheck(this.#disposed)
+
+    clearCanvas(this.destcx)
+    clearCanvas(this.commitedCx!)
+  }
+
   public async drawPathPreview(
-    path: VectorPath,
+    path: VisuElement.VectorPath,
     options: Paplico.RenderPathIntoOptions = {
       brushSetting: this.brushSetting,
       fillSetting: this.fillSetting,
@@ -149,8 +166,15 @@ export class MicroCanvas extends Emitter<MicroCanvas.Events> {
   }
 
   public async drawPath(
-    path: VectorPath,
-    options: Paplico.RenderPathIntoOptions = {
+    path: VisuElement.VectorPath,
+    {
+      blendMode,
+      brushSetting = this.brushSetting,
+      inkSetting,
+      fillSetting = this.fillSetting,
+      order,
+      clearDestination,
+    }: Partial<Paplico.RenderPathIntoOptions> = {
       brushSetting: this.brushSetting,
       fillSetting: this.fillSetting,
     },
@@ -158,11 +182,12 @@ export class MicroCanvas extends Emitter<MicroCanvas.Events> {
     disposeCheck(this.#disposed)
 
     await this.drawPathInto(path, this.commitedCx!, {
-      blendMode: options.blendMode,
-      brushSetting: options.brushSetting ?? this.brushSetting,
-      inkSetting: options.inkSetting ?? this.inkSetting,
-      fillSetting: options.fillSetting ?? this.fillSetting,
-      order: options.order ?? 'stroke-first',
+      blendMode: blendMode,
+      brushSetting: brushSetting ?? this.brushSetting,
+      inkSetting: inkSetting ?? this.inkSetting,
+      fillSetting: fillSetting ?? this.fillSetting,
+      order: order ?? 'stroke-first',
+      clearDestination,
     })
 
     clearCanvas(this.destcx)
@@ -183,6 +208,7 @@ export class MicroCanvas extends Emitter<MicroCanvas.Events> {
     if (!this._inputEnabled) return
 
     this.drawPathPreview(stroke.toPath())
+    this.emit('strokeChange', undefined)
   }
 
   protected onStrokeComplete(stroke: UIStroke) {
@@ -190,6 +216,7 @@ export class MicroCanvas extends Emitter<MicroCanvas.Events> {
     if (!this._inputEnabled) return
 
     this.drawPath(stroke.toPath())
+    this.emit('strokeComplete', undefined)
   }
 
   protected onStrokeCancel() {
@@ -198,10 +225,12 @@ export class MicroCanvas extends Emitter<MicroCanvas.Events> {
 
     clearCanvas(this.destcx)
     this.destcx.drawImage(this.commitedCx!.canvas, 0, 0)
+
+    this.emit('strokeCancel', undefined)
   }
 
   protected async drawPathInto(
-    path: VectorPath,
+    path: VisuElement.VectorPath,
     destination: CanvasRenderingContext2D,
     {
       blendMode,
@@ -209,6 +238,7 @@ export class MicroCanvas extends Emitter<MicroCanvas.Events> {
       inkSetting,
       fillSetting,
       order,
+      clearDestination,
     }: Paplico.RenderPathIntoOptions,
   ) {
     disposeCheck(this.#disposed)
@@ -219,6 +249,7 @@ export class MicroCanvas extends Emitter<MicroCanvas.Events> {
       inkSetting,
       fillSetting,
       order,
+      clearDestination,
     })
   }
 }

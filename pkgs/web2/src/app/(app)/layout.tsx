@@ -24,15 +24,11 @@ export default function RootLayout({
 }) {
   const bindLongPress = useLongPress(
     (e) => {
-      // e.preventDefault()
+      if (!('touches' in e)) return
 
       const init: MouseEventInit = { ...e }
-      if ('touches' in e) {
-        init.clientX = e.touches[0].clientX
-        init.clientY = e.touches[0].clientY
-      }
-
-      console.log(init, e)
+      init.clientX = e.touches[0].clientX
+      init.clientY = e.touches[0].clientY
 
       e.target?.dispatchEvent(new MouseEvent('contextmenu', init))
     },

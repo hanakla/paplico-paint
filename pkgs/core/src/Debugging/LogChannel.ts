@@ -1,4 +1,4 @@
-import { logImage } from './utils/DebugHelper'
+import { logImage } from '../utils/DebugHelper'
 
 const channels = [
   'paplico',

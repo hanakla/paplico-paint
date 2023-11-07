@@ -1,4 +1,7 @@
-import { usePaplicoInstance, useEngineStore } from '@/domains/engine'
+import {
+  usePaplicoInstance,
+  initializeOnlyUseEngineStore,
+} from '@/domains/engine'
 import { useEditorStore } from '@/domains/uiState'
 import { useGlobalMousetrap } from '@/utils/hooks'
 import { memo, use } from 'react'
@@ -11,7 +14,7 @@ import { RasterToolModes, VectorToolModes } from '@paplico/editor'
 
 export const GlobalShortcutHandler = memo(function GlobalShortcutHandler() {
   const { pplc: pap, canvasEditor: editorHandle } = usePaplicoInstance()
-  const papStore = useEngineStore()
+  const papStore = initializeOnlyUseEngineStore()
 
   const { fileHandlers, setFileHandlerForDocument, getShortcuts } =
     useEditorStore()

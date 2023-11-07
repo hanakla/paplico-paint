@@ -1,8 +1,6 @@
 import type {} from 'vitest/config'
 
 import { defineConfig } from 'vite'
-import tsConfigPaths from 'vite-tsconfig-paths'
-import { resolve } from 'path'
 import dts from 'vite-plugin-dts'
 import { externals } from 'rollup-plugin-node-externals'
 
@@ -22,8 +20,10 @@ export default defineConfig({
     lib: {
       entry: {
         index: 'src/index.ts',
-        'ext-brush': 'src/ext-brush.ts',
-        extras: 'src/extras.ts',
+        'ext-brush': 'src/index-ext-brush.ts',
+        'ext-ink': 'src/index-ext-ink.ts',
+        'math-utils': 'src/index-math-utils.ts',
+        extras: 'src/index-extras.ts',
       },
       name: 'PapCore',
       formats: ['es', 'cjs'],

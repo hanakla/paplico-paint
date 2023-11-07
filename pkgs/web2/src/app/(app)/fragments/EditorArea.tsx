@@ -9,15 +9,20 @@ import {
 import { useGesture } from '@use-gesture/react'
 import { css } from 'styled-components'
 import { checkerBoard } from '@/utils/cssMixin'
-import { usePaplicoInstance, useEngineStore } from '@/domains/engine'
+import {
+  usePaplicoInstance,
+  initializeOnlyUseEngineStore,
+} from '@/domains/engine'
 import { useCombineRef, usePropsMemo } from '@/utils/hooks'
 import useEvent from 'react-use-event-hook'
 import { MainToolbar } from './MainToolbar'
 import useMeasure from 'use-measure'
 import { useEditorStore } from '@/domains/uiState'
 import { bindPaplico } from '@paplico/editor'
-import { storePicker } from '@/utils/zutrand'
 import { Notification } from './EditorArea/Notification'
+import { useDropArea } from 'react-use'
+import { Commands, Document, PplcBrush } from '@paplico/core-new'
+import { loadImage } from '@hanakla/arma'
 
 type Props = { className?: string }
 
@@ -26,8 +31,8 @@ export const EditorArea = memo(
     { className },
     canvasRef,
   ) {
-    const { pplc: pap, canvasEditor } = usePaplicoInstance()
-    const papStore = useEngineStore()
+    const { pplc, canvasEditor } = usePaplicoInstance()
+    const papStore = initializeOnlyUseEngineStore()
     const propsMemo = usePropsMemo()
 
     const editorStore = useEditorStore()
@@ -59,6 +64,28 @@ export const EditorArea = memo(
         x: prev.x + delta.x,
         y: prev.y + delta.y,
       }))
+    })
+
+    const [bindDrop] = useDropArea({
+      onFiles: async ([file]) => {
+        console.log(file)
+        if (!file) return
+        if (!file.type.startsWith('image/')) return
+
+        const url = URL.createObjectURL(file)
+        const image = await loadImage(url)
+        URL.revokeObjectURL(url)
+
+        const visu = await Document.visu.createCanvasVisuallyFromImage(image, {
+          // colorSpace: 'display-p3',
+        })
+
+        canvasEditor?.command.do(
+          new Commands.DocumentManipulateLayerNodes({
+            add: [{ visu, parentNodePath: [], indexInNode: -1 }],
+          }),
+        )
+      },
     })
 
     useGesture(
@@ -139,8 +166,8 @@ export const EditorArea = memo(
     }, [rootBBox.width, rootBBox.height])
 
     useEffect(() => {
-      if (!pap) return
-      const handle = bindPaplico(vectorEditorRef.current!, pap)
+      if (!pplc) return
+      const handle = bindPaplico(vectorEditorRef.current!, pplc)
       papStore._setEditorHandle(handle)
       handle.setCanvasScaledScale(canvasTransform.scale)
 
@@ -148,7 +175,7 @@ export const EditorArea = memo(
         handle.dispose()
         papStore._setEditorHandle(null)
       }
-    }, [pap])
+    }, [pplc])
 
     return (
       <div
@@ -165,6 +192,7 @@ export const EditorArea = memo(
           height: '100%',
         }}
         data-editorarea-root
+        {...bindDrop}
       >
         <div
           ref={transformRootRef}
@@ -191,8 +219,10 @@ export const EditorArea = memo(
               background-color: #fff;
               ${checkerBoard({ size: 10, opacity: 0.1 })};
             `}
-            width={pap?.currentDocument?.meta.mainArtboard.width ?? 0}
-            height={pap?.currentDocument?.meta.mainArtboard.height ?? 0}
+            width={canvasEditor?.currentDocument?.meta.mainArtboard.width ?? 0}
+            height={
+              canvasEditor?.currentDocument?.meta.mainArtboard.height ?? 0
+            }
             style={
               {
                 // aspectRatio: papRef.current?.currentDocument

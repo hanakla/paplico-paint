@@ -1,5 +1,5 @@
 import { Mock } from 'vitest'
-import { CanvasFactory } from '.'
+import { CanvasFactory } from '../Engine'
 import { Canvas2DAllocator } from './Canvas2DAllocator'
 
 type MockCanvas2D = {

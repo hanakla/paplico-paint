@@ -1,6 +1,6 @@
 import { diff, patch, unpatch, Delta } from 'jsondiffpatch'
 
-import { ICommand } from '../ICommand'
+import { ICommand } from '../Engine/History/ICommand'
 import { DocumentContext } from '@/Engine'
 import { deepClone } from '@/utils/object'
 import { VisuElement } from '@/Document/Visually'

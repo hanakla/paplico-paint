@@ -1,4 +1,10 @@
-import { Document, Paplico } from '@paplico/core-new'
+import {
+  Document,
+  Paplico,
+  PplcBrush,
+  PplcFilter,
+  PplcInk,
+} from '@paplico/core-new'
 import { createRoot } from 'react-dom/client'
 import { EditorRoot } from './editors/EditorRoot'
 import { StoresContext, createEditorStore, createEngineStore } from './store'
@@ -64,8 +70,24 @@ export function bindPaplico(
       return paplico
     },
 
+    get command() {
+      return paplico.command
+    },
+
     get currentDocument() {
       return paplico.currentDocument
+    },
+
+    get availableBrushes(): readonly PplcBrush.BrushClass[] {
+      return paplico.brushes.entries
+    },
+
+    get avaibleInks(): readonly PplcInk.InkClass[] {
+      return paplico.inks.entries
+    },
+
+    get availableFilters(): PplcFilter.FilterClass[] {
+      return paplico.filters.entries
     },
 
     loadDocument: (doc: Document.PaplicoDocument) => {

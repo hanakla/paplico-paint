@@ -1,15 +1,10 @@
 import prand from 'pure-rand'
 import abs from 'abs-svg-path'
 
-import {
-  TypeStrictVectorPathPoint as StrictVectorPathPoint,
-  VectorPath,
-  VectorPathPoint,
-} from '@/Document/LayerEntity/VectorPath'
-
 import { createNumSequenceMap } from '@/Math'
 import { indexedPointAtLength } from '@/fastsvg/IndexedPointAtLength'
 import { simplifySvgPath } from '@/SVGPathManipul'
+import { VisuElement } from '@/Document'
 
 export type UIStrokePoint = {
   x: number
@@ -39,9 +34,10 @@ export class UIStroke {
     this.points.push({ ...point, deltaTimeMs })
   }
 
-  public toPath(): VectorPath {
+  public toPath(): VisuElement.VectorPath {
     return {
-      points: this.points.map((p, idx: number): StrictVectorPathPoint => {
+      fillRule: 'nonzero',
+      points: this.points.map((p, idx: number): VisuElement.VectorPathPoint => {
         if (idx === 0) {
           return { isMoveTo: true, x: p.x, y: p.y }
         } else {
@@ -67,7 +63,7 @@ export class UIStroke {
    */
   public toSimplifiedPath({
     tolerance = 5,
-  }: { tolerance?: number } = {}): VectorPath {
+  }: { tolerance?: number } = {}): VisuElement.VectorPath {
     const simplified = simplifySvgPath(
       this.points.map((p) => [p.x, p.y] as const),
       { closed: false, precision: 5, tolerance },
@@ -86,7 +82,7 @@ export class UIStroke {
     )
 
     const points = absolutedPath.map(
-      ([cmd, ...args], idx): StrictVectorPathPoint => {
+      ([cmd, ...args], idx): VisuElement.VectorPathPoint => {
         const frac =
           simplifiedPal.lengthOfVertex(idx) / simplifiedPal.totalLength
 
@@ -133,6 +129,7 @@ export class UIStroke {
     return {
       points,
       randomSeed: this.randomSeed,
+      fillRule: 'nonzero',
     }
   }
 }

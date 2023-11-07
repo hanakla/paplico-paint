@@ -4,8 +4,8 @@ import {
   createCanvas,
   createContext2D,
   getCanvasBytes,
-} from '@/Engine/CanvasFactory'
-import { VisuOverrides, VectorRenderer } from '@/Engine/VectorRenderer'
+} from '@/Infra/CanvasFactory'
+import { VisuTransformOverrides, VectorRenderer } from '@/Engine/VectorRenderer'
 import { UICanvas } from '@/UI/UICanvas'
 import { UIStroke } from '@/UI/UIStroke'
 import {
@@ -34,14 +34,14 @@ import { RainbowInk } from '../Inks/RainbowInk'
 import { TextureReadInk } from '../Inks/TextureReadInk'
 import { AtomicResource } from '../utils/AtomicResource'
 import { PPLCAbortError, PPLCIgnoreableError } from '../Errors'
-import { ICommand } from '@/History/ICommand'
-import * as Commands from '@/History/Commands'
+import { ICommand } from '@/Engine/History/ICommand'
+import * as Commands from '@/Commands'
 import { AppearanceRegistry } from '@/Engine/Registry/AppearanceRegistry'
 import { SVGExporter } from './Exporters/SVGExporter'
 import { PNGExporter } from './Exporters/PNGExporter'
 import { IExporter } from './Exporters/IExporter'
 import { PSDExporter } from './Exporters/PSDExporter'
-import { type History } from '@/History/History'
+import { type History } from '@/Engine/History/History'
 import { PreviewStore } from './DocumentContext/PreviewStore'
 import { NoneImpls, type PaplicoComponents } from '@/UI/PaneUI/index'
 import { type AbstractElementCreator } from '../UI/PaneUI/AbstractComponent'
@@ -51,8 +51,8 @@ import { PaneUIRenderings } from './PaneUIRenderings'
 import { FontRegistry } from './Registry/FontRegistry'
 import { aggregateRescueErrors, rescue } from '@/utils/rescue'
 import { LayerMetrics } from './DocumentContext/LayerMetrics'
-import { PPLCInvalidOptionOrStateError } from '@/Errors/PPLCInvalidOptionOrStateError'
-import { Canvas2DAllocator } from '@/Engine/Canvas2DAllocator'
+import { PPLCOptionInvariantViolationError } from '@/Errors/PPLCOptionInvariantViolationError'
+import { Canvas2DAllocator } from '@/Infra/Canvas2DAllocator'
 import {
   DEFAULT_FILL_SETTING,
   DEFAULT_INK_SETTING,
@@ -65,7 +65,7 @@ import {
   createVectorObjectVisually as createVectorObjectVisu,
   createVisuallyFilter as createVisuFilter,
 } from '@/Document/Visually/factory'
-import { LogChannel } from '@/ChannelLog'
+import { LogChannel } from '@/Debugging/LogChannel'
 
 export namespace Paplico {
   export type BrushSetting<T extends Record<string, any> = any> =
@@ -79,6 +79,8 @@ export namespace Paplico {
     strokeTrelance: number
     /** Pixel ratio for rendering, default to 1 */
     pixelRatio: number
+
+    colorSpace: PredefinedColorSpace
   }
 
   export type State = Readonly<{
@@ -86,7 +88,6 @@ export namespace Paplico {
     currentFill: VisuFilter.Structs.FillSetting | null
     currentInk: VisuFilter.Structs.InkSetting
     strokeComposition: TypenGlossary.StrokeCompositeMode
-    brushEntries: readonly BrushClass[]
     busy: boolean
   }>
 
@@ -118,7 +119,7 @@ export namespace Paplico {
 
   export type RenderOptions = {
     layerOverrides?: { [layerId: string]: HTMLCanvasElement | ImageBitmap }
-    vectorObjectOverrides?: VisuOverrides
+    vectorObjectOverrides?: VisuTransformOverrides
     clearCache?: boolean
     destination?: CanvasRenderingContext2D
     pixelRatio?: number
@@ -135,6 +136,7 @@ export namespace Paplico {
     strokeComposition?: TypenGlossary.StrokeCompositeMode
     order?: Paplico.RenderPathRenderOrder
     pixelRatio?: number
+    clearDestination?: boolean
   }
 
   export type SupportedLocales = TypenGlossary.SupportedLocales
@@ -186,6 +188,7 @@ export class Paplico extends Emitter<Paplico.Events> {
     paneUILocale: 'en',
     strokeTrelance: 5,
     pixelRatio: 1,
+    colorSpace: 'srgb',
   }
 
   #state: Paplico.State = {
@@ -193,7 +196,6 @@ export class Paplico extends Emitter<Paplico.Events> {
     currentFill: null,
     currentInk: DEFAULT_INK_SETTING(),
     strokeComposition: 'normal',
-    brushEntries: [],
     busy: false,
   }
 
@@ -225,6 +227,7 @@ export class Paplico extends Emitter<Paplico.Events> {
     canvas: HTMLCanvasElement,
     opts: {
       paneUILocale?: string
+      colorSpace?: PredefinedColorSpace
       paneComponentImpls?: PaplicoComponents
       paneCreateElement?: AbstractElementCreator
     } = {},
@@ -242,6 +245,8 @@ export class Paplico extends Emitter<Paplico.Events> {
             /^(en|ja)/,
           )?.[0] as Paplico.SupportedLocales) ?? 'en'
         : 'en'
+
+    this.#preferences.colorSpace = opts.colorSpace ?? 'srgb'
 
     this.brushes = new BrushRegistry()
     this.brushes.register(CircleBrush)
@@ -340,13 +345,7 @@ export class Paplico extends Emitter<Paplico.Events> {
 
   protected initialize() {
     this.setState((d) => {
-      return { ...d, brushEntries: this.brushes.brushEntries }
-    })
-
-    this.brushes.on('entriesChanged', () => {
-      this.setState((p) => {
-        return { ...p, brushEntries: this.brushes.brushEntries }
-      })
+      return { ...d }
     })
 
     this.uiCanvas.on('strokeStart', (stroke) => {
@@ -688,7 +687,7 @@ export class Paplico extends Emitter<Paplico.Events> {
         {
           abort: signal,
           override: layerOverrides,
-          vectorObjectOverrides: vectorObjectOverrides,
+          transformOverrides: vectorObjectOverrides,
           pixelRatio,
           viewport: {
             top: 0,
@@ -729,7 +728,7 @@ export class Paplico extends Emitter<Paplico.Events> {
    * (Not with current brush settings)
    */
   public async renderPathInto(
-    path: VectorPath,
+    path: VisuElement.VectorPath,
     destination: CanvasRenderingContext2D,
     {
       brushSetting = DEFAULT_BRUSH_SETTING(),
@@ -739,8 +738,11 @@ export class Paplico extends Emitter<Paplico.Events> {
       order = 'stroke-first',
       pixelRatio = this.#preferences.pixelRatio,
       strokeComposition = 'normal',
+      clearDestination = false,
     }: Paplico.RenderPathIntoOptions,
   ) {
+    if (strokeComposition === 'none') return
+
     const buf = Canvas2DAllocator.borrow({
       width: destination.canvas.width,
       height: destination.canvas.height,
@@ -786,6 +788,14 @@ export class Paplico extends Emitter<Paplico.Events> {
         pixelRatio,
         phase: 'final',
       })
+
+      saveAndRestoreCanvas(destination, () => {
+        destination.globalCompositeOperation =
+          strokeComposition === 'normal' ? 'source-over' : 'destination-out'
+
+        if (clearDestination) clearCanvas(destination)
+        destination.drawImage(buf.canvas, 0, 0)
+      })
     } finally {
       Canvas2DAllocator.return(buf)
     }
@@ -805,7 +815,7 @@ export class Paplico extends Emitter<Paplico.Events> {
     },
   ) {
     if (!this.runtimeDoc) {
-      throw new PPLCInvalidOptionOrStateError(
+      throw new PPLCOptionInvariantViolationError(
         'putStrokeComplete: Document not loaded',
       )
     }
@@ -820,7 +830,7 @@ export class Paplico extends Emitter<Paplico.Events> {
       const targetPath = document?.layerNodes.findNodePathByVisu(targetLayerUid)
 
       if (!targetPath) {
-        throw new PPLCInvalidOptionOrStateError(
+        throw new PPLCOptionInvariantViolationError(
           `Layer not found: ${targetLayerUid}`,
         )
       }
@@ -861,7 +871,7 @@ export class Paplico extends Emitter<Paplico.Events> {
     },
   ) {
     if (!this.runtimeDoc) {
-      throw new PPLCInvalidOptionOrStateError(
+      throw new PPLCOptionInvariantViolationError(
         'putStrokeComplete: Document not loaded',
       )
     }
@@ -876,7 +886,7 @@ export class Paplico extends Emitter<Paplico.Events> {
       const targetPath = document?.layerNodes.findNodePathByVisu(targetLayerUid)
 
       if (!targetPath) {
-        throw new PPLCInvalidOptionOrStateError(
+        throw new PPLCOptionInvariantViolationError(
           `Layer not found: ${targetLayerUid}`,
         )
       }
@@ -1190,7 +1200,7 @@ export class Paplico extends Emitter<Paplico.Events> {
         const newVisu = this.createVectorObjectByCurrentSettings(path)
 
         await this.command.do(
-          new Commands.DocumentUpdateLayerNodes({
+          new Commands.DocumentManipulateLayerNodes({
             add: [
               {
                 visu: newVisu,

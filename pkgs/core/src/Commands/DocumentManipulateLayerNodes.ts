@@ -1,5 +1,5 @@
 import { Delta, diff, patch, unpatch } from 'jsondiffpatch'
-import { ICommand } from '../ICommand'
+import { ICommand } from '../Engine/History/ICommand'
 import { DocumentContext } from '@/Engine'
 import { deepClone } from '@/utils/object'
 import { VisuElement } from '@/Document'
@@ -11,6 +11,10 @@ type Changes = {
     /** -1 to top of layer  */
     indexInNode?: number | undefined
   }>
+  move?: Array<{
+    sourceNodePath: string[]
+    targetNodePath: string[]
+  }>
   remove?: Array<string[]>
 }
 
@@ -20,8 +24,8 @@ type LayerNodePointer = {
   index: number
 }
 
-export class DocumentUpdateLayerNodes implements ICommand {
-  public readonly name = 'DocumentUpdateLayerNodes'
+export class DocumentManipulateLayerNodes implements ICommand {
+  public readonly name = 'DocumentManipulateLayerNodes'
 
   protected changes: Changes = {}
   protected deletedVisues: VisuElement.AnyElement[] = []
@@ -39,7 +43,11 @@ export class DocumentUpdateLayerNodes implements ICommand {
     })
 
     this.changes.remove?.forEach((nodePath) => {
-      docx.document.layerNodes.removeNodeAt(nodePath)
+      docx.document.layerNodes.removeLayerNode(nodePath)
+    })
+
+    this.changes.move?.forEach(({ sourceNodePath, targetNodePath }) => {
+      docx.document.layerNodes.moveLayerNodeOver(sourceNodePath, targetNodePath)
     })
 
     this.changesPatch = diff(original, docx.layerTreeRoot)!
@@ -52,6 +60,8 @@ export class DocumentUpdateLayerNodes implements ICommand {
   }
 
   public async redo(document: DocumentContext): Promise<void> {
+    if (!this.changesPatch) return
+
     patch(document.layerTreeRoot, this.changesPatch)
   }
 

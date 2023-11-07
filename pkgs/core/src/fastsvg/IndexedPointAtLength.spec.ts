@@ -1,6 +1,6 @@
 import pal from 'point-at-length'
 import { SVGDCommand, indexedPointAtLength } from './IndexedPointAtLength'
-import { vectorPathPointsToSVGPathString } from '@/ext-brush'
+import { vectorPathPointsToSVGPathString } from '@/index-ext-brush'
 
 describe('IndexedPointAtLength', () => {
   const path = complexPath()

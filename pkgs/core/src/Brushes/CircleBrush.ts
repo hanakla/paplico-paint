@@ -6,7 +6,7 @@ import {
   createBrush,
 } from '@/Engine/Brush/Brush'
 import { mergeToNew } from '@/utils/object'
-import { PapBrush } from '@/index'
+import { PplcBrush } from '@/index'
 
 export declare namespace CircleBrush {
   type Settings = {
@@ -33,7 +33,7 @@ export const CircleBrush = createBrush(
       h,
       settings: state,
       setSettings: setState,
-    }: PapBrush.BrushPaneContext<CircleBrush.Settings>) {
+    }: PplcBrush.BrushPaneContext<CircleBrush.Settings>) {
       return h(c.Text, {}, 'WIP')
     }
 

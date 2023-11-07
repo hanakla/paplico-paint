@@ -11,7 +11,10 @@ import useMeasure from 'use-measure'
 import { useCombineRef, usePropsMemo } from '@/utils/hooks'
 import { Popover } from '@/components/Popover'
 import useEvent from 'react-use-event-hook'
-import { usePaplicoInstance, useEngineStore } from '@/domains/engine'
+import {
+  usePaplicoInstance,
+  initializeOnlyUseEngineStore,
+} from '@/domains/engine'
 import { rgbaToHSBA } from '@/components/ColorPicker'
 import { LayersPane } from './Floatables/LayersPane'
 import { FillSettingPane } from './MainToolbar/FillSettingPane'
@@ -48,8 +51,8 @@ export const MainToolbar = memo(
     ref,
   ) {
     const { pplc: pap } = usePaplicoInstance()
-    const { currentBrush, strokeComposition } = useEngineStore((s) =>
-      pick(s.engineState, ['currentBrush', 'strokeComposition']),
+    const { currentBrush, strokeComposition } = initializeOnlyUseEngineStore(
+      (s) => pick(s.engineState, ['currentBrush', 'strokeComposition']),
     )
     const openModal = useModal()
     const propsMemo = usePropsMemo()

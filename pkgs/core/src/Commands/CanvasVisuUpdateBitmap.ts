@@ -1,7 +1,7 @@
-import { ICommand } from '../ICommand'
+import { ICommand } from '../Engine/History/ICommand'
 import { DocumentContext } from '@/Engine'
 import {
-  PPLCInvalidOptionOrStateError,
+  PPLCOptionInvariantViolationError,
   PPLCInvariantViolationError,
 } from '@/Errors'
 
@@ -24,7 +24,7 @@ export class CanvasVisuUpdateBitmap implements ICommand {
   public async do(docx: DocumentContext): Promise<void> {
     const visu = docx.document.getVisuByUid(this.visuUid)
     if (!visu)
-      throw new PPLCInvalidOptionOrStateError(
+      throw new PPLCOptionInvariantViolationError(
         `CanvasVisuUpdateBitmap: Target Visu not found ${this.visuUid}`,
       )
     if (visu.type !== 'canvas') return

@@ -1,5 +1,5 @@
-import { createImageBitmapImpl, createImageData } from '@/Engine/CanvasFactory'
-import { Canvas2DAllocator } from '@/Engine/Canvas2DAllocator'
+import { createImageBitmapImpl, createImageData } from '@/Infra/CanvasFactory'
+import { Canvas2DAllocator } from '@/Infra/Canvas2DAllocator'
 import { freeingCanvas, setCanvasSize } from '@/utils/canvas'
 import { unreachable } from '@/utils/unreachable'
 

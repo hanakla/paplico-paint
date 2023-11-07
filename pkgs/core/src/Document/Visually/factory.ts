@@ -5,6 +5,7 @@ import { PaplicoDocument } from '@/Document/Document'
 import { ElementBase, VisuElement } from './VisuElement'
 import { VisuFilter } from './VisuallyFilter'
 import { LayerNode } from '../LayerNode'
+import { imageBitmapToImageData, loadImage } from '@/utils/imageObject'
 
 type Requires<T, K extends keyof T> = Omit<T, K> & {
   [P in K]-?: T[P]
@@ -91,6 +92,7 @@ export const createCanvasVisually = ({
   width,
   height,
   bitmap = new Uint8ClampedArray(width * height * 4),
+  colorSpace = 'srgb',
   ...etc
 }: FactoryParameter<
   VisuElement.CanvasElement,
@@ -104,7 +106,53 @@ export const createCanvasVisually = ({
   width,
   height,
   bitmap,
+  colorSpace,
 })
+
+export const createCanvasVisuallyFromImage = async (
+  imageOrUrl: ImageBitmapSource | string,
+  {
+    colorSpaceConversion,
+    colorSpace,
+    imageOrientation,
+    ...params
+  }: Omit<
+    FactoryParameter<
+      VisuElement.CanvasElement,
+      { requires: 'width' | 'height' }
+    >,
+    'width' | 'height'
+  > & {
+    /** Pass to createImageBitmap() internally */
+    colorSpaceConversion?: ImageBitmapOptions['colorSpaceConversion']
+    /** Pass to createImageBitmap() internally */
+    imageOrientation?: ImageBitmapOptions['imageOrientation']
+    /** Pass to createCanvas and canvas.getImageData internally */
+    colorSpace?: PredefinedColorSpace
+  },
+): Promise<VisuElement.CanvasElement> => {
+  let img: ImageBitmapSource
+
+  if (typeof imageOrUrl === 'string') {
+    img = await loadImage(imageOrUrl)
+  } else {
+    img = imageOrUrl
+  }
+
+  const bitmap = await createImageBitmap(img, {
+    colorSpaceConversion,
+    imageOrientation,
+  })
+  const imageData = imageBitmapToImageData(bitmap, { colorSpace })
+
+  return createCanvasVisually({
+    width: imageData.width,
+    height: imageData.height,
+    bitmap: imageData.data,
+    colorSpace,
+    ...params,
+  })
+}
 
 export const createImageReferenceVisually = ({
   referenceNodePath = null,

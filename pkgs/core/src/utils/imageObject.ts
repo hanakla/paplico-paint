@@ -1,24 +1,45 @@
-import {
-  createCanvas,
-  createImage,
-  createImageBitmapImpl,
-} from '@/Engine/CanvasFactory'
+import { createImage, createImageBitmapImpl } from '@/Infra/CanvasFactory'
 import { freeingCanvas, setCanvasSize } from './canvas'
+import { Canvas2DAllocator } from '@/Infra/Canvas2DAllocator'
 
 export const imageBitmapToImageData = (
   bitmap: ImageBitmap,
-  { buffer }: { buffer?: HTMLCanvasElement } = {},
+  {
+    buffer,
+    colorSpace,
+  }: {
+    buffer?: CanvasRenderingContext2D
+    colorSpace?: PredefinedColorSpace
+  } = {},
 ) => {
-  const canvas = buffer ?? createCanvas()
-  setCanvasSize(canvas, bitmap.width, bitmap.height)
+  let borrowed: CanvasRenderingContext2D | null = null
 
-  const ctx = canvas.getContext('2d')!
-  ctx.drawImage(bitmap, 0, 0)
+  const cx =
+    buffer ??
+    (borrowed = Canvas2DAllocator.borrow({
+      width: bitmap.width,
+      height: bitmap.height,
+      colorSpace,
+    }))
 
-  const imageData = ctx.getImageData(0, 0, bitmap.width, bitmap.height)
-  freeingCanvas(canvas)
+  try {
+    if (!borrowed) {
+      setCanvasSize(cx.canvas, bitmap.width, bitmap.height)
+    }
 
-  return imageData
+    cx.drawImage(bitmap, 0, 0)
+    const imageData = cx.getImageData(0, 0, bitmap.width, bitmap.height, {
+      colorSpace,
+    })
+
+    if (!borrowed) freeingCanvas(cx.canvas)
+
+    return imageData
+  } finally {
+    if (borrowed) {
+      Canvas2DAllocator.return(borrowed)
+    }
+  }
 }
 
 export const imageDataToImageBitmap = (imageData: ImageData) => {

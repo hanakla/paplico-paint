@@ -234,3 +234,7 @@ export const useDangerouslyEffectAsync = (
     }
   }, deps)
 }
+
+export const useStateSync = (fn: () => void, deps: DependencyList) => {
+  return useMemo(fn, deps)
+}

@@ -51,7 +51,9 @@ export type FilterMetadata = {
   readonly name?: string
 }
 
-export interface FilterClass<T extends Record<string, any>> {
+export interface FilterClass<
+  T extends Record<string, any> = Record<string, any>,
+> {
   readonly metadata: FilterMetadata
 
   getInitialSetting(): T

@@ -1,10 +1,8 @@
 import { type SVGDCommand } from '@/fastsvg/IndexedPointAtLength'
-import { type VectorPath } from '@/Document'
-import { type VectorPathPoint } from '@/Document/LayerEntity/VectorPath'
+import { VisuElement } from '@/Document'
+import { absNormalizePath } from '@/fastsvg/absNormalizePath'
 
-export function svgDCommandArrayToSVGPathString(
-  pathCommands: SVGDCommand[],
-): string {
+export function svgDCommandArrayToSVGPath(pathCommands: SVGDCommand[]): string {
   return pathCommands
     .map((command) => {
       const [cmd, ...params] = command
@@ -13,12 +11,80 @@ export function svgDCommandArrayToSVGPathString(
     .join(' ')
 }
 
-/** @deprecated use `vectorPathPointsToSVGDCommandArray` instead  */
-export function vectorPathToSVGPathString({ points }: VectorPath) {
-  return vectorPathPointsToSVGPathString(points)
+export function svgPathToVisuVectorPath(
+  pathStr: string,
+  splitByM: boolean = false,
+): VisuElement.VectorPath {
+  // FIXME: Boolean path
+  let norm = absNormalizePath(pathStr)
+
+  let vectorPath: VisuElement.VectorPath = {
+    fillRule: 'nonzero',
+    points: [],
+    randomSeed: 0,
+  }
+
+  for (const [cmd, ...args] of norm) {
+    if (cmd === 'M') {
+      if (splitByM) {
+        vectorPath.points.push({
+          isMoveTo: true,
+          x: args[0],
+          y: args[1],
+        })
+      }
+
+      vectorPath.points.push({
+        isMoveTo: true,
+        x: args[0],
+        y: args[1],
+      })
+    } else if (cmd === 'L') {
+      vectorPath.points.push({
+        x: args[0],
+        y: args[1],
+        begin: null,
+        end: null,
+      })
+    } else if (cmd === 'C') {
+      vectorPath.points.push({
+        x: args[4],
+        y: args[5],
+        begin: {
+          x: args[0],
+          y: args[1],
+        },
+        end: {
+          x: args[2],
+          y: args[3],
+        },
+      })
+    } else if (cmd === 'Q') {
+      throw new Error('Quadratic Bezier is not supported')
+    } else if (cmd === 'Z') {
+      vectorPath.points.push({
+        isClose: true,
+      })
+    }
+  }
+
+  return vectorPath
 }
 
-export function vectorPathPointsToSVGPathString(points: VectorPathPoint[]) {
+export function parseSVGPathToVisuVectorPath(
+  d: string,
+): VisuElement.VectorPath {
+  const pathCommands = d
+  const points = svgDCommandArrayToVectorPathPoints(pathCommands)
+  return {
+    fillRule: 'nonzero',
+    points,
+  }
+}
+
+export function vectorPathPointsToSVGPath(
+  points: VisuElement.VectorPathPoint[],
+) {
   const d: string[] = []
 
   for (let idx = 0, l = points.length; idx < l; idx++) {
@@ -49,7 +115,7 @@ export function vectorPathPointsToSVGPathString(points: VectorPathPoint[]) {
 }
 
 export function vectorPathPointsToSVGCommandArray(
-  points: VectorPathPoint[],
+  points: VisuElement.VectorPathPoint[],
 ): SVGDCommand[] {
   const commands: SVGDCommand[] = []
 

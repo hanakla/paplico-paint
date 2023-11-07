@@ -1,4 +1,4 @@
-import Paplico, { PapBrush } from '@/index'
+import Paplico, { PplcBrush } from '@/index'
 import * as Textures from './textures/index'
 import {
   AddEquation,
@@ -23,7 +23,7 @@ import {
 import {} from '@/Engine/Brush/Brush'
 import { ColorRGBA } from '@/Document'
 import { PaplicoError } from '@/Errors/PaplicoError'
-import { createImage } from '@/Engine/CanvasFactory'
+import { createImage } from '@/Infra/CanvasFactory'
 
 import {
   createBrush,
@@ -31,8 +31,8 @@ import {
   BrushLayoutData,
   BrushMetadata,
   PaplicoAbortError,
-} from '@/ext-brush'
-import { scatterBrushTexts } from '@/locales'
+} from '@/index-ext-brush'
+import { scatterBrushTexts } from '@/misc/locales'
 
 const _mat4 = new ThreeMatrix4()
 
@@ -63,7 +63,7 @@ export declare namespace ScatterBrush {
 }
 
 export const ScatterBrush = createBrush(
-  class ScatterBrush implements PapBrush.IBrush {
+  class ScatterBrush implements PplcBrush.IBrush {
     public static readonly metadata: BrushMetadata = {
       id: '@paplico/core/extras/scatter-brush',
       version: '0.0.1',
@@ -77,7 +77,7 @@ export const ScatterBrush = createBrush(
       setSettings: setState,
       locale,
       makeTranslation,
-    }: PapBrush.BrushPaneContext<ScatterBrush.Settings>) {
+    }: PplcBrush.BrushPaneContext<ScatterBrush.Settings>) {
       const t = makeTranslation(scatterBrushTexts)
       const brushes = ScatterBrush.getTextures()
 
@@ -166,6 +166,13 @@ export const ScatterBrush = createBrush(
         pressureInfluence: 0.8,
         noiseInfluence: 0,
       }
+    }
+
+    public static onScaled(
+      settings: ScatterBrush.Settings,
+      transform: PplcBrush.ScaledTransform,
+    ) {
+      return settings
     }
 
     /** Extend this method to adding your custom brush */

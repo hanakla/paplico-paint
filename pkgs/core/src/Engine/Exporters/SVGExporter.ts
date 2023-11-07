@@ -1,8 +1,8 @@
 import { IExporter } from './IExporter'
 import { ColorRGB, ColorRGBA, LayerNode } from '@/Document'
-import { createContext2D } from '../CanvasFactory'
+import { createContext2D } from '../../Infra/CanvasFactory'
 import { setCanvasSize } from '@/utils/canvas'
-import { vectorPathPointsToSVGPathString } from '@/SVGPathManipul'
+import { vectorPathPointsToSVGPath } from '@/SVGPathManipul'
 import {
   VectorAppearanceFill,
   VectorAppearanceStroke,
@@ -87,7 +87,7 @@ export class SVGExporter implements IExporter {
               else return `rgb(${color.r * 255}, ${color.g * 255}, ${color.b * 255})`
             }
 
-            const path = vectorPathPointsToSVGPathString(obj.path)
+            const path = vectorPathPointsToSVGPath(obj.path)
             const fill = findLast(
               obj.filters,
               (a): a is VectorAppearanceFill => a.kind === 'fill',

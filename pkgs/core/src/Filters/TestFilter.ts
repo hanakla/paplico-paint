@@ -1,4 +1,4 @@
-import { createFilter, PapFilter } from '@/index'
+import { createFilter, PplcFilter } from '@/index'
 
 export namespace TestFilter {
   export type Options = {
@@ -7,8 +7,8 @@ export namespace TestFilter {
 }
 
 export const TestFilter = createFilter(
-  class TestFilter implements PapFilter.IFilter<TestFilter.Options> {
-    public static metadata: PapFilter.FilterMetadata = {
+  class TestFilter implements PplcFilter.IFilter<TestFilter.Options> {
+    public static metadata: PplcFilter.FilterMetadata = {
       id: '@paplico/core/filters/test',
       version: '0.0.1',
       name: 'Test Filter',
@@ -32,7 +32,7 @@ export const TestFilter = createFilter(
       h,
       settings: state,
       setSettings: setState,
-    }: PapFilter.FilterPaneContext<TestFilter.Options>) {
+    }: PplcFilter.FilterPaneContext<TestFilter.Options>) {
       const onTextChange = (value: string) => {
         setState({ color: value })
       }
@@ -55,7 +55,7 @@ export const TestFilter = createFilter(
 
     public async initialize({
       gl,
-    }: PapFilter.FilterInitContext): Promise<void> {}
+    }: PplcFilter.FilterInitContext): Promise<void> {}
 
     public async applyRasterFilter(
       input: TexImageSource,
@@ -64,7 +64,7 @@ export const TestFilter = createFilter(
         destSize,
         pixelRatio,
         filterSetting,
-      }: PapFilter.RasterFilterContext<TestFilter.Options>,
+      }: PplcFilter.RasterFilterContext<TestFilter.Options>,
     ) {
       output.fillStyle = filterSetting.color
       output.fillRect(0, 0, destSize.width, destSize.height)

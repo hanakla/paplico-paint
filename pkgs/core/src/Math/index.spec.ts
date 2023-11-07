@@ -1,4 +1,4 @@
-import { indexedPointAtLength } from '@/ext-brush'
+import { indexedPointAtLength } from '@/index-ext-brush'
 import { getTangent } from './getTangent'
 
 describe('getTangentAt', () => {

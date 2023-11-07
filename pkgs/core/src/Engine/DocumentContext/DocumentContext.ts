@@ -1,15 +1,18 @@
 import { PaplicoDocument } from '@/Document/Document'
 import { AtomicResource } from '@/utils/AtomicResource'
 import { RuntimeLayerEntity } from './RuntimeLayerEntity'
-import { History } from '@/History/History'
-import { ICommand } from '@/History/ICommand'
+import { History } from '@/Engine/History/History'
+import { ICommand } from '@/Engine/History/ICommand'
 import { PreviewStore } from '@/Engine/DocumentContext/PreviewStore'
 import { Emitter } from '@/utils/Emitter'
 import { LayerMetrics } from './LayerMetrics'
 import { VectorObject, VisuElement } from '@/Document'
-import { createImageBitmapImpl, createImageData } from '../CanvasFactory'
 import {
-  PPLCInvalidOptionOrStateError,
+  createImageBitmapImpl,
+  createImageData,
+} from '../../Infra/CanvasFactory'
+import {
+  PPLCOptionInvariantViolationError,
   PPLCInvariantViolationError,
 } from '@/Errors'
 
@@ -131,14 +134,14 @@ export class DocumentContext extends Emitter<DocumentContext.Events> {
 
     const target = doc.layerNodes.getNodeAtPath(path)
     if (!target) {
-      throw new PPLCInvalidOptionOrStateError(
+      throw new PPLCOptionInvariantViolationError(
         `Paplico.enterLayer: Layer node not found: /${path.join('/')}`,
       )
     }
 
     const visu = doc.getVisuByUid(target.visuUid)!
     if (!doc.isStrokeableVisu(visu)) {
-      throw new PPLCInvalidOptionOrStateError(
+      throw new PPLCOptionInvariantViolationError(
         `Paplico.enterLayer: Layer node is can not be stroking target: /${path.join(
           '/',
         )}`,
@@ -182,8 +185,8 @@ export class DocumentContext extends Emitter<DocumentContext.Events> {
     return runtimeEntity
   }
 
-  public resolveVectorObject(uid: string) {
-    return this.document.resolveVectorObject(uid)
+  public resolveVisuByUid(uid: string) {
+    return this.document.getVisuByUid(uid)
   }
 
   /** Check valid bitmap cache in requested size availablity */
@@ -324,7 +327,7 @@ export class DocumentContext extends Emitter<DocumentContext.Events> {
 
     for (let idx = 0, l = entries.length; idx < l; idx++) {
       const [uid, data] = entries[idx]
-      this.layerMetrics.setEntityMetrice(uid, data.source, data.visually)
+      this.layerMetrics.setEntityMetrics(uid, data.original, data.postFilter)
     }
   }
 
@@ -333,7 +336,7 @@ export class DocumentContext extends Emitter<DocumentContext.Events> {
 
     for (let idx = 0, l = entries.length; idx < l; idx++) {
       const [uid, data] = entries[idx]
-      this.layerMetrics.setEntityMetrice(uid, data.source, data.visually)
+      this.layerMetrics.setEntityMetrics(uid, data.original, data.postFilter)
     }
   }
 

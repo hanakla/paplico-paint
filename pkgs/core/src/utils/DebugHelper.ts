@@ -89,8 +89,7 @@ export const imageSourceToBlob = async (
 
   return { blobUrl, imageUrl }
 }
-
-globalThis.logImage = logImage
+;(globalThis as any).logImage = logImage
 
 export const installGlobally = () => {
   // if (typeof window === 'undefined') return

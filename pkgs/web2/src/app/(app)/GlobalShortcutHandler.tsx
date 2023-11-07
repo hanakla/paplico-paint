@@ -31,7 +31,7 @@ export const GlobalShortcutHandler = memo(function GlobalShortcutHandler() {
     )
 
     pap!.command.do(
-      new Commands.DocumentUpdateLayerNodes({
+      new Commands.DocumentManipulateLayerNodes({
         remove: removePaths,
       }),
     )

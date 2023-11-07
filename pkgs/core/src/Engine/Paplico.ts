@@ -396,6 +396,10 @@ export class Paplico extends Emitter<Paplico.Events> {
     return mc
   }
 
+  public get visuMetrics() {
+    return this.runtimeDoc?.layerMetrics
+  }
+
   public readonly previews = {
     entries: () => {
       return this.runtimeDoc?.previews.entries() ?? []
@@ -1359,7 +1363,7 @@ export class Paplico extends Emitter<Paplico.Events> {
   }
 
   protected createVectorObjectByCurrentSettings(
-    path: VectorPath,
+    path: VisuElement.VectorPath,
   ): VisuElement.VectorObjectElement {
     const obj = createVectorObjectVisu({
       path: path,

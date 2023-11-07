@@ -15,7 +15,9 @@
     "typescript": "^5.0.4"
   },
   "dependencies": {
-    "@paplico/core": "*",
+    "@paplico/core": "*"
+  },
+  "optionalDependencies": {
     "canvas": "^2.11.2",
     "node-canvas-webgl": "^0.3.0"
   }

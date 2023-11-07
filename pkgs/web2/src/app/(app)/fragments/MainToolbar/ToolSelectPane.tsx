@@ -94,6 +94,15 @@ export const ToolSelectPane = memo(function ToolSelectPane() {
               {t('tools.shapeRect')}
             </ToolItem>
 
+            <div
+              css={css`
+                grid-row-start: 1;
+                grid-column-start: 4;
+              `}
+            >
+              saafsdfasdfasdfasdfasdfasdfdas afdafasd
+            </div>
+
             <ToolItem
               onClick={handleClickVectorTool}
               data-type="ellipse"

@@ -107,10 +107,7 @@ export class VectorRenderer {
       visually: LayerMetrics.BBox
     }
     objectsBBox: {
-      [objectUid: string]: {
-        source: LayerMetrics.BBox
-        visually: LayerMetrics.BBox
-      }
+      [objectUid: string]: LayerMetrics.BBoxSet
     }
   }> {
     // if (visu.type === 'group') {
@@ -240,7 +237,7 @@ export class VectorRenderer {
         source: createBBox(layerSourceBBox),
         visually: createBBox(layerVisuallyBBox),
       },
-      objectsBBox: objectsBBox,
+      objectsBBox,
     }
   }
 

@@ -1,5 +1,5 @@
 import { ChangeEvent, memo, useCallback } from 'react'
-import { VComponent } from '../UI/PaneUI/AbstractComponent'
+import { VComponent } from '../AbstractComponent'
 
 export namespace TextInput {
   export type Props = {

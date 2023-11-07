@@ -1,24 +1,24 @@
 import { SVGDCommand } from '@/fastsvg/IndexedPointAtLength'
-import { splitPath } from './splitPath'
+import { splitPathAt } from './splitPath'
 
-describe('splitPath', () => {
+describe('splitPathAt', () => {
   it('works?', () => {
     const path: SVGDCommand[] = [['M', 0, 0], ['L', 10, 0], ['Z']]
 
-    console.log(splitPath(path, 5))
-    expect(splitPath(path, 5)).toMatchObject([
+    console.log(splitPathAt(path, 5))
+    expect(splitPathAt(path, 5)).toMatchObject([
       [['M', 0, 0], ['L', 5, 0], ['Z']],
       [['M', 5, 0], ['L', 10, 0], ['Z']],
     ])
   })
 
   describe('GPT genarated cases', () => {
-    it('splitPath splits straight line path correctly', () => {
-      const path = [
+    it('splitPathAt splits straight line path correctly', () => {
+      const path: SVGDCommand[] = [
         ['M', 0, 0],
         ['L', 10, 0],
       ]
-      const [path1, path2] = splitPath(path, 5)
+      const [path1, path2] = splitPathAt(path, 5)
       expect(path1).toMatchObject([
         ['M', 0, 0],
         ['L', 5, 0],
@@ -29,12 +29,12 @@ describe('splitPath', () => {
       ])
     })
 
-    it('splitPath splits curved path correctly', () => {
-      const path = [
+    it('splitPathAt splits curved path correctly', () => {
+      const path: SVGDCommand[] = [
         ['M', 0, 0],
         ['C', 3, 3, 6, 3, 9, 0],
       ]
-      const [path1, path2] = splitPath(path, 8.5)
+      const [path1, path2] = splitPathAt(path, 8.5)
 
       expect(path1).toMatchInlineSnapshot(`
         [
@@ -69,14 +69,14 @@ describe('splitPath', () => {
       `)
     })
 
-    it('splitPath handles M command correctly', () => {
+    it('splitPathAt handles M command correctly', () => {
       const path = [
         ['M', 0, 0],
         ['L', 10, 0],
         ['M', 10, 10],
         ['L', 20, 10],
       ]
-      const [path1, path2] = splitPath(path, 5)
+      const [path1, path2] = splitPathAt(path, 5)
       expect(path1).toMatchInlineSnapshot(`
         [
           [
@@ -127,7 +127,7 @@ describe('splitPath', () => {
       `)
     })
 
-    it('splitPath handles Z command correctly', () => {
+    it('splitPathAt handles Z command correctly', () => {
       const path = [
         ['M', 0, 0],
         ['L', 10, 0],
@@ -135,7 +135,7 @@ describe('splitPath', () => {
         ['L', 0, 10],
         ['Z'],
       ]
-      const [path1, path2] = splitPath(path, 15)
+      const [path1, path2] = splitPathAt(path, 15)
       expect(path1).toMatchInlineSnapshot(`
         [
           [

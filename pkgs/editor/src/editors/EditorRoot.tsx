@@ -100,7 +100,7 @@ export const EditorRoot = memo(function EditorRoot({
         cy={size.height / 2}
         r={brushSizePreview?.size ?? 0}
       />
-      {/* <MetricsView width={size.width} height={size.height} /> */}
+      <MetricsView width={size.width} height={size.height} />
       {editorType === 'vector' && (
         <VectorEditor
           rootBBox={bound}

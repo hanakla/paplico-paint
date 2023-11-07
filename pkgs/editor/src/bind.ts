@@ -52,7 +52,7 @@ export function bind(
   })
 
   paplico.on('documentChanged', ({ current }) => {
-    const visuType = paplico.activeVisu?.visuType
+    const visuType = paplico.getStrokingTarget()?.visuType
     const nextEditorType = layerTypeToEditorType(visuType)
 
     emitterStore.emit('editorTypeChanged', {
@@ -61,7 +61,7 @@ export function bind(
     })
 
     editorStore.setState(() => ({
-      enabled: visuType === 'vectorObject' || visuType === 'canvas',
+      enabled: visuType === 'group' || visuType === 'canvas',
       editorType: nextEditorType,
     }))
   })

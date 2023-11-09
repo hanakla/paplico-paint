@@ -3,7 +3,6 @@ import {
   createVectorPath,
 } from '@/Document/Visually/factory'
 import { vectorObjectTransformToMatrix } from './VectorUtils'
-import DOMMatrix from '@thednp/dommatrix'
 
 describe('DOMMatrix', () => {
   // broke this test by DOMMatrix internals references native DOMMatrix directly

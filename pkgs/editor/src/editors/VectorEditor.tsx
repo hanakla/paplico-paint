@@ -1,10 +1,13 @@
 import { useEditorStore, useEngineStore } from '@/store'
 import { memo, useCallback, useEffect, useMemo, useReducer } from 'react'
-import { ObjectPathOrGroup } from './VectorEditor/ObjectPath'
+import { VectorObjectElement } from './VectorEditor/VisuElement.VectorObject'
 import { RectReadOnly } from 'react-use-measure'
 import { storePicker } from '@/utils/zustand'
 import { ShapeTools } from './VectorEditor/ShapeTools'
 import { isVectorShapeToolMode } from '@/stores/editor'
+import { VisuElement } from './VectorEditor/VisuElement'
+import { Document } from '@paplico/core-new'
+import { useMemoRevailidatable } from '@/utils/hooks'
 
 type Props = {
   width: number
@@ -20,11 +23,11 @@ export const VectorEditor = memo(function VectorEditor({
   const editorStore = useEditorStore()
   const rerender = useReducer((x) => x + 1, 0)[1]
 
-  const strokingTarget = paplico.activeVisu
+  const strokingTarget = paplico.getStrokingTarget()
 
-  const layerNode = useMemo(() => {
+  const strokingTargetLayerNode = useMemo(() => {
     if (!strokingTarget) return null
-    return paplico.currentDocument?.layerNodes.getNodeAtPath(
+    return paplico.currentDocument?.layerNodes.getResolvedLayerNodes(
       strokingTarget.nodePath,
     )
   }, [strokingTarget?.visuUid])
@@ -35,13 +38,44 @@ export const VectorEditor = memo(function VectorEditor({
 
   useEffect(() => {
     return paplico.on('history:affect', ({ layerIds }) => {
-      if (!layerIds.includes(paplico.activeVisu?.visuUid ?? '')) return
       rerender()
     })
   })
 
+  const [displayedVisues, revalidateDisplayedVisues] =
+    useMemoRevailidatable(() => {
+      if (!strokingTarget) return []
+
+      const node = paplico.currentDocument?.layerNodes.getResolvedLayerNodes(
+        strokingTarget.nodePath,
+      )
+
+      if (!node) return []
+
+      const flatten = (function flattenNodes(
+        parent: Document.PaplicoDocument.ResolvedLayerNode,
+        depth: number,
+      ): Document.PaplicoDocument.ResolvedLayerNode[] {
+        if (depth > 1) return []
+
+        return parent.children.reduce((accum, node) => {
+          accum.push(node)
+          return [...accum, ...flattenNodes(node, depth + 1)]
+        }, [] as Document.PaplicoDocument.ResolvedLayerNode[])
+      })(node, 0)
+
+      return flatten
+    }, [strokingTarget?.nodePath])
+
+  useEffect(() => {
+    return paplico.on('finishRenderCompleted', () => {
+      revalidateDisplayedVisues()
+    })
+  }, [])
+
   return (
     <svg
+      data-pplc-component="VectorEditor"
       width={width}
       height={height}
       viewBox={`0 0 ${width} ${height}`}
@@ -51,7 +85,6 @@ export const VectorEditor = memo(function VectorEditor({
         pointerEvents: 'none',
       }}
       tabIndex={-1}
-      id="--paplico-vector-editor-vector"
     >
       {/* Layer outline */}
       <rect
@@ -67,12 +100,20 @@ export const VectorEditor = memo(function VectorEditor({
         }}
       />
 
-      {isVectorShapeToolMode(editorStore.vectorToolMode) && (
+      <text x={20} y={20} fill="red" fontWeight="bold" fontSize={24}>
+        CurrntZool:: {editorStore.toolMode}
+      </text>
+
+      {isVectorShapeToolMode(editorStore.toolMode) && (
         <ShapeTools width={width} height={height} />
       )}
 
-      {layerNode?.children.map((node) => (
-        <ObjectPathOrGroup key={node.visuUid} visuUid={node.visuUid} />
+      {displayedVisues.map((node) => (
+        <VisuElement
+          key={node.uid}
+          visu={node.visu}
+          layerNodePath={node.path}
+        />
       ))}
     </svg>
   )

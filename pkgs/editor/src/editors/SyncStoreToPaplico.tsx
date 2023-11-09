@@ -1,6 +1,8 @@
 import { useEditorStore, useEngineStore } from '@/store'
+import { unreachable } from '@/utils/unreachable'
 import { storePicker } from '@/utils/zustand'
 import { memo, useEffect } from 'react'
+import { ToolModes } from '..'
 
 export const SyncStoreToPaplico = memo(function SyncStoreToPaplico() {
   const { paplico } = useEngineStore(storePicker(['paplico', 'state']))
@@ -8,18 +10,20 @@ export const SyncStoreToPaplico = memo(function SyncStoreToPaplico() {
 
   // Sync brush state
   useEffect(() => {
+    console.log(editor.toolMode)
     paplico.setStrokeCompositionMode(
       // prettier-ignore
-      editor.editorType === 'vector'
-        ? editor.vectorToolMode === 'stroking' ? 'normal'
-        : 'none'
-      : editor.editorType === 'raster'
-        ? editor.rasterToolMode === 'stroking' ? 'normal'
-        : editor.rasterToolMode === 'erasing' ? 'erase'
-        : 'none'
-      : 'none',
+      editor.toolMode === ToolModes.none ? 'none'
+      : editor.toolMode === ToolModes.ellipseTool ? 'none'
+      : editor.toolMode === ToolModes.rectangleTool ? 'none'
+      : editor.toolMode === ToolModes.strokingTool ? 'normal'
+      : editor.toolMode === ToolModes.eraserTool ? 'erase'
+      : editor.toolMode === ToolModes.objectTool ? 'none'
+      : editor.toolMode === ToolModes.vectorPenTool ? 'none'
+      : editor.toolMode === ToolModes.pointTool ? 'none'
+      : unreachable(editor.toolMode),
     )
-  }, [paplico.activeVisu, editor.vectorToolMode, editor.rasterToolMode])
+  }, [editor.toolMode])
 
   return null
 })

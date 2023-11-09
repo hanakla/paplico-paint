@@ -1,9 +1,9 @@
-import { diff, patch, unpatch, Delta } from 'jsondiffpatch'
+import { arrayBufferSafeDiff, patch, unpatch, Delta } from '@/utils/jsondiff'
 
 import { ICommand } from '../Engine/History/ICommand'
 import { DocumentContext } from '@/Engine'
 import { deepClone } from '@/utils/object'
-import { VisuElement } from '@/Document/Visually'
+import { VisuElement } from '@/Document'
 import { PPLCCommandExecutionError } from '@/Errors'
 
 type Options = {
@@ -37,14 +37,8 @@ export class VisuUpdateAttributes implements ICommand {
     const next = deepClone(original)
     this.options.updater(next)
 
-    this.changesPatch = diff(original, next)!
+    this.changesPatch = arrayBufferSafeDiff(original, next)!
 
-    console.log('patch', this.changesPatch, {
-      visuUid: this.visuUid,
-      visu,
-      next,
-      freeze: Object.isFrozen(visu),
-    })
     patch(visu, this.changesPatch!)
     docx.invalidateLayerBitmapCache(this.visuUid)
   }

@@ -1,4 +1,6 @@
-export type ExternalFilterSetting<T extends Record<string, any>> = {
+export type PostProcessSetting<
+  T extends Record<string, any> = Record<string, any>,
+> = {
   filterId: string
   filterVersion: string
 

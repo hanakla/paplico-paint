@@ -20,11 +20,42 @@ import useMeasure from 'use-measure'
 import { useEditorStore } from '@/domains/uiState'
 import { bindPaplico } from '@paplico/editor'
 import { Notification } from './EditorArea/Notification'
-import { useDropArea } from 'react-use'
-import { Commands, Document, PplcBrush } from '@paplico/core-new'
+import { useDropArea, useUpdate } from 'react-use'
+import { Commands, Document } from '@paplico/core-new'
 import { loadImage } from '@hanakla/arma'
+import { StoreApi, create } from 'zustand'
+import { storePicker } from '@/utils/zustand'
+import { fitAndPosition } from 'object-fit-math'
+import { clamp } from '@/utils/math'
 
 type Props = { className?: string }
+
+type CanvasTransform = {
+  x: number
+  y: number
+  scale: number
+  rotateDeg: number
+}
+
+type CanvasStore = {
+  startOrigin: [number, number] | null
+  startTransform: CanvasTransform | null
+  current: CanvasTransform
+
+  set: StoreApi<CanvasStore>['setState']
+}
+
+const useCanvasState = create<CanvasStore>((set, get) => ({
+  startOrigin: null,
+  startTransform: null,
+  current: {
+    x: 0,
+    y: 0,
+    scale: 0.7,
+    rotateDeg: 0,
+  },
+  set,
+}))
 
 export const EditorArea = memo(
   forwardRef<HTMLCanvasElement, Props>(function EditorArea(
@@ -32,17 +63,19 @@ export const EditorArea = memo(
     canvasRef,
   ) {
     const { pplc, canvasEditor } = usePaplicoInstance()
-    const papStore = initializeOnlyUseEngineStore()
-    const propsMemo = usePropsMemo()
+    const papStore = initializeOnlyUseEngineStore(
+      storePicker(['_setEditorHandle']),
+    )
 
     const editorStore = useEditorStore()
-    const { canvasTransform } = editorStore
+    const canvasState = useCanvasState()
 
     const rootRef = useRef<HTMLDivElement | null>(null)
     const toolbarRef = useRef<HTMLDivElement | null>(null)
     const vectorEditorRef = useRef<HTMLDivElement | null>(null)
-    const transformRootRef = useCombineRef<HTMLDivElement | null>(rootRef)
     const combCanvasRef = useCombineRef<HTMLCanvasElement | null>(canvasRef)
+
+    const rerender = useUpdate()
 
     const [toolbarPosition, setToolbarPosition] = useState<{
       x: number
@@ -68,7 +101,6 @@ export const EditorArea = memo(
 
     const [bindDrop] = useDropArea({
       onFiles: async ([file]) => {
-        console.log(file)
         if (!file) return
         if (!file.type.startsWith('image/')) return
 
@@ -78,11 +110,23 @@ export const EditorArea = memo(
 
         const visu = await Document.visu.createCanvasVisuallyFromImage(image, {
           // colorSpace: 'display-p3',
+          transform: {
+            position: { x: 0, y: 0 },
+            scale: { x: 0.4, y: 0.4 },
+            rotate: 0,
+          },
         })
 
         canvasEditor?.command.do(
           new Commands.DocumentManipulateLayerNodes({
-            add: [{ visu, parentNodePath: [], indexInNode: -1 }],
+            add: [
+              {
+                visu,
+                parentNodePath:
+                  canvasEditor.getStrokingTarget()?.nodePath ?? [],
+                indexInNode: -1,
+              },
+            ],
           }),
         )
       },
@@ -90,10 +134,13 @@ export const EditorArea = memo(
 
     useGesture(
       {
-        onPinch: ({ delta: [d, r], origin: [x, y] }) => {
+        onPinch: ({ delta: [d, r], origin: [x, y], first, event }) => {
+          // const rbx = rootRef.current!.getBoundingClientRect()
           const c = combCanvasRef.current!.getBoundingClientRect()
 
-          editorStore.setCanvasTransform((prev) => {
+          canvasState.set((prevState, prev = prevState.current) => {
+            // SEE: https://kano.arkoak.com/2020/06/04/zoom/
+
             // 現在の変形を考慮しない、キャンバスに対するピンチの中心点を取得
             const xOnCanvas = (x - c.left) / prev.scale - prev.x / prev.scale
             const yOnCanvas = (y - c.top) / prev.scale - prev.y / prev.scale
@@ -111,11 +158,12 @@ export const EditorArea = memo(
             canvasEditor?.setCanvasScaledScale(newScale)
 
             return {
-              ...prev,
-              scale: newScale,
-              rotateDeg: prev.rotateDeg + r,
-              x: newX,
-              y: newY,
+              current: {
+                scale: newScale,
+                rotateDeg: prev.rotateDeg + r,
+                x: newX,
+                y: newY,
+              },
             }
           })
         },
@@ -123,20 +171,24 @@ export const EditorArea = memo(
         onWheel: ({ event, delta, touches }) => {
           event.preventDefault()
 
-          editorStore.setCanvasTransform((prev) => ({
-            ...prev,
-            x: prev.x - delta[0],
-            y: prev.y - delta[1],
+          canvasState.set((prevState, prev = prevState.current) => ({
+            current: {
+              ...prev,
+              x: prev.x - delta[0] * (1 / prev.scale),
+              y: prev.y - delta[1] * (1 / prev.scale),
+            },
           }))
         },
 
         onDrag: (e) => {
           if (e.touches < 2) return
 
-          editorStore.setCanvasTransform((prev) => ({
-            ...prev,
-            x: prev.x + e.delta[0],
-            y: prev.y + e.delta[1],
+          canvasState.set((prevState, prev = prevState.current) => ({
+            current: {
+              ...prev,
+              x: prev.x + e.delta[0] * (1 / prev.scale),
+              y: prev.y + e.delta[1] * (1 / prev.scale),
+            },
           }))
 
           // execute(EditorOps.setCanvasTransform, {
@@ -166,16 +218,46 @@ export const EditorArea = memo(
     }, [rootBBox.width, rootBBox.height])
 
     useEffect(() => {
-      if (!pplc) return
-      const handle = bindPaplico(vectorEditorRef.current!, pplc)
+      if (!pplc || !combCanvasRef) return
+
+      const handle = bindPaplico(
+        vectorEditorRef.current!,
+        combCanvasRef.current!,
+        pplc,
+      )
+
       papStore._setEditorHandle(handle)
-      handle.setCanvasScaledScale(canvasTransform.scale)
+      handle.setCanvasScaledScale(canvasState.current.scale)
+      const off = pplc.on('documentChanged', rerender)
 
       return () => {
+        off()
         handle.dispose()
         papStore._setEditorHandle(null)
       }
     }, [pplc])
+
+    useEffect(() => {
+      // const doc = canvasEditor?.currentDocument
+      // if (!doc) return
+      // const size = fitAndPosition(
+      //   {
+      //     width: clamp(rootBBox.width, 0, 1000),
+      //     height: clamp(rootBBox.height, 0, 1000),
+      //   },
+      //   {
+      //     width: doc.meta.mainArtboard.width,
+      //     height: doc.meta.mainArtboard.height,
+      //   },
+      //   'contain',
+      // )
+      // const scale =
+      //   Math.max(size.width, size.height) /
+      //   Math.max(doc.meta.mainArtboard.width, doc.meta.mainArtboard.height)
+      // canvasState.set({
+      //   current: { x: 0, y: 0, scale: scale, rotateDeg: 0 },
+      // })
+    }, [canvasEditor?.currentDocument?.uid])
 
     return (
       <div
@@ -183,7 +265,7 @@ export const EditorArea = memo(
         css={css`
           touch-action: manipulation !important;
           user-select: none !important;
-          background-color: var(--gray-3);
+          background-color: var(--gray-5);
         `}
         className={className}
         style={{
@@ -193,9 +275,9 @@ export const EditorArea = memo(
         }}
         data-editorarea-root
         {...bindDrop}
+        // tabIndex={-1}
       >
         <div
-          ref={transformRootRef}
           suppressHydrationWarning
           css={css`
             position: relative;
@@ -203,7 +285,10 @@ export const EditorArea = memo(
           `}
           style={{
             transformOrigin: /* center */ '50% 50%',
-            transform: `scale(${canvasTransform.scale}) rotate(${canvasTransform.rotateDeg}deg) translate(${canvasTransform.x}px, ${canvasTransform.y}px)`,
+            transform:
+              `scale(${canvasState.current.scale}) ` +
+              `rotate(${canvasState.current.rotateDeg}deg) ` +
+              `translate(${canvasState.current.x}px, ${canvasState.current.y}px)`,
           }}
         >
           <div
@@ -219,9 +304,9 @@ export const EditorArea = memo(
               background-color: #fff;
               ${checkerBoard({ size: 10, opacity: 0.1 })};
             `}
-            width={canvasEditor?.currentDocument?.meta.mainArtboard.width ?? 0}
+            width={canvasEditor?.currentDocument?.meta.mainArtboard.width ?? 1}
             height={
-              canvasEditor?.currentDocument?.meta.mainArtboard.height ?? 0
+              canvasEditor?.currentDocument?.meta.mainArtboard.height ?? 1
             }
             style={
               {

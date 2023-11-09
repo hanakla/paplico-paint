@@ -41,20 +41,27 @@ CanvasFactory.setCanvasImpls({
 
   // await pap.brushes.register(Brushes.CircleBrush)
 
-  const doc = Document.createDocument({ width: 1000, height: 1000 })
-  const raster = Document.createRasterLayerEntity({
+  const doc = Document.visu.createDocument({ width: 1000, height: 1000 })
+  const raster = Document.visu.createCanvasVisually({
     width: 1000,
     height: 1000,
   })
 
-  const vector = Document.createVectorLayerEntity({
+  const vector = Document.visu.createVectorObjectVisually({
+    path: Document.visu.createVectorPath({
+      points: [{ isMoveTo: true, x: 0, y: 0 }],
+    }),
+
     filters: [
-      Document.createFilterEntry({
+      Document.visu.createVisuallyFilter('postprocess', {
         enabled: false,
         opacity: 1,
-        filterId: Filters.TestFilter.metadata.id,
-        filterVersion: Filters.TestFilter.metadata.version,
-        settings: Filters.TestFilter.getInitialConfig(),
+        processor: {
+          filterId: Filters.TestFilter.metadata.id,
+          filterVersion: Filters.TestFilter.metadata.version,
+          settings: Filters.TestFilter.getInitialSetting(),
+          opacity: 1,
+        },
       }),
     ],
   })

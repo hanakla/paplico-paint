@@ -6,8 +6,13 @@ const channels = [
   'pipelineSchedule',
   'vectorRenderer',
   'pplcStroking',
+  'layerMetrics',
+  'renderQueue',
 ] as const
 type Channels = (typeof channels)[number]
+
+///////////////////////////////
+///////////////////////////////
 
 const listens = new Set<(typeof channels)[number]>([
   // 'pipeline',
@@ -15,20 +20,62 @@ const listens = new Set<(typeof channels)[number]>([
   // 'pipelineSchedule',
   // 'pplcStroking',
 ])
-const colors: { [K in Channels]: string } = {
-  paplico: '#69d813',
-  pipeline: '#eeeeee',
-  pipelineSchedule: '#f2ede6',
-  vectorRenderer: '#ff9800',
-  pplcStroking: '#c1da1f',
+
+///////////////////////////////
+///////////////////////////////
+
+const colors: { [K in Channels]: [string, string] } = {
+  // backgroud, text
+  paplico: ['#69d813', '#888888'],
+  pipeline: ['#eeeeee', '#888888'],
+  pipelineSchedule: ['#f2ede6', '#888888'],
+  vectorRenderer: ['#ff9800', '#888888'],
+  pplcStroking: ['#d4ed37', '#888888'],
+  layerMetrics: ['#3087e4', '#f3f3f3'],
+  renderQueue: ['#df4a3a', '#f3f3f3'],
 }
 
 type LogType = 'log' | 'info' | 'warn' | 'error' | 'logImage'
 
-// const logs = new Map<Channels, Array<[type: LogType, ...args: any]>>()
+const allLogs = new Map<Channels, Array<[type: LogType, ...args: any]>>()
+
+function loadLocalSetting() {
+  if (typeof localStorage === 'undefined') return
+  if (loaded) return
+
+  const str = localStorage.getItem('__pplc_dbg_logc') ?? '{}'
+  const logcSetting = JSON.parse(str)
+
+  for (const c of logcSetting?.listens ?? []) {
+    if (logcSetting[c] != null) listens.add(c)
+  }
+
+  updateLocalSettings({ listens: [...listens] })
+}
+
+let loaded = false
+function updateLocalSettings(obj: { listens: string[] }) {
+  if (typeof localStorage === 'undefined') return
+
+  localStorage.setItem('__pplc_dbg_logc', JSON.stringify(obj))
+  loaded = true
+}
+
+let globalOn = true
 
 export const LogChannel = {
-  tgl: Object.defineProperties(
+  get off() {
+    globalOn = false
+    console.info('Log turned off')
+    return
+  },
+  get on() {
+    globalOn = true
+    console.info('Log turned on')
+    return
+  },
+
+  sw: Object.defineProperties(
     Object.create(null),
     Object.fromEntries(
       channels.map((c): [string, PropertyDescriptor] => [
@@ -36,13 +83,21 @@ export const LogChannel = {
         {
           enumerable: true,
           get: () => {
-            const has = listens.has(c)
-            has ? listens.delete(c) : listens.add(c)
-            console.info(`${c} log turned ${has ? 'off' : 'on'}`)
+            const listened = listens.has(c)
+            listened ? listens.delete(c) : listens.add(c)
+            updateLocalSettings({ listens: [...listens] })
 
-            return (enabled: boolean) => {
-              console.info(`${c} log turned ${!enabled ? 'off' : 'on'}`)
-              enabled ? listens.add(c) : listens.delete(c)
+            console.info(`${c} log turned ${listened ? 'off' : 'on'}`)
+
+            if (!listened) {
+              const logs = allLogs.get(c) ?? []
+              logs.forEach(([type, ...args]) => {
+                if (type === 'logImage') {
+                  logImage(args[0], ...args.slice(1))
+                } else {
+                  console[type](...args)
+                }
+              })
             }
           },
         },
@@ -60,21 +115,23 @@ export const LogChannel = {
         {
           enumerable: true,
           value: (() => {
+            loadLocalSetting()
+
             const addLog = (type: LogType, ...args: any[]) => {
               if (process.env.NODE_ENV === 'production') return
-              if (!listens.has(c)) return
 
               const logArgs = [
                 `%c[🤖 #${c}]%c`,
-                `color: #888; font-weight: bold; background: ${colors[c]}; padding: 2px 4px; border-radius: 2px;`,
+                `color: ${colors[c][1]}; font-weight: bold; background: ${colors[c][0]}; padding: 2px 4px; border-radius: 2px;`,
                 '',
                 ...args,
               ]
 
-              // if (!logs.has(c)) logs.set(c, [])
-              // logs.get(c)!.push([type, ...logArgs])
+              const logs = allLogs.get(c) ?? []
+              logs.push([type, ...logArgs])
+              allLogs.set(c, logs.slice(-20))
 
-              if (listens.has(c)) {
+              if (listens.has(c) && globalOn) {
                 if (type === 'logImage') {
                   return logImage(args[0], ...args.slice(1))
                 }
@@ -114,5 +171,5 @@ export const LogChannel = {
 }
 
 if (typeof window !== 'undefined') {
-  ;(window as any)._logc = LogChannel
+  ;(window as any).logc = LogChannel
 }

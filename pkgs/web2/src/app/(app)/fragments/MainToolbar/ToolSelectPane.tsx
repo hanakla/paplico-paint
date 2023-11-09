@@ -1,18 +1,14 @@
 import { TabPage } from '@/components/TabBar'
-import {
-  usePaplicoInstance,
-  initializeOnlyUseEngineStore,
-} from '@/domains/engine'
+import { usePaplicoInstance } from '@/domains/engine'
 import { MouseEvent, ReactNode, memo } from 'react'
 import { BsBrushFill, BsEraserFill } from 'react-icons/bs'
-import { RiCircleLine, RiRectangleFill, RiRectangleLine } from 'react-icons/ri'
+import { RiCircleLine, RiCursorFill, RiRectangleLine } from 'react-icons/ri'
 import useEvent from 'react-use-event-hook'
-import styled, { css } from 'styled-components'
-import { VectorToolModes } from '@paplico/editor'
+import { css } from 'styled-components'
+import { ToolModes } from '@paplico/editor'
 import { useEditorStore } from '@/domains/uiState'
 import { useTranslation } from '@/lib/i18n'
 import { mainToolbarTexts } from '@/locales'
-import { Grid } from '@radix-ui/themes'
 import { GhostButton } from '@/components/GhostButton'
 
 export const ToolSelectPane = memo(function ToolSelectPane() {
@@ -29,7 +25,7 @@ export const ToolSelectPane = memo(function ToolSelectPane() {
       pplc?.setStrokeCompositionMode('erase')
     }
 
-    canvasEditor?.setVectorToolMode(VectorToolModes.none)
+    canvasEditor?.setToolMode(ToolModes.none)
   })
 
   const handleClickVectorTool = useEvent((e: MouseEvent<HTMLElement>) => {
@@ -40,9 +36,9 @@ export const ToolSelectPane = memo(function ToolSelectPane() {
     })
 
     if (type === 'rectangle') {
-      canvasEditor?.setVectorToolMode(VectorToolModes.rectangleTool)
+      canvasEditor?.setToolMode(ToolModes.rectangleTool)
     } else if (type === 'ellipse') {
-      canvasEditor?.setVectorToolMode(VectorToolModes.ellipseTool)
+      canvasEditor?.setToolMode(ToolModes.ellipseTool)
     }
 
     pplc?.setStrokeCompositionMode('none')
@@ -80,9 +76,22 @@ export const ToolSelectPane = memo(function ToolSelectPane() {
               onClick={handleClickTool}
               data-type="eraser"
               name={t('tools.eraser')}
+              disabled={!isCanvasVisuTarget}
             >
               <BsEraserFill css={s.toolIcon} size={28} />
               {t('tools.eraser')}
+            </ToolItem>
+
+            <ToolItem
+              css={`
+                grid-column-start: 1;
+              `}
+              onClick={handleClickVectorTool}
+              data-type="rectangle"
+              name={t('tools.objectTool')}
+            >
+              <RiCursorFill css={s.toolIcon} size={28} />
+              {t('tools.objectTool')}
             </ToolItem>
 
             <ToolItem
@@ -94,15 +103,6 @@ export const ToolSelectPane = memo(function ToolSelectPane() {
               {t('tools.shapeRect')}
             </ToolItem>
 
-            <div
-              css={css`
-                grid-row-start: 1;
-                grid-column-start: 4;
-              `}
-            >
-              saafsdfasdfasdfasdfasdfasdfdas afdafasd
-            </div>
-
             <ToolItem
               onClick={handleClickVectorTool}
               data-type="ellipse"
@@ -110,15 +110,6 @@ export const ToolSelectPane = memo(function ToolSelectPane() {
             >
               <RiCircleLine css={s.toolIcon} size={28} />
               {t('tools.shapeEllipse')}
-            </ToolItem>
-
-            <ToolItem
-              onClick={handleClickVectorTool}
-              data-type="brush"
-              disabled={!isCanvasVisuTarget}
-            >
-              <BsBrushFill css={s.toolIcon} size={28} />
-              {t('tools.brush')}
             </ToolItem>
           </div>
 
@@ -157,7 +148,6 @@ export const ToolSelectPane = memo(function ToolSelectPane() {
 
 const s = {
   toolIcon: css`
-    margin-right: 8px;
     vertical-align: bottom;
   `,
 }
@@ -192,6 +182,7 @@ const ToolItem = memo(function ToolItem({
         background-color: var(--gray-2);
         line-height: 1;
         vertical-align: bottom;
+        text-align: center;
 
         &:hover {
           color: var(--gray-1);

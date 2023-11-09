@@ -183,7 +183,7 @@ export const NewTreeView = memo(function NewTreeView({
     const [sourcePath, overPath] = moves
 
     pplc?.command.do(
-      new Commands.DocumentUpdateLayerNodes({
+      new Commands.DocumentManipulateLayerNodes({
         move: [{ sourceNodePath: sourcePath, targetNodePath: overPath }],
       }),
     )
@@ -204,6 +204,7 @@ export const NewTreeView = memo(function NewTreeView({
         return
       }
 
+      console.log('tree cahnged')
       treeStore.syncFromSource(pplc!.currentDocument!)
     }
 
@@ -215,7 +216,7 @@ export const NewTreeView = memo(function NewTreeView({
       pplc!.off('strokingTargetChanged', changed)
       pplc!.off('history:affect', changed)
     }
-  }, [])
+  }, [pplc, pplc?.currentDocument])
 
   if (treeStore.items.length === 0) {
     return null
@@ -509,7 +510,9 @@ const LayerItemContextMenu = memo<{ id: string }>(
       ContextMenuItemClickHandler<LayerContextMenuParams>
     >(({ props }) => {
       pap?.command.do(
-        new Commands.DocumentUpdateLayerNodes({ remove: [props!.pathToVisu] }),
+        new Commands.DocumentManipulateLayerNodes({
+          remove: [props!.pathToVisu],
+        }),
       )
     })
 

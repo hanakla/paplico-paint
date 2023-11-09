@@ -3,8 +3,8 @@ import { ulid } from '@/utils/ulid'
 
 import { PaplicoDocument } from '@/Document/Document'
 import { ElementBase, VisuElement } from './VisuElement'
-import { VisuFilter } from './VisuallyFilter'
-import { LayerNode } from '../LayerNode'
+import { VisuFilter } from './VisuFilter'
+import { LayerNode } from '../Struct/LayerNode'
 import { imageBitmapToImageData, loadImage } from '@/utils/imageObject'
 
 type Requires<T, K extends keyof T> = Omit<T, K> & {
@@ -221,7 +221,11 @@ export const createVisuallyFilter = <
   {
     enabled = true,
     ...etc
-  }: Optional<Omit<VisuFilter.AnyFilterMapType[K], 'uid' | 'kind'>, 'enabled'>,
+  }: Optional<
+    Omit<VisuFilter.AnyFilterMapType[K], 'uid' | 'kind'>,
+    // @ts-expect-error
+    'enabled'
+  >,
 ): VisuFilter.AnyFilterMapType[K] =>
   ({
     kind,

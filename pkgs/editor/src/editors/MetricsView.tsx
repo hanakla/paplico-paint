@@ -40,46 +40,46 @@ export const MetricsView = memo(function MetricsView({ width, height }: Props) {
         </filter>
       </defs>
 
-      {[...paplico.visuMetrics?.layerMetrics!].map(([layerId, metrics]) => {
-        const layer = paplico.currentDocument?.getVisuByUid(layerId)!
+      {[...paplico.visuMetrics?.getAllMetrices()!].map(
+        ({ visuUid, originalBBox, postFilterBBox }) => {
+          return (
+            <g key={visuUid}>
+              <text
+                filter="url(#pap-editor-metrics-text-bg)"
+                dominantBaseline="hanging"
+                x={originalBBox.left}
+                y={originalBBox.bottom + 2}
+                fontSize={12}
+              >
+                {visuUid}
+                &nbsp;w: {roundString(originalBBox.width, 2)}
+                &nbsp;h: {roundString(originalBBox.height, 2)}
+                &nbsp;x: {roundString(originalBBox.left, 2)}
+                &nbsp;y: {roundString(originalBBox.top, 2)}
+              </text>
 
-        return (
-          <g key={layerId}>
-            <text
-              filter="url(#pap-editor-metrics-text-bg)"
-              dominantBaseline="hanging"
-              x={metrics.sourceBBox.left}
-              y={metrics.sourceBBox.bottom + 2}
-              fontSize={12}
-            >
-              {metrics.sourceUid}
-              &nbsp;w: {roundString(metrics.sourceBBox.width, 2)}
-              &nbsp;h: {roundString(metrics.sourceBBox.height, 2)}
-              &nbsp;x: {roundString(metrics.sourceBBox.left, 2)}
-              &nbsp;y: {roundString(metrics.sourceBBox.top, 2)}
-            </text>
+              {/* {layer?.type === 'text' ? (
+                <circle
+                  r={4}
+                  fill="red"
+                  cx={layer.transform.position.x}
+                  cy={layer.transform.position.y}
+                />
+              ) : null} */}
 
-            {layer?.type === 'text' ? (
-              <circle
-                r={4}
-                fill="red"
-                cx={layer.transform.position.x}
-                cy={layer.transform.position.y}
+              <rect
+                x={originalBBox.left}
+                y={originalBBox.top}
+                width={originalBBox.width}
+                height={originalBBox.height}
+                fill="none"
+                stroke="red"
+                strokeWidth="1"
               />
-            ) : null}
-
-            <rect
-              x={metrics.sourceBBox.left}
-              y={metrics.sourceBBox.top}
-              width={metrics.sourceBBox.width}
-              height={metrics.sourceBBox.height}
-              fill="none"
-              stroke="red"
-              strokeWidth="1"
-            />
-          </g>
-        )
-      })}
+            </g>
+          )
+        },
+      )}
     </svg>
   )
 })

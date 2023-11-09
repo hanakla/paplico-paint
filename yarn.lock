@@ -6951,8 +6951,11 @@ __metadata:
     "@types/react": ^18.2.31
     "@types/react-dom": ^18.2.14
     "@use-gesture/react": ^10.3.0
+    clsx: ^2.0.0
     mitt: ^3.0.1
+    react-error-boundary: ^4.0.11
     react-jss: ^10.10.0
+    react-use-event-hook: ^0.9.6
     react-use-measure: ^2.1.1
     rollup-plugin-node-externals: ^6.1.2
     typescript: ^5.0.4
@@ -6978,6 +6981,11 @@ __metadata:
     node-canvas-webgl: ^0.3.0
     tsx: ^3.14.0
     typescript: ^5.0.4
+  dependenciesMeta:
+    canvas:
+      optional: true
+    node-canvas-webgl:
+      optional: true
   languageName: unknown
   linkType: soft
 
@@ -7045,6 +7053,7 @@ __metadata:
     focus-trap: ^7.5.4
     focus-trap-react: ^10.2.3
     immer: ^10.0.3
+    mitt: ^3.0.1
     monaco-editor: ^0.44.0
     monaco-themes: ^0.4.4
     mousetrap: ^1.6.5
@@ -7052,6 +7061,7 @@ __metadata:
     next: ^14.0.1
     nextra: 2.9.0
     nextra-theme-docs: 2.9.0
+    object-fit-math: ^1.0.0
     polished: ^4.2.2
     react: ^18.2.0
     react-contexify: ^6.0.0
@@ -25996,6 +26006,17 @@ next@latest:
   peerDependencies:
     react: ">=16.13.1"
   checksum: 0a05af404aa054c54d7bc65a1814810093bf136c3ad4b3576a51d8509ee8fc302adfb66405da501fc01e839db557dd0d994b487e651897e36293907bb61458cf
+  languageName: node
+  linkType: hard
+
+"react-error-boundary@npm:^4.0.11":
+  version: 4.0.11
+  resolution: "react-error-boundary@npm:4.0.11"
+  dependencies:
+    "@babel/runtime": ^7.12.5
+  peerDependencies:
+    react: ">=16.13.1"
+  checksum: b3c157fea4e8f78411e9aa0fbf5241f6907b66ede1cd8b7bb22faaeb0339ebeb3dc8e63bf90ef3f740bfa8fd994ca6edf975089cd371b664ad6c2735e7512d38
   languageName: node
   linkType: hard
 

@@ -1,3 +1,5 @@
+import { LogChannel } from '@/Debugging/LogChannel'
+
 export const RenderQueuePriority = {
   finish: 10,
   preview: 5,
@@ -46,31 +48,6 @@ export class RenderReconciler {
     }
   }
 
-  // protected onTaskFinished() {
-  //   const completedTask = this.currentTask
-
-  //   const uncompletedQueues = this.queue.filter(
-  //     (q) => q !== completedTask && q.completed === false,
-  //   )
-
-  //   this.queue = uncompletedQueues
-
-  //   const nextEntry = this.queue.find((q) => q.completed === false)
-
-  //   setTimeout(() => {
-  //     if (nextEntry?.priority === RenderQueuePriority.preview) {
-  //       nextEntry?.abortController.abort()
-  //     }
-  //   }, MS_PER_FRAME * GRACE_FRAMES)
-
-  //   this.currentTask = nextEntry
-
-  //   nextEntry?.render(nextEntry.abortController.signal).finally(() => {
-  //     nextEntry.completed = true
-  //     this.onTaskFinished()
-  //   })
-  // }
-
   protected onTaskFinished() {
     const completedTask = this.currentTask
 
@@ -82,46 +59,59 @@ export class RenderReconciler {
       (aq, bq) => bq.entryAt - aq.entryAt,
     )
 
-    const latestPreviewEntries = sortedUncompletes
-      .filter((q) => q.priority === RenderQueuePriority.preview)
-      .slice(0, 4)
-    const latestFinishEntry = sortedUncompletes
-      .sort((aq, bq) => bq.entryAt - aq.entryAt)
-      .find((q) => q.priority === RenderQueuePriority.finish)
-    const latestIdleEntry = sortedUncompletes
-      .sort((aq, bq) => bq.entryAt - aq.entryAt)
-      .find((q) => q.priority === RenderQueuePriority.idleQue)
+    const latestPreviewEntries = sortedUncompletes.find(
+      (q) => q.priority === RenderQueuePriority.preview,
+    )
+    const latestFinishEntry = sortedUncompletes.find(
+      (q) => q.priority === RenderQueuePriority.finish,
+    )
+    const latestIdleEntry = sortedUncompletes.find(
+      (q) => q.priority === RenderQueuePriority.idleQue,
+    )
 
     const nextEntry =
-      latestFinishEntry ||
-      (latestPreviewEntries.length ? latestPreviewEntries[0] : null) ||
-      latestIdleEntry
+      latestFinishEntry || latestPreviewEntries || latestIdleEntry
 
-    const nextQueue = [
+    let nextQueue = [
       latestFinishEntry,
       // When finish entry exists, drop previous preview queue
-      ...(!latestFinishEntry ? latestPreviewEntries : []),
+      latestFinishEntry ? null : latestPreviewEntries,
       latestIdleEntry,
     ]
       .filter((q): q is NonNullable<typeof q> => q != null)
       .filter((q) => q !== nextEntry)
+      .sort((aq, bq) => bq.entryAt - aq.entryAt)
+
+    if (latestFinishEntry) {
+      nextQueue = nextQueue.filter((q) => {
+        return q.entryAt > latestFinishEntry.entryAt
+      })
+
+      this.currentTask?.abortController.abort()
+    }
 
     const droppedQueues = this.queue.filter((q) => !nextQueue.includes(q))
 
-    // console.log(
-    //   'Render queues: remain',
-    //   this.queue,
-    //   `,Drop ${droppedQueues.length} queues (${
-    //     droppedQueues.filter((q) => q.priority === RenderQueuePriority.finish)
-    //       .length
-    //   } finish, ${
-    //     droppedQueues.filter((q) => q.priority === RenderQueuePriority.preview)
-    //       .length
-    //   } preview, ${
-    //     droppedQueues.filter((q) => q.priority === RenderQueuePriority.idleQue)
-    //       .length
-    //   } idleQue)`,
-    // )
+    if (droppedQueues.length > 0) {
+      LogChannel.l.renderQueue.info(
+        'Render queues pruned: ',
+
+        `Drop ${droppedQueues.length} queues (${
+          droppedQueues.filter((q) => q.priority === RenderQueuePriority.finish)
+            .length
+        } finish, ${
+          droppedQueues.filter(
+            (q) => q.priority === RenderQueuePriority.preview,
+          ).length
+        } preview, ${
+          droppedQueues.filter(
+            (q) => q.priority === RenderQueuePriority.idleQue,
+          ).length
+        } idleQue)`,
+
+        this.queue,
+      )
+    }
 
     droppedQueues.forEach((q) => q.abortController.abort())
 

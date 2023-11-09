@@ -1,17 +1,16 @@
-import { diff, patch, unpatch, Delta } from 'jsondiffpatch'
-// ^-- Do not use star imports or named imports from jsondiffpatch-rc, it will break the build.
+import { arrayBufferSafeDiff, patch, unpatch, Delta } from '@/utils/jsondiff'
 
 import { ICommand } from '../Engine/History/ICommand'
 import { DocumentContext } from '@/Engine'
 import { deepClone } from '@/utils/object'
-import { VectorLayer } from '@/Document/LayerEntity'
+import { VisuElement } from '@/Document'
 
 type Options = {
   /**
    * objects can no be modified by this command for performance reason.
    * use `VectorUpdateObject` instead.
    */
-  updater: (layer: Omit<VectorLayer, 'objects'>) => void
+  updater: (layer: Omit<VisuElement.VectorObjectElement, 'objects'>) => void
 }
 
 /** @deprecated */
@@ -29,33 +28,33 @@ export class VectorUpdateLayer implements ICommand {
   }
 
   public async do(document: DocumentContext): Promise<void> {
-    const layer = document.resolveLayer(this.layerId)?.source.deref()
-    if (!layer) throw new Error('Layer not found')
-    if (layer.layerType !== 'vector') return
+    const visu = document.resolveVisuByUid(this.layerId)
+    if (!visu) throw new Error('Layer not found')
+    if (visu.type !== 'vectorObject') return
 
-    const original = deepClone(layer)
+    const original = deepClone(visu)
     const next = deepClone(original)
     this.options.updater(next)
 
-    this.changesPatch = diff(original, next)
-    patch(layer, this.changesPatch!)
+    this.changesPatch = arrayBufferSafeDiff(original, next)
+    patch(visu, this.changesPatch!)
     document.invalidateLayerBitmapCache(this.layerId)
   }
 
   public async undo(document: DocumentContext): Promise<void> {
-    const layer = document.resolveLayer(this.layerId)?.source.deref()
-    if (!layer) throw new Error('Layer not found')
-    if (layer.layerType !== 'vector') return
+    const visu = document.resolveVisuByUid(this.layerId)
+    if (!visu) throw new Error('Layer not found')
+    if (visu.type !== 'vectorObject') return
     if (!this.changesPatch) return
 
-    unpatch(layer, this.changesPatch)
+    unpatch(visu, this.changesPatch)
     document.invalidateLayerBitmapCache(this.layerId)
   }
 
   public async redo(document: DocumentContext): Promise<void> {
-    const layer = document.resolveLayer(this.layerId)?.source.deref()
+    const layer = document.resolveVisuByUid(this.layerId)
     if (!layer) throw new Error('Layer not found')
-    if (layer.layerType !== 'vector') return
+    if (layer.type !== 'vectorObject') return
     if (!this.changesPatch) return
 
     patch(layer, this.changesPatch)

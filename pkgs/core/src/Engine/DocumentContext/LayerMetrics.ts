@@ -1,14 +1,15 @@
 import { Emitter } from '@/utils/Emitter'
 import { DocumentContext } from './DocumentContext'
 import { PaplicoDocument } from '@/Document'
-import { ROOT_LAYER_NODE_UID } from '@/Document/LayerNode'
+import { ROOT_LAYER_NODE_UID } from '@/Document/Struct/LayerNode'
+import { LogChannel } from '@/Debugging/LogChannel'
 
 export namespace LayerMetrics {
   export type MetricsData = {
-    sourceUid: string
+    visuUid: string
     type: 'canvas' | 'vectorObject' | 'group' | 'text' | undefined
     originalBBox: BBox
-    visuallyBBox: BBox
+    postFilterBBox: BBox
     pathToParent: string[]
     /* 0 is the bottom layer */
     zIndex: number
@@ -26,12 +27,14 @@ export namespace LayerMetrics {
   }
 
   export type BBoxSet = {
+    /** BBox of visu at vector process */
     original: LayerMetrics.BBox
+    /** Bbox of post filtered */
     postFilter: LayerMetrics.BBox
   }
 
   export type Events = {
-    update: void
+    update: { updatedVisuUids: string[] }
   }
 }
 
@@ -123,7 +126,7 @@ export class LayerMetrics extends Emitter<LayerMetrics.Events> {
       }
     }
 
-    flatProc(this.docx.document.getResolvedLayerTree([]), [])
+    flatProc(this.docx.document.layerNodes.getResolvedLayerNodes([]), [])
 
     flatten
       .map(([, metrics, , path], index) => {
@@ -150,14 +153,16 @@ export class LayerMetrics extends Emitter<LayerMetrics.Events> {
   }) {
     clearTimeout(this.batchEmitTimerId)
 
-    for (const [visuUid, { original, postFilter: visually }] of Object.entries(
+    LogChannel.l.layerMetrics('receive', metrices)
+
+    for (const [visuUid, { original, postFilter }] of Object.entries(
       metrices,
     )) {
       const visu = this.docx.resolveVisuByUid(visuUid)
       if (!visu) return
 
       const data: LayerMetrics.MetricsData = this.layerMetrics.get(visuUid) ?? {
-        sourceUid: visuUid,
+        visuUid: visuUid,
         // prettier-ignore
         type:
           visu?.type === 'canvas' ? 'canvas'
@@ -166,7 +171,7 @@ export class LayerMetrics extends Emitter<LayerMetrics.Events> {
           : visu?.type === 'text' ? 'text'
           : undefined,
         originalBBox: original,
-        visuallyBBox: visually,
+        postFilterBBox: postFilter,
         pathToParent: null!,
         zIndex: 0,
       }
@@ -176,26 +181,14 @@ export class LayerMetrics extends Emitter<LayerMetrics.Events> {
 
     this.updateZIndex()
 
-    this.batchEmitTimerId = setTimeout(() => {
-      this.emit('update')
-    }, 10)
+    this.emit('update', { updatedVisuUids: Object.keys(metrices) })
   }
 
-  /** @deprecated */
-  public setEntityMetrics(
-    visuUid: string,
-    sourceBBox: LayerMetrics.BBox,
-    visuallyBBox: LayerMetrics.BBox,
-  ) {
-    this.setVisuMetrices({
-      [visuUid]: {
-        original: sourceBBox,
-        postFilter: visuallyBBox,
-      },
-    })
+  public getAllMetrices() {
+    return [...this.zIndexOrderMetrices]
   }
 
-  public layerAtPoint(x: number, y: number) {
+  public visuAtPoint(x: number, y: number, inNodeOf: string[] | null = null) {
     return [...this.layerMetrics].filter(([uid, data]) => {
       const { left, top, width, height } = data.originalBBox
       return left <= x && x <= left + width && top <= y && y <= top + height

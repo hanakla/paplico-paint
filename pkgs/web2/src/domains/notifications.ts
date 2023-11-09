@@ -1,11 +1,11 @@
 import { Emitter } from '@/utils/emitter'
-import { RasterToolModes, VectorToolModes } from '@paplico/editor'
+import { ToolModes } from '@paplico/editor'
 import { useEffect } from 'react'
 
 export type Notifications =
   | {
       type: 'toolChanged'
-      tool: VectorToolModes | RasterToolModes
+      tool: ToolModes
     }
   | {
       type: 'undo'

@@ -52,15 +52,23 @@ export function useTranslation<T extends Localized<any>>(
   return <K extends keyof T['en']>(
     key: K,
     params: Record<string, string | ReactNode> = {},
+    { onlyText }: { onlyText?: boolean } = {},
   ): any => {
     const text = localed[key]
     if (!text) return null
 
     let includesVNode = false
     const children = text
-      .split(/(\{\{.+?\}\})/g)
+      .split(/((?:\{\{.+?\}\})|(?:<br ?\/>))/g)
       .map((part, i) => {
-        if (!(part.startsWith('{{') && part.endsWith('}}'))) return part
+        if (!onlyText && (part === '<br/>' || part === '<br />')) {
+          includesVNode = true
+          return <br />
+        }
+
+        if (!(part.startsWith('{{') && part.endsWith('}}'))) {
+          return part
+        }
 
         const key = part.slice(2, -2)
         const value = params[key]

@@ -1,8 +1,4 @@
 export { PaplicoDocument } from './Document'
-
-export * from './Visually/index'
-export type { LayerNode } from './LayerNode'
-export type { ColorStop1D } from './Struct/ColorStop1D'
-export type { ColorRGB } from './Struct/ColorRGB'
-export type { ColorRGBA } from './Struct/ColorRGBA'
-export type { Point2D } from './Struct/Point2D'
+export { type VisuElement } from './Visually/VisuElement'
+export { type VisuFilter } from './Visually/VisuFilter'
+export * as visu from './Visually/factory'

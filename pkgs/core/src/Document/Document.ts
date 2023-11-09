@@ -1,8 +1,8 @@
 import { ulid } from '@/utils/ulid'
 import { assign, deepClone } from '@/utils/object'
-import { LayerNode } from './LayerNode'
+import { LayerNode } from './Struct/LayerNode'
 import { PaplicoBlob } from './PaplicoBlob'
-import { VisuElement } from './Visually'
+import { VisuElement } from './Visually/VisuElement'
 import { createGroupVisually } from './Visually/factory'
 import { createNodesController } from './Document.LayerNodes'
 
@@ -28,6 +28,7 @@ export namespace PaplicoDocument {
     /** uid for Visually */
     uid: string
     visu: VisuElement.AnyElement
+    path: string[]
     children: ResolvedLayerNode[]
   }
 }
@@ -86,32 +87,6 @@ export class PaplicoDocument {
 
   public readonly layerNodes = createNodesController(this)
 
-  /**
-   * Get Visually instance combined layer nodes which under of pointed node by `path`
-   * @param path
-   * @returns instance
-   */
-  public getResolvedLayerTree(
-    path: string[],
-  ): PaplicoDocument.ResolvedLayerNode {
-    const node = this.layerNodes.getNodeAtPath(path)
-
-    if (!node)
-      throw new Error(`PaplicoDocument.getResolvedLayerTree: node not found`)
-
-    const layer = this.getVisuByUid(node.visuUid)
-    if (!layer)
-      throw new Error(`PaplicoDocument.getResolvedLayerTree: Visu not found`)
-
-    return {
-      uid: node.visuUid,
-      visu: layer,
-      children: node.children.map((child) => {
-        return this.getResolvedLayerTree([...path, child.visuUid])
-      }),
-    }
-  }
-
   public getVisuByUid(visuUid: string): VisuElement.AnyElement | undefined {
     if (visuUid === '__root__') {
       const vis = createGroupVisually({})
@@ -128,7 +103,7 @@ export class PaplicoDocument {
     return v
   }
 
-  public isStrokeableVisu(
+  public isDrawableVisu(
     visu: VisuElement.AnyElement,
   ): visu is VisuElement.CanvasElement | VisuElement.GroupElement {
     return visu.type === 'canvas' || visu.type === 'group'

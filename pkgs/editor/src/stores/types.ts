@@ -1,22 +1,14 @@
-export const RasterToolModes = {
-  cursor: 'cursor',
-  stroking: 'stroking',
-  erasing: 'erasing',
-} as const
-export type RasterToolModes =
-  (typeof RasterToolModes)[keyof typeof RasterToolModes]
-
-export const VectorToolModes = {
+export const ToolModes = {
   none: 'none',
-  stroking: 'stroking',
   objectTool: 'objectTool',
+  eraserTool: 'eraserTool',
+  strokingTool: 'strokingTool',
   pointTool: 'pointTool',
-  vectorPen: 'vectorPen',
+  vectorPenTool: 'vectorPenTool',
   rectangleTool: 'rectangleTool',
   ellipseTool: 'ellipseTool',
 } as const
-export type VectorToolModes =
-  (typeof VectorToolModes)[keyof typeof VectorToolModes]
+export type ToolModes = (typeof ToolModes)[keyof typeof ToolModes]
 
 export const EditorTypes = {
   raster: 'raster',

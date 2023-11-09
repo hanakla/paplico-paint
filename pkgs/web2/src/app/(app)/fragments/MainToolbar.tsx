@@ -27,7 +27,7 @@ import { useIsomorphicLayoutEffect, useToggle } from 'react-use'
 import { useModal } from '@/components/Dialog'
 import { FileSaveDialog } from '@/modals/FileSaveDialog'
 import { letDownload } from '@hanakla/arma'
-import { storePicker } from '@/utils/zutrand'
+import { storePicker } from '@/utils/zustand'
 import { Skeleton } from '@/components/Skeleton'
 import { pick } from '@/utils/object'
 import { ToolSelectPane } from './MainToolbar/ToolSelectPane'
@@ -46,7 +46,7 @@ export const MainToolbar = memo(
     { className, x, y, onPositionChanged },
     ref,
   ) {
-    const { pplc: pap } = usePaplicoInstance()
+    const { pplc } = usePaplicoInstance()
     const { currentBrush, strokeComposition } = initializeOnlyUseEngineStore(
       (s) => pick(s.engineState, ['currentBrush', 'strokeComposition']),
     )
@@ -110,11 +110,11 @@ export const MainToolbar = memo(
           break
         }
         case 'png': {
-          binary = await pap!.exporters.png({ dpi: 150 })
+          binary = await pplc!.exporters.png({ dpi: 150 })
           break
         }
         case 'psd': {
-          binary = await pap!.exporters.psd({ keepLayers: true })
+          binary = await pplc!.exporters.psd({ keepLayers: true })
           break
         }
       }

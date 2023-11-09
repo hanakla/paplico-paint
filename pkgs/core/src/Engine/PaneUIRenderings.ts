@@ -1,4 +1,4 @@
-import { LayerFilter, VectorExternalAppearanceSetting } from '@/Document'
+import { VisuFilter } from '@/Document'
 import { type AppearanceRegistry } from './Registry/AppearanceRegistry'
 import { type BrushRegistry } from './Registry/BrushRegistry'
 import { type Paplico } from './Paplico'
@@ -127,9 +127,7 @@ export class PaneUIRenderings {
     }
   }
 
-  public renderFilterPane<
-    T extends LayerFilter<any> | VectorExternalAppearanceSetting<any>,
-  >(
+  public renderFilterPane<T extends VisuFilter.Structs.PostProcessSetting<any>>(
     layerUid: string,
     entry: T,
     { onSettingsChange }: { onSettingsChange?: (next: T) => void } = {},

@@ -2,7 +2,6 @@ import { Paplico } from '@paplico/core-new'
 import { EngineStore } from './stores/engine'
 import { EditorStore, layerTypeToEditorType } from './stores/editor'
 import { StoreApi } from 'zustand'
-import { RasterToolModes, VectorToolModes } from './stores/types'
 import { Emitter } from 'mitt'
 import { PapEditorEvents } from '.'
 
@@ -19,6 +18,7 @@ export function bind(
   engineStore.getState()._setEngineState(paplico.state)
   engineStore.getState().set({ busyState: paplico.state.busy })
 
+  // Editor type handling by stroking target
   {
     const currentEditorType = editorStore.getState().editorType
     const nextEditorType = layerTypeToEditorType(paplico.activeVisu?.visuType)
@@ -33,22 +33,20 @@ export function bind(
     editorStore.setState({
       editorType: nextEditorType,
     })
-  }
 
-  {
-    editorStore.setState({
-      draggingThreadholdRealPixels: settings.draggingThreadholdRealPixels,
+    paplico.on('strokingTargetChanged', ({ current }) => {
+      editorStore.setState({
+        strokingTarget: current,
+      })
     })
   }
+
+  editorStore.setState({
+    draggingThreadholdRealPixels: settings.draggingThreadholdRealPixels,
+  })
 
   paplico.on('stateChanged', ({ busy, ...state }) => {
     engineStore.setState((prv) => ({ state, busyState: busy }))
-  })
-
-  paplico.on('strokingTargetChanged', ({ current }) => {
-    editorStore.setState({
-      strokingTarget: current,
-    })
   })
 
   paplico.on('documentChanged', ({ current }) => {
@@ -72,13 +70,13 @@ export function bind(
 
   //   if (layerType === 'raster') {
   //     if (
-  //       rasterToolMode !== RasterToolModes.stroking &&
+  //       rasterToolMode !== RasterToolModes.strokingTool &&
   //       rasterToolMode !== RasterToolModes.erasing
   //     ) {
   //       e.preventDefault()
   //     }
   //   } else if (layerType === 'vector') {
-  //     if (vectorToolMode !== VectorToolModes.stroking) {
+  //     if (vectorToolMode !== VectorToolModes.strokingTool) {
   //       e.preventDefault()
   //     }
   //   } else {

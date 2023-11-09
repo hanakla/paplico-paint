@@ -1,7 +1,7 @@
 import { usePaplicoInstance } from '@/domains/engine'
 import { memo } from 'react'
 import { rgbaToPapColor, useToolbarStore } from './toolbar.store'
-import { storePicker } from '@/utils/zutrand'
+import { storePicker } from '@/utils/zustand'
 import { usePropsMemo } from '@/utils/hooks'
 import useEvent from 'react-use-event-hook'
 import {

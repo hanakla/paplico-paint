@@ -25,7 +25,7 @@ export class SVGExporter implements IExporter {
       throw new Error('SVGExporter: No document is opened')
     }
 
-    const targetNode = paplico.currentDocument.getResolvedLayerTree(
+    const targetNode = paplico.currentDocument.layerNodes.getResolvedLayerNodes(
       options.targetNodePath ?? [],
     )
     if (!targetNode) {

@@ -2,8 +2,7 @@ import { pathBounds } from '@/fastsvg/pathBounds'
 import { VisuElement } from '@/Document'
 import { type Point2D } from '@/Document/Struct/Point2D'
 import { vectorPathPointsToSVGDCommandArray } from '@/index-ext-brush'
-import { absNormalizePath } from '@/fastsvg/absNormalizePath'
-import DOMMatrix from '@thednp/dommatrix'
+import { Matrix2D } from '@/Math/matrix2d'
 
 export const addPoint2D = (a: Point2D, b: Point2D) => ({
   x: a.x + b.x,
@@ -15,15 +14,33 @@ export const multiplyPoint2D = (a: Point2D, b: Point2D) => ({
   y: a.y * b.y,
 })
 
-export const matrixToCanvasMatrix = (m: DOMMatrix) => {
+export const matrixToCanvasMatrix = (m: Matrix2D) => {
   return [m.a, m.b, m.c, m.d, m.e, m.f] as const
 }
 
-export const layerTransformToMatrix = (trns: VisuElement.ElementTransform) => {
-  return new DOMMatrix()
+export const multiplyMatrix = (a: Matrix2D, b: Matrix2D) => {
+  return a.multiply(b)
+}
+
+export const composeVisuTransformsToDOMMatrix = (
+  a: VisuElement.ElementTransform,
+  b: VisuElement.ElementTransform,
+) => {
+  return multiplyMatrix(visuTransformToMatrix2D(a), visuTransformToMatrix2D(b))
+}
+
+export const uncomposeVisuTransformsToDOMMatrix = (
+  a: VisuElement.ElementTransform,
+  b: VisuElement.ElementTransform,
+) => {
+  return multiplyMatrix(visuTransformToMatrix2D(a), visuTransformToMatrix2D(b))
+}
+
+export const visuTransformToMatrix2D = (trns: VisuElement.ElementTransform) => {
+  return new Matrix2D()
     .translate(trns.position.x, trns.position.y)
-    .scale(trns.scale.x, trns.scale.y)
-    .rotate(0, 0, trns.rotate)
+    .scale([trns.scale.x, trns.scale.y])
+    .rotateZ(trns.rotate)
 }
 
 export const vectorObjectTransformToMatrix = (
@@ -31,11 +48,11 @@ export const vectorObjectTransformToMatrix = (
 ) => {
   const bbx = calcVectorBoundingBox(obj)
 
-  return new DOMMatrix()
+  return new Matrix2D()
     .translate(bbx.width / 2, bbx.height / 2)
     .translate(obj.transform.position.x, obj.transform.position.y)
-    .scale(obj.transform.scale.x, obj.transform.scale.y)
-    .rotate(0, 0, obj.transform.rotate)
+    .scale([obj.transform.scale.x, obj.transform.scale.y])
+    .rotateZ(obj.transform.rotate)
     .translate(-bbx.width / 2, -bbx.height / 2)
 }
 

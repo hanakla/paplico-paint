@@ -34,6 +34,15 @@ export const mergeToNew: Merger = (...obj: any[]) => {
   return Object.assign({}, ...obj)
 }
 
+export const deepCloneAndUpdate = <T>(
+  t: T,
+  updater: (t: RemoveReadonly<T>) => void,
+) => {
+  const clone = deepClone(t)
+  updater(clone)
+  return clone
+}
+
 export const shallowEquals = (prev: any, next: any) => {
   if (Object.is(prev, next)) return true
   if (typeof prev !== typeof next) return false

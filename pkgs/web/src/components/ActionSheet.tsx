@@ -60,7 +60,6 @@ export const ActionSheet = forwardRef<HTMLDivElement, Props>(
     })
 
     const handleClickBackdrop = useFunk((e: MouseEvent<HTMLDivElement>) => {
-      console.log(e.target, e.currentTarget)
       if (!DOMUtils.isSameElement(e.target, e.currentTarget)) return
       onClose()
     })
@@ -73,6 +72,7 @@ export const ActionSheet = forwardRef<HTMLDivElement, Props>(
       <ActionSheetContext.Provider value={fill ? 'fill' : 'split'}>
         <div {...props}>
           {backdrop && (
+            // @ts-expect-error
             <animated.div
               // backdrop
               css={`
@@ -91,7 +91,6 @@ export const ActionSheet = forwardRef<HTMLDivElement, Props>(
               onClick={handleClickBackdrop}
             />
           )}
-
           <animated.div
             ref={ref}
             css={`

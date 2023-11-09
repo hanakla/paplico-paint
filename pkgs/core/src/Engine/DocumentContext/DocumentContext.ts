@@ -6,7 +6,7 @@ import { ICommand } from '@/Engine/History/ICommand'
 import { PreviewStore } from '@/Engine/DocumentContext/PreviewStore'
 import { Emitter } from '@/utils/Emitter'
 import { LayerMetrics } from './LayerMetrics'
-import { VectorObject, VisuElement } from '@/Document'
+import { VisuElement } from '@/Document'
 import {
   createImageBitmapImpl,
   createImageData,
@@ -15,6 +15,7 @@ import {
   PPLCOptionInvariantViolationError,
   PPLCInvariantViolationError,
 } from '@/Errors'
+import { rescue, throwLaterIfFailure } from '@/utils/rescue'
 
 export namespace DocumentContext {
   export type VisuallyPointer = {
@@ -40,7 +41,7 @@ export namespace DocumentContext {
 
   export type Events = {
     invalidateVectorPathCacheRequested: {
-      object: VectorObject
+      object: VisuElement.VectorObjectElement
     }
     strokingTargetChanged: {
       current: StrokingTarget | null
@@ -115,37 +116,24 @@ export class DocumentContext extends Emitter<DocumentContext.Events> {
     return this._strokingTargetVisu
   }
 
-  public setStrokingTarget(
-    path: string[] | null | undefined,
-    {
-      __internal_skipEmit,
-    }: {
-      __internal_skipEmit?: boolean
-    } = {},
-  ) {
+  public setStrokingTarget(path: string[] | null | undefined): boolean {
     if (!path) {
       this._strokingTarget = null
       this._strokingTargetVisu = null
       this.emit('strokingTargetChanged', { current: null })
-      return
+      return true
     }
 
     const doc = this.document
 
     const target = doc.layerNodes.getNodeAtPath(path)
     if (!target) {
-      throw new PPLCOptionInvariantViolationError(
-        `Paplico.enterLayer: Layer node not found: /${path.join('/')}`,
-      )
+      return false
     }
 
     const visu = doc.getVisuByUid(target.visuUid)!
-    if (!doc.isStrokeableVisu(visu)) {
-      throw new PPLCOptionInvariantViolationError(
-        `Paplico.enterLayer: Layer node is can not be stroking target: /${path.join(
-          '/',
-        )}`,
-      )
+    if (!doc.isDrawableVisu(visu)) {
+      return false
     }
 
     this._strokingTarget = {
@@ -157,11 +145,11 @@ export class DocumentContext extends Emitter<DocumentContext.Events> {
 
     this._strokingTargetVisu = visu
 
-    console.info(`Enter layer: /${path.join('/')}`)
+    throwLaterIfFailure([
+      rescue(() => this.emit('strokingTargetChanged', { current: null })),
+    ])
 
-    if (!__internal_skipEmit) {
-      this.emit('strokingTargetChanged', { current: this._strokingTarget })
-    }
+    return true
   }
 
   public getPreviewImage(layerUid: string) {
@@ -294,7 +282,6 @@ export class DocumentContext extends Emitter<DocumentContext.Events> {
     }
 
     if (visu.type !== 'group' && visu.type !== 'canvas') {
-      console.warn('Update bitmap cache ignoring for primitive Visu', visu)
       return
     }
 
@@ -322,28 +309,14 @@ export class DocumentContext extends Emitter<DocumentContext.Events> {
     return ref.deref() as T | undefined
   }
 
-  public updateObjectMetrics(metrices: Record<string, LayerMetrics.BBoxSet>) {
-    const entries = Object.entries(metrices)
-
-    for (let idx = 0, l = entries.length; idx < l; idx++) {
-      const [uid, data] = entries[idx]
-      this.layerMetrics.setEntityMetrics(uid, data.original, data.postFilter)
-    }
-  }
-
-  public updateLayerMetrics(metrices: Record<string, LayerMetrics.BBoxSet>) {
-    const entries = Object.entries(metrices)
-
-    for (let idx = 0, l = entries.length; idx < l; idx++) {
-      const [uid, data] = entries[idx]
-      this.layerMetrics.setEntityMetrics(uid, data.original, data.postFilter)
-    }
+  public updateVisuMetrices(metrices: Record<string, LayerMetrics.BBoxSet>) {
+    this.layerMetrics.setVisuMetrices(metrices)
   }
 
   public getLayerMetrics(layerUid: string) {
     const layer = this.document.visuElements.find((l) => l.uid === layerUid)
     if (!layer) return
 
-    return this.layerMetrics.get(layer?.uid)
+    return this.layerMetrics.getLayerMetrics(layer?.uid)
   }
 }

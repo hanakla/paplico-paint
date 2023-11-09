@@ -1,4 +1,4 @@
-export function chainAbortController(
+export function chainSignalToAbortController(
   source?: AbortSignal,
   chainTo?: AbortController,
 ) {

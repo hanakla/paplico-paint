@@ -9,22 +9,25 @@ import { createRoot } from 'react-dom/client'
 import { EditorRoot } from './editors/EditorRoot'
 import { StoresContext, createEditorStore, createEngineStore } from './store'
 import { themeVariables } from './theme'
-import { EditorTypes, RasterToolModes, VectorToolModes } from './stores/types'
+import { EditorTypes, ToolModes } from './stores/types'
 import { bind } from './bind'
 import { createEmitterStore } from './stores/emittter'
 import { SyncStoreToPaplico } from './editors/SyncStoreToPaplico'
-export { EditorTypes, VectorToolModes, RasterToolModes } from './stores/types'
+import { MutableRefObject, createRef } from 'react'
+import { ErrorBoundary } from 'react-error-boundary'
+import { ErrorFallback } from './editors/ErrorFallback'
+export { EditorTypes, ToolModes } from './stores/types'
 
 export type PapEditorHandle = ReturnType<typeof bindPaplico>
 export type PapEditorEvents = {
   editorTypeChanged: { prev: EditorTypes; next: EditorTypes }
-  vectorToolModeChanged: { prev: VectorToolModes; next: VectorToolModes }
-  rasterToolModeChanged: { prev: RasterToolModes; next: RasterToolModes }
+  toolModeChanged: { prev: ToolModes; next: ToolModes }
   objectSelectionChanged: { selectedObjectIds: string[] }
 }
 
 export function bindPaplico(
   attachTarget: HTMLElement,
+  canvas: HTMLCanvasElement,
   paplico: Paplico,
   {
     theme = themeVariables,
@@ -47,18 +50,24 @@ export function bindPaplico(
   })
 
   const root = createRoot(attachTarget)
+  const canvasRef: MutableRefObject<HTMLCanvasElement> = { current: canvas }
 
   root.render(
-    <StoresContext.Provider
-      value={{
-        editor: editorStore,
-        engine: engineStore,
-        emitter: emitterStore,
-      }}
-    >
-      <SyncStoreToPaplico />
-      <EditorRoot />
-    </StoresContext.Provider>,
+    <ErrorBoundary FallbackComponent={ErrorFallback}>
+      <StoresContext.Provider
+        value={{
+          editor: editorStore,
+          engine: engineStore,
+          emitter: emitterStore,
+        }}
+      >
+        <SyncStoreToPaplico />
+        <EditorRoot
+        // canvasRef={canvasRef}
+        />
+      </StoresContext.Provider>
+      ,
+    </ErrorBoundary>,
   )
 
   return {
@@ -106,47 +115,17 @@ export function bindPaplico(
       return editorStore.getState().editorType
     },
 
-    getRasterToolMode: () => {
-      return editorStore.getState().rasterToolMode
+    getToolMode: () => {
+      return editorStore.getState().toolMode
     },
-    setRasterToolMode: (
-      mode: RasterToolModes,
-      ignoreEditorTypeForce?: boolean,
-    ) => {
-      if (
-        !ignoreEditorTypeForce &&
-        editorStore.getState().editorType !== 'raster'
-      )
-        return
 
-      emitterStore.emit('rasterToolModeChanged', {
-        prev: editorStore.getState().rasterToolMode,
+    setToolMode: (mode: ToolModes) => {
+      emitterStore.emit('toolModeChanged', {
+        prev: editorStore.getState().toolMode,
         next: mode,
       })
 
-      editorStore.setState({ rasterToolMode: mode })
-    },
-
-    getVectorToolMode: () => {
-      return editorStore.getState().vectorToolMode
-    },
-
-    setVectorToolMode: (
-      mode: VectorToolModes,
-      ignoreEditorTypeForce?: boolean,
-    ) => {
-      if (
-        !ignoreEditorTypeForce &&
-        editorStore.getState().editorType !== 'vector'
-      ) {
-        return
-      }
-
-      emitterStore.emit('vectorToolModeChanged', {
-        prev: editorStore.getState().vectorToolMode,
-        next: mode,
-      })
-      editorStore.setState({ vectorToolMode: mode })
+      editorStore.setState({ toolMode: mode })
     },
 
     /**

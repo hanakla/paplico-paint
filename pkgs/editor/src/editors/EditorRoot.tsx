@@ -5,11 +5,12 @@ import { themeVariables } from '@/theme'
 import { createUseStyles } from 'react-jss'
 import useMeasure from 'react-use-measure'
 import { storePicker } from '@/utils/zustand'
-import { MetricsView } from './MetricsView'
 import { TextEditor } from './TextEditor'
+import { MetricsView } from './MetricsView'
 
 type Props = {
   theme?: typeof themeVariables
+  // canvasRef?: React.RefObject<SVGSVGElement>
 }
 
 export const EditorRoot = memo(function EditorRoot({
@@ -76,6 +77,8 @@ export const EditorRoot = memo(function EditorRoot({
     })
   }, [brushSizePreview])
 
+  // useEffect(() => {})
+
   useEffect(() => {
     setEditorState({
       _rootBBox: bound,
@@ -101,6 +104,7 @@ export const EditorRoot = memo(function EditorRoot({
         r={brushSizePreview?.size ?? 0}
       />
       <MetricsView width={size.width} height={size.height} />
+
       {editorType === 'vector' && (
         <VectorEditor
           rootBBox={bound}
@@ -108,6 +112,7 @@ export const EditorRoot = memo(function EditorRoot({
           height={size.height}
         />
       )}
+
       {editorType === 'text' && (
         <TextEditor width={size.width} height={size.height} />
       )}

@@ -5,7 +5,7 @@ export { PPLCDisposedInstanceError } from './PPLCDisposedInstanceError'
 export { PPLCCanvasAllocationError } from './PPLCCanvasAllocationError'
 export { PPLCCommandExecutionError } from './PPLCCommandExecutionError'
 export { PPLCExportError } from './PPLCExportError'
-export { PPLCTargetNodeNotFoundError } from './PPLCTargetNodeNotFoundError'
+export { PPLCTargetEntityNotFoundError } from './PPLCTargetEntityNotFoundError'
 export { PPLCInvariantViolationError } from './PPLCInvariantViolationError'
 
 // warns

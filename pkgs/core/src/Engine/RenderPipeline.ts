@@ -6,7 +6,7 @@ import {
   setCanvasSize,
 } from '@/utils/canvas'
 import { RenderCycleLogger } from './RenderCycleLogger'
-import { VisuTransformOverrides, VectorRenderer } from './VectorRenderer'
+import { VectorRenderer } from './VectorRenderer'
 import { DocumentContext } from './DocumentContext/DocumentContext'
 import { RenderPhase, Viewport } from './types'
 import { PPLCAbortError, PPLCInvariantViolationError } from '@/Errors'
@@ -16,43 +16,46 @@ import { AppearanceRegistry } from '@/Engine/Registry/AppearanceRegistry'
 import { FilterWebGLContext } from './Filter/FilterContextAbst'
 import { ThreeFilterContext } from './Filter/ThreeFilterContext'
 import { deepClone } from '@/utils/object'
-import {
-  createBBox,
-  createEmptyBBox,
-  type LayerMetrics,
-} from './DocumentContext/LayerMetrics'
+import { type LayerMetrics } from './DocumentContext/LayerMetrics'
 import {
   CanvasToken,
   RenderCommands,
   RenderSource,
   RenderTargets,
-  buildRenderSchedule,
-} from './Scheduler'
+} from './Scheduler.Const'
+import { buildRenderSchedule } from './Scheduler'
 import { unreachable } from '@/utils/unreachable'
 import { PaplicoError } from '@/Errors/PaplicoError'
 import { Canvas2DAllocator } from '@/Infra/Canvas2DAllocator'
-import { logImage } from '@/utils/DebugHelper'
 import { LogChannel } from '@/Debugging/LogChannel'
-import { layerTransformToMatrix } from './VectorUtils'
+import { multiplyMatrix, visuTransformToMatrix2D } from './VectorUtils'
+import { formatStack } from '@/utils/debug-utils'
 
 export namespace RenderPipeline {
+  /**
+   * Override rendering result of visu, it only specify to Group or Canvas node only
+   * Otherwise, it will be ignored
+   */
+  export type LayerNodeOverrides = {
+    [visuUid: string]: HTMLCanvasElement | ImageBitmap
+  }
+
   export type RenderOptions = {
     abort?: AbortSignal
     viewport: Viewport
-    override?: { [layerId: string]: HTMLCanvasElement | ImageBitmap }
-    transformOverrides?: VisuTransformOverrides
+    layerNodeOverrides?: LayerNodeOverrides
+    transformOverrides?: VectorRenderer.VisuTransformOverrides
     pixelRatio: number
     phase: RenderPhase
     logger: RenderCycleLogger
 
-    updateCache?: true
+    /** Update bitmap cache in render time, only rendered node not target of any overrides */
+    updateCacheIfAble?: boolean
   }
 
   export type RenderResult = {
-    /** Newer calcurated bboxes, not all */
-    layerBBoxes: Record<string, LayerMetrics.BBoxSet>
-    /** Newer calcurated bboxes, not all */
-    objectBBoxes: Record<string, LayerMetrics.BBoxSet>
+    /** Newer calcurated bboxes (not all visues included) */
+    visuMetrics: Record<string, LayerMetrics.BBoxSet>
     stats: any
   }
 }
@@ -60,6 +63,8 @@ export namespace RenderPipeline {
 export class RenderPipeline {
   protected filterRegistry: AppearanceRegistry
   protected papGLContext: AtomicResource<FilterWebGLContext>
+
+  protected precompBitmapCache: Record<string, ImageBitmap> = {}
 
   constructor(options: {
     filterRegistry: AppearanceRegistry
@@ -97,43 +102,52 @@ export class RenderPipeline {
     renderer: VectorRenderer,
     options: RenderPipeline.RenderOptions,
   ): Promise<RenderPipeline.RenderResult | undefined> {
-    const root = docx.document.getResolvedLayerTree([])
+    const root = docx.document.layerNodes.getResolvedLayerNodes([])
 
     return this.renderNode(output, docx, root, renderer, {
       ...options,
-      updateCache: true,
+      updateCacheIfAble: true,
     })
   }
 
   public async renderNode(
     output: CanvasRenderingContext2D,
-    docCx: DocumentContext,
+    docx: DocumentContext,
     startNode: PaplicoDocument.ResolvedLayerNode,
     renderer: VectorRenderer,
     {
       abort,
       viewport,
-      override,
+      layerNodeOverrides,
       transformOverrides,
       pixelRatio,
       phase,
       logger,
-      updateCache,
+      updateCacheIfAble: updateCache,
     }: RenderPipeline.RenderOptions,
   ): Promise<RenderPipeline.RenderResult | undefined> {
-    LogChannel.l.pipeline('Start renderNode', startNode)
+    LogChannel.l.pipeline(
+      '⏬⏬⏬⏬⏬⏬⏬⏬⏬⏬⏬⏬⏬⏬⏬⏬⏬⏬\nStart renderNode',
+      {
+        startNode,
+        transformOverrides,
+        layerNodeOverrides,
+      },
+    )
+    LogChannel.l.pipeline('  Requested by:\n' + formatStack(new Error(), 2))
 
-    const { tasks: schedules } = buildRenderSchedule(startNode, docCx, {
-      layerNodeOverides: override,
+    const { tasks: schedules } = buildRenderSchedule(startNode, docx, {
+      layerNodeOverrides,
+      // prevCacheBreakerNodes: this.previousCacheBreakerNodes,
     })
 
-    LogChannel.l.pipelineSchedule('scheduled', schedules)
+    LogChannel.l.pipeline('scheduled', schedules)
 
     const canvasByToken = new WeakMap<CanvasToken, CanvasRenderingContext2D>()
-    const canvasByRole: {
-      [role: string]: CanvasRenderingContext2D | undefined
-    } = {}
     let borrowedCanvases = new Set()
+
+    const usedPrecompKeys = new Set<string>()
+    const precompBitmapCache = this.precompBitmapCache
 
     const tmpVectorOutCx = Canvas2DAllocator.borrow({
       width: viewport.width,
@@ -142,13 +156,13 @@ export class RenderPipeline {
     })
     borrowedCanvases.add(tmpVectorOutCx)
 
+    // const cacheBreakerNodes: Record<string, boolean> = {}
     let usedCanvasCount = 1
     let dynamicCanvasCount = 0
     let clearCount = 0
     let draws = 0
 
-    const layerMetrics: Record<string, LayerMetrics.BBoxSet> = {}
-    const objectMetrics: Record<string, LayerMetrics.BBoxSet> = {}
+    const visuMetrics: Record<string, LayerMetrics.BBoxSet> = {}
 
     try {
       const predest = Canvas2DAllocator.borrow({
@@ -160,28 +174,54 @@ export class RenderPipeline {
       borrowedCanvases.add(predest)
 
       for (const task of schedules) {
-        const { command } = task
+        switch (task.command) {
+          case RenderCommands.DRAW_OVERRIDED_SOURCE_TO_DEST: {
+            const sourceImage = (await getSource(task.source))!
+            const targetCanvas = getRenderTarget(task.renderTarget, {
+              width: viewport.width,
+              height: viewport.height,
+            })!
 
-        switch (command) {
+            draws++
+
+            saveAndRestoreCanvas(targetCanvas, (cx) => {
+              cx.globalCompositeOperation =
+                layerBlendModeToCanvasCompositeOperation(task.blendMode)
+              cx.globalAlpha = task.opacity
+
+              cx.setTransform(
+                multiplyMatrix(
+                  visuTransformToMatrix2D(task.parentTransform),
+                  visuTransformToMatrix2D(task.sourceVisu.transform),
+                ),
+              )
+
+              cx.drawImage(sourceImage.image, 0, 0)
+            })
+
+            break
+          }
           case RenderCommands.DRAW_SOURCE_TO_DEST: {
-            const {
-              source,
-              renderTarget,
-              blendMode,
-              opacity,
-              clearTarget,
-              transform,
-            } = task
-            if (renderTarget === RenderTargets.NONE) break
+            if (task.renderTarget === RenderTargets.NONE) break
 
-            const sourceImage = await getSource(source, transform)
-            const targetCanvas = getRenderTarget(renderTarget, {
+            const sourceImage = await getSource(
+              task.source,
+              task.parentTransform,
+            )
+            const targetCanvas = getRenderTarget(task.renderTarget, {
               width: viewport.width,
               height: viewport.height,
             })
 
             if (!sourceImage) {
-              throw new PaplicoError(`Invalid source: ${source}`)
+              throw new PaplicoError(`Invalid source: ${task.source}`)
+            }
+
+            if (!sourceImage.transformResolved) {
+              LogChannel.l.pipeline.error('Transform unresolved source', task)
+              throw new PPLCInvariantViolationError(
+                `Transform unresolved source: ${task.source}`,
+              )
             }
 
             if (!targetCanvas) break
@@ -190,16 +230,9 @@ export class RenderPipeline {
 
             saveAndRestoreCanvas(targetCanvas, (cx) => {
               cx.globalCompositeOperation =
-                layerBlendModeToCanvasCompositeOperation(blendMode)
+                layerBlendModeToCanvasCompositeOperation(task.blendMode)
 
-              cx.globalAlpha = opacity
-              setCanvasSize(cx.canvas, sourceImage.width, sourceImage.height)
-
-              if (transform && !sourceImage.transformResolved) {
-                cx.setTransform(layerTransformToMatrix(transform))
-              }
-
-              if (clearTarget) clearCanvas(cx)
+              cx.globalAlpha = task.opacity
 
               cx.drawImage(sourceImage.image, 0, 0)
             })
@@ -245,7 +278,7 @@ export class RenderPipeline {
 
           case RenderCommands.APPLY_INTERNAL_OBJECT_FILTER: {
             const { renderTarget, layerUid, filter, clearTarget } = task
-            let { object } = task
+            let { objectVisu: object } = task
 
             const targetCanvas = getRenderTarget(renderTarget, {
               width: viewport.width,
@@ -262,10 +295,12 @@ export class RenderPipeline {
             object =
               transformOverrides?.[layerUid]?.(deepClone(object)) ?? object
 
+            if (object.type !== 'vectorObject') continue
+
             if (filter.kind === 'fill') {
               await renderer.renderFill(
-                targetCanvas,
                 object.path,
+                targetCanvas,
                 filter.fill,
                 {
                   transform: object.transform,
@@ -277,8 +312,8 @@ export class RenderPipeline {
               )
             } else if (filter.kind === 'stroke') {
               await renderer.renderStroke(
-                targetCanvas.canvas,
                 object.path,
+                targetCanvas,
                 filter.stroke,
                 {
                   transform: object.transform,
@@ -296,7 +331,7 @@ export class RenderPipeline {
             break
           }
 
-          case RenderCommands.APPLY_EXTERNAL_OBJECT_FILTER: {
+          case RenderCommands.APPLY_POSTPROCESS_FILTER: {
             const { source, renderTarget, filter } = task
 
             const sourceImage = await getSource(source)
@@ -380,15 +415,16 @@ export class RenderPipeline {
       LogChannel.l.pipeline('End renderNode', stats)
 
       return {
-        layerBBoxes: layerMetrics,
-        objectBBoxes: objectMetrics,
+        visuMetrics,
         stats,
       }
     } finally {
       borrowedCanvases.forEach((cx) => Canvas2DAllocator.return(cx))
     }
 
+    ///////////////////////////////
     // getter functions
+    ///////////////////////////////
 
     function getRenderTarget(
       target: RenderTargets,
@@ -441,7 +477,7 @@ export class RenderPipeline {
         }
       } else if ('bitmap' in source) {
         return {
-          transformResolved,
+          transformResolved: false,
           image: source.bitmap,
           width: source.bitmap.width,
           height: source.bitmap.height,
@@ -460,20 +496,25 @@ export class RenderPipeline {
             visuNode,
           )
 
-          transformResolved = false
-          layerBitmap = (await docCx.getOrCreateLayerNodeBitmapCache(
-            visuNode.uid,
-          ))!
+          const bbox = await renderer.renderCanvasVisu(
+            visuNode.visu,
+            tmpVectorOutCx,
+            docx,
+            {
+              phase,
+              pixelRatio,
+              viewport,
+              logger,
+              parentTransform,
+              transformOverrides,
+              abort,
+            },
+          )
 
-          layerMetrics[visuNode.uid] ??= {
-            original: createBBox({
-              left: visuNode.visu.transform.position.x,
-              top: visuNode.visu.transform.position.y,
-              width: layerBitmap.width,
-              height: layerBitmap.height,
-            }),
-            postFilter: createEmptyBBox(),
-          }
+          transformResolved = true
+          layerBitmap = tmpVectorOutCx.canvas
+
+          visuMetrics[visuNode.uid] = bbox
         } else if (
           visuNode.visu.type === 'vectorObject' ||
           visuNode.visu.type === 'text'
@@ -489,7 +530,7 @@ export class RenderPipeline {
             !!transformOverrides?.[visuNode.uid]
 
           const canUseBitmapCache =
-            docCx.hasLayerNodeBitmapCache(visuNode.uid, requestSize) &&
+            docx.hasLayerNodeBitmapCache(visuNode.uid, requestSize) &&
             !hasOverrideForThisVectorVisu
 
           if (canUseBitmapCache) {
@@ -497,19 +538,22 @@ export class RenderPipeline {
             logger.info('Use cached bitmap for vector layer', visuNode.uid)
 
             transformResolved = true
-            layerBitmap = (await docCx.getOrCreateLayerNodeBitmapCache(
+            layerBitmap = (await docx.getOrCreateLayerNodeBitmapCache(
               visuNode.uid,
               requestSize,
             ))!
           } else {
+            // cacheBreakerNodes[visuNode.path.join('/')] = true
+
             LogChannel.l.pipeline.info(
               'Cache is invalidated, re-render vector layer',
               visuNode.uid,
             )
 
-            const { layerBBox, objectsBBox } = await renderer.renderVectorVisu(
-              tmpVectorOutCx,
+            transformResolved = true
+            visuMetrics[visuNode.uid] = await renderer.renderVectorVisu(
               visuNode.visu,
+              tmpVectorOutCx,
               {
                 viewport,
                 pixelRatio,
@@ -521,34 +565,17 @@ export class RenderPipeline {
               },
             )
 
-            layerMetrics[visuNode.uid] = layerBBox
-            for (const [uid, bbox] of Object.entries(objectsBBox)) {
-              objectMetrics[uid] = bbox
-            }
+            layerBitmap = tmpVectorOutCx.canvas
 
             if (abort?.aborted) throw new PPLCAbortError()
 
-            if (hasOverrideForThisVectorVisu) {
-              // For perfomance, avoid getImageData when using override
-              const overrided = Canvas2DAllocator.borrow({
-                width: viewport.width,
-                height: viewport.height,
-              })
-              clearCount++
-              overrided.drawImage(tmpVectorOutCx.canvas, 0, 0)
-              // Canvas2DAllocator.return(overrided)
-
-              transformResolved = true
-              layerBitmap = overrided.canvas
-            } else {
+            if (!hasOverrideForThisVectorVisu) {
               if (updateCache) {
                 LogChannel.l.pipeline.info(
                   `Update bitmap cache for ${visuNode.uid}`,
                 )
 
-                layerBitmap = tmpVectorOutCx.canvas
-
-                await docCx.updateOrCreateLayerBitmapCache(
+                await docx.updateOrCreateLayerBitmapCache(
                   visuNode.uid,
                   tmpVectorOutCx.getImageData(
                     0,
@@ -557,8 +584,6 @@ export class RenderPipeline {
                     viewport.height,
                   ),
                 )
-              } else {
-                layerBitmap = tmpVectorOutCx.canvas
               }
             }
           }
@@ -592,7 +617,7 @@ export class RenderPipeline {
   public async applyFilter(
     input: TexImageSource,
     outcx: CanvasRenderingContext2D,
-    filter: Omit<VisuFilter.Structs.ExternalFilterSetting, 'enabled'>,
+    filter: Omit<VisuFilter.Structs.PostProcessSetting, 'enabled'>,
     {
       abort,
       viewport,

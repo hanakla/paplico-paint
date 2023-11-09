@@ -30,6 +30,7 @@ export class DocumentManipulateLayerNodes implements ICommand {
   protected changes: Changes = {}
   protected deletedVisues: VisuElement.AnyElement[] = []
   protected changesPatch: Delta | null = null
+  protected effectedVisuUidSet = new Set<string>()
 
   constructor(changes: Changes) {
     this.changes = changes
@@ -39,15 +40,30 @@ export class DocumentManipulateLayerNodes implements ICommand {
     const original = deepClone(docx.layerTreeRoot)
 
     this.changes.add?.forEach(({ visu, parentNodePath, indexInNode }) => {
+      this.effectedVisuUidSet.add(visu.uid)
       docx.document.layerNodes.addLayerNode(visu, parentNodePath, indexInNode)
     })
 
     this.changes.remove?.forEach((nodePath) => {
+      if (!docx.document.layerNodes.getNodeAtPath(nodePath)) return
+
+      this.effectedVisuUidSet.add(nodePath[nodePath.length - 1])
       docx.document.layerNodes.removeLayerNode(nodePath)
     })
 
     this.changes.move?.forEach(({ sourceNodePath, targetNodePath }) => {
-      docx.document.layerNodes.moveLayerNodeOver(sourceNodePath, targetNodePath)
+      if (!docx.document.layerNodes.getNodeAtPath(sourceNodePath)) return
+
+      const visuUid = sourceNodePath[sourceNodePath.length - 1]
+      this.effectedVisuUidSet.add(visuUid)
+      const { newPath } = docx.document.layerNodes.moveLayerNodeOver(
+        sourceNodePath,
+        targetNodePath,
+      )
+
+      if (docx.strokingTarget?.visuUid === visuUid) {
+        docx.setStrokingTarget(newPath)
+      }
     })
 
     this.changesPatch = diff(original, docx.layerTreeRoot)!

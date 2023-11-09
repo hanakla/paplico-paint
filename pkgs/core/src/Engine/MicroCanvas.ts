@@ -8,6 +8,10 @@ import { clearCanvas, setCanvasSize } from '@/utils/canvas'
 import { PPLCDisposedInstanceError } from '@/Errors/PPLCDisposedInstanceError'
 import { Emitter } from '@/utils/Emitter'
 import { VectorPath, VisuElement, VisuFilter } from '@/Document'
+import {
+  createVectorObjectVisually,
+  createVisuallyFilter,
+} from '@/Document/Visually/factory'
 
 export namespace MicroCanvas {
   export type Events = {
@@ -243,8 +247,35 @@ export class MicroCanvas extends Emitter<MicroCanvas.Events> {
   ) {
     disposeCheck(this.#disposed)
 
-    await this.paplico.renderPathInto(path, destination, {
+    const strokeFilter = brushSetting
+      ? createVisuallyFilter('stroke', {
+          enabled: true,
+          stroke: brushSetting,
+          ink: inkSetting ?? DEFAULT_INK_SETTING(),
+        })
+      : null
+
+    const fillFilter = fillSetting
+      ? createVisuallyFilter('fill', {
+          enabled: true,
+          fill: fillSetting,
+        })
+      : null
+
+    const visu = createVectorObjectVisually({
       blendMode,
+      path,
+      filters:
+        order === 'stroke-first'
+          ? [strokeFilter, fillFilter].filter(
+              (v): v is NonNullable<typeof v> => v != null,
+            )
+          : [fillFilter, strokeFilter].filter(
+              (v): v is NonNullable<typeof v> => v != null,
+            ),
+    })
+
+    await this.paplico.renderVectorVisuInto(visu, destination, {
       brushSetting: brushSetting ?? this.brushSetting,
       inkSetting,
       fillSetting,

@@ -1,6 +1,7 @@
-import { useRef, useSyncExternalStore } from 'react'
+import { useMemo, useRef, useSyncExternalStore } from 'react'
 import { StoreApi } from 'zustand'
-import { shallowEquals } from './object'
+import { changedKeys, shallowEquals } from './object'
+import { getLine } from './string'
 
 export const defaultSelector = <T>(s: T): T => s
 
@@ -12,6 +13,7 @@ export function createUseStore<S extends StoreApi<any>>(
     selectorRef.current = selector
 
     const prevRef = useRef<T | null>(null)
+    const mountedStack = useMemo(() => new Error().stack, [])
 
     let state = useSyncExternalStore(store.subscribe, () => {
       const next = selectorRef.current(store.getState())
@@ -19,6 +21,12 @@ export function createUseStore<S extends StoreApi<any>>(
       if (shallowEquals(next, prevRef.current)) {
         return prevRef.current
       }
+
+      // if (prevRef.current && next) {
+      //   console.groupCollapsed('changed', changedKeys(prevRef.current, next))
+      //   console.log(getLine(mountedStack!, 1, Infinity))
+      //   console.groupEnd()
+      // }
 
       prevRef.current = next
       return next

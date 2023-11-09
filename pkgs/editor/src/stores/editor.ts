@@ -2,7 +2,7 @@ import { type RectReadOnly } from 'react-use-measure'
 import { createStore, type StoreApi } from 'zustand'
 import { useContext, useMemo } from 'react'
 import { StoresContext } from './context'
-import { EditorTypes, RasterToolModes, VectorToolModes } from '@/stores/types'
+import { EditorTypes, ToolModes as ToolModes } from '@/stores/types'
 import { BoundedUseStore, createUseStore } from '@/utils/zustand'
 import Paplico, { Document } from '@paplico/core-new'
 
@@ -16,8 +16,7 @@ export type EditorStore = {
 
   enabled: boolean
   editorType: EditorTypes
-  rasterToolMode: RasterToolModes
-  vectorToolMode: VectorToolModes
+  toolMode: ToolModes
   canvasScale: number
   brushSizePreview: { size: number; durationMs: number } | null
   selectedVisuUids: Record<string, true>
@@ -48,8 +47,7 @@ export const createEditorStore = () => {
 
     enabled: false,
     editorType: EditorTypes.none,
-    rasterToolMode: RasterToolModes.stroking,
-    vectorToolMode: VectorToolModes.rectangleTool,
+    toolMode: ToolModes.rectangleTool,
 
     canvasScale: 1,
     brushSizePreview: null,
@@ -81,9 +79,10 @@ export const layerTypeToEditorType = (
   )
 }
 
-export const isVectorShapeToolMode = (toolMode: VectorToolModes) => {
+export const isVectorShapeToolMode = (toolMode: ToolModes) => {
   return (
-    toolMode === VectorToolModes.ellipseTool ||
-    toolMode === VectorToolModes.rectangleTool
+    toolMode === ToolModes.ellipseTool ||
+    toolMode === ToolModes.rectangleTool ||
+    toolMode === ToolModes.objectTool
   )
 }

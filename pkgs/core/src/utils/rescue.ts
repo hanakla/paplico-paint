@@ -22,8 +22,6 @@ interface Resque {
     proc: () => T | Promise<T>,
     option?: ResqueOption,
   ): Promise<Result<T>> | Result<T>
-  isFailure(result: Result<any>): result is FailureResult<null>
-  isSuccess(result: Result<any>): result is SuccessResult<any>
 }
 
 const createResult = (result: any = null, error: any = null): Result<any> =>
@@ -68,6 +66,17 @@ export const rescue: Resque = <T extends Promise<any> | any>(
 
     return createResult(null, e)
   }
+}
+
+export const throwLaterIfFailure = async (results: Result<any>[]) => {
+  const errors = results
+    .filter((r): r is FailureResult<any> => !r.success)
+    .map((r) => r.error)
+  if (errors.length === 0) return
+
+  await Promise.resolve()
+
+  throw new AggregateError(errors)
 }
 
 export const aggregateRescueErrors = (

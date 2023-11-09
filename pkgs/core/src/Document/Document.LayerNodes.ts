@@ -1,14 +1,37 @@
 import {
   PPLCOptionInvariantViolationError,
-  PPLCTargetNodeNotFoundError,
+  PPLCTargetEntityNotFoundError,
 } from '@/Errors'
 import { type PaplicoDocument } from './Document'
-import { type LayerNode } from './LayerNode'
-import { VisuElement } from './Visually'
+import { type LayerNode } from './Struct/LayerNode'
+import { VisuElement } from './Visually/VisuElement'
+import { DocumentContext } from '@/Engine'
 
 export type NodesController = {
   getRootNode(): LayerNode
+
+  /**
+   * Get LayerNode at specified path
+   * @returns LayerNode or null when node not found
+   */
   getNodeAtPath(path: string[]): LayerNode | null
+
+  /**
+   * Get layer node data some likes StrokingTarget structure
+   */
+  getNodeDetailAtPath(path: string[]): {
+    visuType: VisuElement.AnyElement['type']
+    visuUid: string
+    nodePath: string[]
+    visu: VisuElement.AnyElement
+  } | null
+
+  /**
+   * Get Visually instance combined layer nodes which under of pointed node by `path`
+   * @param path
+   * @returns instance
+   */
+  getResolvedLayerNodes(path: string[]): PaplicoDocument.ResolvedLayerNode
 
   getFlattenNodesUnderPath(path: string[]): LayerNode[] | null
 
@@ -97,6 +120,41 @@ export function createNodesController(doc: PaplicoDocument): NodesController {
       return cursor
     },
 
+    getNodeDetailAtPath(path) {
+      const node = me.getNodeAtPath(path)
+      if (!node) return null
+
+      const visu = doc.getVisuByUid(node.visuUid)
+      if (!visu) return null
+
+      return {
+        visuType: visu.type,
+        visuUid: visu.uid,
+        nodePath: path,
+        visu,
+      }
+    },
+
+    getResolvedLayerNodes(path: string[]): PaplicoDocument.ResolvedLayerNode {
+      const node = me.getNodeAtPath(path)
+
+      if (!node)
+        throw new Error(`PaplicoDocument.getResolvedLayerNodes: node not found`)
+
+      const layer = doc.getVisuByUid(node.visuUid)
+      if (!layer)
+        throw new Error(`PaplicoDocument.getResolvedLayerNodes: Visu not found`)
+
+      return {
+        uid: node.visuUid,
+        visu: layer,
+        path: [...path],
+        children: node.children.map((child) => {
+          return this.getResolvedLayerNodes([...path, child.visuUid])
+        }),
+      }
+    },
+
     getFlattenNodesUnderPath(path: string[]) {
       const node = me.getNodeAtPath(path)
       if (!node) return null
@@ -147,7 +205,7 @@ export function createNodesController(doc: PaplicoDocument): NodesController {
 
       const parent = me.getNodeAtPath(pathToParent)
       if (!parent) {
-        throw new PPLCTargetNodeNotFoundError(
+        throw new PPLCTargetEntityNotFoundError(
           `Document.addLayer: Parent node not found (path: ${pathToParent.join(
             ' > ',
           )})`,
@@ -180,7 +238,7 @@ export function createNodesController(doc: PaplicoDocument): NodesController {
 
       const parent = this.getAncestorContainerNodes(path)?.at(-1)
       if (!parent) {
-        throw new PPLCTargetNodeNotFoundError(
+        throw new PPLCTargetEntityNotFoundError(
           `Document.layerNodes.removeNodeAt: Parent node not found (on removing ${path.join(
             '/',
           )})`,
@@ -224,7 +282,7 @@ export function createNodesController(doc: PaplicoDocument): NodesController {
         !sourceParent
       ) {
         // prettier-ignore
-        throw new PPLCTargetNodeNotFoundError(
+        throw new PPLCTargetEntityNotFoundError(
           `Document.layerNodes.moveNodeOver: target node not found for ${
             !sourceNodeAncestors ? `source /${sourcePath.join('/')}`
               : !overNode ? `over /${overPath.join('/')}`
@@ -297,7 +355,7 @@ export function createNodesController(doc: PaplicoDocument): NodesController {
         const target = me.getNodeAtPath(nodeOrPath)
 
         if (!target) {
-          throw new PPLCTargetNodeNotFoundError(
+          throw new PPLCTargetEntityNotFoundError(
             `Node not found: ${nodeOrPath.join('/')}`,
           )
         }

@@ -1,12 +1,12 @@
-import { StoreApi, create } from 'zustand'
+import { StoreApi, createStore } from 'zustand/vanilla'
 import { createJSONStorage, persist } from 'zustand/middleware'
 import { Shortcuts, mergeShortcuts } from './shortcut'
 import Paplico from '@paplico/core-new'
+import { createUseStore } from '@/utils/zustand'
 
 type EditorStore = {
   toolbarPosition: { x: number; y: number } | null
   filterPaneExpandState: { [filterUid: string]: boolean }
-  canvasTransform: CanvasTransform
   shortcutOverrides: Partial<Shortcuts>
   fileHandlers: {
     [docUid: string]: FileSystemFileHandle
@@ -23,9 +23,6 @@ type EditorStore = {
     ) => EditorStore['toolbarPosition'],
   ) => void
   setPaneExpandedFilterState: (filterUid: string, state: boolean) => void
-  setCanvasTransform: (
-    translator: (prev: CanvasTransform) => CanvasTransform,
-  ) => void
 
   getPaneExpandedFilterUids(): string[]
   getShortcuts(): Shortcuts
@@ -35,12 +32,11 @@ type EditorStore = {
 
 type Persist = Omit<EditorStore, 'toolbarPosition'>
 
-export const useEditorStore = create(
+export const editorStore = createStore(
   persist<EditorStore>(
     (set, get) => ({
       toolbarPosition: null,
       filterPaneExpandState: {},
-      canvasTransform: { x: 0, y: 0, scale: 1, rotateDeg: 0 },
       shortcutOverrides: {},
       fileHandlers: {},
       strokeCompositonBeforeChnageToVectorTool: 'normal',
@@ -58,9 +54,6 @@ export const useEditorStore = create(
       },
       setToolbarPosition: (callback) => {
         set({ toolbarPosition: callback(get().toolbarPosition) })
-      },
-      setCanvasTransform: (translator) => {
-        set({ canvasTransform: translator(get().canvasTransform) })
       },
 
       getPaneExpandedFilterUids() {
@@ -84,9 +77,4 @@ export const useEditorStore = create(
   ),
 )
 
-type CanvasTransform = {
-  x: number
-  y: number
-  scale: number
-  rotateDeg: number
-}
+export const useEditorStore = createUseStore(editorStore)

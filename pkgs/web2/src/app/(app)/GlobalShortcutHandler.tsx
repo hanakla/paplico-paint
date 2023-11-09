@@ -1,7 +1,4 @@
-import {
-  usePaplicoInstance,
-  initializeOnlyUseEngineStore,
-} from '@/domains/engine'
+import { usePaplicoInstance } from '@/domains/engine'
 import { useEditorStore } from '@/domains/uiState'
 import { useGlobalMousetrap } from '@/utils/hooks'
 import { memo, use } from 'react'
@@ -9,12 +6,10 @@ import { memo, use } from 'react'
 import msgpack from 'msgpack5'
 import { letDownload } from '@hanakla/arma'
 import { Commands } from '@paplico/core-new'
-import { storePicker } from '@/utils/zutrand'
-import { RasterToolModes, VectorToolModes } from '@paplico/editor'
+import { ToolModes } from '@paplico/editor'
 
 export const GlobalShortcutHandler = memo(function GlobalShortcutHandler() {
   const { pplc: pap, canvasEditor: editorHandle } = usePaplicoInstance()
-  const papStore = initializeOnlyUseEngineStore()
 
   const { fileHandlers, setFileHandlerForDocument, getShortcuts } =
     useEditorStore()
@@ -102,24 +97,23 @@ export const GlobalShortcutHandler = memo(function GlobalShortcutHandler() {
   })
 
   useGlobalMousetrap(shortcuts.global.brushTool, () => {
-    editorHandle?.setRasterToolMode(RasterToolModes.stroking)
-    editorHandle?.setVectorToolMode(VectorToolModes.stroking)
+    editorHandle?.setToolMode(ToolModes.strokingTool)
   })
 
   useGlobalMousetrap(shortcuts.global.vectorShapeRectTool, () => {
-    editorHandle?.setVectorToolMode(VectorToolModes.rectangleTool)
+    editorHandle?.setToolMode(ToolModes.rectangleTool)
   })
 
   useGlobalMousetrap(shortcuts.global.vectorEllipseTool, () => {
-    editorHandle?.setVectorToolMode(VectorToolModes.ellipseTool)
+    editorHandle?.setToolMode(ToolModes.ellipseTool)
   })
 
   useGlobalMousetrap(shortcuts.global.vectorObjectTool, () => {
-    editorHandle?.setVectorToolMode(VectorToolModes.objectTool)
+    editorHandle?.setToolMode(ToolModes.objectTool)
   })
 
   useGlobalMousetrap(shortcuts.global.vectorPointTool, () => {
-    editorHandle?.setVectorToolMode(VectorToolModes.pointTool)
+    editorHandle?.setToolMode(ToolModes.pointTool)
   })
 
   return null

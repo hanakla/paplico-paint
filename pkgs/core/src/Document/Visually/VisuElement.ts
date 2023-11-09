@@ -1,7 +1,7 @@
 import { TypenGlossary } from '@/TypesAndGlossary'
 import { Point2D } from '../Struct/Point2D'
 import { ColorRGBA } from '../Struct/ColorRGBA'
-import { VisuFilter } from './VisuallyFilter'
+import { VisuFilter } from './VisuFilter'
 
 /** Paplico internal use only */
 export type ElementBase = {
@@ -23,11 +23,13 @@ export type ElementBase = {
 
 export namespace VisuElement {
   export type BlendMode = TypenGlossary.BlendMode
-  export type CompositeMode = TypenGlossary.StrokeCompositeMode
+  export type StrokeCompositeMode = TypenGlossary.StrokeCompositeMode
 
+  /** movement of origin position (origin position default to left-top) */
   export type ElementTransform = {
     position: Point2D
     scale: Point2D
+    /** radian degree */
     rotate: number
   }
 

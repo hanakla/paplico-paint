@@ -10,6 +10,7 @@ import {
   MouseEvent,
   ReactNode,
   useContext,
+  useEffect,
 } from 'react'
 import { animated, useSpring } from 'react-spring'
 import { css } from 'styled-components'
@@ -72,6 +73,17 @@ export const ActionSheet = memo(
     const handleClickClose = useEvent(() => {
       onClose()
     })
+
+    useEffect(() => {
+      if (!opened) return
+
+      const handleKeyDown = (e: globalThis.KeyboardEvent) => {
+        if (e.key === 'Escape') onClose()
+      }
+
+      window.addEventListener('keydown', handleKeyDown)
+      return () => window.removeEventListener('keydown', handleKeyDown)
+    }, [opened])
 
     return (
       <ActionSheetContext.Provider value={fill ? 'fill' : 'split'}>

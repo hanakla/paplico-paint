@@ -1,4 +1,5 @@
 import { assign } from './object'
+import { unreachable } from './unreachable'
 
 export const saveAndRestoreCanvas = <
   C extends CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D,
@@ -21,21 +22,30 @@ export const setCanvasSize: {
   (
     canvas: HTMLCanvasElement | OffscreenCanvas,
     size: { width: number; height: number },
-    _?: undefined,
+    clear?: { clear: boolean },
   ): void
   (
     canvas: HTMLCanvasElement | OffscreenCanvas,
     width: number,
     height: number,
+    clear?: { clear: boolean },
   ): void
-} = (canvas, widthOrSize, height) => {
-  if (typeof widthOrSize === 'object') {
-    const { width, height } = widthOrSize
-    if (canvas.width === width && canvas.height === height) return
-    assign(canvas, { width, height })
+} = (canvas, widthOrSize, height, clear?: { clear: boolean }) => {
+  // prettier-ignore
+  const _size =
+    (typeof widthOrSize === 'object')
+      // if property not enumerable, failed to assign size later.
+      ? { width: widthOrSize.width, height: widthOrSize.height }
+      : typeof height === 'number' ? { width: widthOrSize, height }
+      : unreachable(height as never)
+
+  const _clear = typeof height === 'number' ? clear?.clear : height?.clear
+
+  if (canvas.width === _size.width && canvas.height === _size.height) {
+    if (_clear) clearCanvas(canvas.getContext('2d')!)
+    else return
   } else {
-    if (canvas.width === widthOrSize && canvas.height === height) return
-    assign(canvas, { width: widthOrSize, height })
+    assign(canvas, _size)
   }
 }
 

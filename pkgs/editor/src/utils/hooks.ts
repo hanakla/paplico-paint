@@ -65,22 +65,34 @@ type DragGestureEvent = {
 
 export function usePointerDrag(handler: (e: DragGestureEvent) => void) {
   const handlerRef = useStableRef(handler)
-  const startEvent = useRef<globalThis.PointerEvent | null>(null)
+  const startPosition = useRef<{
+    clientX: number
+    clientY: number
+    offsetX: number
+    offsetY: number
+  } | null>(null)
 
   const handlers = useMemo(
     () =>
       ({
         onPointerDown: (e) => {
-          const event = (startEvent.current = e.nativeEvent)
-          e.currentTarget.setPointerCapture(event.pointerId)
+          // if memoize `event` directly, it will broken in Firefox 119
+          const pos = (startPosition.current = {
+            clientX: e.nativeEvent.clientX,
+            clientY: e.nativeEvent.clientY,
+            offsetX: e.nativeEvent.offsetX,
+            offsetY: e.nativeEvent.offsetY,
+          })
+
+          e.currentTarget.setPointerCapture(e.pointerId)
 
           handlerRef.current({
             event: e,
             first: true,
             last: false,
             canceled: false,
-            initial: [event.clientX, event.clientY],
-            offsetInitial: [event.offsetX, event.offsetY],
+            initial: [pos.clientX, pos.clientY],
+            offsetInitial: [pos.offsetX, pos.offsetY],
             delta: [0, 0],
             offsetDelta: [0, 0],
             movement: [0, 0],
@@ -88,10 +100,17 @@ export function usePointerDrag(handler: (e: DragGestureEvent) => void) {
           })
         },
         onPointerMove: (e) => {
-          const source = startEvent.current
+          const source = startPosition.current
           if (!source) return
 
           const event = e.nativeEvent
+
+          console.log({
+            x: event.offsetX,
+            y: event.offsetY,
+            sx: source.offsetX,
+            sy: source.offsetY,
+          })
 
           handlerRef.current({
             event: e,
@@ -119,12 +138,12 @@ export function usePointerDrag(handler: (e: DragGestureEvent) => void) {
           })
         },
         onPointerUp: (e) => {
-          const source = startEvent.current
+          const source = startPosition.current
           if (!source) return
 
           const event = e.nativeEvent
           e.currentTarget.releasePointerCapture(event.pointerId)
-          startEvent.current = null
+          startPosition.current = null
 
           handlerRef.current({
             event: e,
@@ -152,12 +171,12 @@ export function usePointerDrag(handler: (e: DragGestureEvent) => void) {
           })
         },
         onPointerCancel: (e) => {
-          const source = startEvent.current
+          const source = startPosition.current
           if (!source) return
 
           const event = e.nativeEvent
           e.currentTarget.releasePointerCapture(event.pointerId)
-          startEvent.current = null
+          startPosition.current = null
 
           handlerRef.current({
             event: e,

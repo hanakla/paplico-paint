@@ -5,7 +5,7 @@ import {
   getSidingByMovement as getSideDirectionByMovement,
   reveseSiding,
 } from '@/utils/math'
-import { VectorToolModes } from '@/stores/types'
+import { ToolModes } from '@/stores/types'
 import { storePicker } from '@/utils/zustand'
 import { Commands, Document } from '@paplico/core-new'
 
@@ -46,7 +46,7 @@ export const ShapeTools = memo(function ShapeTools({ width, height }: Props) {
       if (!editor.strokingTarget?.visuUid) return
 
       // rectangle tool
-      if (editor.vectorToolMode === VectorToolModes.rectangleTool) {
+      if (editor.toolMode === ToolModes.rectangleTool) {
         const cursorSide = reveseSiding(
           getSideDirectionByMovement(offsetMovement),
         )
@@ -108,7 +108,7 @@ export const ShapeTools = memo(function ShapeTools({ width, height }: Props) {
         }
 
         setRectPreview(rect)
-      } else if (editor.vectorToolMode === VectorToolModes.ellipseTool) {
+      } else if (editor.toolMode === ToolModes.ellipseTool) {
         const cursorSide = reveseSiding(
           getSideDirectionByMovement(offsetMovement),
         )
@@ -186,7 +186,7 @@ export const ShapeTools = memo(function ShapeTools({ width, height }: Props) {
   return (
     <>
       {/* Rect tool handler */}
-      <g>
+      <g data-pplc-component="ShapeTools">
         <rect
           ref={measureRef}
           width={width}

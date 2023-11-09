@@ -9,13 +9,11 @@ export const notificationTexts = tx({
   en: {
     toolChanged: '{{tool}} tool',
     'tools.none': 'LOL',
-    'tools.cursor': 'Cursor',
-    'tools.stroking': 'Brush',
-    'tools.erasing': 'Eraser',
-
     'tools.objectTool': 'Object',
-    'tools.pointTool': 'Point',
-    'tools.vectorPen': 'Vector pen',
+    'tools.eraserTool': 'Eraser',
+    'tools.strokingTool': 'Brush',
+    'tools.pointTool': 'Point edit',
+    'tools.vectorPenTool': 'Vector Pen',
     'tools.rectangleTool': 'Shape (Rectangle)',
     'tools.ellipseTool': 'Shape (Ellipse)',
 
@@ -25,17 +23,14 @@ export const notificationTexts = tx({
   ja: {
     toolChanged: '{{tool}} ツール',
     'tools.none': 'ウケる',
-    'tools.cursor': '移動',
-    'tools.stroking': 'ブラシ',
-    'tools.erasing': '消しゴム',
-
-    'tools.objectTool': 'オブジェクト編集',
+    'tools.objectTool': 'オブジェクト',
+    'tools.eraserTool': '消しゴム',
+    'tools.strokingTool': 'ブラシ',
     'tools.pointTool': 'ポイント編集',
-    'tools.vectorPen': '曲線',
-    'tools.rectangleTool': '図形(四角形)',
-    'tools.ellipseTool': '図形(円)',
+    'tools.vectorPenTool': 'ベクターペン',
+    'tools.rectangleTool': '図形 (四角形)',
+    'tools.ellipseTool': '図形 (楕円)',
 
-    'history.undo': 'もとに戻す',
     'history.redo': 'やりなおす',
   },
 })
@@ -96,6 +91,11 @@ export const mainToolbarTexts = tx({
     vectorToolOnlyOnVectorLayer: 'Vector tool can be used only on vector layer',
     'tools.shapeRect': 'Rectangle',
     'tools.shapeEllipse': 'Ellipse',
+    'tools.objectTool': 'オブジェクト編集',
+    'tools.pointTool': 'ポイント編集',
+    'tools.vectorPen': '曲線',
+    'tools.rectangleTool': '図形(四角形)',
+    'tools.ellipseTool': '図形(円)',
   },
   ja: {
     'tabs.normalLayer': '通常',
@@ -104,7 +104,12 @@ export const mainToolbarTexts = tx({
     'tools.eraser': '消しゴム',
     vectorToolOnlyOnVectorLayer:
       'ベクターレイヤー上でのみベクターツールを使用できます',
-    'tools.shapeRect': '図形(四角形)',
-    'tools.shapeEllipse': '図形(円)',
+    'tools.shapeRect': '図形<br/>(四角形)',
+    'tools.shapeEllipse': '図形<br/>(円)',
+    'tools.objectTool': 'オブジェクト<br/>編集',
+    'tools.pointTool': 'ポイント編集',
+    'tools.vectorPen': '曲線',
+    'tools.rectangleTool': '図形(四角形)',
+    'tools.ellipseTool': '図形(円)',
   },
 })

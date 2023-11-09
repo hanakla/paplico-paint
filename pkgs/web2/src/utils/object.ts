@@ -49,3 +49,16 @@ export const pick = <
 
   return result
 }
+
+export const changedKeys = (
+  prev: Record<string, any>,
+  values: Record<string, any>,
+) => {
+  const changed: string[] = []
+
+  for (const [k, v] of Object.entries(values)) {
+    if (!Object.is(v, prev[k])) changed.push(k)
+  }
+
+  return changed
+}

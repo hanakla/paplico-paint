@@ -21,7 +21,7 @@ export class BrushRegistry extends Emitter<Events> {
     } catch (e) {
       this.brushes.delete(Brush.metadata.id)
       this.instances.delete(Brush)
-      console.warn('Failed to register brush', Brush, e)
+      console.error('Failed to register brush', Brush, e)
       throw e
     }
 

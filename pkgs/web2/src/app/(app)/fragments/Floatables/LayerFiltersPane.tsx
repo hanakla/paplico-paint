@@ -8,18 +8,12 @@ import { DisplayContents } from '@/components/DisplayContents'
 import { DropdownMenu, DropdownMenuItem } from '@/components/DropdownMenu'
 import { FloatablePane } from '@/components/FloatablePane'
 import { FloatablePaneIds } from '@/domains/floatablePanes'
-import {
-  usePaplicoInstance,
-  initializeOnlyUseEngineStore,
-} from '@/domains/engine'
+import { usePaplicoInstance } from '@/domains/engine'
 import { useEditorStore } from '@/domains/uiState'
-import { storePicker } from '@/utils/zutrand'
 import { Commands, Document } from '@paplico/core-new'
-
 import { Box, Button, ContextMenu } from '@radix-ui/themes'
 import React, { MouseEvent, memo, useEffect, useMemo, useRef } from 'react'
 import { RxEyeNone, RxEyeOpen, RxPlus } from 'react-icons/rx'
-import { useUpdate } from 'react-use'
 import useEvent from 'react-use-event-hook'
 import styled, { css } from 'styled-components'
 
@@ -50,17 +44,10 @@ export const FilterList = memo(function FilterList() {
     getPaneExpandedFilterUids,
     setPaneExpandedFilterState,
     filterPaneExpandState,
-  } = useEditorStore(
-    storePicker([
-      'getPaneExpandedFilterUids',
-      'setPaneExpandedFilterState',
-      'filterPaneExpandState',
-    ]),
-  )
+  } = useEditorStore()
 
   const strokingTarget = canvasEditor?.getStrokingTarget()!
 
-  const rerender = useUpdate()
   const prevExpandedUids = useRef<string[]>([])
 
   const handleClickAddFilter = useEvent((e: MouseEvent<HTMLDivElement>) => {
@@ -71,7 +58,7 @@ export const FilterList = memo(function FilterList() {
     if (!FilterClass) return
     if (!strokingTarget) return
 
-    const filter = Document.visu.createVisuallyFilter('external', {
+    const filter = Document.visu.createVisuallyFilter('postprocess', {
       processor: {
         filterId: FilterClass.metadata.id,
         filterVersion: FilterClass.metadata.version,
@@ -146,9 +133,9 @@ export const FilterList = memo(function FilterList() {
   )
 
   useEffect(() => {
-    return pplc?.on('history:affect', ({ layerIds }) => {
-      if (layerIds.includes(strokingTarget.visuUid)) rerender()
-    })
+    // return pplc?.on('history:affect', ({ layerIds }) => {
+    //   if (layerIds.includes(strokingTarget.visuUid)) rerender()
+    // })
   }, [pplc, strokingTarget.visuUid])
 
   console.log(strokingTarget)

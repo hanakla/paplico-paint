@@ -10,8 +10,9 @@ import {
   useReducer,
 } from 'react'
 import { useIsomorphicLayoutEffect } from 'react-use'
-import { shallowEquals } from './object'
+import { changedKeys, shallowEquals } from './object'
 import Mousetrap from 'mousetrap'
+import { getLine } from './string'
 
 const useBrowserEffect =
   typeof window !== 'undefined' ? useLayoutEffect : () => {}
@@ -233,4 +234,18 @@ export const useDangerouslyEffectAsync = (
 
 export const useStateSync = (fn: () => void, deps: DependencyList) => {
   return useMemo(fn, deps)
+}
+
+export const useChangeDetection = (values: Record<string, any>) => {
+  const prev = useRef(values)
+
+  useBrowserEffect(() => {
+    const changed = changedKeys(prev.current, values)
+    if (changed.length > 0) {
+      console.group('changed', changed)
+      console.log(getLine(new Error().stack!, 1, Infinity))
+      console.groupEnd()
+    }
+    prev.current = values
+  }, [values])
 }

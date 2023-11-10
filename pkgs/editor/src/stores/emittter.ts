@@ -1,10 +1,10 @@
-import mitt from 'mitt'
-import { PapEditorEvents } from '..'
+import { PplcEditorEvents } from '..'
 import { useContext } from 'react'
 import { StoresContext } from './context'
+import { Emitter } from '@paplico/shared-lib'
 
 export const createEmitterStore = () => {
-  const emitter = mitt<PapEditorEvents>()
+  const emitter = new Emitter<PplcEditorEvents>()
   return emitter
 }
 

@@ -21,7 +21,13 @@ export const DropdownMenu = memo(function DropdownMenu({
         asChild
         size="2"
       >
-        {children}
+        <div
+          css={css`
+            position: relative;
+          `}
+        >
+          {children}
+        </div>
       </_DropdownMenu.Content>
     </_DropdownMenu.Root>
   )

@@ -3,13 +3,13 @@ import { EngineStore } from './stores/engine'
 import { EditorStore, layerTypeToEditorType } from './stores/editor'
 import { StoreApi } from 'zustand'
 import { Emitter } from 'mitt'
-import { PapEditorEvents } from '.'
+import { PplcEditorEvents } from '.'
 
 export function bind(
   paplico: Paplico,
   engineStore: StoreApi<EngineStore>,
   editorStore: StoreApi<EditorStore>,
-  emitterStore: Emitter<PapEditorEvents>,
+  emitterStore: Emitter<PplcEditorEvents>,
   settings: {
     draggingThreadholdRealPixels: number
   },
@@ -37,6 +37,33 @@ export function bind(
     paplico.on('strokingTargetChanged', ({ current }) => {
       editorStore.setState({
         strokingTarget: current,
+      })
+    })
+  }
+
+  // Copy registered entries change for dedbup rendering views
+  {
+    engineStore.setState({
+      availableBrushes: paplico.brushes.entries,
+      availableInks: paplico.inks.entries,
+      availableFilters: paplico.filters.entries,
+    })
+
+    paplico.filters.on('entriesChanged', () => {
+      engineStore.setState({
+        availableFilters: paplico.filters.entries,
+      })
+    })
+
+    paplico.inks.on('entriesChanged', () => {
+      engineStore.setState({
+        availableInks: paplico.inks.entries,
+      })
+    })
+
+    paplico.brushes.on('entriesChanged', () => {
+      engineStore.setState({
+        availableBrushes: paplico.brushes.entries,
       })
     })
   }

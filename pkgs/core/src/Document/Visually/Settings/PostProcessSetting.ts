@@ -4,8 +4,6 @@ export type PostProcessSetting<
   filterId: string
   filterVersion: string
 
-  enabled: boolean
-
   /** 0..1 */
   opacity: number
   settings: T

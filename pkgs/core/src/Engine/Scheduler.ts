@@ -16,10 +16,17 @@ export function buildRenderSchedule(
   docx: DocumentContext,
   {
     layerNodeOverrides, // prevCacheBreakerNodes = {},
+    willRenderingViewport,
   }: {
     layerNodeOverrides?: RenderPipeline.LayerNodeOverrides
     // prevCacheBreakerNodes?: { [slashJoinedPath: string]: boolean }
-  } = {},
+    willRenderingViewport: {
+      left: number
+      top: number
+      width: number
+      height: number
+    }
+  },
 ) {
   const tasks: RenderTask[] = []
 
@@ -111,9 +118,11 @@ export function buildRenderSchedule(
     GROUP_RENDER_TARGET: RenderTargets,
     node: PaplicoDocument.ResolvedLayerNode,
     parentTransform: VisuElement.ElementTransform,
+    parentVisible: boolean,
   ): void {
     const nodeVisu = node.visu
 
+    if (!parentVisible) return
     if (nodeVisu.visible == false || nodeVisu.opacity === 0) return
 
     const hasPostProcessFilter = nodeVisu.filters.some((f) => {
@@ -124,6 +133,15 @@ export function buildRenderSchedule(
       nodeVisu.blendMode === 'normal' && !hasPostProcessFilter,
       NEW_CANVAS_TARGET(),
     ] as [true, null] | [false, CanvasToken]
+
+    if (hasPostProcessFilter) {
+      tasks.push({
+        command: RenderCommands.CLEAR_TARGET,
+        source: RenderTargets.NONE,
+        renderTarget: RenderTargets.LAYER_PRE_FILTER,
+        setSize: 'VIEWPORT',
+      })
+    }
 
     if (
       layerNodeOverrides?.[node.uid] &&
@@ -144,14 +162,31 @@ export function buildRenderSchedule(
         },
         _debug: ['hasLayerOverrides'],
       })
+    } else if (
+      nodeVisu.type === 'group' &&
+      docx.hasLayerNodeBitmapCache(node.uid, willRenderingViewport)
+    ) {
+      tasks.push({
+        command: RenderCommands.DRAW_BITMAP_CACHE_TO_DEST,
+        source: RenderTargets.NONE,
+        renderTarget: canUseGroupRenderTarget
+          ? GROUP_RENDER_TARGET
+          : RenderTargets.LAYER_PRE_FILTER,
+        blendMode: nodeVisu.blendMode,
+        opacity: nodeVisu.opacity,
+        cacheKeyVisuUid: node.uid,
+      })
     } else if (nodeVisu.type === 'group') {
       for (const child of node.children) {
+        if (!child.visu.visible) continue
+
         scheduleForTree(
           canUseGroupRenderTarget
             ? GROUP_RENDER_TARGET
             : CHILDREN_AGGREGATE_TARGET,
           child,
           addTransform(parentTransform, nodeVisu.transform),
+          parentVisible && nodeVisu.visible,
         )
       }
 
@@ -169,7 +204,7 @@ export function buildRenderSchedule(
       // Later
     } else if (nodeVisu.type === 'canvas') {
       tasks.push({
-        command: RenderCommands.DRAW_SOURCE_TO_DEST,
+        command: RenderCommands.DRAW_VISU_TO_DEST,
         source: { visuNode: node },
         renderTarget: canUseGroupRenderTarget
           ? GROUP_RENDER_TARGET
@@ -181,7 +216,7 @@ export function buildRenderSchedule(
       })
     } else if (nodeVisu.type === 'text') {
       tasks.push({
-        command: RenderCommands.DRAW_SOURCE_TO_DEST,
+        command: RenderCommands.DRAW_VISU_TO_DEST,
         source: { visuNode: node },
         renderTarget: canUseGroupRenderTarget
           ? GROUP_RENDER_TARGET
@@ -198,6 +233,7 @@ export function buildRenderSchedule(
         command: RenderCommands.CLEAR_TARGET,
         source: RenderTargets.NONE,
         renderTarget: RenderTargets.SHARED_FILTER_BUF,
+        setSize: 'VIEWPORT',
       })
     }
 
@@ -209,7 +245,7 @@ export function buildRenderSchedule(
           // internal filters
           tasks.push({
             command: RenderCommands.APPLY_INTERNAL_OBJECT_FILTER,
-            source: GROUP_RENDER_TARGET,
+            source: null,
             renderTarget: canUseGroupRenderTarget
               ? GROUP_RENDER_TARGET
               : RenderTargets.LAYER_PRE_FILTER,
@@ -261,7 +297,7 @@ export function buildRenderSchedule(
         opacity: nodeVisu.opacity,
       })
     }
-  })(RenderTargets.PREDEST, node, node.visu.transform)
+  })(RenderTargets.PREDEST, node, node.visu.transform, node.visu.visible)
 
   return { tasks, stats: { usingCanvaes: 1 } }
 }

@@ -39,6 +39,7 @@ export default memo(function Page({ chatMode }: Props) {
         width: 100%;
         height: 100%;
         pointer-events: none;
+        isolation: isolate;
       `}
     >
       <GlobalShortcutHandler />

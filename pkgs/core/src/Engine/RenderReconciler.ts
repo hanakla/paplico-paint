@@ -90,7 +90,9 @@ export class RenderReconciler {
       this.currentTask?.abortController.abort()
     }
 
-    const droppedQueues = this.queue.filter((q) => !nextQueue.includes(q))
+    const droppedQueues = this.queue.filter(
+      (q) => !nextQueue.includes(q) && q !== nextEntry,
+    )
 
     if (droppedQueues.length > 0) {
       LogChannel.l.renderQueue.info(

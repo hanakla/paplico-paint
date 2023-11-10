@@ -19,7 +19,20 @@ export type RenderTask = {
       command: typeof RenderCommands.DRAW_SOURCE_TO_DEST
       blendMode: VisuElement.BlendMode
       opacity: number
+    }
+  | {
+      command: typeof RenderCommands.DRAW_VISU_TO_DEST
+      blendMode: VisuElement.BlendMode
+      opacity: number
       parentTransform?: VisuElement.ElementTransform
+    }
+  | {
+      source: null
+      command: typeof RenderCommands.DRAW_BITMAP_CACHE_TO_DEST
+      blendMode: VisuElement.BlendMode
+      opacity: number
+      cacheKeyVisuUid: string
+      // parentTransform?: VisuElement.ElementTransform
     }
   | {
       command: typeof RenderCommands.DRAW_OVERRIDED_SOURCE_TO_DEST
@@ -43,8 +56,8 @@ export type RenderTask = {
   //     middle: RenderTargets
   //   }
   | {
+      source: null
       command: typeof RenderCommands.APPLY_INTERNAL_OBJECT_FILTER
-      visuUid: string
       objectVisu: VisuElement.VectorObjectElement | VisuElement.TextElement
       filter: VisuFilter.FillFilter | VisuFilter.StrokeFilter
       parentTransform: VisuElement.ElementTransform
@@ -54,7 +67,9 @@ export type RenderTask = {
       filter: VisuFilter.PostProcessFilter<any>
     }
   | {
+      source: null
       command: typeof RenderCommands.CLEAR_TARGET
+      setSize?: 'VIEWPORT'
     }
   | {
       command: typeof RenderCommands.FREE_TARGET
@@ -72,6 +87,8 @@ export type SkippableVisuesMap = {
 export const RenderCommands = km({
   DRAW_SOURCE_TO_DEST: null,
   DRAW_OVERRIDED_SOURCE_TO_DEST: null,
+  DRAW_VISU_TO_DEST: null,
+  DRAW_BITMAP_CACHE_TO_DEST: null,
   DRAW_PREFILTER_VISU_TO_DEST: null,
   PRERENDER_SOURCE: null,
   APPLY_LAYER_FILTER: null,

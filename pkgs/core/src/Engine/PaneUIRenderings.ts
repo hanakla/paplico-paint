@@ -7,7 +7,7 @@ import {
   VNode,
   type AbstractElementCreator,
 } from '@/UI/PaneUI/AbstractComponent'
-import { FilterUpdateParameter } from '@/Commands/index'
+import { VisuManipulateFilters } from '@/Commands/index'
 import { LocaleStrings } from '@/misc/locales'
 
 export namespace PaneUIRenderings {
@@ -127,18 +127,30 @@ export class PaneUIRenderings {
     }
   }
 
-  public renderFilterPane<T extends VisuFilter.Structs.PostProcessSetting<any>>(
-    layerUid: string,
+  public renderFilterPane<T extends VisuFilter.AnyFilter>(
+    visuUid: string,
     entry: T,
     { onSettingsChange }: { onSettingsChange?: (next: T) => void } = {},
   ) {
-    const Class = this.filterRegistry.getClass(entry.filterId)
+    if (entry.kind === 'fill' || entry.kind === 'stroke') {
+      return null
+    }
+
+    const Class = this.filterRegistry.getClass(entry.processor.filterId)
     if (!Class) return null
 
-    const setState = this.createSetState(entry.settings, (next) => {
+    const setState = this.createSetState(entry.processor.settings, (next) => {
       onSettingsChange?.(next)
 
-      let cmd = new FilterUpdateParameter(layerUid, entry.uid, next)
+      let cmd = new VisuManipulateFilters([
+        {
+          visuUid,
+          filterUid: entry.uid,
+          update: (filter) => {
+            ;(filter as VisuFilter.PostProcessFilter).processor.settings = next
+          },
+        },
+      ])
       this._pap.command.do(cmd)
     })
 
@@ -146,7 +158,7 @@ export class PaneUIRenderings {
       c: this.paneImpl.components,
       components: this.paneImpl.components,
       h: this.paneImpl.h,
-      settings: { ...entry.settings },
+      settings: { ...entry.processor.settings },
       setSettings: setState,
       locale: this._pap.getPreferences().paneUILocale,
       makeTranslation: this.makeTranslation.bind(this),

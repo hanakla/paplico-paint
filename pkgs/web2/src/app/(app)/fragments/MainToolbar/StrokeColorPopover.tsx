@@ -2,7 +2,6 @@ import { usePaplicoInstance } from '@/domains/engine'
 import { memo } from 'react'
 import { rgbaToPapColor, useToolbarStore } from './toolbar.store'
 import { storePicker } from '@/utils/zustand'
-import { usePropsMemo } from '@/utils/hooks'
 import useEvent from 'react-use-event-hook'
 import {
   Alpha,
@@ -16,6 +15,7 @@ import { Popover } from '@/components/Popover'
 import { Fieldset } from '@/components/Fieldset'
 import { TextField } from '@/components/TextField'
 import { css } from 'styled-components'
+import { usePropsMemo } from '@paplico/shared-lib'
 
 export const StrokeColorPopoverTrigger = memo(
   function StrokeColorPopoverTrigger({}: {}) {

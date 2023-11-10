@@ -1,7 +1,7 @@
 import { PPLCAbortError, PPLCInvariantViolationError } from '@/Errors'
 import { AtomicResource } from '@/utils/AtomicResource'
 import { saveAndRestoreCanvas } from '@/utils/canvas'
-import { deepClone, shallowEquals } from '@/utils/object'
+import { deepClone } from '@paplico/shared-lib'
 import { OrthographicCamera, WebGLRenderer } from 'three'
 import { BrushRegistry } from './Registry/BrushRegistry'
 import { InkRegistry } from './Registry/InkRegistry'
@@ -33,6 +33,7 @@ import {
 import { LogChannel } from '@/Debugging/LogChannel'
 import { svgPathToVisuVectorPath } from '@/SVGPathManipul/pathStructConverters'
 import { DocumentContext } from './DocumentContext/DocumentContext'
+import { shallowEquals } from '@paplico/shared-lib'
 
 type StrokeMemoEntry<T> = {
   data: T
@@ -60,6 +61,9 @@ export class VectorRenderer {
     VisuElement.VectorPath,
     WeakMap<IBrush, StrokeMemoEntry<any>>
   > = new WeakMap()
+
+  protected fillRenderLock = new AtomicResource({})
+  protected strokeRenderLock = new AtomicResource({})
 
   constructor(options: {
     brushRegistry: BrushRegistry
@@ -191,7 +195,7 @@ export class VectorRenderer {
 
         for (const ap of obj.filters) {
           if (ap.kind === 'fill') {
-            this.renderFill(obj.path, output, ap.fill, {
+            await this.renderFill(obj.path, output, ap.fill, {
               pixelRatio: pixelRatio,
               transform: {
                 position: addPoint2D(
@@ -464,105 +468,113 @@ export class VectorRenderer {
   }> {
     let warns: PaplicoRenderWarnAbst[] = []
 
-    const transformedPath = await reduceAsync(
-      filtersForPathTransform,
-      async (path, filter) => {
-        if (filter.kind !== 'postprocess') return path
+    const fillRenderLock = await this.fillRenderLock.ensure()
 
-        const processor = this.filterRegistry.getInstance(
-          filter.processor.filterId,
-        )
+    try {
+      const transformedPath = await reduceAsync(
+        filtersForPathTransform,
+        async (path, filter) => {
+          if (filter.kind !== 'postprocess') return path
 
-        if (!processor) {
-          warns.push(
-            new MissingFilterWarn(
-              filter.processor.filterId,
-              'VectorRender.renderFill#transformedPath',
-            ),
+          const processor = this.filterRegistry.getInstance(
+            filter.processor.filterId,
           )
-          return path
-        }
 
-        if (!processor.transformPath) return path
-
-        return await processor.transformPath?.(deepClone(path))
-      },
-      path,
-    )
-
-    saveAndRestoreCanvas(outcx, (cx) => {
-      cx.globalCompositeOperation = 'source-over'
-
-      cx.beginPath()
-
-      transformedPath.points.forEach((pt, idx, points) => {
-        const prev = points[idx - 1]
-
-        if (pt.isMoveTo) {
-          cx.moveTo(pt.x * pixelRatio, pt.y * pixelRatio)
-        } else if (pt.isClose) {
-          cx.closePath()
-        } else {
-          if (!prev) {
-            throw new Error('Unexpected point, previous point is null')
+          if (!processor) {
+            warns.push(
+              new MissingFilterWarn(
+                filter.processor.filterId,
+                'VectorRender.renderFill#transformedPath',
+              ),
+            )
+            return path
           }
 
-          cx.bezierCurveTo(
-            (pt.begin?.x ?? prev!.x) * pixelRatio,
-            (pt.begin?.y ?? prev!.y) * pixelRatio,
-            (pt.end?.x ?? pt.x) * pixelRatio,
-            (pt.end?.y ?? pt.y) * pixelRatio,
-            pt.x * pixelRatio,
-            pt.y * pixelRatio,
-          )
-        }
-      })
+          if (!processor.transformPath) return path
 
-      switch (fillSetting.type) {
-        case 'fill': {
-          const {
-            color: { r, g, b },
-            opacity,
-          } = fillSetting
+          return await processor.transformPath?.(deepClone(path))
+        },
+        path,
+      )
 
-          cx.globalAlpha = 1
-          cx.fillStyle = `rgba(${r * 255}, ${g * 255}, ${b * 255}, ${opacity})`
-          cx.fill()
-          break
-        }
-        case 'linear-gradient': {
-          const { colorStops: colorPoints, opacity, start, end } = fillSetting
-          const { width, height, left, top } = calcVectorPathBoundingBox(path)
+      saveAndRestoreCanvas(outcx, (cx) => {
+        cx.globalCompositeOperation = 'source-over'
 
-          // const width = right - left
-          // const height = bottom - top
-          const centerX = (left + width / 2) * pixelRatio
-          const centerY = (top + height / 2) * pixelRatio
+        cx.beginPath()
 
-          const gradient = cx.createLinearGradient(
-            (centerX + start.x) * pixelRatio,
-            (centerY + start.y) * pixelRatio,
-            (centerX + end.x) * pixelRatio,
-            (centerY + end.y) * pixelRatio,
-          )
+        transformedPath.points.forEach((pt, idx, points) => {
+          const prev = points[idx - 1]
 
-          for (const {
-            position,
-            color: { r, g, b, a },
-          } of colorPoints) {
-            gradient.addColorStop(
-              position,
-              `rgba(${r * 255}, ${g * 255}, ${b * 255}, ${a}`,
+          if (pt.isMoveTo) {
+            cx.moveTo(pt.x * pixelRatio, pt.y * pixelRatio)
+          } else if (pt.isClose) {
+            cx.closePath()
+          } else {
+            if (!prev) {
+              throw new Error('Unexpected point, previous point is null')
+            }
+
+            cx.bezierCurveTo(
+              (pt.begin?.x ?? prev!.x) * pixelRatio,
+              (pt.begin?.y ?? prev!.y) * pixelRatio,
+              (pt.end?.x ?? pt.x) * pixelRatio,
+              (pt.end?.y ?? pt.y) * pixelRatio,
+              pt.x * pixelRatio,
+              pt.y * pixelRatio,
             )
           }
+        })
 
-          cx.globalAlpha = opacity
-          cx.fillStyle = gradient
-          cx.fill()
-          break
+        switch (fillSetting.type) {
+          case 'fill': {
+            const {
+              color: { r, g, b },
+              opacity,
+            } = fillSetting
+
+            cx.globalAlpha = 1
+            cx.fillStyle = `rgba(${r * 255}, ${g * 255}, ${
+              b * 255
+            }, ${opacity})`
+            cx.fill()
+            break
+          }
+          case 'linear-gradient': {
+            const { colorStops: colorPoints, opacity, start, end } = fillSetting
+            const { width, height, left, top } = calcVectorPathBoundingBox(path)
+
+            // const width = right - left
+            // const height = bottom - top
+            const centerX = (left + width / 2) * pixelRatio
+            const centerY = (top + height / 2) * pixelRatio
+
+            const gradient = cx.createLinearGradient(
+              (centerX + start.x) * pixelRatio,
+              (centerY + start.y) * pixelRatio,
+              (centerX + end.x) * pixelRatio,
+              (centerY + end.y) * pixelRatio,
+            )
+
+            for (const {
+              position,
+              color: { r, g, b, a },
+            } of colorPoints) {
+              gradient.addColorStop(
+                position,
+                `rgba(${r * 255}, ${g * 255}, ${b * 255}, ${a}`,
+              )
+            }
+
+            cx.globalAlpha = opacity
+            cx.fillStyle = gradient
+            cx.fill()
+            break
+          }
         }
-      }
-    })
+      })
+    } finally {
+      this.fillRenderLock.release(fillRenderLock)
+    }
 
     return { warns }
   }
@@ -593,6 +605,7 @@ export class VectorRenderer {
     if (!brush) throw new Error(`Unregistered brush ${brushSetting.brushId}`)
     if (!ink) throw new Error(`Unregistered ink ${inkSetting.inkId}`)
 
+    const strokeRenderLock = await this.strokeRenderLock.ensure()
     const renderer = await this.glRendererResource.ensure()
     const width = output.canvas.width * pixelRatio
     const height = output.canvas.height * pixelRatio
@@ -606,8 +619,6 @@ export class VectorRenderer {
     this.camera.top = height / 2.0
     this.camera.bottom = -height / 2.0
     this.camera.updateProjectionMatrix()
-
-    LogChannel.l.paplico('renderStroke', path, brushSetting)
 
     const useMemoForPath = async <T>(
       path: VisuElement.VectorPath,
@@ -639,7 +650,7 @@ export class VectorRenderer {
     }
 
     try {
-      return saveAndRestoreCanvas(output, async () => {
+      const result = saveAndRestoreCanvas(output, async () => {
         return await brush.render({
           abort: abort ?? new AbortController().signal,
           throwIfAborted: () => {
@@ -667,8 +678,11 @@ export class VectorRenderer {
           useMemoForPath,
         })
       })
+
+      return result
     } finally {
       this.glRendererResource.release(renderer)
+      this.strokeRenderLock.release(strokeRenderLock)
     }
   }
 }

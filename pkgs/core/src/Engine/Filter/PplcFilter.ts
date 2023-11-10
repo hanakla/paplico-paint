@@ -1,13 +1,4 @@
-export type {
-  PPLCFilterProgram as PPLCFilterProgram,
-  PPLCRenderTarget as PapRenderTarget,
-  FilterWebGLContext,
-  PPLCUniforms as PapUniforms,
-  TexUniform,
-  WebGLTypes,
-  InputSource,
-  OutputTarget,
-} from './FilterContextAbst'
+export type * as GL from './FilterContextAbst'
 
 export type {
   FilterClass,
@@ -16,4 +7,6 @@ export type {
   RasterFilterContext,
   FilterInitContext,
   FilterMetadata,
+  FilterInputSource,
+  createFilter,
 } from './Filter'

@@ -2,7 +2,7 @@ import {
   PPLCOptionInvariantViolationError,
   PPLCTargetEntityNotFoundError,
 } from '@/Errors'
-import { type PaplicoDocument } from './Document'
+import { type PaplicoDocument } from './PaplicoDocument'
 import { type LayerNode } from './Struct/LayerNode'
 import { VisuElement } from './Visually/VisuElement'
 import { DocumentContext } from '@/Engine'
@@ -92,6 +92,11 @@ export type NodesController = {
 
   findNodePathByVisu(visuUid: string): string[] | null
 
+  /** Check to target node or visu can be set to stroking target */
+  isDrawableNode(path: string[]): boolean
+  isDrawableNode(node: LayerNode): boolean
+
+  /** Check to target node can be add child visu */
   isChildContainableNode(path: string[]): boolean
   isChildContainableNode(node: LayerNode): boolean
 }
@@ -346,6 +351,41 @@ export function createNodesController(doc: PaplicoDocument): NodesController {
       }
 
       return null
+    },
+
+    isDrawableNode<T extends string[] | LayerNode>(
+      nodeOrPathOrVisu: T,
+    ): boolean {
+      let visu: VisuElement.AnyElement | undefined = undefined
+
+      if (Array.isArray(nodeOrPathOrVisu)) {
+        const target = me.getNodeAtPath(nodeOrPathOrVisu)
+        visu = target ? doc.getVisuByUid(target.visuUid) : undefined
+
+        if (!visu) {
+          throw new PPLCTargetEntityNotFoundError(
+            `Node not found: ${nodeOrPathOrVisu.join('/')}`,
+          )
+        }
+      }
+
+      if ('visuUid' in nodeOrPathOrVisu) {
+        visu = doc.getVisuByUid(nodeOrPathOrVisu.visuUid)
+
+        if (!visu) {
+          throw new PPLCTargetEntityNotFoundError(
+            `Node not found: ${nodeOrPathOrVisu.visuUid}`,
+          )
+        }
+      }
+
+      if (!visu) {
+        throw new PPLCTargetEntityNotFoundError(
+          `Visu not found (requested with ${JSON.stringify(nodeOrPathOrVisu)})`,
+        )
+      }
+
+      return doc.isDrawableVisu(visu)
     },
 
     isChildContainableNode(nodeOrPath: LayerNode | string[]) {

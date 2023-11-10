@@ -39,6 +39,7 @@
     "build": "vite build"
   },
   "devDependencies": {
+    "@paplico/shared-lib": "workspace:^",
     "@rollup/plugin-typescript": "^9.0.2",
     "@types/opentype.js": "^1.3.7",
     "@types/three": "^0.146.0",

@@ -1,6 +1,6 @@
 import { createContext2D } from '../../Infra/CanvasFactory'
 import { canvasToBlob, freeingCanvas, setCanvasSize } from '@/utils/canvas'
-import { Emitter } from '@/utils/Emitter'
+import { Emitter } from '@paplico/shared-lib'
 
 type PreviewEntry = {
   layerUid: string

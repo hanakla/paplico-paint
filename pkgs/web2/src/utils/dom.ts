@@ -1,5 +1,5 @@
+import { assign } from '@paplico/shared-lib'
 import { MouseEvent, SyntheticEvent } from 'react'
-import { assign } from './object'
 
 export const DOMUtils = {
   isSameElement: (

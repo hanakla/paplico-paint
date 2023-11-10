@@ -1,4 +1,4 @@
-import { Emitter } from '@/utils/emitter'
+import { Emitter } from '@paplico/shared-lib'
 import { ToolModes } from '@paplico/editor'
 import { useEffect } from 'react'
 

@@ -14,11 +14,12 @@ import { Box, Button, Select, Slider } from '@radix-ui/themes'
 import { TextField } from '@/components/TextField'
 import { Fieldset } from '@/components/Fieldset'
 import { roundPrecision } from '@/utils/math'
-import { useStateSync, usePropsMemo } from '@/utils/hooks'
+import { useStateSync } from '@/utils/hooks'
 import { useTranslation } from '@/lib/i18n'
 import { layersPaneTexts } from '@/locales'
 import { NewTreeView } from './LayersPane/NewTreeView'
 import { StoreApi, create } from 'zustand'
+import { usePropsMemo } from '@paplico/shared-lib'
 
 type Props = {
   size?: 'sm' | 'lg'
@@ -74,8 +75,6 @@ export const LayersPane = memo(function LayersPane({ size = 'sm' }: Props) {
   })
 
   const handleChangeCompositeMode = useEvent((mode: string) => {
-    console.log(mode)
-
     pplc?.command.do(
       new Commands.VisuUpdateAttributes(strokeTarget!.visuUid, {
         updater: (layer) => {

@@ -1,7 +1,7 @@
 import { Delta, diff, patch, unpatch } from 'jsondiffpatch'
 import { ICommand } from '../Engine/History/ICommand'
 import { DocumentContext } from '@/Engine'
-import { deepClone } from '@/utils/object'
+import { deepClone } from '@paplico/shared-lib'
 import { VisuElement } from '@/Document'
 import { createCanvasVisually } from '@/Document/Visually/factory'
 import { imageBitmapToImageData } from '@/utils/imageObject'

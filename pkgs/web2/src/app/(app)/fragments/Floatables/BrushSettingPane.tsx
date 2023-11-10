@@ -2,6 +2,7 @@ import { memo, useEffect, useRef } from 'react'
 import {
   usePaplicoInstance,
   initializeOnlyUseEngineStore,
+  useCanvasEditorState,
 } from '@/domains/engine'
 import { FloatablePaneIds } from '@/domains/floatablePanes'
 import { FloatablePane } from '@/components/FloatablePane'
@@ -20,14 +21,20 @@ import { useTranslation } from '@/lib/i18n'
 import { brushesSettingPaneTexts } from '@/locales'
 import useMeasure from 'use-measure'
 import { useUpdate } from 'react-use'
+import { useChangeDetection, useStableLatestRef } from '@/utils/hooks'
+import { pick } from '@paplico/shared-lib'
 
 export const BrushSettingPane = memo(function BrushSetting() {
   const t = useTranslation(brushesSettingPaneTexts)
   const rerender = useUpdate()
 
-  const { pplc, canvasEditor } = usePaplicoInstance()
-
-  const currentBrush = pplc?.state.currentBrush
+  const { pplc, currentBrush, showBrushSizePreview } = useCanvasEditorState(
+    (s) => ({
+      pplc: s.paplico,
+      currentBrush: s.paplico.getBrushSetting(),
+      ...pick(s, ['showBrushSizePreview', 'paplico']),
+    }),
+  )
 
   const previewRef = useRef<HTMLCanvasElement | null>(null)
   const canvasRect = useMeasure(previewRef)
@@ -43,15 +50,29 @@ export const BrushSettingPane = memo(function BrushSetting() {
     pplc!.setBrushSetting({
       brushId: target.metadata.id,
       brushVersion: '0.0.1',
-      specific: {},
+      specific: target.getInitialSetting(),
     })
   })
 
   const handleChangeBrushSize = useEvent((value: number) => {
-    canvasEditor?.showBrushSizePreview(value, { durationMs: 800 })
+    showBrushSizePreview?.(value, { durationMs: 800 })
     pplc!.setBrushSetting({
       size: value,
     })
+  })
+
+  const rerenderStroke = useStableLatestRef(() => {
+    if (!microCanvasRef.current) return
+
+    const mc = microCanvasRef.current
+    mc.setBrushSetting(currentBrush)
+
+    mc.drawPath(
+      SVGConversion.parseSVGPathToVisuVectorPath(
+        'm1.16,34.09c39.38,35.09,140.13,72.91,261.85,10.02,121.72-62.88,232.86-48.28,283.51-10.02',
+      ),
+      { clearDestination: true },
+    )
   })
 
   useEffect(() => {
@@ -66,26 +87,18 @@ export const BrushSettingPane = memo(function BrushSetting() {
     }
   }, [pplc, previewRef.current])
 
-  // useEffect(() => {
-  //   return pplc?.on('stateChanged', rerender)
-  // }, [])
+  useEffect(() => {
+    return pplc?.on('brushSettingChanged', () => {
+      rerenderStroke.current()
+    })
+  }, [pplc])
 
   useEffect(() => {
-    if (!microCanvasRef.current) return
-
     const mc = microCanvasRef.current
-
-    mc.setBrushSetting(currentBrush)
-
-    mc.drawPath(
-      SVGConversion.parseSVGPathToVisuVectorPath(
-        'm1.16,34.09c39.38,35.09,140.13,72.91,261.85,10.02,121.72-62.88,232.86-48.28,283.51-10.02',
-      ),
-      { clearDestination: true },
-    )
+    if (!mc) return
 
     return mc.on('strokeStart', () => mc.clearCanvas())
-  }, [canvasRect, currentBrush])
+  }, [canvasRect.width, canvasRect.height, currentBrush])
 
   return (
     <FloatablePane paneId={FloatablePaneIds.brushSettings} title={t('title')}>

@@ -1,10 +1,6 @@
 import { useEditorStore, useEngineStore } from '@/store'
 import { ToolModes } from '@/stores/types'
-import {
-  useMemoRevailidatable,
-  usePointerDrag,
-  usePropsMemo,
-} from '@/utils/hooks'
+import { useMemoRevailidatable, usePointerDrag } from '@/utils/hooks'
 import {
   Commands,
   Document,
@@ -26,6 +22,7 @@ import { unstable_batchedUpdates } from 'react-dom'
 import { createUseStyles } from 'react-jss'
 import useEvent from 'react-use-event-hook'
 import { VectorObjectElement } from './VisuElement.VectorObject'
+import { usePropsMemo } from '@paplico/shared-lib'
 
 const RECT_SIZE = 10
 const HALF_OF_RECT_SIZE = RECT_SIZE / 2

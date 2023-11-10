@@ -31,6 +31,7 @@ export const notificationTexts = tx({
     'tools.rectangleTool': '図形 (四角形)',
     'tools.ellipseTool': '図形 (楕円)',
 
+    'history.undo': '元に戻す',
     'history.redo': 'やりなおす',
   },
 })
@@ -73,12 +74,24 @@ export const layersPaneTexts = tx({
   },
 })
 
-export const filtersPane = tx({
+export const filtersPaneTexts = tx({
   en: {
     title: 'Filters',
+    loading: 'Loading',
+    'filterType.fill': 'Fill',
+    'filterType.stroke': 'Stroke',
+    'filterType.missingPostProcess': 'Missing filter {{id}}',
+
+    'stroke.width': 'Width',
   },
   ja: {
     title: 'フィルター',
+    loading: '読み込み中',
+    'filterType.fill': '塗り',
+    'filterType.stroke': '線',
+    'filterType.missingPostProcess': '不明なフィルター {{id}}',
+
+    'stroke.width': '線幅',
   },
 })
 

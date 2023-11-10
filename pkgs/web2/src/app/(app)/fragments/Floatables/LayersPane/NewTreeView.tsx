@@ -32,10 +32,10 @@ import {
 } from './structs'
 import {
   initializeOnlyUseEngineStore,
+  useCanvasEditorState,
   usePaplicoInstance,
 } from '@/domains/engine'
 import useEvent from 'react-use-event-hook'
-import { emptyCoalease } from '@/utils/lang'
 import styled, { css } from 'styled-components'
 import {
   ContextMenu,
@@ -52,12 +52,13 @@ import {
   RxTriangleDown,
   RxTriangleUp,
 } from 'react-icons/rx'
-import { usePropsMemo, useStateSync } from '@/utils/hooks'
+import { useStateSync } from '@/utils/hooks'
 import { GhostButton } from '@/components/GhostButton'
 import { DisplayContents } from '@/components/DisplayContents'
 import { createUseStore } from '@/utils/zustand'
 import { StoreApi, createStore } from 'zustand/vanilla'
 import { clamp } from '@/utils/math'
+import { emptyCoalease, pick, usePropsMemo } from '@paplico/shared-lib'
 
 type LayerContextMenuEvent = {
   event: MouseEvent
@@ -143,7 +144,7 @@ export const NewTreeView = memo(function NewTreeView({
   const [activeItem, setActiveItem] = useState<LayerTreeNode | null>(null)
 
   const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
     useSensor(KeyboardSensor, {
       coordinateGetter: sortableKeyboardCoordinates,
     }),
@@ -204,17 +205,16 @@ export const NewTreeView = memo(function NewTreeView({
         return
       }
 
-      console.log('tree cahnged')
       treeStore.syncFromSource(pplc!.currentDocument!)
     }
 
     pplc!.on('documentChanged', changed)
     pplc!.on('strokingTargetChanged', changed)
-    pplc!.on('history:affect', changed)
+    pplc!.on('finishRenderCompleted', changed)
     return () => {
       pplc!.off('documentChanged', changed)
       pplc!.off('strokingTargetChanged', changed)
-      pplc!.off('history:affect', changed)
+      pplc!.off('finishRenderCompleted', changed)
     }
   }, [pplc, pplc?.currentDocument])
 
@@ -279,7 +279,13 @@ export const SortableItem = memo(function SortableItem({
   ghost?: boolean
 }) {
   const { pplc } = usePaplicoInstance()
-  const { canvasEditor } = initializeOnlyUseEngineStore()
+  // const { canvasEditor } = initializeOnlyUseEngineStore()
+  const { isSelected, strokingTarget, setSelectedVisuUids } =
+    useCanvasEditorState((s) => ({
+      isSelected: s.isInSelectedVisuUids(item.visUid),
+      strokingTarget: s.getStrokingTarget(),
+      ...pick(s, ['setSelectedVisuUids']),
+    }))
   const treeStore = useLayerTreeStore()
   const propsMemo = usePropsMemo()
 
@@ -292,8 +298,20 @@ export const SortableItem = memo(function SortableItem({
     [CSS.Transform.toString(transform), transition],
   )
 
-  const handleClick = useEvent(() => {
-    pplc!.setStrokingTarget(item.path)
+  const handleClick = useEvent((e: MouseEvent<HTMLElement>) => {
+    if (pplc?.currentDocument?.layerNodes.isDrawableNode(item.path)) {
+      pplc!.setStrokingTarget(item.path)
+    }
+
+    setSelectedVisuUids?.((prev) => {
+      if (e.ctrlKey || e.metaKey) {
+        return prev.includes(item.visUid)
+          ? prev.filter((uid) => uid !== item.visUid)
+          : [...prev, item.visUid]
+      } else {
+        return [item.visUid]
+      }
+    })
   })
 
   const handleClickCollapse = useEvent((e: MouseEvent) => {
@@ -310,7 +328,6 @@ export const SortableItem = memo(function SortableItem({
     pplc!.command.do(
       new Commands.VisuUpdateAttributes(item.visUid, {
         updater: (attr) => {
-          console.log('hi')
           attr.visible = !attr.visible
         },
       }),
@@ -350,12 +367,14 @@ export const SortableItem = memo(function SortableItem({
         () => ({
           ...sortableStyle,
           background:
-            canvasEditor?.getStrokingTarget()?.visuUid === item.visUid
+            strokingTarget?.visuUid === item.visUid
               ? 'var(--sky-5)'
+              : isSelected
+              ? 'var(--blue-a2)'
               : undefined,
           opacity: ghost ? 0.5 : undefined,
         }),
-        [sortableStyle, canvasEditor?.getStrokingTarget()?.visuUid, ghost],
+        [sortableStyle, isSelected, strokingTarget?.visuUid, ghost],
       )}
       onClick={handleClick}
       onContextMenu={handleContextMenu}
@@ -482,18 +501,28 @@ export const SortableItem = memo(function SortableItem({
             loading="lazy"
           />
 
-          <span>
+          <span
+            aria-label={
+              // prettier-ignore
+              item.visu.name + ' ' +
+              (item.visu.type === 'group' ? 'Group Layer'
+              : item.visu.type === 'vectorObject'? 'Vector Layer'
+              : item.visu.type === 'text' ? 'Text Layer'
+              : item.visu.type === 'canvas' ? 'Normal Layer'
+              : 'Normal Layer')
+            }
+          >
             {
               // prettier-ignore
               emptyCoalease(
-            item.visu.name,
-            <PlaceholderString>
-              {item.visu.type === 'group' ? '<Group Layer>'
-              : item.visu.type === 'vectorObject'? '<Vector Layer>'
-              : item.visu.type === 'text' ? '<Text Layer>'
-              : '<Normal Layer>'}
-            </PlaceholderString>
-          )
+                item.visu.name,
+                <PlaceholderString>
+                  {item.visu.type === 'group' ? '<Group Layer>'
+                  : item.visu.type === 'vectorObject'? '<Vector Layer>'
+                  : item.visu.type === 'text' ? '<Text Layer>'
+                  : '<Normal Layer>'}
+                </PlaceholderString>
+              )
             }
           </span>
         </div>

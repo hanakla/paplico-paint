@@ -3,7 +3,7 @@ import { diff, patch, unpatch, Delta } from 'jsondiffpatch'
 
 import { ICommand } from '../Engine/History/ICommand'
 import { DocumentContext } from '@/Engine'
-import { deepClone } from '@/utils/object'
+import { deepClone } from '@paplico/shared-lib'
 import { VectorLayer } from '@/Document/LayerEntity'
 
 type Options = {

@@ -1,3 +1,5 @@
+import { FilterInputSource } from './Filter'
+
 export type PPLCFilterProgram<T = any> = {
   [__paplicoFilterProgram]: true
   program: T
@@ -8,7 +10,7 @@ export type PPLCRenderTarget<T = any> = {
   renderTarget: T
 }
 
-export type InputSource = TexImageSource | PPLCRenderTarget
+export type InputSource = FilterInputSource | PPLCRenderTarget
 
 export type OutputTarget =
   | CanvasRenderingContext2D

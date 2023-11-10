@@ -1,8 +1,6 @@
 import type {} from 'vitest/config'
 
 import { defineConfig } from 'vite'
-import tsConfigPaths from 'vite-tsconfig-paths'
-import { resolve } from 'path'
 import dts from 'vite-plugin-dts'
 import { externals } from 'rollup-plugin-node-externals'
 
@@ -12,7 +10,6 @@ export default defineConfig({
   },
   resolve: {
     alias: {
-      crypto: 'crypto-js',
       '@/': `${__dirname}/src/`,
     },
   },
@@ -20,10 +17,13 @@ export default defineConfig({
     minify: false,
     emptyOutDir: false,
     lib: {
-      entry: 'src/index.tsx',
-      name: 'PapVectorEditor',
-      formats: ['es', 'umd'],
-      fileName: 'index',
+      entry: {
+        index: 'src/index.ts',
+      },
+      name: 'PapCore',
+      formats: ['es', 'cjs'],
+      fileName: (format, entryName) =>
+        `${entryName}.${format === 'es' ? 'mjs' : 'js'}`,
     },
     rollupOptions: {
       output: {
@@ -35,8 +35,7 @@ export default defineConfig({
     {
       enforce: 'pre',
       ...externals({
-        builtins: true,
-        exclude: ['@paplico/shared-lib'],
+        builtins: false,
       }),
     } as any,
     dts({

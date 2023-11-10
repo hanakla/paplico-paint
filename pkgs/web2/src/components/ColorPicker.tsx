@@ -1,7 +1,7 @@
 import { checkerBoard } from '@/utils/cssMixin'
 import { useStableLatestRef } from '@/utils/hooks'
 import { clamp } from '@/utils/math'
-import { shallowEquals } from '@/utils/object'
+import { shallowEquals } from '@paplico/shared-lib'
 import {
   CSSProperties,
   ComponentType,

@@ -1,4 +1,4 @@
-import { Emitter } from '@/utils/Emitter'
+import { Emitter } from '@paplico/shared-lib'
 import { DocumentContext } from './DocumentContext'
 import { PaplicoDocument } from '@/Document'
 import { ROOT_LAYER_NODE_UID } from '@/Document/Struct/LayerNode'

@@ -15,7 +15,7 @@ import { AtomicResource, chainedAtomicResource } from '@/utils/AtomicResource'
 import { AppearanceRegistry } from '@/Engine/Registry/AppearanceRegistry'
 import { FilterWebGLContext } from './Filter/FilterContextAbst'
 import { ThreeFilterContext } from './Filter/ThreeFilterContext'
-import { deepClone } from '@/utils/object'
+import { deepClone } from '@paplico/shared-lib'
 import { type LayerMetrics } from './DocumentContext/LayerMetrics'
 import {
   CanvasToken,
@@ -24,12 +24,12 @@ import {
   RenderTargets,
 } from './Scheduler.Const'
 import { buildRenderSchedule } from './Scheduler'
-import { unreachable } from '@/utils/unreachable'
 import { PaplicoError } from '@/Errors/PaplicoError'
 import { Canvas2DAllocator } from '@/Infra/Canvas2DAllocator'
 import { LogChannel } from '@/Debugging/LogChannel'
 import { multiplyMatrix, visuTransformToMatrix2D } from './VectorUtils'
 import { formatStack } from '@/utils/debug-utils'
+import { unreachable } from '@paplico/shared-lib'
 
 export namespace RenderPipeline {
   /**
@@ -58,6 +58,12 @@ export namespace RenderPipeline {
     visuMetrics: Record<string, LayerMetrics.BBoxSet>
     stats: any
   }
+
+  export type CompositionImageSource =
+    | ImageBitmap
+    | HTMLImageElement
+    | HTMLCanvasElement
+    | OffscreenCanvas
 }
 
 export class RenderPipeline {
@@ -143,8 +149,8 @@ export class RenderPipeline {
 
     LogChannel.l.pipeline('scheduled', schedules)
 
-    const canvasByToken = new WeakMap<CanvasToken, CanvasRenderingContext2D>()
-    let borrowedCanvases = new Set()
+    const canvasByToken = new Map<CanvasToken, CanvasRenderingContext2D>()
+    let borrowedCanvases = new Set<CanvasRenderingContext2D>()
 
     const usedPrecompKeys = new Set<string>()
     const precompBitmapCache = this.precompBitmapCache
@@ -173,7 +179,11 @@ export class RenderPipeline {
       canvasByToken.set(RenderTargets.PREDEST, predest)
       borrowedCanvases.add(predest)
 
-      for (const task of schedules) {
+      for (let taskIdx = 0, l = schedules.length; taskIdx < l; taskIdx++) {
+        const task = schedules[taskIdx]
+
+        LogChannel.l.pipeline('>> Render task', task)
+
         switch (task.command) {
           case RenderCommands.DRAW_OVERRIDED_SOURCE_TO_DEST: {
             const sourceImage = (await getSource(task.source))!
@@ -204,6 +214,32 @@ export class RenderPipeline {
           case RenderCommands.DRAW_SOURCE_TO_DEST: {
             if (task.renderTarget === RenderTargets.NONE) break
 
+            const sourceImage = await getSource(task.source)
+            const targetCanvas = getRenderTarget(task.renderTarget, {
+              width: viewport.width,
+              height: viewport.height,
+            })
+
+            if (!sourceImage) {
+              throw new PaplicoError(`Invalid source: ${task.source}`)
+            }
+
+            if (!targetCanvas) break
+
+            draws++
+
+            saveAndRestoreCanvas(targetCanvas, (cx) => {
+              cx.globalCompositeOperation =
+                layerBlendModeToCanvasCompositeOperation(task.blendMode)
+              cx.globalAlpha = task.opacity
+              cx.drawImage(sourceImage.image, 0, 0)
+            })
+
+            break
+          }
+          case RenderCommands.DRAW_VISU_TO_DEST: {
+            if (task.renderTarget === RenderTargets.NONE) break
+
             const sourceImage = await getSource(
               task.source,
               task.parentTransform,
@@ -231,9 +267,7 @@ export class RenderPipeline {
             saveAndRestoreCanvas(targetCanvas, (cx) => {
               cx.globalCompositeOperation =
                 layerBlendModeToCanvasCompositeOperation(task.blendMode)
-
               cx.globalAlpha = task.opacity
-
               cx.drawImage(sourceImage.image, 0, 0)
             })
 
@@ -247,7 +281,7 @@ export class RenderPipeline {
           }
 
           case RenderCommands.APPLY_LAYER_FILTER: {
-            const { source, renderTarget, filter, clearTarget } = task
+            const { source, renderTarget, filter } = task
 
             const sourceImage = await getSource(source)
             const targetCanvas = getRenderTarget(renderTarget, {
@@ -263,8 +297,6 @@ export class RenderPipeline {
               throw new PaplicoError(`Invalid render target: ${renderTarget}`)
             }
 
-            if (clearTarget) clearCanvas(targetCanvas)
-
             await this.applyFilter(sourceImage.image, targetCanvas, filter, {
               abort,
               phase,
@@ -277,7 +309,7 @@ export class RenderPipeline {
           }
 
           case RenderCommands.APPLY_INTERNAL_OBJECT_FILTER: {
-            const { renderTarget, layerUid, filter, clearTarget } = task
+            const { renderTarget, objectVisu, filter } = task
             let { objectVisu: object } = task
 
             const targetCanvas = getRenderTarget(renderTarget, {
@@ -289,11 +321,10 @@ export class RenderPipeline {
               throw new PaplicoError(`Invalid render target: ${renderTarget}`)
             }
 
-            if (clearTarget) clearCanvas(targetCanvas)
-
             // Process overrides
             object =
-              transformOverrides?.[layerUid]?.(deepClone(object)) ?? object
+              transformOverrides?.[objectVisu.uid]?.(deepClone(object)) ??
+              object
 
             if (object.type !== 'vectorObject') continue
 
@@ -369,8 +400,11 @@ export class RenderPipeline {
           }
 
           case RenderCommands.CLEAR_TARGET: {
-            const { renderTarget } = task
-            const target = getRenderTarget(renderTarget, null)
+            const { renderTarget, setSize } = task
+            const target = getRenderTarget(
+              renderTarget,
+              setSize === 'VIEWPORT' ? viewport : null,
+            )
             if (!target)
               throw new PPLCInvariantViolationError(
                 `Invalid clear target: ${renderTarget}`,
@@ -434,8 +468,9 @@ export class RenderPipeline {
       if (!('__canvasToken' in target)) return null
 
       if (!size && !canvasByToken.has(target)) {
+        LogChannel.l.pipeline.error(target, size)
         throw new PaplicoError(
-          'fullyRenderWithScheduler: inviolate state. trying uninitialized canvas without size',
+          'renderNode.getRenderTarget: inviolate state. trying uninitialized canvas without size',
         )
       }
 
@@ -615,7 +650,7 @@ export class RenderPipeline {
   }
 
   public async applyFilter(
-    input: TexImageSource,
+    input: RenderPipeline.CompositionImageSource,
     outcx: CanvasRenderingContext2D,
     filter: Omit<VisuFilter.Structs.PostProcessSetting, 'enabled'>,
     {
@@ -646,7 +681,7 @@ export class RenderPipeline {
       logger?.time(`Apply filter time: ${instance.id}`)
 
       await saveAndRestoreCanvas(outcx, async () => {
-        setCanvasSize(outcx.canvas, viewport)
+        // setCanvasSize(outcx.canvas, viewport)
 
         // FIXME: Return bboxes
         await instance.applyRasterFilter?.(input, outcx, {

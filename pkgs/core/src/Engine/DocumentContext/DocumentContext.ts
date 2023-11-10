@@ -1,10 +1,10 @@
-import { PaplicoDocument } from '@/Document/Document'
+import { PaplicoDocument } from '@/Document/PaplicoDocument'
 import { AtomicResource } from '@/utils/AtomicResource'
 import { RuntimeLayerEntity } from './RuntimeLayerEntity'
 import { History } from '@/Engine/History/History'
 import { ICommand } from '@/Engine/History/ICommand'
 import { PreviewStore } from '@/Engine/DocumentContext/PreviewStore'
-import { Emitter } from '@/utils/Emitter'
+import { Emitter } from '@paplico/shared-lib'
 import { LayerMetrics } from './LayerMetrics'
 import { VisuElement } from '@/Document'
 import {
@@ -255,7 +255,12 @@ export class DocumentContext extends Emitter<DocumentContext.Events> {
     return bitmap
   }
 
-  public invalidateLayerBitmapCache(visuUid: string) {
+  public invalidateLayerBitmapCache(visuUid: string | string[]) {
+    if (Array.isArray(visuUid)) {
+      visuUid.forEach((uid) => this.invalidateLayerBitmapCache(uid))
+      return
+    }
+
     this.layerNodeBitmapCache.delete(visuUid)
   }
 

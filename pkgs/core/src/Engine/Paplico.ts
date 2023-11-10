@@ -16,9 +16,8 @@ import {
   setCanvasSize,
 } from '@/utils/canvas'
 import { DocumentContext } from './DocumentContext/DocumentContext'
-import { deepClone } from '../utils/object'
 import { CircleBrush } from '../Brushes/CircleBrush'
-import { Emitter } from '../utils/Emitter'
+import { Emitter, deepClone } from '@paplico/shared-lib'
 import { RenderCycleLogger } from './RenderCycleLogger'
 import { PlainInk } from '../Inks/PlainInk'
 import { InkRegistry } from './Registry/InkRegistry'
@@ -42,7 +41,7 @@ import { type History } from '@/Engine/History/History'
 import { PreviewStore } from './DocumentContext/PreviewStore'
 import { NoneImpls, type PaplicoComponents } from '@/UI/PaneUI/index'
 import { type AbstractElementCreator } from '../UI/PaneUI/AbstractComponent'
-import { TestFilter } from '../Filters'
+import { BlurFilter, TestFilter } from '../Filters'
 import { WebGLRenderer } from 'three'
 import { PaneUIRenderings } from './PaneUIRenderings'
 import { FontRegistry } from './Registry/FontRegistry'
@@ -116,6 +115,10 @@ export namespace Paplico {
 
     /** `finish` priority render completed event */
     finishRenderCompleted: void
+
+    brushSettingChanged: { setting: Paplico.State['currentBrush'] }
+    fillSettingChanged: { setting: Paplico.State['currentFill'] }
+    inkSettingChanged: { setting: Paplico.State['currentInk'] }
 
     'preview:updated': PreviewStore.Events['updated']
     'history:affect': History.Events['affect']
@@ -266,6 +269,7 @@ export class Paplico extends Emitter<Paplico.Events> {
 
     this.filters = new AppearanceRegistry()
     this.filters.register(TestFilter)
+    this.filters.register(BlurFilter)
 
     this.fonts = new FontRegistry()
 
@@ -322,6 +326,11 @@ export class Paplico extends Emitter<Paplico.Events> {
     this.initialize()
   }
 
+  public exposeLogChannelToGlobalThis() {
+    ;(globalThis as any).logc = LogChannel
+    console.info('LogChannel exposed to globalThis.logc')
+  }
+
   public get stats() {
     return { getCanvasBytes }
   }
@@ -335,15 +344,10 @@ export class Paplico extends Emitter<Paplico.Events> {
     return this.document
   }
 
-  protected setState(
-    fn: (prev: Paplico.State) => Paplico.State,
-    { __internal_skipEmit = false }: { __internal_skipEmit?: boolean } = {},
-  ) {
-    this.#state = Object.freeze(fn(Object.freeze(this.#state)))
+  protected setState(fn: (prev: Paplico.State) => Paplico.State) {
+    this.#state = Object.freeze(deepClone(fn(this.#state)))
 
-    if (!__internal_skipEmit) {
-      this.emit('stateChanged', this.#state)
-    }
+    this.emit('stateChanged', this.#state)
   }
 
   /** @deprecated Use `getStrokingTarget` instead */
@@ -528,6 +532,8 @@ export class Paplico extends Emitter<Paplico.Events> {
     })
 
     this.runtimeDoc.history.on('affect', (e) => {
+      if (e.layerIds.length === 0) return
+
       this.rerenderForHistoryAffection()
 
       aggregateRescueErrors([
@@ -568,14 +574,13 @@ export class Paplico extends Emitter<Paplico.Events> {
     this.runtimeDoc.setStrokingTarget(path)
   }
 
-  /** @deprecated Use cloneStrokeSetting instead. */
-  public getBrushSetting(): VisuFilter.Structs.BrushSetting | null {
-    return this.#state.currentBrush
+  public cloneInitialBrushSetting(): VisuFilter.Structs.BrushSetting {
+    return DEFAULT_BRUSH_SETTING()
   }
 
   /** Get current stroke setting. returned objeccts is write safe (deep cloned) */
-  public cloneBrushSetting(): VisuFilter.Structs.BrushSetting | null {
-    return deepClone(this.#state.currentBrush)
+  public getBrushSetting(): VisuFilter.Structs.BrushSetting | null {
+    return this.#state.currentBrush
   }
 
   public setBrushSetting(
@@ -593,37 +598,23 @@ export class Paplico extends Emitter<Paplico.Events> {
             },
       }
     })
-  }
 
-  /** @deprecated Use cloneFillSetting instead. */
-  public getFillSetting(): VisuFilter.Structs.FillSetting | null {
-    return this.#state.currentFill
+    this.emit('brushSettingChanged', { setting: this.#state.currentBrush })
   }
 
   /** Get current fill setting. returned objeccts is write safe (deep cloned) */
-  public cloneFillSetting(): VisuFilter.Structs.FillSetting | null {
-    return deepClone(this.#state.currentFill)
+  public cloneInitialFillSetting(): VisuFilter.Structs.FillSetting {
+    return DEFAULT_FILL_SETTING()
   }
 
-  public cloneInkSetting(): VisuFilter.Structs.InkSetting {
-    return deepClone(this.#state.currentInk)
-  }
-
-  /** @deprecated Use cloneInkSetting instead. */
-  public getInkSetting(): VisuFilter.Structs.InkSetting {
-    return this.#state.currentInk
-  }
-
-  public setInkSetting(setting: Partial<VisuFilter.Structs.InkSetting>) {
-    this.setState((d) => {
-      return { ...d, currentInk: { ...d.currentInk, ...setting } }
-    })
+  public getFillSetting(): VisuFilter.Structs.FillSetting | null {
+    return this.#state.currentFill
   }
 
   public setFillSetting(
     setting: Partial<VisuFilter.Structs.FillSetting> | null,
   ) {
-    return this.setState((d) => {
+    this.setState((d) => {
       return {
         ...d,
         currentFill: !setting
@@ -635,6 +626,24 @@ export class Paplico extends Emitter<Paplico.Events> {
             },
       }
     })
+
+    this.emit('fillSettingChanged', { setting: this.#state.currentFill })
+  }
+
+  public cloneInitialInkSetting(): VisuFilter.Structs.InkSetting {
+    return DEFAULT_INK_SETTING()
+  }
+
+  public getInkSetting(): VisuFilter.Structs.InkSetting {
+    return this.#state.currentInk
+  }
+
+  public setInkSetting(setting: Partial<VisuFilter.Structs.InkSetting>) {
+    this.setState((d) => {
+      return { ...d, currentInk: { ...d.currentInk, ...setting } }
+    })
+
+    this.emit('inkSettingChanged', { setting: this.#state.currentInk })
   }
 
   public getPreferences(): Paplico.Preferences {
@@ -949,8 +958,6 @@ export class Paplico extends Emitter<Paplico.Events> {
 
           tmpctx.drawImage(strkctx.canvas, 0, 0)
         })
-
-        await LogChannel.l.paplico.logImage(strkctx)
       } else {
         return
       }
@@ -1203,10 +1210,10 @@ export class Paplico extends Emitter<Paplico.Events> {
     stroke: UIStroke,
     {
       pathToTargetVisu,
-      brushSetting = this.#state.currentBrush,
+      brushSetting = deepClone(this.#state.currentBrush),
       inkSetting,
-      fillSetting = this.#state.currentFill,
-      strokeComposition = this.#state.strokeComposition,
+      fillSetting = deepClone(this.#state.currentFill),
+      strokeComposition = deepClone(this.#state.strokeComposition),
     }: {
       pathToTargetVisu?: string[]
       brushSetting?: VisuFilter.Structs.BrushSetting<any> | null
@@ -1245,10 +1252,10 @@ export class Paplico extends Emitter<Paplico.Events> {
     stroke: UIStroke,
     {
       pathToTargetVisu,
-      brushSetting = this.#state.currentBrush,
+      brushSetting = deepClone(this.#state.currentBrush),
       inkSetting,
-      fillSetting = this.#state.currentFill,
-      strokeComposition = this.#state.strokeComposition,
+      fillSetting = deepClone(this.#state.currentFill),
+      strokeComposition = deepClone(this.#state.strokeComposition),
     }: {
       pathToTargetVisu?: string[]
       brushSetting?: VisuFilter.Structs.BrushSetting<any> | null

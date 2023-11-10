@@ -46,6 +46,7 @@ export const setCanvasSize: {
     else return
   } else {
     assign(canvas, _size)
+    return
   }
 }
 

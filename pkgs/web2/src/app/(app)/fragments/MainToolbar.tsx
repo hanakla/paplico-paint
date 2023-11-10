@@ -8,7 +8,7 @@ import { css, styled } from 'styled-components'
 // import useEvent from 'react-use-event-hook'
 import { useDrag } from '@use-gesture/react'
 import useMeasure from 'use-measure'
-import { useCombineRef, usePropsMemo } from '@/utils/hooks'
+import { useCombineRef } from '@/utils/hooks'
 import { Popover } from '@/components/Popover'
 import useEvent from 'react-use-event-hook'
 import {
@@ -33,6 +33,7 @@ import { pick } from '@/utils/object'
 import { ToolSelectPane } from './MainToolbar/ToolSelectPane'
 import { papColorToRGBA, useToolbarStore } from './MainToolbar/toolbar.store'
 import { StrokeColorPopoverTrigger } from './MainToolbar/StrokeColorPopover'
+import { usePropsMemo } from '@paplico/shared-lib'
 
 type Props = {
   className?: string

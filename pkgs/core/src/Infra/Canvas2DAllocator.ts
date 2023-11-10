@@ -1,7 +1,7 @@
 import { clearCanvas, freeingCanvas, setCanvasSize } from '@/utils/canvas'
 import { createContext2D } from './CanvasFactory'
-import { shallowEquals } from '@/utils/object'
 import { PPLCCanvasAllocationError } from '@/Errors'
+import { shallowEquals } from '@paplico/shared-lib'
 
 type AllocatedCanvasData = {
   used: boolean
@@ -9,6 +9,7 @@ type AllocatedCanvasData = {
   createOpt: CanvasRenderingContext2DSettings
   expireAt: number
   stack?: string | null
+  lastUserStack?: string | null
 }
 
 const EXPIRE_TIME = 1000 * 60
@@ -79,6 +80,7 @@ const allocator: Canvas2DAllocator = {
             createOpt: canvasOpt,
             expireAt: Date.now() + EXPIRE_TIME,
             stack: new Error().stack,
+            lastUserStack: null,
           }
         },
         beforeRetry: () => Canvas2DAllocator.gc(),
@@ -101,6 +103,7 @@ const allocator: Canvas2DAllocator = {
     if (!entry) return
 
     entry.used = false
+    entry.lastUserStack = entry.stack
     entry.stack = null
     restoreToInitialState(entry.ctx)
   },

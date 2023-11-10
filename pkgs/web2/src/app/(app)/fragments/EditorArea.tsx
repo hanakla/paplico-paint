@@ -13,7 +13,7 @@ import {
   usePaplicoInstance,
   initializeOnlyUseEngineStore,
 } from '@/domains/engine'
-import { useCombineRef, usePropsMemo } from '@/utils/hooks'
+import { useCombineRef } from '@/utils/hooks'
 import useEvent from 'react-use-event-hook'
 import { MainToolbar } from './MainToolbar'
 import useMeasure from 'use-measure'
@@ -25,8 +25,6 @@ import { Commands, Document } from '@paplico/core-new'
 import { loadImage } from '@hanakla/arma'
 import { StoreApi, create } from 'zustand'
 import { storePicker } from '@/utils/zustand'
-import { fitAndPosition } from 'object-fit-math'
-import { clamp } from '@/utils/math'
 
 type Props = { className?: string }
 

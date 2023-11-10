@@ -1,4 +1,4 @@
-import { diff, patch, unpatch } from './jsondiff'
+import { diff, patch, typedArraySafeDiff, unpatch } from './jsondiff'
 import { deepClone, deepCloneAndUpdate } from './object'
 
 describe('diff', () => {
@@ -132,5 +132,71 @@ describe('diff', () => {
 
     const unpatched = unpatch(deepClone(patched), delta)
     expect(unpatched).toEqual(original)
+  })
+
+  describe.only('breaken cases', () => {
+    it('paplico effect diff', () => {
+      const original = {
+        kind: 'stroke',
+        uid: 'filter-01HEVTTEX21NHW83XP8W4EVAJT',
+        enabled: true,
+        stroke: {
+          brushId: '@paplico/core/extras/scatter-brush',
+          brushVersion: '0.0.1',
+          color: { r: 1, g: 1, b: 0 },
+          opacity: 1,
+          size: 30,
+          settings: {
+            texture: 'pencil',
+            noiseInfluence: 1,
+            inOutInfluence: 0,
+            inOutLength: 0,
+          },
+        },
+        ink: {
+          inkId: '@paplico/core/ink/TextureRead',
+          inkVersion: '0.0.1',
+          setting: {},
+        },
+      }
+
+      const modified = {
+        kind: 'stroke',
+        uid: 'filter-01HEVTTEX21NHW83XP8W4EVAJT',
+        enabled: false,
+        stroke: {
+          brushId: '@paplico/core/extras/scatter-brush',
+          brushVersion: '0.0.1',
+          color: { r: 1, g: 1, b: 0 },
+          opacity: 1,
+          size: 30,
+          settings: {
+            texture: 'pencil',
+            noiseInfluence: 1,
+            inOutInfluence: 0,
+            inOutLength: 0,
+          },
+        },
+        ink: {
+          inkId: '@paplico/core/ink/TextureRead',
+          inkVersion: '0.0.1',
+          setting: {},
+        },
+      }
+
+      const delta = typedArraySafeDiff(original, modified)
+
+      expect(delta).toEqual({
+        enabled: ['c', true, false],
+      })
+      expect(delta).not.toHaveProperty('stroke')
+      expect(delta).not.toHaveProperty('ink')
+
+      const patched = patch(deepClone(original), delta)
+      expect(patched).toEqual(modified)
+
+      const unpatched = unpatch(deepClone(patched), delta)
+      expect(unpatched).toEqual(original)
+    })
   })
 })

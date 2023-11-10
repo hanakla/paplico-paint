@@ -6825,6 +6825,7 @@ __metadata:
   resolution: "@paplico/core-new@workspace:pkgs/core"
   dependencies:
     "@luncheon/simplify-svg-path": ^0.2.0
+    "@paplico/shared-lib": "workspace:^"
     "@rollup/plugin-typescript": ^9.0.2
     "@thednp/dommatrix": ^2.0.6
     "@types/opentype.js": ^1.3.7
@@ -6947,6 +6948,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@paplico/editor@workspace:pkgs/editor"
   dependencies:
+    "@paplico/shared-lib": "workspace:^"
     "@rollup/plugin-typescript": ^9.0.2
     "@types/react": ^18.2.31
     "@types/react-dom": ^18.2.14
@@ -6986,6 +6988,25 @@ __metadata:
       optional: true
     node-canvas-webgl:
       optional: true
+  languageName: unknown
+  linkType: soft
+
+"@paplico/shared-lib@workspace:^, @paplico/shared-lib@workspace:pkgs/shared-lib":
+  version: 0.0.0-use.local
+  resolution: "@paplico/shared-lib@workspace:pkgs/shared-lib"
+  dependencies:
+    "@rollup/plugin-typescript": ^9.0.2
+    "@types/react": ^18.2.37
+    klona: ^2.0.6
+    mitt: ^3.0.1
+    rollup-plugin-node-externals: ^6.1.2
+    typescript: ^5.0.4
+    vite: ^4.5.0
+    vite-plugin-dts: ^3.5.3
+    vite-tsconfig-paths: ^4.2.0
+    vitest: ^0.34.3
+  peerDependencies:
+    react: "*"
   languageName: unknown
   linkType: soft
 
@@ -7035,6 +7056,7 @@ __metadata:
     "@paplico/chat": "workspace:^"
     "@paplico/core-new": "workspace:^"
     "@paplico/editor": "workspace:^"
+    "@paplico/shared-lib": "workspace:^"
     "@radix-ui/react-accordion": ^1.1.2
     "@radix-ui/react-dropdown-menu": ^2.0.6
     "@radix-ui/react-icons": ^1.3.0
@@ -7046,6 +7068,7 @@ __metadata:
     "@types/mousetrap": ^1.6.13
     "@types/react": 18.2.31
     "@types/react-dom": 18.0.11
+    "@types/use-sync-external-store": ^0.0.6
     "@types/ws": ^8.5.8
     "@use-gesture/react": ^10.3.0
     "@welldone-software/why-did-you-render": ^7.0.1
@@ -7076,6 +7099,7 @@ __metadata:
     tsx: ^3.14.0
     use-long-press: ^3.2.0
     use-measure: ^0.3.0
+    use-sync-external-store: ^1.2.0
     vitest: 0.33.0
     ws: ^8.14.2
     zustand: ^4.4.6
@@ -10758,6 +10782,17 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@types/react@npm:^18.2.37":
+  version: 18.2.37
+  resolution: "@types/react@npm:18.2.37"
+  dependencies:
+    "@types/prop-types": "*"
+    "@types/scheduler": "*"
+    csstype: ^3.0.2
+  checksum: 2d2599f1a09e4f678509161fea8baeaf76d21deee460f4f3ccc1ca431ebe85f896d7d0b906127de17e97ed57240cec61955eb97d0b5d9cbf4e97fd6620b1acdb
+  languageName: node
+  linkType: hard
+
 "@types/reactcss@npm:*":
   version: 1.2.6
   resolution: "@types/reactcss@npm:1.2.6"
@@ -10885,6 +10920,13 @@ __metadata:
   version: 3.0.0
   resolution: "@types/unist@npm:3.0.0"
   checksum: e9d21a8fb5e332be0acef29192d82632875b2ef3e700f1bc64fdfc1520189542de85c3d4f3bcfbc2f4afdb210f4c23f68061f3fbf10744e920d4f18430d19f49
+  languageName: node
+  linkType: hard
+
+"@types/use-sync-external-store@npm:^0.0.6":
+  version: 0.0.6
+  resolution: "@types/use-sync-external-store@npm:0.0.6"
+  checksum: a95ce330668501ad9b1c5b7f2b14872ad201e552a0e567787b8f1588b22c7040c7c3d80f142cbb9f92d13c4ea41c46af57a20f2af4edf27f224d352abcfe4049
   languageName: node
   linkType: hard
 
@@ -21266,6 +21308,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"klona@npm:^2.0.6":
+  version: 2.0.6
+  resolution: "klona@npm:2.0.6"
+  checksum: ac9ee3732e42b96feb67faae4d27cf49494e8a3bf3fa7115ce242fe04786788e0aff4741a07a45a2462e2079aa983d73d38519c85d65b70ef11447bbc3c58ce7
+  languageName: node
+  linkType: hard
+
 "kolorist@npm:^1.8.0":
   version: 1.8.0
   resolution: "kolorist@npm:1.8.0"
@@ -30388,7 +30437,7 @@ next@latest:
   languageName: node
   linkType: hard
 
-"use-sync-external-store@npm:1.2.0":
+"use-sync-external-store@npm:1.2.0, use-sync-external-store@npm:^1.2.0":
   version: 1.2.0
   resolution: "use-sync-external-store@npm:1.2.0"
   peerDependencies:

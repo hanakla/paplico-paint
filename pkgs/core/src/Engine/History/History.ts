@@ -1,5 +1,5 @@
 import { ICommand } from './ICommand'
-import { Emitter } from '@/utils/Emitter'
+import { Emitter } from '@paplico/shared-lib'
 import { aggregateRescueErrors, rescue } from '@/utils/rescue'
 import { DocumentContext } from '@/Engine/DocumentContext/DocumentContext'
 import { AtomicResource } from '@/utils/AtomicResource'
@@ -54,7 +54,11 @@ export class History extends Emitter<History.Events> {
       this.#undoStack.push(command)
       this.#redoStack = []
 
-      this.emit('affect', { layerIds: command.effectedVisuUids })
+      aggregateRescueErrors([
+        rescue(() =>
+          this.emit('affect', { layerIds: command.effectedVisuUids }),
+        ),
+      ])
     } finally {
       this.excutionLock.release(lock)
     }

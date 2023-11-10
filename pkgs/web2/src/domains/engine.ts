@@ -3,27 +3,38 @@ import {
   Brushes,
   Document,
   ExtraBrushes,
+  Filters,
   Inks,
   Paplico,
 } from '@paplico/core-new'
-import { PapEditorHandle } from '@paplico/editor'
-import { RefObject, createElement, useEffect, useMemo, useRef } from 'react'
+import { PplcEditorHandle } from '@paplico/editor'
+import {
+  RefObject,
+  createElement,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useSyncExternalStore,
+} from 'react'
 import { createStore } from 'zustand/vanilla'
 import { PaplicoChatWebSocketBackend, paplicoChat } from '@paplico/chat/client'
 import { useDangerouslyEffectAsync } from '@/utils/hooks'
 import { useUpdate } from 'react-use'
 import { useNotifyStore } from './notifications'
 import { createUseStore, storePicker } from '@/utils/zustand'
+import { changedKeys, shallowEquals } from '@paplico/shared-lib'
+import { getLine } from '@/utils/string'
 
 interface EngineStore {
   _engine: Paplico | null
-  canvasEditor: PapEditorHandle | null
+  canvasEditor: PplcEditorHandle | null
 
   engineState: Paplico.State | null
   strokeTarget: Paplico.StrokingTarget | null
 
   initialize(engine: Paplico): void
-  _setEditorHandle: (handle: PapEditorHandle | null) => void
+  _setEditorHandle: (handle: PplcEditorHandle | null) => void
   _setEngineState: (state: Paplico.State) => void
   _setStrokingTarget: (vis: Paplico.StrokingTarget | null) => void
 }
@@ -42,6 +53,7 @@ const engineStore = createStore<EngineStore>((set, get) => ({
   },
 
   _setEditorHandle: (handle) => {
+    ;(window as any).pplceditor = handle
     set({ canvasEditor: handle })
   },
   _setEngineState: (state) => set({ engineState: state }),
@@ -75,6 +87,7 @@ export function usePaplicoInit(
     })
 
     ;(window as any).pplc = pplc
+    pplc.exposeLogChannelToGlobalThis()
 
     await pplc.brushes.register(ExtraBrushes.ScatterBrush)
     await pplc.fonts.requestToRegisterLocalFonts()
@@ -145,6 +158,14 @@ export function usePaplicoInstance() {
     storePicker(['_engine', 'canvasEditor']),
   )
 
+  const update = useUpdate()
+
+  useEffect(() => {
+    store._engine?.on('stateChanged', () => {
+      update()
+    })
+  })
+
   return useMemo(
     () => ({
       pplc: store._engine,
@@ -152,6 +173,51 @@ export function usePaplicoInstance() {
     }),
     [store, store._engine, store.canvasEditor],
   )
+}
+
+export type UseCanvasEditor = {
+  <U>(selector: (state: PplcEditorHandle) => U): U | Record<string, null>
+}
+
+export const useCanvasEditorState: UseCanvasEditor = <T>(
+  selector: (state: PplcEditorHandle) => T,
+) => {
+  const { canvasEditor } = usePaplicoInstance()
+
+  const mountedStack = useMemo(() => new Error().stack, [])
+  const selectorRef = useRef(selector)
+  selectorRef.current = selector
+
+  const prevRef = useRef<T | Record<string, null> | null>()
+
+  const onChangeCallback = useCallback(
+    (onChange: () => void) => {
+      console.log('start subscribe')
+      return canvasEditor?.subscribeEditorState(onChange) ?? (() => {})
+    },
+    [canvasEditor],
+  )
+
+  return useSyncExternalStore(onChangeCallback, () => {
+    if (!canvasEditor) {
+      return (prevRef.current ??= {} as Record<string, null>)
+    }
+
+    const next = selectorRef.current(canvasEditor)
+
+    if (prevRef.current && shallowEquals(next, prevRef.current)) {
+      return prevRef.current
+    }
+
+    // if (prevRef.current && next) {
+    //   console.groupCollapsed('changed', changedKeys(prevRef.current, next))
+    //   console.log(getLine(mountedStack!, 1, Infinity))
+    //   console.groupEnd()
+    // }
+
+    prevRef.current = next
+    return next
+  })
 }
 
 function usePaplicoChat(papRef: RefObject<Paplico | null>, enabled: boolean) {
@@ -229,6 +295,15 @@ function createTestDocument(pplc: Paplico) {
           inkId: Inks.TextureReadInk.metadata.id,
           inkVersion: Inks.TextureReadInk.metadata.version,
           setting: {} satisfies Inks.TextureReadInk.Setting,
+        },
+      }),
+      Document.visu.createVisuallyFilter('postprocess', {
+        processor: {
+          enabled: true,
+          opacity: 1,
+          filterId: Filters.TestFilter.metadata.id,
+          filterVersion: Filters.TestFilter.metadata.version,
+          settings: Filters.TestFilter.getInitialSetting(),
         },
       }),
     ],

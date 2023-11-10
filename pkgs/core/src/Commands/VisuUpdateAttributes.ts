@@ -1,8 +1,8 @@
-import { arrayBufferSafeDiff, patch, unpatch, Delta } from '@/utils/jsondiff'
+import { typedArraySafeDiff, patch, unpatch, Delta } from '@/utils/jsondiff'
 
 import { ICommand } from '../Engine/History/ICommand'
 import { DocumentContext } from '@/Engine'
-import { deepClone } from '@/utils/object'
+import { deepClone } from '@paplico/shared-lib'
 import { VisuElement } from '@/Document'
 import { PPLCCommandExecutionError } from '@/Errors'
 
@@ -37,7 +37,7 @@ export class VisuUpdateAttributes implements ICommand {
     const next = deepClone(original)
     this.options.updater(next)
 
-    this.changesPatch = arrayBufferSafeDiff(original, next)!
+    this.changesPatch = typedArraySafeDiff(original, next)!
 
     patch(visu, this.changesPatch!)
     docx.invalidateLayerBitmapCache(this.visuUid)

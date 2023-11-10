@@ -8,17 +8,31 @@ import { DisplayContents } from '@/components/DisplayContents'
 import { DropdownMenu, DropdownMenuItem } from '@/components/DropdownMenu'
 import { FloatablePane } from '@/components/FloatablePane'
 import { FloatablePaneIds } from '@/domains/floatablePanes'
-import { usePaplicoInstance } from '@/domains/engine'
+import { useCanvasEditorState, usePaplicoInstance } from '@/domains/engine'
 import { useEditorStore } from '@/domains/uiState'
-import { Commands, Document } from '@paplico/core-new'
+import Paplico, { Commands, Document } from '@paplico/core-new'
 import { Box, Button, ContextMenu } from '@radix-ui/themes'
 import React, { MouseEvent, memo, useEffect, useMemo, useRef } from 'react'
 import { RxEyeNone, RxEyeOpen, RxPlus } from 'react-icons/rx'
 import useEvent from 'react-use-event-hook'
 import styled, { css } from 'styled-components'
+import { TransFn, useTranslation } from '@/lib/i18n'
+import { filtersPaneTexts } from '@/locales'
+import {
+  assign,
+  deepClone,
+  roundString,
+  unreachable,
+} from '@paplico/shared-lib'
+import { PaneUIImpls } from '@/components/FilterPane'
 
 export const LayerFiltersPane = memo(function LayerFiltersPane() {
-  const { canvasEditor } = usePaplicoInstance()
+  const { strokingTarget, selectedVisu } = useCanvasEditorState((s) => ({
+    strokingTarget: s.getStrokingTarget(),
+    selectedVisu: s.getSelectedVisuUids()[0]
+      ? s.currentDocument?.getVisuByUid(s.getSelectedVisuUids()[0])
+      : null,
+  }))
 
   return (
     <FloatablePane paneId={FloatablePaneIds.filters} title="Filters">
@@ -28,54 +42,81 @@ export const LayerFiltersPane = memo(function LayerFiltersPane() {
           border-radius: 4px;
         `}
       >
-        {!canvasEditor?.getStrokingTarget() ? (
+        {!selectedVisu ? (
           <NoLayerSelected />
         ) : (
-          <FilterList />
+          <FilterList selectedVisu={selectedVisu} />
         )}
       </Box>
     </FloatablePane>
   )
 })
 
-export const FilterList = memo(function FilterList() {
-  const { pplc, canvasEditor } = usePaplicoInstance()
+export const FilterList = memo(function FilterList({
+  selectedVisu,
+}: {
+  selectedVisu: Document.VisuElement.AnyElement
+}) {
+  const t = useTranslation(filtersPaneTexts)
   const {
     getPaneExpandedFilterUids,
     setPaneExpandedFilterState,
     filterPaneExpandState,
   } = useEditorStore()
 
-  const strokingTarget = canvasEditor?.getStrokingTarget()!
+  const { pplc, availableFilters } = useCanvasEditorState((s) => ({
+    pplc: s.paplico,
+    availableFilters: s.availableFilters,
+  }))
 
   const prevExpandedUids = useRef<string[]>([])
 
   const handleClickAddFilter = useEvent((e: MouseEvent<HTMLDivElement>) => {
     const filterId = e.currentTarget.dataset.filterId!
-    const FilterClass = pplc!.filters.getClass(filterId)
 
+    if (!pplc) return
     if (!filterId) return
-    if (!FilterClass) return
-    if (!strokingTarget) return
 
-    const filter = Document.visu.createVisuallyFilter('postprocess', {
-      processor: {
-        filterId: FilterClass.metadata.id,
-        filterVersion: FilterClass.metadata.version,
-        settings: FilterClass.getInitialSetting(),
+    if (!selectedVisu) return
+
+    let filter: Document.VisuFilter.AnyFilter
+    if (filterId === 'fill') {
+      filter = Document.visu.createVisuallyFilter('fill', {
         enabled: true,
-        opacity: 1,
-      },
-    })
+        fill: pplc.getFillSetting() ?? pplc.cloneInitialFillSetting(),
+      })
+    } else if (filterId === 'stroke') {
+      filter = Document.visu.createVisuallyFilter('stroke', {
+        enabled: true,
+        stroke: pplc.getBrushSetting() ?? pplc.cloneInitialBrushSetting(),
+        ink: pplc.getInkSetting() ?? pplc.cloneInitialInkSetting(),
+      })
+    } else {
+      const FilterClass = pplc!.filters.getClass(filterId)
+      if (!FilterClass) return
+
+      filter = Document.visu.createVisuallyFilter('postprocess', {
+        processor: {
+          filterId: FilterClass.metadata.id,
+          filterVersion: FilterClass.metadata.version,
+          settings: FilterClass.getInitialSetting(),
+          enabled: true,
+          opacity: 1,
+        },
+      })
+    }
+
+    console.log(filter)
 
     setPaneExpandedFilterState(filter.uid, true)
 
     pplc!.command.do(
-      new Commands.VisuUpdateAttributes(strokingTarget.visuUid, {
-        updater: (visu) => {
-          visu.filters.push(filter)
+      new Commands.VisuManipulateFilters([
+        {
+          visuUid: selectedVisu.uid,
+          add: filter,
         },
-      }),
+      ]),
     )
   })
 
@@ -84,16 +125,13 @@ export const FilterList = memo(function FilterList() {
       const filterUid = e.currentTarget.dataset.filterUid!
 
       pplc!.command.do(
-        new Commands.VisuUpdateAttributes(strokingTarget!.visuUid, {
-          updater: (layer) => {
-            const filter = layer.filters.find(
-              (filter) => filter.uid === filterUid,
-            )
-            if (!filter) return
-
-            filter.enabled = !filter.enabled
+        new Commands.VisuManipulateFilters([
+          {
+            visuUid: selectedVisu!.uid,
+            filterUid: filterUid,
+            update: (filter) => (filter.enabled = !filter.enabled),
           },
-        }),
+        ]),
       )
     },
   )
@@ -102,16 +140,13 @@ export const FilterList = memo(function FilterList() {
     const filterUid = e.currentTarget.dataset.filterUid!
 
     pplc!.command.do(
-      new Commands.VisuUpdateAttributes(strokingTarget!.visuUid, {
-        updater: (visu) => {
-          const filterIndex = visu.filters.findIndex(
-            (filter) => filter.uid === filterUid,
-          )
-          if (filterIndex === -1) return
-
-          visu.filters.splice(filterIndex, 1)
+      new Commands.VisuManipulateFilters([
+        {
+          visuUid: selectedVisu!.uid,
+          filterUid: filterUid,
+          remove: true,
         },
-      }),
+      ]),
     )
   })
 
@@ -120,12 +155,32 @@ export const FilterList = memo(function FilterList() {
       (uid) => !filterUids.includes(uid),
     )
 
-    console.log({ filterUids, toCollapsed })
+    // console.log({ filterUids, toCollapsed })
     filterUids.forEach((uid) => setPaneExpandedFilterState(uid, true))
     toCollapsed.forEach((uid) => setPaneExpandedFilterState(uid, false))
 
     prevExpandedUids.current = filterUids
   })
+
+  const handleChangeStrokeFilterSetting = useEvent(
+    (
+      filterUid: string,
+      updater: (next: Document.VisuFilter.StrokeFilter) => void,
+    ) => {
+      pplc!.command.do(
+        new Commands.VisuManipulateFilters([
+          {
+            visuUid: selectedVisu!.uid,
+            filterUid: filterUid,
+            update: (filter) => {
+              if (filter.kind !== 'stroke') return
+              updater(filter)
+            },
+          },
+        ]),
+      )
+    },
+  )
 
   const paneExpandedFilterUids = useMemo(
     () => getPaneExpandedFilterUids(),
@@ -136,14 +191,12 @@ export const FilterList = memo(function FilterList() {
     // return pplc?.on('history:affect', ({ layerIds }) => {
     //   if (layerIds.includes(strokingTarget.visuUid)) rerender()
     // })
-  }, [pplc, strokingTarget.visuUid])
-
-  console.log(strokingTarget)
+  }, [pplc, selectedVisu?.uid])
 
   return (
     <>
       <div>
-        {strokingTarget.visu.filters.length === 0 ? (
+        {selectedVisu.filters.length === 0 ? (
           <NoAvailable>No filters</NoAvailable>
         ) : (
           <AccordionRoot
@@ -151,13 +204,13 @@ export const FilterList = memo(function FilterList() {
             value={paneExpandedFilterUids}
             onValueChange={handleChangeExpandedFilters}
           >
-            {strokingTarget.visu.filters.map((filter) => (
+            {selectedVisu.filters.map((filter) => (
               <AccordionItem key={filter.uid} value={filter.uid}>
                 <div
                   css={css`
                     display: flex;
                     align-items: center;
-                    padding: 8px;
+                    padding: 4px 8px;
                     line-height: 1;
                   `}
                 >
@@ -181,10 +234,7 @@ export const FilterList = memo(function FilterList() {
                             padding: 0;
                           `}
                         >
-                          {
-                            pplc?.filters.getClass(filter.filterId)?.metadata
-                              .name
-                          }
+                          {getFilterName(t, pplc, filter)}
                         </AccordionTrigger>
                       </DisplayContents>
                     </ContextMenu.Trigger>
@@ -226,10 +276,22 @@ export const FilterList = memo(function FilterList() {
                       }
                     `}
                   >
-                    {pplc?.paneUI.renderFilterPane(
-                      strokingTarget.visuUid,
-                      filter,
-                    )}
+                    {selectedVisu &&
+                      // prettier-ignore
+                      (filter.kind === 'stroke' ? (
+                        <StrokeSetting filter={deepClone(filter)} onChange={handleChangeStrokeFilterSetting} />
+                      )
+                      : filter.kind === 'postprocess' ? (
+                        pplc?.paneUI.renderFilterPane(
+                          selectedVisu.uid,
+                          filter,
+                          {
+                            onSettingsChange: (next) => {
+                              console.log(next)
+                            },
+                          },
+                      )
+                    ) : null)}
                   </div>
                 </AccordionContent>
               </AccordionItem>
@@ -261,7 +323,19 @@ export const FilterList = memo(function FilterList() {
             </Button>
           }
         >
-          {canvasEditor?.availableFilters.map((Class) => (
+          <DropdownMenuItem
+            data-filter-id="fill"
+            onClick={handleClickAddFilter}
+          >
+            Fill
+          </DropdownMenuItem>
+          <DropdownMenuItem
+            data-filter-id="stroke"
+            onClick={handleClickAddFilter}
+          >
+            Stroke
+          </DropdownMenuItem>
+          {availableFilters?.map((Class) => (
             <DropdownMenuItem
               key={Class.metadata.id}
               data-filter-id={Class.metadata.id}
@@ -280,6 +354,42 @@ export const NoLayerSelected = memo(function NoLayerSelected() {
   return <NoAvailable>Layer not selected</NoAvailable>
 })
 
+const StrokeSetting = memo(function StrokeSetting({
+  filter,
+  onChange,
+}: {
+  filter: Document.VisuFilter.StrokeFilter
+  onChange: (
+    filterUid: string,
+    updater: (next: Document.VisuFilter.StrokeFilter) => void,
+  ) => void
+}) {
+  const t = useTranslation(filtersPaneTexts)
+
+  const handleChangeStrokeWidth = useEvent((nextValue: number) => {
+    onChange(filter.uid, (next) => {
+      next.stroke.size = nextValue
+    })
+  })
+
+  return (
+    <div>
+      <PaneUIImpls.FieldSet
+        title={t('stroke.width')}
+        displayValue={roundString(filter.stroke.size, 2)}
+        inputs={
+          <PaneUIImpls.Slider
+            min={0}
+            max={100}
+            value={filter.stroke.size}
+            onChange={handleChangeStrokeWidth}
+          />
+        }
+      />
+    </div>
+  )
+})
+
 // function isFilterAvailableType(
 //   layer: Document.LayerEntity,
 // ): layer is Exclude<
@@ -295,3 +405,26 @@ const NoAvailable = styled.span`
   color: var(--gray-9);
   font-size: var(--font-size-2);
 `
+
+function getFilterName(
+  t: TransFn<typeof filtersPaneTexts>,
+  pplc: Paplico | null,
+  filter: Document.VisuFilter.AnyFilter,
+) {
+  if (filter.kind === 'postprocess') {
+    if (!pplc) return t('loading')
+
+    const Class = pplc?.filters.getClass(filter.processor.filterId)
+    return (
+      Class?.metadata.name ??
+      Class?.metadata.id ??
+      t('filterType.missingPostProcess', { id: filter.processor.filterId })
+    )
+  } else if (filter.kind === 'fill') {
+    return t('filterType.fill')
+  } else if (filter.kind === 'stroke') {
+    return t('filterType.stroke')
+  }
+
+  unreachable(filter)
+}

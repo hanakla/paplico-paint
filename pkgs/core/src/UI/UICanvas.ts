@@ -1,7 +1,7 @@
 // Reference: https://stackoverflow.com/a/56204437
 
 import isIOS from 'is-ios'
-import { Emitter } from '@/utils/Emitter'
+import { Emitter } from '@paplico/shared-lib'
 import { UIStroke, UIStrokePointRequired } from './UIStroke'
 
 type Events = {

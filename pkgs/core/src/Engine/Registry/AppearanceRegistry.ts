@@ -1,4 +1,4 @@
-import { Emitter } from '@/utils/Emitter'
+import { Emitter } from '@paplico/shared-lib'
 import { FilterClass, IFilter } from '../Filter/Filter'
 
 type Events = {

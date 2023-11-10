@@ -3,11 +3,11 @@ import { UICanvas } from '@/UI/UICanvas'
 import { UIStroke } from '@/UI/UIStroke'
 import { Canvas2DAllocator } from '../Infra/Canvas2DAllocator'
 import { DEFAULT_INK_SETTING, DEFAULT_BRUSH_SETTING } from './constants'
-import { deepClone } from '@/utils/object'
+import { deepClone } from '@paplico/shared-lib'
 import { clearCanvas, setCanvasSize } from '@/utils/canvas'
 import { PPLCDisposedInstanceError } from '@/Errors/PPLCDisposedInstanceError'
-import { Emitter } from '@/utils/Emitter'
-import { VectorPath, VisuElement, VisuFilter } from '@/Document'
+import { Emitter } from '@paplico/shared-lib'
+import { VisuElement, VisuFilter } from '@/Document'
 import {
   createVectorObjectVisually,
   createVisuallyFilter,

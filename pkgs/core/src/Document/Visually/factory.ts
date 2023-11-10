@@ -1,11 +1,13 @@
 import prand from 'pure-rand'
 import { ulid } from '@/utils/ulid'
 
-import { PaplicoDocument } from '@/Document/Document'
+import { PaplicoDocument } from '@/Document/PaplicoDocument'
 import { ElementBase, VisuElement } from './VisuElement'
 import { VisuFilter } from './VisuFilter'
 import { LayerNode } from '../Struct/LayerNode'
 import { imageBitmapToImageData, loadImage } from '@/utils/imageObject'
+import { deepClone } from '@paplico/shared-lib'
+import { PPLCOptionInvariantViolationError } from '@/Errors'
 
 type Requires<T, K extends keyof T> = Omit<T, K> & {
   [P in K]-?: T[P]
@@ -63,16 +65,16 @@ const createElementBase = <T extends VisuElement.AnyElement['type']>({
   blendMode,
   opacity,
   clipByLowerLayer,
-  transform,
-  filters,
-  features,
+  transform: deepClone(transform),
+  filters: deepClone(filters),
+  features: deepClone(features),
 })
 
 export const createFilterVisually = (
   params: FactoryParameter<VisuElement.FilterElement>,
 ): VisuElement.FilterElement => ({
   ...createElementBase({
-    ...params,
+    ...deepClone(params),
     type: 'filter',
     uid: `filter-${ulid()}`,
   }),
@@ -82,7 +84,7 @@ export const createGroupVisually = (
   params: FactoryParameter<VisuElement.GroupElement>,
 ): VisuElement.GroupElement => ({
   ...createElementBase({
-    ...params,
+    ...deepClone(params),
     type: 'group',
     uid: `group-${ulid()}`,
   }),
@@ -150,7 +152,7 @@ export const createCanvasVisuallyFromImage = async (
     height: imageData.height,
     bitmap: imageData.data,
     colorSpace,
-    ...params,
+    ...deepClone(params),
   })
 }
 
@@ -162,7 +164,7 @@ export const createImageReferenceVisually = ({
   ...createElementBase({
     type: 'reference',
     uid: `reference-${ulid()}`,
-    ...params,
+    ...deepClone(params),
   }),
 })
 
@@ -179,7 +181,7 @@ export const createTextVisually = ({
   fontFamily,
   fontStyle,
   fontSize,
-  textNodes,
+  textNodes: deepClone(textNodes),
   ...createElementBase({
     type: 'text',
     uid: `text-${ulid()}`,
@@ -200,7 +202,7 @@ export const createVectorObjectVisually = ({
   ...createElementBase({
     type: 'vectorObject',
     uid: `vectorObject-${ulid()}`,
-    ...etc,
+    ...deepClone(etc),
   }),
 })
 
@@ -226,10 +228,30 @@ export const createVisuallyFilter = <
     // @ts-expect-error
     'enabled'
   >,
-): VisuFilter.AnyFilterMapType[K] =>
-  ({
-    kind,
-    uid: `filter-${ulid()}`,
-    enabled,
-    ...etc,
-  }) as any
+): VisuFilter.AnyFilterMapType[K] => {
+  if (kind === 'fill' && 'fill' in etc) {
+    return {
+      uid: `filter-fill-${ulid()}`,
+      kind,
+      enabled,
+      fill: deepClone((etc as any).fill),
+    } satisfies VisuFilter.FillFilter as any
+  } else if (kind === 'stroke') {
+    return {
+      uid: `filter-stroke-${ulid()}`,
+      kind,
+      enabled,
+      ink: deepClone((etc as any).ink),
+      stroke: deepClone((etc as any).stroke),
+    } satisfies VisuFilter.StrokeFilter<any> as any
+  } else if (kind === 'postprocess') {
+    return {
+      uid: `filter-postprocess-${ulid()}`,
+      kind,
+      enabled,
+      processor: deepClone((etc as any).processor),
+    } satisfies VisuFilter.PostProcessFilter<any> as any
+  } else {
+    throw new PPLCOptionInvariantViolationError(`Unknown filter kind: ${kind}`)
+  }
+}

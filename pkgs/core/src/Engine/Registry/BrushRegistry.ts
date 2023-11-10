@@ -1,4 +1,4 @@
-import { Emitter } from '@/utils/Emitter'
+import { Emitter } from '@paplico/shared-lib'
 import { catchToLog } from '@/utils/error'
 import { BrushClass, IBrush } from '../Brush/Brush'
 
@@ -28,7 +28,7 @@ export class BrushRegistry extends Emitter<Events> {
     this.emit('entriesChanged')
   }
 
-  public get entries(): readonly BrushClass[] {
+  public get entries(): BrushClass[] {
     return [...this.brushes.values()]
   }
 

@@ -1,6 +1,6 @@
+import { shallowEquals } from '@paplico/shared-lib'
 import { useRef, useSyncExternalStore } from 'react'
 import { StoreApi } from 'zustand'
-import { shallowEquals } from './object'
 
 export const defaultSelector = <T>(s: T): T => s
 

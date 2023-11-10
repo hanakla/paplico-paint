@@ -1,7 +1,8 @@
 import { useMemo, useRef, useSyncExternalStore } from 'react'
 import { StoreApi } from 'zustand'
-import { changedKeys, shallowEquals } from './object'
+import { changedKeys } from './object'
 import { getLine } from './string'
+import { shallowEquals } from '@paplico/shared-lib'
 
 export const defaultSelector = <T>(s: T): T => s
 

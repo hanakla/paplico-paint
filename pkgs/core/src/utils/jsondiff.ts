@@ -20,7 +20,7 @@ type BinDelta =
   | [type: 'r', offset: number, prevData: Uint8Array, nextData: Uint8Array]
   | [type: 'rs', prevByteLength: number, nextByteLength: number]
 
-export function arrayBufferSafeDiff(original: any, modified: any) {
+export function typedArraySafeDiff(original: any, modified: any) {
   return diff(original, modified, (prev, next) => {
     if (isTypedArray(prev) || isTypedArray(next)) {
       if (prev === next) return ['notModified']
@@ -37,6 +37,10 @@ export function diff(
   modified: any,
   replacer?: (prev: any, next: any) => DeltaLeaf | ['notModified'] | null,
 ): Delta | DeltaLeaf | null {
+  if (isObjectOrArray(original) !== isObjectOrArray(modified)) {
+    throw new Error(`jsondiff: input types unmatched`)
+  }
+
   if (isPrimitive(original) || isPrimitive(modified)) {
     if (Object.is(original, modified)) {
       return null
@@ -81,6 +85,7 @@ export function diff(
 
   if (isObject(original) && isObject(modified)) {
     const changes: Delta = {}
+    let hasChanges = false
 
     if (Array.isArray(original) && Array.isArray(modified)) {
       for (
@@ -90,6 +95,7 @@ export function diff(
       ) {
         if (!Object.hasOwn(original, i)) {
           changes[i] = ['a', undefined, modified[i]]
+          hasChanges = true
           continue
         }
 
@@ -97,10 +103,11 @@ export function diff(
 
         if (arrayDiff) {
           changes[i] = arrayDiff as DeltaLeaf | Delta
+          hasChanges = true
         }
       }
 
-      return changes
+      return hasChanges ? changes : null
     }
 
     const _o = original as Record<string | number, any>
@@ -112,6 +119,7 @@ export function diff(
       const modValue = _m[_k]
 
       if (!Object.hasOwn(_o, _k)) {
+        hasChanges = true
         changes[_k] = ['a', undefined, _m[_k]]
         continue
       } else {
@@ -125,7 +133,10 @@ export function diff(
         }
 
         const result = diff(origValue, modValue, replacer)
-        if (result) changes[_k] = result
+        if (result) {
+          hasChanges = true
+          changes[_k] = result
+        }
       }
     }
 
@@ -137,7 +148,7 @@ export function diff(
       }
     }
 
-    return changes
+    return hasChanges ? changes : null
   } else {
     return ['c', original, modified]
   }

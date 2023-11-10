@@ -13,13 +13,13 @@ import { EditorTypes, ToolModes } from './stores/types'
 import { bind } from './bind'
 import { createEmitterStore } from './stores/emittter'
 import { SyncStoreToPaplico } from './editors/SyncStoreToPaplico'
-import { MutableRefObject, createRef } from 'react'
+import { MutableRefObject, createRef, useSyncExternalStore } from 'react'
 import { ErrorBoundary } from 'react-error-boundary'
 import { ErrorFallback } from './editors/ErrorFallback'
 export { EditorTypes, ToolModes } from './stores/types'
 
-export type PapEditorHandle = ReturnType<typeof bindPaplico>
-export type PapEditorEvents = {
+export type PplcEditorHandle = ReturnType<typeof bindPaplico>
+export type PplcEditorEvents = {
   editorTypeChanged: { prev: EditorTypes; next: EditorTypes }
   toolModeChanged: { prev: ToolModes; next: ToolModes }
   objectSelectionChanged: { selectedObjectIds: string[] }
@@ -88,15 +88,15 @@ export function bindPaplico(
     },
 
     get availableBrushes(): readonly PplcBrush.BrushClass[] {
-      return paplico.brushes.entries
+      return engineStore.getState().availableBrushes
     },
 
     get avaibleInks(): readonly PplcInk.InkClass[] {
-      return paplico.inks.entries
+      return engineStore.getState().availableInks
     },
 
     get availableFilters(): PplcFilter.FilterClass[] {
-      return paplico.filters.entries
+      return engineStore.getState().availableFilters
     },
 
     loadDocument: (doc: Document.PaplicoDocument) => {
@@ -153,13 +153,16 @@ export function bindPaplico(
       let nextIdState: Record<string, true> = {}
       for (const id of nextIds) nextIdState[id] = true
 
-      emitterStore.emit('objectSelectionChanged', {
-        selectedObjectIds: nextIds,
-      })
-
       editorStore.setState({
         selectedVisuUids: nextIdState,
       })
+
+      emitterStore.emit('objectSelectionChanged', {
+        selectedObjectIds: nextIds,
+      })
+    },
+    isInSelectedVisuUids: (visuUid: string) => {
+      return !!editorStore.getState().selectedVisuUids[visuUid]
     },
 
     setBrushToSelectedObjects: (brushSetting: Paplico.BrushSetting) => {
@@ -170,26 +173,30 @@ export function bindPaplico(
       }
     },
 
-    on<K extends keyof PapEditorEvents>(
+    on<K extends keyof PplcEditorEvents>(
       type: K,
-      callback: (payload: PapEditorEvents[K]) => void,
+      callback: (payload: PplcEditorEvents[K]) => void,
     ): () => void {
       emitterStore.on(type, callback)
       return () => emitterStore.off(type, callback)
     },
-    off<K extends keyof PapEditorEvents>(
+    off<K extends keyof PplcEditorEvents>(
       type: K,
-      callback: (payload: PapEditorEvents[K]) => void,
+      callback: (payload: PplcEditorEvents[K]) => void,
     ): void {
       emitterStore.off(type, callback)
     },
 
     subscribeEditorState: (callback: () => void) => {
-      const unsubscribe = editorStore.subscribe(() => {
-        callback()
-      })
+      const offs = [
+        editorStore.subscribe(callback),
+        engineStore.subscribe(callback),
+        paplico.on('finishRenderCompleted', callback),
+      ]
 
-      return unsubscribe
+      return () => {
+        for (const off of offs) off()
+      }
     },
   }
 }

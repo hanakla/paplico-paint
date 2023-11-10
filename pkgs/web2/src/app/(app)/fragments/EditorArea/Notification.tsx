@@ -7,21 +7,28 @@ export const Notification = memo(function Notification() {
   const t = useTranslation(notificationTexts)
   const timerIdRef = useRef<number | null>(null)
   const [open, setOpen] = useState(false)
-  const [message, setMessage] = useState<string | null>(null)
+  const [notify, setMessage] = useState<{
+    key: number
+    message: string
+  } | null>(null)
 
   useNotifications((notify) => {
     let handled = false
 
     if (notify.type === 'toolChanged') {
       handled = true
-      setMessage(
-        t('toolChanged', {
+      setMessage({
+        key: Date.now(),
+        message: t('toolChanged', {
           tool: t(`tools.${notify.tool}`),
         }),
-      )
+      })
     } else if (notify.type === 'undo' || notify.type === 'redo') {
       handled = true
-      setMessage(t(`history.${notify.type}`))
+      setMessage({
+        key: Date.now(),
+        message: t(`history.${notify.type}`),
+      })
     }
 
     if (handled) {
@@ -32,8 +39,11 @@ export const Notification = memo(function Notification() {
     }
   })
 
+  if (!notify) return null
+
   return (
     <div
+      key={notify.key}
       css={`
         position: absolute;
         top: 16px;
@@ -53,8 +63,10 @@ export const Notification = memo(function Notification() {
           opacity: 1;
         }
       `}
-      data-state-open={open}>
-      {message}
+      data-state-open={open}
+      role="status"
+    >
+      {notify.message}
     </div>
   )
 })

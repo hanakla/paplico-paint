@@ -1,10 +1,10 @@
 import { ulid } from '@/utils/ulid'
-import { assign, deepClone } from '@/utils/object'
+import { assign, deepClone } from '@paplico/shared-lib'
 import { LayerNode } from './Struct/LayerNode'
 import { PaplicoBlob } from './PaplicoBlob'
 import { VisuElement } from './Visually/VisuElement'
 import { createGroupVisually } from './Visually/factory'
-import { createNodesController } from './Document.LayerNodes'
+import { createNodesController } from './PaplicoDocument.LayerNodes'
 
 export namespace PaplicoDocument {
   export type Meta = {

@@ -11,15 +11,12 @@ import {
 } from 'react'
 import { useEditorStore, useEngineStore } from '@/store'
 import { createUseStyles } from 'react-jss'
-import {
-  useMemoRevailidatable,
-  usePointerDrag,
-  usePropsMemo,
-} from '@/utils/hooks'
+import { useMemoRevailidatable, usePointerDrag } from '@/utils/hooks'
 import { unstable_batchedUpdates } from 'react-dom'
 import { ToolModes } from '@/stores/types'
 import { getTangent } from '@/utils/math'
 import { VisuElement } from './VisuElement'
+import { usePropsMemo } from '@paplico/shared-lib'
 
 type Props = {
   visuUid: string
@@ -91,7 +88,7 @@ export const VectorObjectElement = memo(function VectorObjectElement({
 
   const bindDrag = usePointerDrag(({ movement, last, event }) => {
     if (!last) {
-      paplico.rerender({
+      paplico.requestPreviewPriolityRerender({
         transformOverrides: {
           [visu.uid]: (base) => {
             base.transform.position.x += movement[0] / editor.canvasScale
@@ -143,7 +140,7 @@ export const VectorObjectElement = memo(function VectorObjectElement({
     }
 
     if (!last) {
-      paplico.rerender({
+      paplico.requestPreviewPriolityRerender({
         transformOverrides: {
           [visu.uid]: (base) => {
             if (base.type !== 'vectorObject') return base
@@ -251,7 +248,7 @@ export const VectorObjectElement = memo(function VectorObjectElement({
       const pointIdx = event.currentTarget!.dataset!.pointIdx!
 
       if (!last) {
-        paplico.rerender({
+        paplico.requestPreviewPriolityRerender({
           transformOverrides: {
             [visu.uid]: (base) => {
               if (base.type !== 'vectorObject') return base
@@ -297,7 +294,7 @@ export const VectorObjectElement = memo(function VectorObjectElement({
     const pointIdx = event.currentTarget!.dataset!.pointIdx!
 
     if (!last) {
-      paplico.rerender({
+      paplico.requestPreviewPriolityRerender({
         transformOverrides: {
           [visu.uid]: (base) => {
             if (base.type !== 'vectorObject') return base

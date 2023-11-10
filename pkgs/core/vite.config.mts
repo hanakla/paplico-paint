@@ -43,7 +43,14 @@ export default defineConfig({
       enforce: 'pre',
       ...externals({
         builtins: false,
-        exclude: ['mitt', 'three', 'abs-svg-path', 'is-ios', 'fast-random'],
+        exclude: [
+          'mitt',
+          'three',
+          'abs-svg-path',
+          'is-ios',
+          'fast-random',
+          '@paplico/shared-lib',
+        ],
       }),
     } as any,
     dts({

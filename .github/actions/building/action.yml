@@ -9,6 +9,11 @@ runs:
       working-directory: ./pkgs/shared-lib
       run: yarn build
 
+    - name: Build (chat)
+      shell: bash
+      working-directory: ./pkgs/chat
+      run: yarn build
+
     - name: Build (core)
       shell: bash
       working-directory: ./pkgs/core

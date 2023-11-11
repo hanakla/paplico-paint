@@ -1145,8 +1145,8 @@ export class Paplico extends Emitter<Paplico.Events> {
 
         await this.command.do(
           new Commands.CanvasVisuUpdateBitmap(strokingTargetVisu.uid, {
-            updater: (bitmap) => {
-              bitmap.set(imageData)
+            updater: () => {
+              return imageData
             },
           }),
         )
@@ -1222,13 +1222,13 @@ export class Paplico extends Emitter<Paplico.Events> {
       strokeComposition?: VisuElement.StrokeCompositeMode
     } = {},
   ) {
+    inkSetting ??= deepClone(this.#state.currentInk) // Disallow null
+
     if (!this.runtimeDoc) {
       throw new PPLCOptionInvariantViolationError(
         'putStrokePreview: Document not loaded',
       )
     }
-
-    inkSetting ??= this.#state.currentInk // Disallow null
 
     const newVisu = createVectrObjectVisuWithSettings(
       stroke.toPath(),
@@ -1253,7 +1253,7 @@ export class Paplico extends Emitter<Paplico.Events> {
     {
       pathToTargetVisu,
       brushSetting = deepClone(this.#state.currentBrush),
-      inkSetting,
+      inkSetting = deepClone(this.#state.currentInk),
       fillSetting = deepClone(this.#state.currentFill),
       strokeComposition = deepClone(this.#state.strokeComposition),
     }: {
@@ -1282,12 +1282,16 @@ export class Paplico extends Emitter<Paplico.Events> {
   }
 
   protected async onUIStrokeChange(stroke: UIStroke): Promise<void> {
+    if (this.#state.strokeComposition === 'none') return
+
     const aborter = new AbortController()
     this.activeStrokeChangeAborters.push(aborter)
     await this.putStrokePreview(stroke)
   }
 
   protected async onUIStrokeComplete(stroke: UIStroke) {
+    if (this.#state.strokeComposition === 'none') return
+
     await this.putStrokeComplete(stroke)
   }
 

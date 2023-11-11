@@ -1,6 +1,6 @@
 import { ulid } from '@/utils/ulid'
 import { assign, deepClone } from '@paplico/shared-lib'
-import { LayerNode } from './Struct/LayerNode'
+import { LayerNode } from './Structs/LayerNode'
 import { PaplicoBlob } from './PaplicoBlob'
 import { VisuElement } from './Visually/VisuElement'
 import { createGroupVisually } from './Visually/factory'

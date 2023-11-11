@@ -3,7 +3,6 @@ import {
   Brushes,
   Document,
   ExtraBrushes,
-  Filters,
   Inks,
   Paplico,
 } from '@paplico/core-new'
@@ -23,8 +22,7 @@ import { useDangerouslyEffectAsync } from '@/utils/hooks'
 import { useUpdate } from 'react-use'
 import { useNotifyStore } from './notifications'
 import { createUseStore, storePicker } from '@/utils/zustand'
-import { changedKeys, shallowEquals } from '@paplico/shared-lib'
-import { getLine } from '@/utils/string'
+import { shallowEquals } from '@paplico/shared-lib'
 
 interface EngineStore {
   _engine: Paplico | null
@@ -244,12 +242,10 @@ function usePaplicoChat(papRef: RefObject<Paplico | null>, enabled: boolean) {
 
 /// TEST DOCUMENT
 function createTestDocument(pplc: Paplico) {
-  const doc = Document.visu.createDocument({ width: 1000, height: 1400 })
-
-  const raster = Document.visu.createCanvasVisually({
-    width: 1000,
-    height: 1400,
-    // compositeMode: 'multiply',
+  const docSize = { width: 1000, height: 1400 }
+  const doc = Document.visu.createDocument({
+    width: docSize.width,
+    height: docSize.height,
   })
 
   // const vector = Document.visu.createVectorObjectVisually({
@@ -265,105 +261,408 @@ function createTestDocument(pplc: Paplico) {
   //   ],
   // })
 
-  const rasterGroupVis = Document.visu.createGroupVisually({})
+  const bgGroup = Document.visu.createGroupVisually({})
   const vectorGroupVis = Document.visu.createGroupVisually({})
-  // const vectorGroupNode = Document.visu.createLayerNode(vectorGroupVis)
 
-  const vector = Document.visu.createVectorObjectVisually({
-    path: Document.visu.createVectorPath({
-      points: [
-        { isMoveTo: true, x: 0, y: 0 },
-        { x: 1000, y: 1000, begin: null, end: null },
+  const fgElements = [
+    Document.visu.createCanvasVisually({
+      width: docSize.width,
+      height: docSize.height,
+      // compositeMode: 'multiply',
+    }),
+
+    Document.visu.createVectorObjectVisually({
+      blendMode: 'screen',
+      path: Document.visu.createVectorPath({
+        points: [
+          { isMoveTo: true, x: 0, y: 0 },
+          { x: 1000, y: 1000, begin: null, end: null },
+        ],
+      }),
+      filters: [
+        Document.visu.createVisuallyFilter('stroke', {
+          stroke: {
+            brushId: ExtraBrushes.ScatterBrush.metadata.id,
+            brushVersion: '0.0.1',
+            color: { r: 1, g: 1, b: 0 },
+            opacity: 1,
+            size: 400,
+            settings: {
+              texture: 'pencil',
+              noiseInfluence: 1,
+              inOutInfluence: 0,
+              inOutLength: 0,
+              scatterRange: 100,
+              randomScale: 0.1,
+              rotationAdjust: 1,
+              pressureInfluence: 1,
+              randomRotation: 1,
+            } satisfies ExtraBrushes.ScatterBrush.Settings,
+          },
+          ink: {
+            inkId: Inks.RainbowInk.metadata.id,
+            inkVersion: Inks.RainbowInk.metadata.version,
+            settings: {} satisfies Inks.RainbowInk.Setting,
+          },
+        }),
+        // Document.visu.createVisuallyFilter('postprocess', {
+        //   processor: {
+        //     enabled: true,
+        //     opacity: 1,
+        //     filterId: Filters.TestFilter.metadata.id,
+        //     filterVersion: Filters.TestFilter.metadata.version,
+        //     settings: Filters.TestFilter.getInitialSetting(),
+        //   },
+        // }),
       ],
     }),
-    filters: [
-      Document.visu.createVisuallyFilter('stroke', {
-        stroke: {
-          brushId: ExtraBrushes.ScatterBrush.metadata.id,
-          brushVersion: '0.0.1',
-          color: { r: 1, g: 1, b: 0 },
-          opacity: 1,
-          size: 30,
-          settings: {
-            texture: 'pencil',
-            noiseInfluence: 1,
-            inOutInfluence: 0,
-            inOutLength: 0,
-          } satisfies ExtraBrushes.ScatterBrush.Settings,
-        },
-        ink: {
-          inkId: Inks.TextureReadInk.metadata.id,
-          inkVersion: Inks.TextureReadInk.metadata.version,
-          setting: {} satisfies Inks.TextureReadInk.Setting,
-        },
-      }),
-      Document.visu.createVisuallyFilter('postprocess', {
-        processor: {
-          enabled: true,
-          opacity: 1,
-          filterId: Filters.TestFilter.metadata.id,
-          filterVersion: Filters.TestFilter.metadata.version,
-          settings: Filters.TestFilter.getInitialSetting(),
-        },
-      }),
-    ],
-  })
 
-  const text = Document.visu.createTextVisually({
-    transform: {
-      position: { x: 16, y: 16 },
-      scale: { x: 1, y: 1 },
-      rotate: 0,
-    },
-    fontFamily: 'Poppins',
-    fontStyle: 'Bold',
-    fontSize: 64,
-    textNodes: [
-      { text: 'PAPLIC-o-\n', position: { x: 0, y: 0 } },
-      {
-        text: 'MAGIC',
-        fontSize: 128,
-        position: { x: 0, y: 0 },
-        // color: { r: 0, g: 0.5, b: 0.5, a: 1 },
+    Document.visu.createTextVisually({
+      blendMode: 'multiply',
+      opacity: 0.8,
+      transform: {
+        position: { x: 32, y: -16 },
+        scale: { x: 1, y: 1 },
+        rotate: 0,
       },
-    ],
-  })
+      fontFamily: 'Poppins',
+      fontStyle: 'Bold',
+      fontSize: 72,
+      textNodes: [
+        { text: 'PAPLIC-o-\n', position: { x: 0, y: 0 } },
+        {
+          text: 'MAGIC',
+          fontSize: 128,
+          position: { x: 0, y: 0 },
+          color: { r: 0, g: 0.5, b: 0.5, a: 1 },
+        },
+      ],
+    }),
 
-  // doc.addLayer(
-  //   Document.createVectorLayerEntity({
-  //     objects: [
-  //       Document.createVectorObject({
-  //         path: Document.createVectorPath({
-  //           points: [
-  //             { isMoveTo: true, x: 0, y: 0, begin: null, end: null },
-  //             { x: 1000, y: 0, begin: null, end: null },
-  //             { x: 1000, y: 1000, begin: null, end: null },
-  //             { x: 0, y: 1000, begin: null, end: null },
-  //             { isClose: true, x: 0, y: 0, begin: null, end: null },
-  //           ],
-  //           closed: true,
-  //         }),
-  //         filters: [
-  //           // Document.createVectorAppearance({
-  //           //   kind: 'fill',
-  //           //   fill: {
-  //           //     type: 'fill',
-  //           //     color: { r: 0, g: 0, b: 1 },
-  //           //     opacity: 1,
-  //           //   },
-  //           // }),
-  //         ],
-  //       }),
-  //     ],
-  //   }),
-  // )
+    Document.visu.createVectorObjectVisually({
+      path: Document.visu.createVectorPath({
+        points: [
+          {
+            isMoveTo: true,
+            x: 404,
+            y: 357,
+          },
+          {
+            x: 396,
+            y: 357,
+            begin: {
+              x: 404,
+              y: 354.4145122304413,
+            },
+            end: {
+              x: 396.0363787628564,
+              y: 356.98059799314325,
+            },
+            pressure: 0.29613694311943756,
+            deltaTime: -693001036102.8928,
+            tilt: {
+              x: 0,
+              y: 0,
+            },
+          },
+          {
+            x: 357,
+            y: 387,
+            begin: {
+              x: 382.0498774029481,
+              y: 364.4400653850944,
+            },
+            end: {
+              x: 368.828454388089,
+              y: 376.8143864991456,
+            },
+            pressure: 0,
+            deltaTime: -1699672924221.8523,
+            tilt: {
+              x: 0,
+              y: 0,
+            },
+          },
+          {
+            x: 284,
+            y: 473,
+            begin: {
+              x: 328.71844886476595,
+              y: 411.3535579220071,
+            },
+            end: {
+              x: 303.105139027619,
+              y: 440.6682262609525,
+            },
+            pressure: 0,
+            deltaTime: -1699672924132.7625,
+            tilt: {
+              x: 0,
+              y: 0,
+            },
+          },
+          {
+            x: 353,
+            y: 717,
+            begin: {
+              x: 91.13312671687467,
+              y: 741.9175657758385,
+            },
+            end: {
+              x: 137.3516228277861,
+              y: 815.6648152712368,
+            },
+            pressure: 0,
+            deltaTime: -1699672923886.357,
+            tilt: {
+              x: 0,
+              y: 0,
+            },
+          },
+          {
+            x: 493,
+            y: 727,
+            begin: {
+              x: 390.839498565591,
+              y: 746.492550352593,
+            },
+            end: {
+              x: 457.19060246639174,
+              y: 729.7128331464854,
+            },
+            pressure: 0,
+            deltaTime: -1699672923704.7734,
+            tilt: {
+              x: 0,
+              y: 0,
+            },
+          },
+          {
+            x: 543,
+            y: 706,
+            begin: {
+              x: 511.0253442007076,
+              y: 725.6344436211585,
+            },
+            end: {
+              x: 526.8846260391998,
+              y: 714.189780209587,
+            },
+            pressure: 0,
+            deltaTime: -1699672923663.1804,
+            tilt: {
+              x: 0,
+              y: 0,
+            },
+          },
+          {
+            x: 624,
+            y: 620,
+            begin: {
+              x: 578.5133925655249,
+              y: 687.9522103355529,
+            },
+            end: {
+              x: 613.7789735252551,
+              y: 660.8841058989796,
+            },
+            pressure: 0,
+            deltaTime: -1699672923568.0007,
+            tilt: {
+              x: 0,
+              y: 0,
+            },
+          },
+          {
+            x: 579,
+            y: 500,
+            begin: {
+              x: 635.9010548450873,
+              y: 572.3957806196511,
+            },
+            end: {
+              x: 611.5328417664867,
+              y: 532.5328417664867,
+            },
+            pressure: 0,
+            deltaTime: -1699672923462.2395,
+            tilt: {
+              x: 0,
+              y: 0,
+            },
+          },
+          {
+            x: 567,
+            y: 489,
+            begin: {
+              x: 574.7751868950601,
+              y: 495.77518689506,
+            },
+            end: {
+              x: 570.4444967706995,
+              y: 494.1667451560493,
+            },
+            pressure: 0,
+            deltaTime: -1699672923450,
+            tilt: {
+              x: 0,
+              y: 0,
+            },
+          },
+        ],
+      }),
+      filters: [
+        Document.visu.createVisuallyFilter('stroke', {
+          stroke: {
+            brushId: Brushes.CircleBrush.metadata.id,
+            brushVersion: '0.0.1',
+            color: { r: 1, g: 1, b: 1 },
+            opacity: 1,
+            size: 20,
+            settings: {
+              lineCap: 'round',
+            } satisfies Brushes.CircleBrush.Settings,
+          },
+          ink: {
+            inkId: Inks.RainbowInk.metadata.id,
+            inkVersion: Inks.RainbowInk.metadata.version,
+            settings: {} satisfies Inks.RainbowInk.Setting,
+          },
+        }),
+      ],
+    }),
+  ]
 
-  doc.layerNodes.addLayerNode(rasterGroupVis)
+  const bgElements = [
+    Document.visu.createVectorObjectVisually({
+      path: Document.visu.createVectorPath({
+        points: [
+          { isMoveTo: true, x: 0, y: 0 },
+          { x: docSize.width, y: 0, begin: null, end: null },
+          { x: docSize.width, y: docSize.height, begin: null, end: null },
+          { x: 0, y: docSize.height, begin: null, end: null },
+          { isClose: true },
+        ],
+      }),
+      filters: [
+        Document.visu.createVisuallyFilter('fill', {
+          fill: {
+            type: 'linear-gradient',
+            start: { x: 0, y: 0 },
+            end: { x: 1, y: 1 },
+            colorStops: [
+              { position: 0, color: { r: 0.2, g: 0.2, b: 0.8, a: 1 } },
+              { position: 0.1, color: { r: 0.0, g: 0.0, b: 0.8, a: 1 } },
+            ],
+            opacity: 1,
+          },
+        }),
+      ],
+    }),
+    Document.visu.createVectorObjectVisually({
+      transform: {
+        position: { x: 32, y: docSize.height - 100 - 32 },
+        scale: { x: 1, y: 1 },
+        rotate: 0,
+      },
+      path: Document.visu.createVectorPath({
+        points: [
+          { isMoveTo: true, x: 78, y: 100 },
+          { x: 0, y: 100, begin: null, end: null },
+          { x: 0, y: 0, begin: null, end: null },
+        ],
+      }),
+      filters: [
+        Document.visu.createVisuallyFilter('stroke', {
+          ink: {
+            inkId: Inks.PlainInk.metadata.id,
+            inkVersion: Inks.PlainInk.metadata.version,
+            settings: {} satisfies Inks.PlainInk.Setting,
+          },
+          stroke: {
+            brushId: Brushes.CircleBrush.metadata.id,
+            brushVersion: Brushes.CircleBrush.metadata.version,
+            color: { r: 1, g: 1, b: 1 },
+            size: 2,
+            opacity: 1,
+            settings: {
+              lineCap: 'round',
+            } satisfies Brushes.CircleBrush.Settings,
+          },
+        }),
+      ],
+    }),
+    Document.visu.createVectorObjectVisually({
+      path: Document.visu.createVectorPath({
+        points: [
+          { isMoveTo: true, x: docSize.width - 100, y: 32 },
+          { x: docSize.width - 32, y: 32, begin: null, end: null },
+          { x: docSize.width - 32, y: 100 + 32, begin: null, end: null },
+        ],
+      }),
+      filters: [
+        Document.visu.createVisuallyFilter('stroke', {
+          ink: {
+            inkId: Inks.PlainInk.metadata.id,
+            inkVersion: Inks.PlainInk.metadata.version,
+            settings: {} satisfies Inks.PlainInk.Setting,
+          },
+          stroke: {
+            brushId: Brushes.CircleBrush.metadata.id,
+            brushVersion: Brushes.CircleBrush.metadata.version,
+            color: { r: 1, g: 1, b: 1 },
+            size: 2,
+            opacity: 1,
+            settings: {
+              lineCap: 'round',
+            } satisfies Brushes.CircleBrush.Settings,
+          },
+        }),
+      ],
+    }),
+    Document.visu.createVectorObjectVisually({
+      transform: {
+        position: {
+          x: 56,
+          y: docSize.height - 152 - 56,
+        },
+        scale: { x: 1, y: 1 },
+        rotate: 0,
+      },
+      path: Document.visu.createVectorPath({
+        points: [
+          { isMoveTo: true, x: 0, y: 0 },
+          { x: 128, y: 0, begin: null, end: null },
+          { x: 128, y: 152, begin: null, end: null },
+          { x: 0, y: 152, begin: null, end: null },
+          { x: 0, y: 0, begin: null, end: null },
+          { isClose: true },
+        ],
+      }),
+      filters: [
+        Document.visu.createVisuallyFilter('fill', {
+          fill: {
+            type: 'linear-gradient',
+            start: { x: 0, y: -64 },
+            end: { x: 0, y: 64 },
+            colorStops: [
+              { position: 0, color: { r: 1, g: 1, b: 1, a: 1 } },
+              { position: 1, color: { r: 1, g: 1, b: 1, a: 0 } },
+            ],
+            opacity: 1,
+          },
+        }),
+      ],
+    }),
+  ]
+
+  doc.layerNodes.addLayerNode(bgGroup)
+  bgElements.forEach((visu) => doc.layerNodes.addLayerNode(visu, [bgGroup.uid]))
+
   doc.layerNodes.addLayerNode(vectorGroupVis)
-
-  doc.layerNodes.addLayerNode(raster, [rasterGroupVis.uid])
-  doc.layerNodes.addLayerNode(vector, [vectorGroupVis.uid])
-  doc.layerNodes.addLayerNode(text, [vectorGroupVis.uid])
+  fgElements.forEach((visu) =>
+    doc.layerNodes.addLayerNode(visu, [vectorGroupVis.uid]),
+  )
 
   pplc.loadDocument(doc)
   // pap.setStrokingTargetLayer([raster.uid])
@@ -386,5 +685,11 @@ function createTestDocument(pplc: Paplico) {
       inOutInfluence: 1,
       inOutLength: 0.2,
     } satisfies ExtraBrushes.ScatterBrush.Settings,
+  })
+
+  pplc.setInkSetting({
+    inkId: Inks.RainbowInk.metadata.id,
+    inkVersion: Inks.RainbowInk.metadata.version,
+    settings: {} satisfies Inks.RainbowInk.Setting,
   })
 }

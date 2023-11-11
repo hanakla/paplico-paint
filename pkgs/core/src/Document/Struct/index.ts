@@ -1,5 +1,0 @@
-export { LayerNode } from './LayerNode'
-export { ColorStop1D } from './Struct/ColorStop1D'
-export { ColorRGB } from './Struct/ColorRGB'
-export { ColorRGBA } from './Struct/ColorRGBA'
-export { Point2D } from './Struct/Point2D'

@@ -68,15 +68,22 @@ export const rescue: Resque = <T extends Promise<any> | any>(
   }
 }
 
-export const throwLaterIfFailure = async (results: Result<any>[]) => {
+export const throwLaterIfFailure = async (
+  results: Result<any>[],
+  message?: string,
+  throwing = false,
+) => {
   const errors = results
     .filter((r): r is FailureResult<any> => !r.success)
     .map((r) => r.error)
   if (errors.length === 0) return
 
-  await Promise.resolve()
+  await new Promise<void>((r) => queueMicrotask(r))
 
-  throw new AggregateError(errors)
+  const error = new AggregateError(errors, message)
+  if (throwing) throw error
+
+  return error
 }
 
 export const aggregateRescueErrors = (

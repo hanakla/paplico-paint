@@ -1,6 +1,5 @@
 import { PaplicoDocument } from '@/Document/PaplicoDocument'
 import { AtomicResource } from '@/utils/AtomicResource'
-import { RuntimeLayerEntity } from './RuntimeLayerEntity'
 import { History } from '@/Engine/History/History'
 import { ICommand } from '@/Engine/History/ICommand'
 import { PreviewStore } from '@/Engine/DocumentContext/PreviewStore'
@@ -232,7 +231,11 @@ export class DocumentContext extends Emitter<DocumentContext.Events> {
     if (visu.type === 'canvas') {
       bitmap = await createImageBitmapImpl(
         visu.bitmap
-          ? createImageData(visu.bitmap, visu.width, visu.height)
+          ? createImageData(
+              visu.bitmap as unknown as Uint8ClampedArray,
+              visu.width,
+              visu.height,
+            )
           : createImageData(visu.width, visu.height),
       )
 
@@ -256,12 +259,11 @@ export class DocumentContext extends Emitter<DocumentContext.Events> {
   }
 
   public invalidateLayerBitmapCache(visuUid: string | string[]) {
-    if (Array.isArray(visuUid)) {
-      visuUid.forEach((uid) => this.invalidateLayerBitmapCache(uid))
-      return
-    }
-
-    this.layerNodeBitmapCache.delete(visuUid)
+    visuUid = Array.isArray(visuUid) ? visuUid : [visuUid]
+    visuUid.forEach((uid) => {
+      this.layerNodeBitmapCache.get(uid)?.close()
+      this.layerNodeBitmapCache.delete(uid)
+    })
   }
 
   public invalidateAllLayerBitmapCache() {
@@ -269,7 +271,9 @@ export class DocumentContext extends Emitter<DocumentContext.Events> {
     this.layerNodeBitmapCache.clear()
   }
 
-  public invalidateVectorObjectCache(vectorObject: VectorObject) {
+  public invalidateVectorObjectCache(
+    vectorObject: VisuElement.VectorObjectElement,
+  ) {
     this.emit('invalidateVectorPathCacheRequested', { object: vectorObject })
   }
 

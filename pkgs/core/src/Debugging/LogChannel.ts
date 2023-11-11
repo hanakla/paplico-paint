@@ -15,7 +15,7 @@ type Channels = (typeof channels)[number]
 ///////////////////////////////
 
 const listens = new Set<(typeof channels)[number]>([
-  'pipeline',
+  // 'pipeline',
   // 'vectorRenderer',
   // 'pipelineSchedule',
   // 'pplcStroking',

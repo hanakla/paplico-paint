@@ -1,19 +1,13 @@
 import { useEditorStore, useEngineStore } from '@/store'
 import { ToolModes } from '@/stores/types'
-import { useMemoRevailidatable, usePointerDrag } from '@/utils/hooks'
-import {
-  Commands,
-  Document,
-  PaplicoMath,
-  SVGPathManipul,
-} from '@paplico/core-new'
+import { usePointerDrag } from '@/utils/hooks'
+import { Commands, PaplicoMath } from '@paplico/core-new'
 import { VisuElement as VisuElementType } from '@paplico/core-new/dist/Document'
 import {
   KeyboardEvent,
   ReactNode,
   SVGProps,
   memo,
-  useCallback,
   useEffect,
   useReducer,
   useState,
@@ -22,16 +16,11 @@ import { unstable_batchedUpdates } from 'react-dom'
 import { createUseStyles } from 'react-jss'
 import useEvent from 'react-use-event-hook'
 import { VectorObjectElement } from './VisuElement.VectorObject'
-import { usePropsMemo } from '@paplico/shared-lib'
 
 const RECT_SIZE = 10
 const HALF_OF_RECT_SIZE = RECT_SIZE / 2
 
-export const VisuElement = memo(function VisuElement({
-  visu,
-  layerNodePath,
-  children,
-}: {
+type Props = {
   visu:
     | VisuElementType.FilterElement
     | VisuElementType.GroupElement
@@ -40,15 +29,27 @@ export const VisuElement = memo(function VisuElement({
     | VisuElementType.TextElement
     | VisuElementType.VectorObjectElement
   layerNodePath: string[]
-  children?: ReactNode
-}) {
+  visible: boolean
+  locked: boolean
+}
+
+export const VisuElement = memo(function VisuElement(props: Props) {
+  if (!props.visible || props.locked) return null
+
+  return <VisuElementInternal {...props} />
+})
+
+const VisuElementInternal = memo(function VisuElementInternal({
+  visu,
+  layerNodePath,
+}: Props) {
   const editor = useEditorStore()
 
   const { paplico } = useEngineStore()
   const s = usePathStyle()
-  const propsMemo = usePropsMemo()
   const rerender = useReducer((s) => s + 1, 0)[1]
 
+  const isEditableToolMode = editor.toolMode === ToolModes.objectTool
   const elementScale = 1 / editor.canvasScale
 
   const [transformOverride, setTransfromOverride] = useState<{
@@ -140,7 +141,9 @@ export const VisuElement = memo(function VisuElement({
         })
       }),
       paplico.on('document:metrics:update', ({ updatedVisuUids }) => {
-        if (updatedVisuUids.includes(visu.uid)) rerender()
+        if (updatedVisuUids.includes(visu.uid)) {
+          rerender()
+        }
       }),
     ]
 
@@ -150,6 +153,8 @@ export const VisuElement = memo(function VisuElement({
   })
 
   const elements = (() => {
+    if (!isEditableToolMode) return null
+
     const metrics = paplico.visuMetrics?.getLayerMetrics(visu.uid)
     if (!metrics) return null
 
@@ -157,6 +162,7 @@ export const VisuElement = memo(function VisuElement({
     const top = metrics.originalBBox.top + (transformOverride?.y ?? 0)
     const right = metrics.originalBBox.right + (transformOverride?.x ?? 0)
     const bottom = metrics.originalBBox.bottom + (transformOverride?.y ?? 0)
+    console.log(metrics.visuUid, metrics.originalBBox)
 
     return [
       <rect
@@ -226,16 +232,14 @@ export const VisuElement = memo(function VisuElement({
       data-pplc-component="VisuElement"
       data-pplc-visu-uid={visu.uid}
       style={{
+        display: !visu.visible ? 'none' : undefined,
         pointerEvents: editor.selectedVisuUids[visu.uid] ? 'painted' : 'stroke',
         transform: `translate(${visu.transform.position.x}px, ${visu.transform.position.y}px)`,
       }}
       onKeyDown={handleKeyDown}
       tabIndex={0}
       className={s.root}
-      data-editable-tooled={
-        editor.toolMode === ToolModes.objectTool ||
-        editor.toolMode === ToolModes.pointTool
-      }
+      data-editable-tooled={isEditableToolMode}
     >
       {elements}
       <g>

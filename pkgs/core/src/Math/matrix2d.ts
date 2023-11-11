@@ -134,7 +134,7 @@ export class Matrix2D {
     return { x: nx, y: ny }
   }
 
-  public toArray() {
-    return this.matrix.slice(0)
+  public toArray(): Matrix2DArray {
+    return this.matrix.slice(0) as Matrix2DArray
   }
 }

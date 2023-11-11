@@ -1,5 +1,5 @@
-import { ColorRGB } from '../../Struct/ColorRGB'
-import { ColorStop1D } from '../../Struct/ColorStop1D'
+import { ColorRGB } from '../../Structs/ColorRGB'
+import { ColorStop1D } from '../../Structs/ColorStop1D'
 
 export type FillSetting =
   | {
@@ -13,8 +13,8 @@ export type FillSetting =
       colorStops: ColorStop1D[]
       /** 0 to 1 */
       opacity: number
-      /** from center of bounding rect of current path */
+      /** from center of bounding rect of current object */
       start: { x: number; y: number }
-      /** from center of bounding rect of current path */
+      /** from center of bounding rect of current object */
       end: { x: number; y: number }
     }

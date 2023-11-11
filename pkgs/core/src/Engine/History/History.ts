@@ -1,6 +1,6 @@
 import { ICommand } from './ICommand'
 import { Emitter } from '@paplico/shared-lib'
-import { aggregateRescueErrors, rescue } from '@/utils/rescue'
+import { rescue, throwLaterIfFailure } from '@/utils/rescue'
 import { DocumentContext } from '@/Engine/DocumentContext/DocumentContext'
 import { AtomicResource } from '@/utils/AtomicResource'
 
@@ -54,7 +54,7 @@ export class History extends Emitter<History.Events> {
       this.#undoStack.push(command)
       this.#redoStack = []
 
-      aggregateRescueErrors([
+      throwLaterIfFailure([
         rescue(() =>
           this.emit('affect', { layerIds: command.effectedVisuUids }),
         ),
@@ -74,7 +74,7 @@ export class History extends Emitter<History.Events> {
       await command.undo(document)
       this.#redoStack.push(command)
 
-      aggregateRescueErrors(
+      throwLaterIfFailure(
         [
           rescue(() =>
             this.emit('affect', { layerIds: command.effectedVisuUids }),
@@ -99,7 +99,7 @@ export class History extends Emitter<History.Events> {
       await command.redo(document)
       this.#undoStack.push(command)
 
-      aggregateRescueErrors(
+      throwLaterIfFailure(
         [
           rescue(() =>
             this.emit('affect', { layerIds: command.effectedVisuUids }),

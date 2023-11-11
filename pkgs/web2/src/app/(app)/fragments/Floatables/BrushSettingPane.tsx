@@ -28,13 +28,13 @@ export const BrushSettingPane = memo(function BrushSetting() {
   const t = useTranslation(brushesSettingPaneTexts)
   const rerender = useUpdate()
 
-  const { pplc, currentBrush, showBrushSizePreview } = useCanvasEditorState(
-    (s) => ({
+  const { pplc, currentBrush, currentInk, showBrushSizePreview } =
+    useCanvasEditorState((s) => ({
       pplc: s.paplico,
       currentBrush: s.paplico.getBrushSetting(),
+      currentInk: s.paplico.getInkSetting(),
       ...pick(s, ['showBrushSizePreview', 'paplico']),
-    }),
-  )
+    }))
 
   const previewRef = useRef<HTMLCanvasElement | null>(null)
   const canvasRect = useMeasure(previewRef)
@@ -66,6 +66,7 @@ export const BrushSettingPane = memo(function BrushSetting() {
 
     const mc = microCanvasRef.current
     mc.setBrushSetting(currentBrush)
+    currentInk && mc.setInkSetting(currentInk)
 
     mc.drawPath(
       SVGConversion.parseSVGPathToVisuVectorPath(
@@ -98,7 +99,7 @@ export const BrushSettingPane = memo(function BrushSetting() {
     if (!mc) return
 
     return mc.on('strokeStart', () => mc.clearCanvas())
-  }, [canvasRect.width, canvasRect.height, currentBrush])
+  }, [canvasRect.width, canvasRect.height, currentBrush, currentInk])
 
   return (
     <FloatablePane paneId={FloatablePaneIds.brushSettings} title={t('title')}>

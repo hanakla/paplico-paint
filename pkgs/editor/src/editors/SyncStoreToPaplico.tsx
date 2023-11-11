@@ -10,7 +10,6 @@ export const SyncStoreToPaplico = memo(function SyncStoreToPaplico() {
 
   // Sync brush state
   useEffect(() => {
-    console.log(editor.toolMode)
     paplico.setStrokeCompositionMode(
       // prettier-ignore
       editor.toolMode === ToolModes.none ? 'none'

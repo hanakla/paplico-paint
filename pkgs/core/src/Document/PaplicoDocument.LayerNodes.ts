@@ -3,7 +3,7 @@ import {
   PPLCTargetEntityNotFoundError,
 } from '@/Errors'
 import { type PaplicoDocument } from './PaplicoDocument'
-import { type LayerNode } from './Struct/LayerNode'
+import { type LayerNode } from './Structs/LayerNode'
 import { VisuElement } from './Visually/VisuElement'
 import { DocumentContext } from '@/Engine'
 

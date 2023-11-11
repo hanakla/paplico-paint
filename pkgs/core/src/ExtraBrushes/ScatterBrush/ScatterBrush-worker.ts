@@ -180,7 +180,7 @@ export async function processInput(data: Payload): Promise<WorkerResponse> {
 
   for (let idx = 0, l = points.length; idx < l; idx += 2) {
     // wait for tick (for receiving abort message from main thread)
-    await Promise.resolve()
+    await new Promise<void>((r) => queueMicrotask(r))
 
     if (abortedTasks.has(id)) {
       // console.info('aboterd on worker')

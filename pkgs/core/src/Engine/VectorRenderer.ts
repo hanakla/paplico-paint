@@ -9,10 +9,12 @@ import { RenderCycleLogger } from './RenderCycleLogger'
 import { RenderPhase, Viewport } from './types'
 import {
   addPoint2D,
+  applyMatrixToBBox,
   calcVectorBoundingBox,
   calcVectorPathBoundingBox,
   composeVisuTransformsToDOMMatrix,
   multiplyPoint2D,
+  visuTransformToMatrix2D,
 } from './VectorUtils'
 import { AppearanceRegistry } from './Registry/AppearanceRegistry'
 import { FontRegistry } from './Registry/FontRegistry'
@@ -183,7 +185,11 @@ export class VectorRenderer {
     for (let obj of objects) {
       if (!obj.visible) continue
 
-      const sourceBBox = calcVectorBoundingBox(obj) // Ignore override for source
+      const sourceBBox = applyMatrixToBBox(
+        calcVectorBoundingBox(obj),
+        visuTransformToMatrix2D(obj.transform),
+      )
+
       let postFilterBBox = sourceBBox
 
       if (transformOverrides?.[visu.uid]) {
@@ -195,7 +201,7 @@ export class VectorRenderer {
 
         for (const ap of obj.filters) {
           if (ap.kind === 'fill') {
-            await this.renderFill(obj.path, output, ap.fill, {
+            const metrics = await this.renderFill(obj.path, output, ap.fill, {
               pixelRatio: pixelRatio,
               transform: {
                 position: addPoint2D(
@@ -219,7 +225,7 @@ export class VectorRenderer {
               throw new Error(`Unregistered brush ${ap.stroke.brushId}`)
             }
 
-            const { bbox } = await this.renderStroke(
+            const { metrics } = await this.renderStroke(
               obj.path,
               output,
               ap.stroke,
@@ -243,13 +249,7 @@ export class VectorRenderer {
               },
             )
 
-            postFilterBBox = {
-              ...bbox,
-              width: bbox.right - bbox.left,
-              height: bbox.bottom - bbox.top,
-              centerX: bbox.left + (bbox.right - bbox.left) / 2,
-              centerY: bbox.top + (bbox.bottom - bbox.top) / 2,
-            }
+            postFilterBBox = metrics.postFilter
           } else if (ap.kind === 'postprocess') {
             continue
           }
@@ -455,6 +455,8 @@ export class VectorRenderer {
       compositionMode = 'normal',
       filtersForPathTransform = [],
     }: {
+      /** Transform. if this path drawing by parent node, this
+       * transform must be composed all parents and self transform */
       transform: VisuElement.ElementTransform
       pixelRatio: number
       abort?: AbortSignal
@@ -464,11 +466,17 @@ export class VectorRenderer {
       filtersForPathTransform?: VisuFilter.PostProcessFilter[]
     },
   ): Promise<{
+    metrics: LayerMetrics.BBoxSet
     warns: PaplicoRenderWarnAbst[]
   }> {
     let warns: PaplicoRenderWarnAbst[] = []
 
     const fillRenderLock = await this.fillRenderLock.ensure()
+
+    const originalBBox = applyMatrixToBBox(
+      calcVectorPathBoundingBox(path),
+      visuTransformToMatrix2D(transform),
+    )
 
     try {
       const transformedPath = await reduceAsync(
@@ -576,7 +584,13 @@ export class VectorRenderer {
       this.fillRenderLock.release(fillRenderLock)
     }
 
-    return { warns }
+    return {
+      metrics: {
+        original: originalBBox,
+        postFilter: originalBBox,
+      },
+      warns,
+    }
   }
 
   public async renderStroke(
@@ -592,13 +606,17 @@ export class VectorRenderer {
       logger,
     }: {
       inkSetting: VisuFilter.Structs.InkSetting
+      /** Transform, if this path drawing by parent node,
+       *  this transform must be composed all parents and self transform */
       transform: VisuElement.ElementTransform
       pixelRatio: number
       abort?: AbortSignal
       phase: RenderPhase
       logger?: RenderCycleLogger
     },
-  ): Promise<BrushLayoutData> {
+  ): Promise<{
+    metrics: LayerMetrics.BBoxSet
+  }> {
     const brush = this.brushRegistry.getInstance(brushSetting.brushId)
     const ink = this.inkRegistry.getInstance(inkSetting.inkId)
 
@@ -619,6 +637,11 @@ export class VectorRenderer {
     this.camera.top = height / 2.0
     this.camera.bottom = -height / 2.0
     this.camera.updateProjectionMatrix()
+
+    const originalBBox = applyMatrixToBBox(
+      calcVectorPathBoundingBox(path),
+      visuTransformToMatrix2D(transform),
+    )
 
     const useMemoForPath = async <T>(
       path: VisuElement.VectorPath,
@@ -650,7 +673,7 @@ export class VectorRenderer {
     }
 
     try {
-      const result = saveAndRestoreCanvas(output, async () => {
+      const resultBBox = await saveAndRestoreCanvas(output, async () => {
         return await brush.render({
           abort: abort ?? new AbortController().signal,
           throwIfAborted: () => {
@@ -679,7 +702,26 @@ export class VectorRenderer {
         })
       })
 
-      return result
+      return {
+        metrics: {
+          original: originalBBox,
+          // postFilter: applyMatrixToBBox(
+          //   createBBox({
+          //     left: resultBBox.bbox.left,
+          //     top: resultBBox.bbox.top,
+          //     width: resultBBox.bbox.right - resultBBox.bbox.left,
+          //     height: resultBBox.bbox.bottom - resultBBox.bbox.top,
+          //   }),
+          //   visuTransformToMatrix2D(transform),
+          // ),
+          postFilter: createBBox({
+            left: resultBBox.bbox.left,
+            top: resultBBox.bbox.top,
+            width: resultBBox.bbox.right - resultBBox.bbox.left,
+            height: resultBBox.bbox.bottom - resultBBox.bbox.top,
+          }),
+        },
+      }
     } finally {
       this.glRendererResource.release(renderer)
       this.strokeRenderLock.release(strokeRenderLock)

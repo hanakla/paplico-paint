@@ -16,7 +16,9 @@ import { unstable_batchedUpdates } from 'react-dom'
 import { ToolModes } from '@/stores/types'
 import { getTangent } from '@/utils/math'
 import { VisuElement } from './VisuElement'
-import { usePropsMemo } from '@paplico/shared-lib'
+import { pick, usePropsMemo } from '@paplico/shared-lib'
+import { storePicker } from '@/utils/zustand'
+import clsx from 'clsx'
 
 type Props = {
   visuUid: string
@@ -24,8 +26,28 @@ type Props = {
 }
 
 const usePathStyle = createUseStyles({
+  root: {
+    pointerEvents: 'stroke',
+    '&[data-state-selected="true"]': {
+      pointerEvents: 'painted',
+    },
+  },
+  point: {
+    width: 4,
+    height: 4,
+    strokeWidth: 2,
+    stroke: '#4e7fff',
+    paintOrder: 'stroke fill',
+    fill: '#fff',
+    r: 2,
+  },
   previewStroke: {
     stroke: 'transparent',
+    cursor: 'pointer',
+    touchAction: 'none',
+    "&:where([data-state-selected='true'] > *)": {
+      stroke: 'var(--pap-stroke-color)',
+    },
     '&:hover': {
       stroke: 'var(--pap-stroke-color)',
     },
@@ -43,7 +65,31 @@ export const VectorObjectElement = memo(function VectorObjectElement({
   visuUid,
   visu,
 }: Props) {
-  const editor = useEditorStore()
+  const editor = useEditorStore(storePicker(['toolMode']))
+  const isEditableToolMode =
+    editor.toolMode === ToolModes.objectTool ||
+    editor.toolMode === ToolModes.pointTool
+
+  if (!isEditableToolMode) return null
+
+  return <VectorObjectElementInternal visuUid={visuUid} visu={visu} />
+})
+
+export const VectorObjectElementInternal = memo(function VectorObjectElement({
+  visuUid,
+  visu,
+}: Props) {
+  const editor = useEditorStore(
+    storePicker([
+      'toolMode',
+      'canvasScale',
+      'selectedVisuUids',
+      'setSelectedVisuUids',
+    ]),
+  )
+
+  const isSelected = editor.selectedVisuUids[visu.uid]
+  const isPointToolMode = editor.toolMode === ToolModes.pointTool
 
   const { paplico } = useEngineStore()
   const s = usePathStyle()
@@ -99,11 +145,8 @@ export const VectorObjectElement = memo(function VectorObjectElement({
       })
     } else {
       paplico.command.do(
-        new Commands.VectorUpdateObjects(visuUid, {
-          updater: (objects) => {
-            const target = objects.find((obj) => obj.uid === visu.uid)
-            if (!target) return
-
+        new Commands.VectorVisuUpdateAttributes(visuUid, {
+          updater: (target) => {
             const prevPosition = target.transform.position
             target.transform.position = {
               x: prevPosition.x + movement[0] / editor.canvasScale,
@@ -154,12 +197,12 @@ export const VectorObjectElement = memo(function VectorObjectElement({
               point.x += moveX
               point.y += moveY
 
-              if (point.end) {
+              if ('end' in point && point.end) {
                 point.end.x += moveX
                 point.end.y += moveY
               }
 
-              if (next?.begin) {
+              if (next && 'begin' in next && next.begin) {
                 next.begin.x += moveX
                 next.begin.y += moveY
               }
@@ -181,11 +224,8 @@ export const VectorObjectElement = memo(function VectorObjectElement({
       })
     } else {
       paplico.command.do(
-        new Commands.VectorUpdateObjects(visuUid, {
-          updater: (objects) => {
-            const target = objects.find((obj) => obj.uid === visu.uid)
-            if (!target || target.type !== 'vectorObject') return
-
+        new Commands.VectorVisuUpdateAttributes(visuUid, {
+          updater: (target) => {
             patchPointIndices.forEach((idx) => {
               const point = target.path.points[idx]
               const next = target.path.points[idx + 1]
@@ -222,11 +262,8 @@ export const VectorObjectElement = memo(function VectorObjectElement({
     if (!pt || !prevPt || !nextPt) return
 
     paplico.command.do(
-      new Commands.VectorUpdateObjects(visuUid, {
-        updater: (objects) => {
-          const target = objects.find((obj) => obj.uid === visu.uid)
-          if (!target || target.type !== 'vectorObject') return
-
+      new Commands.VectorVisuUpdateAttributes(visuUid, {
+        updater: (target) => {
           const prev = target.path.points[pointIdx - 1]
           const next = target.path.points[pointIdx + 1]
           const current = target.path.points[pointIdx]
@@ -271,11 +308,8 @@ export const VectorObjectElement = memo(function VectorObjectElement({
         })
       } else {
         paplico.command.do(
-          new Commands.VectorUpdateObjects(visuUid, {
-            updater: (objects) => {
-              const target = objects.find((obj) => obj.uid === visu.uid)
-              if (!target || target.type !== 'vectorObject') return
-
+          new Commands.VectorVisuUpdateAttributes(visuUid, {
+            updater: (target) => {
               const point = target.path.points[pointIdx]
               if (!point) return
 
@@ -313,11 +347,8 @@ export const VectorObjectElement = memo(function VectorObjectElement({
       setEndAnchorOverride({ idx: +pointIdx, x: movement[0], y: movement[1] })
     } else {
       paplico.command.do(
-        new Commands.VectorUpdateObjects(visuUid, {
-          updater: (objects) => {
-            const target = objects.find((obj) => obj.uid === visu.uid)
-            if (!target || target.type !== 'vectorObject') return
-
+        new Commands.VectorVisuUpdateAttributes(visuUid, {
+          updater: (target) => {
             const point = target.path.points[pointIdx]
             if (!point) return
 
@@ -342,23 +373,23 @@ export const VectorObjectElement = memo(function VectorObjectElement({
     })
   })
 
-  const [pathElement, revalidatePathElement] = useMemoRevailidatable(() => {
-    const d = SVGPathManipul.vectorPathPointsToSVGPath(visu.path.points)
+  const [clickablePathElement, revalidatePathElement] =
+    useMemoRevailidatable(() => {
+      const d = SVGPathManipul.vectorPathPointsToSVGPath(visu.path.points)
 
-    return (
-      <>
-        <MemoPath
-          stroke="transparent"
-          d={d}
-          strokeWidth={3 * elementScale}
-          onClick={onClickPath}
-          className={s.previewStroke}
-          style={{ cursor: 'pointer', touchAction: 'none' }}
-          {...bindDrag()}
-        />
-      </>
-    )
-  }, [/* FIXME: */ visu.path, onClickPath])
+      return (
+        <>
+          <MemoPath
+            stroke="transparent"
+            d={d}
+            strokeWidth={3 * elementScale}
+            onClick={onClickPath}
+            className={s.previewStroke}
+            {...bindDrag()}
+          />
+        </>
+      )
+    }, [/* FIXME: */ visu.path, onClickPath])
 
   const [
     {
@@ -379,7 +410,7 @@ export const VectorObjectElement = memo(function VectorObjectElement({
     let currentMoveToIdx = 0
     visu.path.points.forEach((pt, idx, list) => {
       if (!editor.selectedVisuUids[visu.uid]) return
-      if (editor.toolMode !== ToolModes.pointTool) return
+      if (!isPointToolMode) return
       if (pt.isMoveTo) currentMoveToIdx = idx
       if (pt.isClose) return
 
@@ -407,14 +438,7 @@ export const VectorObjectElement = memo(function VectorObjectElement({
           key={'pt' + idx}
           x={pt.x - 2 + ptOvrOffsetX}
           y={pt.y - 2 + ptOvrOffsetY}
-          width={4}
-          height={4}
-          strokeWidth={2}
-          stroke="#4e7fff"
-          paintOrder="stroke fill"
-          fill="#fff"
-          r={2}
-          className={s.disableTouchAction}
+          className={clsx(s.disableTouchAction, s.point)}
           {...bindDragPoint()}
           onDoubleClick={onDblClickPoint}
           data-object-uid={visu.uid}
@@ -542,6 +566,7 @@ export const VectorObjectElement = memo(function VectorObjectElement({
     visu.path,
     visu.path.points,
     editor.selectedVisuUids[visu.uid],
+    isPointToolMode,
     pointMoveOverride,
     beginAnchorOverride,
     endAnchorOverride,
@@ -551,16 +576,17 @@ export const VectorObjectElement = memo(function VectorObjectElement({
     <g
       data-pap-component="ObjectPath"
       style={{
-        pointerEvents: editor.selectedVisuUids[visu.uid] ? 'painted' : 'stroke',
         transform: `translate(${visu.transform.position.x}px, ${visu.transform.position.y}px)`,
       }}
+      className={s.root}
+      data-state-selected={isSelected}
     >
       {propsMemo.memo(
         'object-children',
         () => (
           <>
             {anchorLineElements}
-            {pathElement}
+            {clickablePathElement}
             {pathFragmentElements}
             {pointElements}
             {beginAnchorElements}
@@ -569,7 +595,7 @@ export const VectorObjectElement = memo(function VectorObjectElement({
         ),
         [
           anchorLineElements,
-          pathElement,
+          clickablePathElement,
           pathFragmentElements,
           pointElements,
           beginAnchorElements,

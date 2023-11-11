@@ -48,7 +48,7 @@ export class DocumentAddCanvasVisuFromImage implements ICommand {
   public async do(docx: DocumentContext): Promise<void> {
     if (!docx.document.layerNodes.isChildContainableNode(this.targetNodePath)) {
       throw new PPLCOptionInvariantViolationError(
-        `CanvasVisuUpdateBitmap.do: Target node is not contaienr node: /${this.targetNodePath.join(
+        `DocumentAddCanvasVisuFromImage.do: Target node is not contaienr node: /${this.targetNodePath.join(
           '/',
         )}`,
       )

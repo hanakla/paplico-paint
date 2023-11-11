@@ -10,6 +10,8 @@ type AllocatedCanvasData = {
   expireAt: number
   stack?: string | null
   lastUserStack?: string | null
+  readonly width: number
+  readonly height: number
 }
 
 const EXPIRE_TIME = 1000 * 60
@@ -74,13 +76,21 @@ const allocator: Canvas2DAllocator = {
       // If no unused canvas found, create a new one.
       const entry: AllocatedCanvasData = retry(1, {
         trying: () => {
+          const ctx = saveRestoreHook(createContext2D(canvasOpt))
+
           return {
             used: true,
-            ctx: saveRestoreHook(createContext2D(canvasOpt)),
+            ctx,
             createOpt: canvasOpt,
             expireAt: Date.now() + EXPIRE_TIME,
             stack: new Error().stack,
             lastUserStack: null,
+            get width() {
+              return ctx.canvas.width
+            },
+            get height() {
+              return ctx.canvas.height
+            },
           }
         },
         beforeRetry: () => Canvas2DAllocator.gc(),

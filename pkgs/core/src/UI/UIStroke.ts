@@ -1,10 +1,9 @@
 import prand from 'pure-rand'
-import abs from 'abs-svg-path'
-
 import { createNumSequenceMap } from '@/Math'
 import { indexedPointAtLength } from '@/fastsvg/IndexedPointAtLength'
 import { simplifySvgPath } from '@/SVGPathManipul'
 import { VisuElement } from '@/Document'
+import { absNormalizePath } from '@/fastsvg/absNormalizePath'
 
 export type UIStrokePoint = {
   x: number
@@ -69,7 +68,7 @@ export class UIStroke {
       { closed: false, precision: 5, tolerance },
     )
 
-    const absolutedPath = abs(simplified)
+    const absolutedPath = absNormalizePath(simplified)
     const simplifiedPal = indexedPointAtLength(absolutedPath)
 
     const deltaMap = createNumSequenceMap(this.points.map((p) => p.deltaTimeMs))

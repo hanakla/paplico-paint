@@ -2,22 +2,29 @@ import { typedArraySafeDiff, patch, unpatch, Delta } from '@/utils/jsondiff'
 
 import { ICommand } from '../Engine/History/ICommand'
 import { DocumentContext } from '@/Engine'
-import { deepClone } from '@paplico/shared-lib'
+import { deepClone, omit } from '@paplico/shared-lib'
 import { VisuElement } from '@/Document'
 import { PPLCCommandExecutionError } from '@/Errors'
 
 type Options = {
   updater: (
-    layer: Omit<VisuElement.AnyElement, 'type' | 'path' | 'filters'>,
+    layer: Omit<
+      VisuElement.VectorObjectElement,
+      'type' | 'filters' | 'path'
+    > & {
+      path: VisuElement.LoosedTypeVectorPath
+    },
   ) => void
 }
 
 /**
- * Update Visu's attributes.
- * Can only update attributes, Can not changes .type, .path, .filters.
+ * Update Vector Visu's attributes.
+ *
+ * `.type` and `.filters` can not be changed.
+ * If you want to change filters, use `VisuManipulateFilters` command instead.
  */
-export class VisuUpdateAttributes implements ICommand {
-  public readonly name = 'VisuUpdateAttributes'
+export class VectorVisuUpdateAttributes implements ICommand {
+  public readonly name = 'VectorVisuUpdateAttributes'
 
   protected visuUid: string
   protected options: Options
@@ -32,18 +39,22 @@ export class VisuUpdateAttributes implements ICommand {
   public async do(docx: DocumentContext): Promise<void> {
     const visu = docx.document.getVisuByUid(this.visuUid)
     if (!visu) throw new PPLCCommandExecutionError('Target Visu not found')
+    if (visu.type !== 'vectorObject')
+      throw new PPLCCommandExecutionError('Target Visu is not vectorObject')
 
     const original = visu
-    const next = deepClone(original)
-    this.options.updater(next)
+    const next = deepClone(original) satisfies VisuElement.VectorObjectElement
+    this.options.updater(next as any)
+
+    next.path.points = next.path.points.map(
+      (p): VisuElement.VectorPathPoint =>
+        // prettier-ignore
+        p.isMoveTo ? { isMoveTo: true, x: p.x, y: p.y, }
+      : p.isClose ? { isClose: true, }
+      : omit(p, ['isClose', 'isMoveTo']),
+    )
 
     this.changesPatch = typedArraySafeDiff(original, next)!
-
-    if (this.changesPatch) {
-      delete (this.changesPatch as any).type
-      delete (this.changesPatch as any).path
-      delete (this.changesPatch as any).filters
-    }
 
     patch(visu, this.changesPatch!)
     docx.invalidateLayerBitmapCache(this.visuUid)

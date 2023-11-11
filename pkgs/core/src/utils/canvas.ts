@@ -3,11 +3,11 @@ import { unreachable } from './unreachable'
 
 export const saveAndRestoreCanvas = <
   C extends CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D,
-  T extends (ctx: C) => any,
+  T,
 >(
   ctx: C,
-  proc: T,
-) => {
+  proc: (ctx: C) => T,
+): T => {
   try {
     ctx.save()
     return proc(ctx)

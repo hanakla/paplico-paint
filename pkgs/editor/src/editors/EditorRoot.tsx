@@ -105,13 +105,7 @@ export const EditorRoot = memo(function EditorRoot({
       />
       <MetricsView width={size.width} height={size.height} />
 
-      {editorType === 'vector' && (
-        <VectorEditor
-          rootBBox={bound}
-          width={size.width}
-          height={size.height}
-        />
-      )}
+      <VectorEditor rootBBox={bound} width={size.width} height={size.height} />
 
       {editorType === 'text' && (
         <TextEditor width={size.width} height={size.height} />

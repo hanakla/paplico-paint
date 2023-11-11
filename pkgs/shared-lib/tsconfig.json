@@ -14,8 +14,8 @@
       "@/*": ["src/*"]
     },
     "baseUrl": ".",
-    "lib": ["ES2022", "DOM"],
-    "types": ["vitest/importMeta", "vitest/globals"]
+    "lib": ["ES2023"],
+    "types": ["vitest/importMeta", "vitest/globals", "@types/web"]
   },
   "include": ["src/**/*"]
 }

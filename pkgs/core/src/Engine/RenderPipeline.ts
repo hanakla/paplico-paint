@@ -27,7 +27,11 @@ import { buildRenderSchedule } from './Scheduler'
 import { PaplicoError } from '@/Errors/PaplicoError'
 import { Canvas2DAllocator } from '@/Infra/Canvas2DAllocator'
 import { LogChannel } from '@/Debugging/LogChannel'
-import { multiplyMatrix, visuTransformToMatrix2D } from './VectorUtils'
+import {
+  composeVisuTransforms,
+  multiplyMatrix,
+  visuTransformToMatrix2D,
+} from './VectorUtils'
 import { formatStack } from '@/utils/debug-utils'
 import { unreachable } from '@paplico/shared-lib'
 
@@ -144,6 +148,7 @@ export class RenderPipeline {
 
     const { tasks: schedules } = buildRenderSchedule(startNode, docx, {
       layerNodeOverrides,
+      willRenderingViewport: viewport,
       // prevCacheBreakerNodes: this.previousCacheBreakerNodes,
     })
 
@@ -309,7 +314,7 @@ export class RenderPipeline {
           }
 
           case RenderCommands.APPLY_INTERNAL_OBJECT_FILTER: {
-            const { renderTarget, objectVisu, filter } = task
+            const { renderTarget, objectVisu, filter, parentTransform } = task
             let { objectVisu: object } = task
 
             const targetCanvas = getRenderTarget(renderTarget, {
@@ -321,6 +326,8 @@ export class RenderPipeline {
               throw new PaplicoError(`Invalid render target: ${renderTarget}`)
             }
 
+            const hasTransformOverride = !!transformOverrides?.[objectVisu.uid]
+
             // Process overrides
             object =
               transformOverrides?.[objectVisu.uid]?.(deepClone(object)) ??
@@ -329,25 +336,35 @@ export class RenderPipeline {
             if (object.type !== 'vectorObject') continue
 
             if (filter.kind === 'fill') {
-              await renderer.renderFill(
+              const fillResult = await renderer.renderFill(
                 object.path,
                 targetCanvas,
                 filter.fill,
                 {
-                  transform: object.transform,
+                  transform: composeVisuTransforms(
+                    parentTransform,
+                    object.transform,
+                  ),
                   phase,
                   pixelRatio,
                   abort,
                   logger,
                 },
               )
+
+              if (!hasTransformOverride) {
+                visuMetrics[objectVisu.uid] = fillResult.metrics
+              }
             } else if (filter.kind === 'stroke') {
-              await renderer.renderStroke(
+              const result = await renderer.renderStroke(
                 object.path,
                 targetCanvas,
                 filter.stroke,
                 {
-                  transform: object.transform,
+                  transform: composeVisuTransforms(
+                    parentTransform,
+                    object.transform,
+                  ),
                   inkSetting: filter.ink,
                   phase,
                   pixelRatio,
@@ -355,6 +372,10 @@ export class RenderPipeline {
                   logger,
                 },
               )
+
+              if (!hasTransformOverride) {
+                visuMetrics[objectVisu.uid] = result.metrics
+              }
             } else {
               unreachable(filter)
             }
@@ -586,7 +607,7 @@ export class RenderPipeline {
             )
 
             transformResolved = true
-            visuMetrics[visuNode.uid] = await renderer.renderVectorVisu(
+            const metrics = await renderer.renderVectorVisu(
               visuNode.visu,
               tmpVectorOutCx,
               {
@@ -605,6 +626,8 @@ export class RenderPipeline {
             if (abort?.aborted) throw new PPLCAbortError()
 
             if (!hasOverrideForThisVectorVisu) {
+              visuMetrics[visuNode.uid] = metrics
+
               if (updateCache) {
                 LogChannel.l.pipeline.info(
                   `Update bitmap cache for ${visuNode.uid}`,

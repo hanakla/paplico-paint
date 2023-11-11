@@ -78,16 +78,10 @@ export const GlobalShortcutHandler = memo(function GlobalShortcutHandler() {
   useGlobalMousetrap(shortcuts.global.selectAll, () => {
     const doc = editorHandle!.currentDocument
     const strokingTarget = editorHandle?.getStrokingTarget()
-    if (!doc || !strokingTarget) return
+    if (!doc || !strokingTarget || !editorHandle) return
 
-    const flatten = doc.layerNodes.getFlattenNodesUnderPath(
-      strokingTarget.nodePath,
-    )
-    if (!flatten) return
-
-    const visuUids = flatten.map((node) => node.visuUid)
-
-    console.log(visuUids)
+    const nodes = editorHandle?.getDisplayedResolvedNodes()
+    const visuUids = nodes.map((node) => node.uid)
 
     editorHandle?.setSelectedVisuUids(visuUids)
   })

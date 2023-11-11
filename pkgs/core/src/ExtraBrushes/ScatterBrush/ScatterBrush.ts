@@ -372,6 +372,7 @@ export const ScatterBrush = createBrush(
               totalLength: res.totalLength,
               baseColor,
               pixelRatio,
+              settings: {},
             })
 
             _color.setRGB(inked.r, inked.g, inked.b)

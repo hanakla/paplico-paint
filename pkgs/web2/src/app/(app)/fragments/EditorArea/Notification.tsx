@@ -54,7 +54,7 @@ export const Notification = memo(function Notification() {
         border-radius: 8px;
         color: var(--gray-2);
         opacity: 0;
-        background-color: var(--gray-9);
+        background-color: var(--gray-a9);
         transform: translateX(-50%);
         transition-property: opacity;
         transition: 0.2s ease-out;

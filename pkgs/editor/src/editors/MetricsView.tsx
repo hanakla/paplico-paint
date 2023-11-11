@@ -1,7 +1,7 @@
 import { useEngineStore } from '@/store'
-import { storePicker } from '@/utils/zustand'
 import { roundString } from '@/utils/string'
-import { memo, useEffect, useMemo, useReducer } from 'react'
+import { storePicker } from '@/utils/zustand'
+import { memo, useEffect, useReducer } from 'react'
 
 type Props = {
   width: number
@@ -9,11 +9,12 @@ type Props = {
 }
 
 export const MetricsView = memo(function MetricsView({ width, height }: Props) {
-  const { paplico } = useEngineStore()
+  const { paplico } = useEngineStore(storePicker(['paplico']))
+  const rerender = useReducer((x) => x + 1, 0)[1]
 
   useEffect(() => {
     paplico.on('document:metrics:update', () => {
-      // console.log('udpdate metrics')
+      rerender()
     })
   })
 

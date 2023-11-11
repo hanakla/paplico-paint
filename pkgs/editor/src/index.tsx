@@ -143,6 +143,12 @@ export function bindPaplico(
       editorStore.setState({ brushSizePreview: { size, durationMs } })
     },
 
+    /** Get in canvas current displayed visu's resolved node (flatten).
+     *　For situations like implement Select-All operation on your application */
+    getDisplayedResolvedNodes: () => {
+      return editorStore.getState().displayedResolvedNodes
+    },
+
     getSelectedVisuUids: () => {
       return Object.keys(editorStore.getState().selectedVisuUids)
     },

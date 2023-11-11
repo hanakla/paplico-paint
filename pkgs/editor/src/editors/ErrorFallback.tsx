@@ -6,7 +6,7 @@ export const ErrorFallback = memo(
     useEffect(() => {
       const id = setTimeout(() => {
         resetErrorBoundary()
-      })
+      }, 1000)
 
       return () => clearTimeout(id)
     }, [error])

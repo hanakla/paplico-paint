@@ -1,3 +1,5 @@
+import { memo, useState } from 'react'
+import { createUseStyles } from 'react-jss'
 import { useEditorStore, useEngineStore } from '@/store'
 import { usePointerDrag } from '@/utils/hooks'
 import {
@@ -9,10 +11,6 @@ import { ToolModes } from '@/stores/types'
 import { storePicker } from '@/utils/zustand'
 import { Commands, Document } from '@paplico/core-new'
 
-import { memo, useState } from 'react'
-import { createUseStyles } from 'react-jss'
-import useMeasure from 'react-use-measure'
-
 type Props = {
   width: number
   height: number
@@ -20,12 +18,12 @@ type Props = {
 
 export const ShapeTools = memo(function ShapeTools({ width, height }: Props) {
   const { paplico } = useEngineStore()
-  const editor = useEditorStore(
-    storePicker(['vectorToolMode', 'strokingTarget']),
-  )
+  const editor = useEditorStore(storePicker(['toolMode', 'strokingTarget']))
   const s = useStyles()
 
-  const [measureRef, rootRect] = useMeasure()
+  const isShapeToolMode =
+    editor.toolMode === ToolModes.rectangleTool ||
+    editor.toolMode === ToolModes.ellipseTool
 
   const [rect, setRectPreview] = useState<{
     x: number
@@ -43,6 +41,7 @@ export const ShapeTools = memo(function ShapeTools({ width, height }: Props) {
 
   const bindRectDrag = usePointerDrag(
     ({ offsetInitial, offsetMovement, last, event, canceled }) => {
+      console.log(editor.strokingTarget)
       if (!editor.strokingTarget?.visuUid) return
 
       // rectangle tool
@@ -183,12 +182,13 @@ export const ShapeTools = memo(function ShapeTools({ width, height }: Props) {
     },
   )
 
+  if (!isShapeToolMode) return null
+
   return (
     <>
       {/* Rect tool handler */}
       <g data-pplc-component="ShapeTools">
         <rect
-          ref={measureRef}
           width={width}
           height={height}
           x={0}
@@ -207,8 +207,6 @@ export const ShapeTools = memo(function ShapeTools({ width, height }: Props) {
             y={rect.y}
             width={rect.width}
             height={rect.height}
-            fill="transparent"
-            strokeWidth={1}
             className={s.feedbackElement}
           />
         )}
@@ -220,7 +218,6 @@ export const ShapeTools = memo(function ShapeTools({ width, height }: Props) {
               y={circle.cy - circle.ry}
               width={circle.rx * 2}
               height={circle.ry * 2}
-              fill="transparent"
               strokeWidth={0.5}
               className={s.feedbackElement}
             />
@@ -229,8 +226,6 @@ export const ShapeTools = memo(function ShapeTools({ width, height }: Props) {
               cy={circle.cy}
               rx={circle.rx}
               ry={circle.ry}
-              fill="transparent"
-              strokeWidth={1}
               className={s.feedbackElement}
             />
           </>
@@ -244,6 +239,8 @@ const useStyles = createUseStyles({
   feedbackElement: {
     pointerEvents: 'none',
     stroke: 'var(--pap-ui-color)',
+    fill: 'transparent',
+    strokeWidth: 1,
   },
 })
 
@@ -260,7 +257,7 @@ function createRectPathByRect(
       { x: x + width, y: y + height },
       { x: x, y: y + height },
       { x, y },
-      { isClose: true, x: 0, y: 0 },
+      { isClose: true },
     ],
   })
 }
@@ -291,7 +288,7 @@ function createCirclePathByRect(
       { x: cx, y: bottom, begin: { x: right, y: cy + hry }, end: { x: cx + hrx, y: bottom } },
       { x: x, y: cy, begin: { x: cx - hrx, y: bottom, }, end: { x: x, y: cy + hry} },
       { x: cx, y: y, begin: { x: x, y: cy - hry}, end: { x: cx - hrx, y: y}},
-      { isClose: true, x: 0, y: 0 },
+      { isClose: true },
     ],
   })
 }

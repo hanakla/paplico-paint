@@ -6830,6 +6830,7 @@ __metadata:
     "@thednp/dommatrix": ^2.0.6
     "@types/opentype.js": ^1.3.7
     "@types/three": ^0.146.0
+    "@types/web": ^0.0.119
     abs-svg-path: ^0.1.1
     crypto-js: ^4.1.1
     fast-random: ^2.0.4
@@ -6844,6 +6845,7 @@ __metadata:
     polished: ^4.2.2
     random-seedable: ^1.0.8
     rollup-plugin-node-externals: ^6.1.2
+    svg-path-bounding-box: ^1.0.4
     three: ^0.146.0
     typescript: ^5.0.4
     ulid: ^2.3.0
@@ -6997,6 +6999,7 @@ __metadata:
   dependencies:
     "@rollup/plugin-typescript": ^9.0.2
     "@types/react": ^18.2.37
+    "@types/web": ^0.0.119
     klona: ^2.0.6
     mitt: ^3.0.1
     rollup-plugin-node-externals: ^6.1.2
@@ -10941,6 +10944,13 @@ __metadata:
   version: 1.10.6
   resolution: "@types/verror@npm:1.10.6"
   checksum: 650620b851d42cda6e5f6fa84f4d89c259b3f85f7443ee1c85f4f9a9e1ce7b472640c833ef483d0803f8100d6228a82fb9776f53d5539cfe1d8f06adfb04e10c
+  languageName: node
+  linkType: hard
+
+"@types/web@npm:^0.0.119":
+  version: 0.0.119
+  resolution: "@types/web@npm:0.0.119"
+  checksum: cb6759372e6e51b82842128e2529289350a0afaf78f0d225de654798bbf45fd49f5e6a05db86d683849d32b9887dfe4c6a53cb9cb8f4f83cfc5b5683712b801b
   languageName: node
   linkType: hard
 
@@ -28875,6 +28885,17 @@ next@latest:
   languageName: node
   linkType: hard
 
+"svg-path-bounding-box@npm:^1.0.4":
+  version: 1.0.4
+  resolution: "svg-path-bounding-box@npm:1.0.4"
+  dependencies:
+    svgpath: ^2.0.0
+  bin:
+    svg-path-bounding-box: ./bin/caster.js
+  checksum: 566ccbd66f1baa18a1e41880d06e3fa209486df01d09470ef1a1da566672433826365a2ba62418094c03ed2903b70bbfc71c20f6e331c69e2b604b82d3e3768b
+  languageName: node
+  linkType: hard
+
 "svg-path-bounds@npm:^1.0.2":
   version: 1.0.2
   resolution: "svg-path-bounds@npm:1.0.2"
@@ -28923,6 +28944,13 @@ next@latest:
   bin:
     svgo: ./bin/svgo
   checksum: 28a5680a61245eb4a1603bc03459095bb01ad5ebd23e95882d886c3c81752313c0a9a9fe48dd0bcbb9a27c52e11c603640df952971573b2b550d9e15a9ee6116
+  languageName: node
+  linkType: hard
+
+"svgpath@npm:^2.0.0":
+  version: 2.6.0
+  resolution: "svgpath@npm:2.6.0"
+  checksum: 57bd2512b41a03a729c2880a6c771bb8ad449a9cea47c1fc43ac5cec70bf81a607591bb916ba16c21c9d87122537bcdf2ac4082dae13559c84c964b8fe868204
   languageName: node
   linkType: hard
 

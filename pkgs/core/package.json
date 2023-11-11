@@ -43,6 +43,7 @@
     "@rollup/plugin-typescript": "^9.0.2",
     "@types/opentype.js": "^1.3.7",
     "@types/three": "^0.146.0",
+    "@types/web": "^0.0.119",
     "point-at-length": "^1.1.0",
     "random-seedable": "^1.0.8",
     "rollup-plugin-node-externals": "^6.1.2",
@@ -66,6 +67,7 @@
     "mitt": "^3.0.1",
     "opentype.js": "^1.3.4",
     "polished": "^4.2.2",
+    "svg-path-bounding-box": "^1.0.4",
     "three": "^0.146.0",
     "ulid": "^2.3.0",
     "zod": "^3.19.1"

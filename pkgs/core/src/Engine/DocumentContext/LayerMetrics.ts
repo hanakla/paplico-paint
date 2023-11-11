@@ -1,7 +1,7 @@
 import { Emitter } from '@paplico/shared-lib'
 import { DocumentContext } from './DocumentContext'
 import { PaplicoDocument } from '@/Document'
-import { ROOT_LAYER_NODE_UID } from '@/Document/Struct/LayerNode'
+import { ROOT_LAYER_NODE_UID } from '@/Document/Structs/LayerNode'
 import { LogChannel } from '@/Debugging/LogChannel'
 
 export namespace LayerMetrics {
@@ -89,61 +89,6 @@ export class LayerMetrics extends Emitter<LayerMetrics.Events> {
     this.layerMetrics.clear()
   }
 
-  protected updateZIndex() {
-    // last is most top in render order
-    const existVisuUids = new Set<string>()
-    const flatten: [
-      string,
-      LayerMetrics.MetricsData | undefined,
-      PaplicoDocument.ResolvedLayerNode,
-      string[],
-    ][] = []
-
-    const flatProc = (
-      node: PaplicoDocument.ResolvedLayerNode,
-      parentNodePath: string[],
-    ) => {
-      existVisuUids.add(node.uid)
-
-      if (node.uid !== ROOT_LAYER_NODE_UID) {
-        node.children.forEach((n) => flatProc(n, parentNodePath))
-        return
-      }
-
-      const metrics = this.layerMetrics.get(node.uid)
-      const { visu } = node
-
-      if (visu.type === 'group') {
-        node.children.forEach((node) => {
-          flatProc(node, [...parentNodePath, node.uid])
-        })
-
-        flatten.push([node.uid, metrics, node, parentNodePath])
-      } else if (visu.type === 'filter') {
-        return
-      } else {
-        flatten.push([node.uid, metrics, node, parentNodePath])
-      }
-    }
-
-    flatProc(this.docx.document.layerNodes.getResolvedLayerNodes([]), [])
-
-    flatten
-      .map(([, metrics, , path], index) => {
-        if (metrics) {
-          metrics.zIndex = index
-          metrics.pathToParent = path
-        }
-
-        return [index, metrics] as const
-      })
-      .sort((a, b) => {
-        return a[0] - b[0]
-      })
-
-    this.zIndexOrderMetrices
-  }
-
   public getLayerMetrics(entityUid: string) {
     return this.layerMetrics.get(entityUid)
   }
@@ -159,7 +104,7 @@ export class LayerMetrics extends Emitter<LayerMetrics.Events> {
       metrices,
     )) {
       const visu = this.docx.resolveVisuByUid(visuUid)
-      if (!visu) return
+      if (!visu) continue
 
       const data: LayerMetrics.MetricsData = this.layerMetrics.get(visuUid) ?? {
         visuUid: visuUid,
@@ -193,5 +138,50 @@ export class LayerMetrics extends Emitter<LayerMetrics.Events> {
       const { left, top, width, height } = data.originalBBox
       return left <= x && x <= left + width && top <= y && y <= top + height
     })
+  }
+
+  protected updateZIndex() {
+    // last is most top in render order
+    const existVisuUids = new Set<string>()
+    const flatten: [LayerMetrics.MetricsData | undefined, string[]][] = []
+
+    const flatProc = (
+      node: PaplicoDocument.ResolvedLayerNode,
+      parentNodePath: string[],
+    ) => {
+      existVisuUids.add(node.uid)
+
+      const metrics = this.layerMetrics.get(node.uid)
+      const { visu } = node
+
+      if (visu.type === 'group') {
+        node.children.forEach((node) => {
+          flatProc(node, [...parentNodePath, node.uid])
+        })
+
+        flatten.push([metrics, parentNodePath])
+      } else if (visu.type === 'filter') {
+        return
+      } else {
+        flatten.push([metrics, parentNodePath])
+      }
+    }
+
+    flatProc(this.docx.document.layerNodes.getResolvedLayerNodes([]), [])
+
+    this.zIndexOrderMetrices = flatten
+      .map(([metrics, path], index) => {
+        if (metrics) {
+          metrics.zIndex = index
+          metrics.pathToParent = path
+        }
+
+        return [index, metrics] as const
+      })
+      .filter(([, metrics]) => metrics)
+      .sort((a, b) => {
+        return a[0] - b[0]
+      })
+      .map(([, metrics]) => metrics!)
   }
 }

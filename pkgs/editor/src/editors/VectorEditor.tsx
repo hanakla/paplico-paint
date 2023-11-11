@@ -1,13 +1,12 @@
 import { useEditorStore, useEngineStore } from '@/store'
 import { memo, useCallback, useEffect, useMemo, useReducer } from 'react'
-import { VectorObjectElement } from './VectorEditor/VisuElement.VectorObject'
 import { RectReadOnly } from 'react-use-measure'
 import { storePicker } from '@/utils/zustand'
 import { ShapeTools } from './VectorEditor/ShapeTools'
-import { isVectorShapeToolMode } from '@/stores/editor'
 import { VisuElement } from './VectorEditor/VisuElement'
 import { Document } from '@paplico/core-new'
 import { useMemoRevailidatable } from '@/utils/hooks'
+import { DisplayedResolvedNode } from '@/stores/editor'
 
 type Props = {
   width: number
@@ -20,17 +19,16 @@ export const VectorEditor = memo(function VectorEditor({
   height,
 }: Props) {
   const { paplico } = useEngineStore(storePicker(['paplico']))
-  const editorStore = useEditorStore()
+  const editorStore = useEditorStore(
+    storePicker([
+      'toolMode',
+      'setSelectedVisuUids',
+      'displayedResolvedNodes',
+      'setDisplayResolvedNodes',
+    ]),
+  )
   const rerender = useReducer((x) => x + 1, 0)[1]
-
   const strokingTarget = paplico.getStrokingTarget()
-
-  const strokingTargetLayerNode = useMemo(() => {
-    if (!strokingTarget) return null
-    return paplico.currentDocument?.layerNodes.getResolvedLayerNodes(
-      strokingTarget.nodePath,
-    )
-  }, [strokingTarget?.visuUid])
 
   const handleClickRoot = useCallback(() => {
     editorStore.setSelectedVisuUids(() => ({}))
@@ -46,32 +44,58 @@ export const VectorEditor = memo(function VectorEditor({
     useMemoRevailidatable(() => {
       if (!strokingTarget) return []
 
-      const node = paplico.currentDocument?.layerNodes.getResolvedLayerNodes(
-        strokingTarget.nodePath,
-      )
+      // If group node of directly under the root,
+      // Paplico considers that the user did not make it in them
+      // own right, and retrieves up to two nodes below the root.
+      const startNode =
+        strokingTarget.nodePath.length === 1 ? [] : strokingTarget.nodePath
+      const node =
+        paplico.currentDocument?.layerNodes.getResolvedLayerNodes(startNode)
+      const maxDepth = strokingTarget.nodePath.length === 1 ? 2 : 1
 
       if (!node) return []
 
       const flatten = (function flattenNodes(
         parent: Document.PaplicoDocument.ResolvedLayerNode,
         depth: number,
-      ): Document.PaplicoDocument.ResolvedLayerNode[] {
-        if (depth > 1) return []
+        parentVisibirity: boolean,
+        parentLocked: boolean,
+      ): DisplayedResolvedNode[] {
+        if (depth > maxDepth) return []
 
         return parent.children.reduce((accum, node) => {
-          accum.push(node)
-          return [...accum, ...flattenNodes(node, depth + 1)]
-        }, [] as Document.PaplicoDocument.ResolvedLayerNode[])
-      })(node, 0)
+          accum.push({
+            ...node,
+            visible: parentVisibirity && node.visu.visible,
+            locked: parentLocked || node.visu.lock,
+          } satisfies DisplayedResolvedNode)
+
+          return [
+            ...accum,
+            ...flattenNodes(
+              node,
+              depth + 1,
+              parentVisibirity && node.visu.visible,
+              parentLocked || node.visu.lock,
+            ),
+          ]
+        }, [] as DisplayedResolvedNode[])
+      })(node, 0, node.visu.visible, node.visu.lock)
 
       return flatten
     }, [strokingTarget?.nodePath])
+
+  useEffect(() => {
+    editorStore.setDisplayResolvedNodes(displayedVisues)
+  }, [displayedVisues])
 
   useEffect(() => {
     return paplico.on('finishRenderCompleted', () => {
       revalidateDisplayedVisues()
     })
   }, [])
+
+  if (strokingTarget?.visuType === 'canvas') return
 
   return (
     <svg
@@ -87,7 +111,7 @@ export const VectorEditor = memo(function VectorEditor({
       tabIndex={-1}
     >
       {/* Layer outline */}
-      <rect
+      {/* <rect
         width={width}
         height={height}
         x={0}
@@ -98,23 +122,23 @@ export const VectorEditor = memo(function VectorEditor({
         style={{
           pointerEvents: 'stroke',
         }}
-      />
+      /> */}
 
       <text x={20} y={20} fill="red" fontWeight="bold" fontSize={24}>
-        CurrntZool:: {editorStore.toolMode}
+        CurrentTool: {editorStore.toolMode}
       </text>
 
-      {isVectorShapeToolMode(editorStore.toolMode) && (
-        <ShapeTools width={width} height={height} />
-      )}
-
-      {displayedVisues.map((node) => (
+      {editorStore.displayedResolvedNodes.map((node) => (
         <VisuElement
           key={node.uid}
           visu={node.visu}
           layerNodePath={node.path}
+          visible={node.visible}
+          locked={node.locked}
         />
       ))}
+
+      <ShapeTools width={width} height={height} />
     </svg>
   )
 })

@@ -1,7 +1,8 @@
 import { TypenGlossary } from '@/TypesAndGlossary'
-import { Point2D } from '../Struct/Point2D'
-import { ColorRGBA } from '../Struct/ColorRGBA'
+import { Point2D } from '../Structs/Point2D'
+import { ColorRGBA } from '../Structs/ColorRGBA'
 import { VisuFilter } from './VisuFilter'
+import { ReadonlyUint8ClampedArray } from '../Structs/ReadonlyUint8ClampedArray'
 
 /** Paplico internal use only */
 export type ElementBase = {
@@ -50,7 +51,7 @@ export namespace VisuElement {
     type: 'canvas'
     width: number
     height: number
-    bitmap: Uint8ClampedArray
+    bitmap: ReadonlyUint8ClampedArray
     colorSpace: PredefinedColorSpace
   }
 
@@ -127,12 +128,12 @@ export namespace VisuElement {
   export type VectorPathPoint =
     | {
         isMoveTo: true
-        isClose?: false
+        isClose?: false | undefined
         x: number
         y: number
       }
     | {
-        isMoveTo?: false
+        isMoveTo?: false | undefined
         isClose: true
       }
     | {
@@ -166,34 +167,36 @@ export namespace VisuElement {
         tilt?: { x: number; y: number } | null
       }
 
-  // export type VectorPathPoint = {
-  //   // SEE: https://svgwg.org/svg2-draft/paths.html#PathDataCubicBezierCommands
-  //   /** Absolute position(x1, y1), control point for beginning of curve */
-  //   begin?: { x: number; y: number } | null
-  //   /** Absolute position(x2, y2), control point for end of curve */
-  //   end?: { x: number; y: number } | null
+  export type LoosedTypeVectorPath = Omit<VectorPath, 'points'> & {
+    points: LooseTypedVectorPathPoint[]
+  }
 
-  //   /** Absolute position on canvas */
-  //   x: number
+  export type LooseTypedVectorPathPoint = {
+    begin?: { x: number; y: number } | null
+    /** Absolute position(x2, y2), control point for end of curve */
+    end?: { x: number; y: number } | null
 
-  //   /** Absolute position on canvas */
-  //   y: number
+    /** Absolute position on canvas */
+    x: number
 
-  //   /** 0 to 1 defaults to should be 1 */
-  //   pressure?: number | null
+    /** Absolute position on canvas */
+    y: number
 
-  //   /** milliseconds to this point from previous point */
-  //   deltaTime?: number | null
+    /** 0 to 1 defaults to should be 1 */
+    pressure?: number | null
 
-  //   tilt?: { x: number; y: number } | null
+    /** milliseconds to this point from previous point */
+    deltaTime?: number | null
 
-  //   /** if it undefined, this point not should be moveto */
-  //   isMoveTo?: boolean
+    tilt?: { x: number; y: number } | null
 
-  //   /**
-  //    * if it undefined, this point not should be Z
-  //    * Ignore another attributes
-  //    */
-  //   isClose?: boolean
-  // }
+    /** if it undefined, this point not should be moveto */
+    isMoveTo?: boolean
+
+    /**
+     * if it undefined, this point not should be Z
+     * Ignore another attributes
+     */
+    isClose?: boolean
+  }
 }

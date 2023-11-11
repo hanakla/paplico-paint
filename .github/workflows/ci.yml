@@ -17,7 +17,6 @@ jobs:
       - uses: ./.github/actions/setup
         with:
           node-version: ${{ matrix.node-version }}
-          os: ${{ matrix.os }}
 
       - uses: ./.github/actions/building
 

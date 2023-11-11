@@ -7,29 +7,41 @@ runs:
     - name: Build (shared-lib)
       shell: bash
       working-directory: ./pkgs/shared-lib
-      run: yarn build
+      run: |
+        pwd
+        yarn build
 
     - name: Build (chat)
       shell: bash
       working-directory: ./pkgs/chat
-      run: yarn build
+      run: |
+        pwd
+        yarn build
 
     - name: Build (core)
       shell: bash
       working-directory: ./pkgs/core
-      run: yarn build
+      run: |
+        pwd
+        yarn build
 
     - name: Build (editor)
       shell: bash
       working-directory: ./pkgs/editor
-      run: yarn build
+      run: |
+        pwd
+        yarn build
 
     - name: Build (chat)
       shell: bash
       working-directory: ./pkgs/editor
-      run: yarn build
+      run: |
+        pwd
+        yarn build
 
     - name: Build (web)
       shell: bash
       working-directory: ./pkgs/web2
-      run: yarn build
+      run: |
+        pwd
+        yarn build

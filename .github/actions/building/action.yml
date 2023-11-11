@@ -26,5 +26,5 @@ runs:
 
     - name: Build (web)
       shell: bash
-      working-directory: ./pkgs/web
+      working-directory: ./pkgs/web2
       run: yarn build

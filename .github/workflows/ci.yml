@@ -19,6 +19,8 @@ jobs:
           node-version: ${{ matrix.node-version }}
           os: ${{ matrix.os }}
 
+      - uses: ./.github/actions/building
+
       - name: Testing @paplico/core-new
         continue-on-error: true
         run: |
@@ -47,6 +49,8 @@ jobs:
         with:
           node-version: ${{ matrix.node-version }}
           os: ${{ matrix.os }}
+
+      - uses: ./.github/actions/building
 
       - uses: preactjs/compressed-size-action@v2
         with:

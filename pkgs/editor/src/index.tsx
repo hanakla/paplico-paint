@@ -150,17 +150,17 @@ export function bindPaplico(
     },
 
     getSelectedVisuUids: () => {
-      return Object.keys(editorStore.getState().selectedVisuUids)
+      return Object.keys(editorStore.getState().selectedVisuUidMap)
     },
     setSelectedVisuUids: (ids: ((prev: string[]) => string[]) | string[]) => {
-      const currentIds = Object.keys(editorStore.getState().selectedVisuUids)
+      const currentIds = Object.keys(editorStore.getState().selectedVisuUidMap)
       const nextIds = typeof ids === 'function' ? ids(currentIds) : ids
 
       let nextIdState: Record<string, true> = {}
       for (const id of nextIds) nextIdState[id] = true
 
       editorStore.setState({
-        selectedVisuUids: nextIdState,
+        selectedVisuUidMap: nextIdState,
       })
 
       emitterStore.emit('objectSelectionChanged', {
@@ -168,11 +168,11 @@ export function bindPaplico(
       })
     },
     isInSelectedVisuUids: (visuUid: string) => {
-      return !!editorStore.getState().selectedVisuUids[visuUid]
+      return !!editorStore.getState().selectedVisuUidMap[visuUid]
     },
 
     setBrushToSelectedObjects: (brushSetting: Paplico.BrushSetting) => {
-      const ids = editorStore.getState().selectedVisuUids
+      const ids = editorStore.getState().selectedVisuUidMap
 
       for (const id of Object.keys(ids)) {
         paplico.currentDocument?.resolveVectorObject

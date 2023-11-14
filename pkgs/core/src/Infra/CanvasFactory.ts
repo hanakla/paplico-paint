@@ -100,8 +100,8 @@ export const createCanvas = () => {
   return canvas as HTMLCanvasElement
 }
 
-export const createWebGLContext = (options?: WebGLContextAttributes) =>
-  canvasFactory().getContext('webgl', options)!
+export const createWebGL2Context = (options?: WebGLContextAttributes) =>
+  canvasFactory().getContext('webgl2')!
 
 export const createContext2D = (
   settings?: CanvasRenderingContext2DSettings & { dbgId?: string },

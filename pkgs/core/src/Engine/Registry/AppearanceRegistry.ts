@@ -1,5 +1,6 @@
 import { Emitter } from '@paplico/shared-lib'
 import { FilterClass, IFilter } from '../Filter/Filter'
+import { WebGLFilterContext } from '../Filter/WebGLFilterContext'
 
 type Events = {
   entriesChanged: void
@@ -9,18 +10,22 @@ export class AppearanceRegistry extends Emitter<Events> {
   protected filters: Map<string, FilterClass<any>> = new Map()
   protected instances: WeakMap<FilterClass<any>, IFilter<any>> = new WeakMap()
 
-  public async register(Brush: FilterClass<any>) {
+  constructor(protected gl: WebGLFilterContext) {
+    super()
+  }
+
+  public async register(Class: FilterClass<any>) {
     try {
-      this.filters.set(Brush.metadata.id, Brush)
+      this.filters.set(Class.metadata.id, Class)
 
-      const filter = new Brush()
-      await filter.initialize({})
+      const filter = new Class()
+      await filter.initialize({ gl: this.gl })
 
-      this.instances.set(Brush, filter)
+      this.instances.set(Class, filter)
     } catch (e) {
-      this.filters.delete(Brush.metadata.id)
-      this.instances.delete(Brush)
-      console.warn('Failed to register brush', Brush, e)
+      this.filters.delete(Class.metadata.id)
+      this.instances.delete(Class)
+      console.warn('Failed to register brush', Class, e)
       throw e
     }
 

@@ -334,6 +334,18 @@ export const SortableItem = memo(function SortableItem({
     )
   })
 
+  const handleClickToggleLock = useEvent((e: MouseEvent) => {
+    e.stopPropagation()
+
+    pplc!.command.do(
+      new Commands.VisuUpdateAttributes(item.visUid, {
+        updater: (attr) => {
+          attr.lock = !attr.lock
+        },
+      }),
+    )
+  })
+
   const handleContextMenu = useEvent((e: MouseEvent) => {
     onContextMenu({ event: e, pathToVisu: item.path })
   })
@@ -353,6 +365,7 @@ export const SortableItem = memo(function SortableItem({
         touch-action: none;
         user-select: none;
         overflow: visible;
+        border-style: solid;
 
         &:hover {
           background-color: var(--blue-a2);
@@ -366,12 +379,9 @@ export const SortableItem = memo(function SortableItem({
         'rootStyle',
         () => ({
           ...sortableStyle,
-          background:
-            strokingTarget?.visuUid === item.visUid
-              ? 'var(--sky-5)'
-              : isSelected
-              ? 'var(--blue-a2)'
-              : undefined,
+          background: isSelected ? 'var(--blue-5)' : undefined,
+          borderWidth: strokingTarget?.visuUid === item.visUid ? 1 : 0,
+          borderColor: 'var(--blue-8)',
           opacity: ghost ? 0.5 : undefined,
         }),
         [sortableStyle, isSelected, strokingTarget?.visuUid, ghost],
@@ -420,8 +430,11 @@ export const SortableItem = memo(function SortableItem({
 
         <GhostButton
           css={s.layerControlButton}
-          onClick={handleClickToggleVisible}
+          onClick={handleClickToggleLock}
           data-filter-uid={item.visUid}
+          style={{
+            opacity: item.lockByParent ? 0.3 : 1,
+          }}
         >
           {item.visu.lock ? (
             <RxLockClosed size={12} />

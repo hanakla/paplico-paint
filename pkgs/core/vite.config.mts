@@ -22,6 +22,7 @@ export default defineConfig({
         index: 'src/index.ts',
         'ext-brush': 'src/index-ext-brush.ts',
         'ext-ink': 'src/index-ext-ink.ts',
+        'ext-filter': 'src/index-ext-filter.ts',
         'math-utils': 'src/index-math-utils.ts',
         extras: 'src/index-extras.ts',
       },

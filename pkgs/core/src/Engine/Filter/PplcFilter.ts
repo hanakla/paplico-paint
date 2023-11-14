@@ -10,3 +10,5 @@ export type {
   FilterInputSource,
   createFilter,
 } from './Filter'
+
+export { AbstractPixiFilterInterop } from './PixiFilterInterop'

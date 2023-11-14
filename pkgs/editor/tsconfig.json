@@ -1,12 +1,12 @@
 {
   "compilerOptions": {
-    "target": "ES2016",
+    "target": "ES2022",
     "strict": true,
     "esModuleInterop": true,
     "forceConsistentCasingInFileNames": true,
     "downlevelIteration": true,
     "module": "ESNext",
-    "moduleResolution": "Node",
+    "moduleResolution": "NodeNext",
     "resolveJsonModule": true,
     "isolatedModules": true,
     "skipLibCheck": true,

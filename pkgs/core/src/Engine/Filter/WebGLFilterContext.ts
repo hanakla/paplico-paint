@@ -1,28 +1,18 @@
-import { setCanvasSize } from '../utils'
-import { createContext2D, createWebGLContext } from '../Engine3_CanvasFactory'
-import { saveAndRestoreCanvas } from '../utils/canvas'
-
-type Uniform =
-  | {
-      type:
-        | `${1 | 2 | 3 | 4}${'i' | 'ui' | 'f' | 'iv' | 'fv' | 'uiv'}`
-        | 'matrix2fv'
-        | 'matrix3x2fv'
-        | 'matrix4x2fv'
-        | 'matrix2x3fv'
-        | 'matrix3fv'
-        | 'matrix4x3fv'
-        | 'matrix2x4fv'
-        | 'matrix3x4fv'
-        | 'matrix4fv'
-      value: ReadonlyArray<number> | Float32Array
-    }
-  | {
-      type: 'texture2d'
-      value: TexImageSource | TextureResource
-      clamp: WebGLContext.TextureClamp
-      filter: WebGLContext.TextureFilter
-    }
+import { saveAndRestoreCanvas, setCanvasSize } from '@/utils/canvas'
+import {
+  IFilterWebGLContext,
+  InputSource,
+  RenderTarget,
+  PPLCFilterProgram,
+  PPLCRenderTarget,
+  PPLCUniforms,
+  TexUniform,
+  WebGLTypes,
+  __papRenderTargetMark,
+  __paplicoFilterProgram,
+} from './FilterContextAbst'
+import { createWebGL2Context } from '@/Infra/CanvasFactory'
+import { logImage } from '@/utils/DebugHelper'
 
 class TextureResource {
   constructor(public tex: WebGLTexture) {}
@@ -58,33 +48,33 @@ export declare namespace WebGLContext {
     | { min: TextureFilterValue; mag: TextureFilterValue }
 }
 
-const getExtension = <
-  K extends Parameters<WebGLRenderingContext['getExtension']>[0],
->(
-  gl: WebGLRenderingContext,
-  name: K,
-) => {
-  const ext = gl.getExtension(name)
-  if (!ext) console.warn(`Extension ${name} not supported`)
-  return ext
+type WebGLRenderTarget = {
+  frameBuffer: WebGLFramebuffer
+  // renderBuffer: WebGLRenderbuffer
+  texture: WebGLTexture
+  width: number
+  height: number
 }
 
-export class WebGLContext {
-  private gl: WebGLRenderingContext
+export class WebGLFilterContext implements IFilterWebGLContext {
+  private gl: WebGL2RenderingContext
 
   private vertBuf: WebGLBuffer
   private texQuadBuf: WebGLBuffer
   private inputTex: WebGLTexture
 
   constructor() {
-    const gl = (this.gl = createWebGLContext({
+    const gl = (this.gl = createWebGL2Context({
       alpha: true,
       antialias: false,
       preserveDrawingBuffer: true,
       premultipliedAlpha: true,
     }))
-    gl.canvas.id = '__paplico-fx-gl-canvas'
-    gl.canvas.setAttribute?.('name', '__paplico-fx-gl-canvas')
+    if ('id' in gl.canvas) gl.canvas.id = '__paplico-fx-gl-canvas'
+    // gl.canvas.setAttribute?.('name', '__paplico-fx-gl-canvas')
+    this.gl = gl
+
+    document.body.appendChild(gl.canvas)
 
     setCanvasSize(this.gl.canvas, 1, 1)
     gl.viewport(0, 0, 1, 1)
@@ -122,6 +112,12 @@ export class WebGLContext {
     this.inputTex = gl.createTexture()!
   }
 
+  public dispose() {
+    this.gl.deleteBuffer(this.vertBuf)
+    this.gl.deleteBuffer(this.texQuadBuf)
+    this.gl.deleteTexture(this.inputTex)
+  }
+
   public setSize(width: number, height: number) {
     setCanvasSize(this.gl.canvas, { width, height })
     this.gl.viewport(0, 0, width, height)
@@ -130,7 +126,7 @@ export class WebGLContext {
   public createProgram(
     fragSource: string,
     vertSource: string = DEFAULT_VERTEX_SHADER,
-  ) {
+  ): PPLCFilterProgram {
     const { gl } = this
 
     const vert = gl.createShader(gl.VERTEX_SHADER)!
@@ -153,36 +149,173 @@ export class WebGLContext {
       throw new Error(`Failed to compile shader: ${error}`)
     }
 
-    return prog
+    return {
+      [__paplicoFilterProgram]: true,
+      program: prog,
+      dispose: () => {
+        gl.deleteShader(vert)
+        gl.deleteShader(frag)
+        gl.deleteProgram(prog)
+      },
+    }
   }
 
-  public applyProgram(
-    prog: WebGLProgram,
-    uniforms: { [uniformName: string]: Uniform },
-    input: TexImageSource,
-    output: HTMLCanvasElement | OffscreenCanvas,
-    {
-      // sourceTextureClamp = 'clampToEdge',
-      // sourceTexFilter = 'linear',
-      outputSize,
-      clear = false,
-    }: {
-      // sourceTextureClamp?: WebGLContext.TextureClamp
-      // sourceTexFilter?: WebGLContext.TextureFilter
-      outputSize?: { width: number; height: number }
-      clear?: boolean
-    } = {},
+  public createTexture(
+    tex: TexImageSource,
+    options?:
+      | {
+          clamp?: WebGLTypes.TextureClamp | undefined
+          filter: WebGLTypes.TextureFilter
+        }
+      | undefined,
+  ): TexUniform {
+    const { gl } = this
+
+    const texUni = new TextureResource(gl.createTexture()!)
+
+    gl.activeTexture(gl.TEXTURE0)
+    gl.bindTexture(gl.TEXTURE_2D, texUni.tex)
+    gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, 1)
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, tex)
+
+    if (options?.filter) {
+      gl.texParameteri(
+        gl.TEXTURE_2D,
+        gl.TEXTURE_MIN_FILTER,
+        getTextureFilterValue(gl, options.filter, 'min')!,
+      )
+      gl.texParameteri(
+        gl.TEXTURE_2D,
+        gl.TEXTURE_MAG_FILTER,
+        getTextureFilterValue(gl, options.filter, 'mag')!,
+      )
+    }
+
+    gl.texParameteri(
+      gl.TEXTURE_2D,
+      gl.TEXTURE_WRAP_S,
+      getTextureClampValue(gl, options?.clamp ?? 'clampToEdge', 'x'),
+    )
+    gl.texParameteri(
+      gl.TEXTURE_2D,
+      gl.TEXTURE_WRAP_T,
+      getTextureClampValue(gl, options?.clamp ?? 'clampToEdge', 'y'),
+    )
+
+    return {
+      type: 'texture2d',
+      value: tex,
+      clamp: options?.clamp ?? 'clampToEdge',
+      filter: options?.filter ?? 'linear',
+      toNativeUniform() {
+        return { value: texUni }
+      },
+    }
+  }
+
+  public createRenderTarget(
+    width: number,
+    height: number,
+  ): PPLCRenderTarget<WebGLRenderTarget> {
+    const { gl } = this
+
+    const fbo = gl.createFramebuffer()!
+    gl.bindFramebuffer(gl.FRAMEBUFFER, fbo)
+
+    const tex = gl.createTexture()!
+    gl.bindTexture(gl.TEXTURE_2D, tex)
+    gl.texImage2D(
+      gl.TEXTURE_2D,
+      0,
+      gl.RGBA,
+      width,
+      height,
+      0,
+      gl.RGBA,
+      gl.UNSIGNED_BYTE,
+      null,
+    )
+
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR)
+    gl.framebufferTexture2D(
+      gl.FRAMEBUFFER,
+      gl.COLOR_ATTACHMENT0,
+      gl.TEXTURE_2D,
+      tex,
+      0,
+    )
+
+    // const depthBuf = gl.createRenderbuffer()!
+    // gl.bindRenderbuffer(gl.RENDERBUFFER, depthBuf)
+    // gl.renderbufferStorage(gl.RENDERBUFFER, gl.DEPTH_COMPONENT16, width, height)
+    // gl.framebufferRenderbuffer(
+    //   gl.FRAMEBUFFER,
+    //   gl.DEPTH_ATTACHMENT,
+    //   gl.RENDERBUFFER,
+    //   depthBuf,
+    // )
+
+    gl.bindTexture(gl.TEXTURE_2D, null)
+    gl.bindRenderbuffer(gl.RENDERBUFFER, null)
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null)
+
+    return {
+      [__papRenderTargetMark]: true,
+      renderTarget: {
+        frameBuffer: fbo,
+        // renderBuffer: depthBuf,
+        texture: tex,
+        width,
+        height,
+      },
+      dispose: () => {
+        gl.deleteFramebuffer(fbo)
+        gl.deleteTexture(tex)
+        // gl.deleteRenderbuffer(depthBuf)
+      },
+    }
+  }
+
+  public uni(
+    type: Omit<PPLCUniforms['type'], 'texture2d'>,
+    values: number[] | Float32Array,
+  ): PPLCUniforms {
+    return {
+      type: type as any,
+      value: values,
+      toNativeUniform: () => ({ value: values }),
+    }
+  }
+
+  public apply(
+    input: InputSource<WebGLRenderTarget>,
+    output: RenderTarget,
+    prog: PPLCFilterProgram,
+    uniforms: { [uniformName: string]: PPLCUniforms },
   ) {
     const { gl } = this
 
+    // const convertedUniforms = Object.entries(uniforms).reduce(
+    //   (acc, [key, value]) => {
+    //     acc[key] = value.toNativeUniform()
+    //     return acc
+    //   },
+    //   {} as Record<string, any>,
+    // )
+
+    const outputSize =
+      output instanceof CanvasRenderingContext2D
+        ? { width: output.canvas.width, height: output.canvas.height }
+        : output instanceof OffscreenCanvasRenderingContext2D
+        ? { width: output.canvas.width, height: output.canvas.height }
+        : {
+            width: output.renderTarget.width,
+            height: output.renderTarget.height,
+          }
+
     // Initialize
     setCanvasSize(this.gl.canvas, outputSize ?? output)
-    gl.viewport(
-      0,
-      0,
-      outputSize?.width ?? output.width,
-      outputSize?.height ?? output.height,
-    )
+    gl.viewport(0, 0, outputSize.width, outputSize.height)
 
     gl.enable(gl.BLEND)
     gl.blendFuncSeparate(
@@ -201,15 +334,15 @@ export class WebGLContext {
     gl.clearDepth(1)
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
 
-    gl.useProgram(prog)
+    gl.useProgram(prog.program)
 
     gl.bindBuffer(gl.ARRAY_BUFFER, this.vertBuf)
-    const positionAttrib = gl.getAttribLocation(prog, 'aPosition')
+    const positionAttrib = gl.getAttribLocation(prog.program, 'aPosition')
     gl.enableVertexAttribArray(positionAttrib)
     gl.vertexAttribPointer(positionAttrib, 2, gl.FLOAT, false, 0, 0)
 
     gl.bindBuffer(gl.ARRAY_BUFFER, this.texQuadBuf)
-    const coordAttrib = gl.getAttribLocation(prog, 'aCoord')
+    const coordAttrib = gl.getAttribLocation(prog.program, 'aCoord')
     gl.enableVertexAttribArray(coordAttrib)
     gl.vertexAttribPointer(coordAttrib, 2, gl.FLOAT, false, 0, 0)
     gl.bindBuffer(gl.ARRAY_BUFFER, null)
@@ -219,7 +352,25 @@ export class WebGLContext {
       gl.activeTexture(gl.TEXTURE0)
       gl.bindTexture(gl.TEXTURE_2D, this.inputTex)
       gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, 1)
-      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, input)
+
+      if (__papRenderTargetMark in input) {
+        gl.framebufferTexture2D(
+          gl.FRAMEBUFFER,
+          gl.COLOR_ATTACHMENT0,
+          gl.TEXTURE_2D,
+          input.renderTarget.texture,
+          0,
+        )
+      } else {
+        gl.texImage2D(
+          gl.TEXTURE_2D,
+          0,
+          gl.RGBA,
+          gl.RGBA,
+          gl.UNSIGNED_BYTE,
+          input,
+        )
+      }
 
       gl.texParameteri(
         gl.TEXTURE_2D,
@@ -247,8 +398,8 @@ export class WebGLContext {
         gl.CLAMP_TO_EDGE,
       )
 
-      const sourceLoc = gl.getUniformLocation(prog, 'source')
-      gl.uniform1i(sourceLoc, 0)
+      const sourceUniLoc = gl.getUniformLocation(prog.program, 'uTexture')
+      gl.uniform1i(sourceUniLoc, 0)
     }
 
     const texUniforms = Object.entries(uniforms)
@@ -304,43 +455,59 @@ export class WebGLContext {
         getTextureClampValue(gl, uni.clamp, 'y'),
       )
 
-      const loc = gl.getUniformLocation(prog, uniName)
+      const loc = gl.getUniformLocation(prog.program, uniName)
       gl.uniform1i(loc, textureIdx)
 
       return tex
     })
 
     // Attach uniforms
-    this.attachUniforms(gl, prog, uniforms)
+    this.attachUniforms(gl, prog.program, uniforms)
 
-    gl.drawArrays(gl.TRIANGLE_FAN, 0, 4)
-    gl.flush()
+    if (__papRenderTargetMark in output) {
+      gl.bindFramebuffer(gl.FRAMEBUFFER, output.renderTarget.frameBuffer)
+      gl.drawArrays(gl.TRIANGLE_FAN, 0, 4)
+      gl.flush()
+    } else {
+      gl.drawArrays(gl.TRIANGLE_FAN, 0, 4)
+      gl.flush()
+
+      saveAndRestoreCanvas(output, (outCtx) => {
+        outCtx.globalCompositeOperation = 'source-over'
+        outCtx.globalAlpha = 1
+        outCtx.drawImage(
+          gl.canvas,
+          0,
+          0,
+          outputSize.width,
+          outputSize.height,
+          0,
+          0,
+          outputSize.width,
+          outputSize.height,
+        )
+      })
+    }
 
     textures.forEach((tex) => tex && gl.deleteTexture(tex))
-
-    saveAndRestoreCanvas(output.getContext('2d')!, (outCtx) => {
-      outCtx.globalCompositeOperation = 'source-over'
-      clear && outCtx.clearRect(0, 0, output.width, output.height)
-      outCtx.drawImage(this.gl.canvas, 0, 0, output.width, output.height)
-    })
   }
 
   // Uniforms
-  public uni1i(...value: [number]): Uniform {
-    return { type: '1i', value }
-  }
+  // public uni1i(...value: [number]): PPLCUniforms {
+  //   return { type: '1i', value }
+  // }
 
-  public uni2i(...value: [number, number]): Uniform {
-    return { type: '2i', value }
-  }
+  // public uni2i(...value: [number, number]): PPLCUniforms {
+  //   return { type: '2i', value }
+  // }
 
-  public uni3i(...value: [number, number, number]): Uniform {
-    return { type: '3i', value }
-  }
+  // public uni3i(...value: [number, number, number]): PPLCUniforms {
+  //   return { type: '3i', value }
+  // }
 
-  public uni4i(...value: [number, number, number, number]): Uniform {
-    return { type: '4i', value }
-  }
+  // public uni4i(...value: [number, number, number, number]): PPLCUniforms {
+  //   return { type: '4i', value }
+  // }
 
   // WebGL2
   // public uni1ui(...value: [number]): Uniform {
@@ -359,123 +526,123 @@ export class WebGLContext {
   //   return { type: '4ui', value }
   // }
 
-  public uni1f(...value: [number]): Uniform {
-    return { type: '1f', value }
-  }
+  // public uni1f(...value: [number]): PPLCUniforms {
+  //   return { type: '1f', value, toNativeUniform }
+  // }
 
-  public uni2f(...value: [number, number]): Uniform {
-    return { type: '2f', value }
-  }
+  // public uni2f(...value: [number, number]): PPLCUniforms {
+  //   return { type: '2f', value }
+  // }
 
-  public uni3f(...value: [number, number, number]): Uniform {
-    return { type: '3f', value }
-  }
+  // public uni3f(...value: [number, number, number]): PPLCUniforms {
+  //   return { type: '3f', value }
+  // }
 
-  public uni4f(...value: [number, number, number, number]): Uniform {
-    return { type: '4f', value }
-  }
+  // public uni4f(...value: [number, number, number, number]): PPLCUniforms {
+  //   return { type: '4f', value }
+  // }
 
-  public uni1iv(value: number[]): Uniform {
-    return { type: '1iv', value }
-  }
+  // public uni1iv(value: number[]): PPLCUniforms {
+  //   return { type: '1iv', value }
+  // }
 
-  public uni2iv(value: number[]): Uniform {
-    return { type: '2iv', value }
-  }
+  // public uni2iv(value: number[]): PPLCUniforms {
+  //   return { type: '2iv', value }
+  // }
 
-  public uni3iv(value: number[]): Uniform {
-    return { type: '3iv', value }
-  }
+  // public uni3iv(value: number[]): PPLCUniforms {
+  //   return { type: '3iv', value }
+  // }
 
-  public uni4iv(value: number[]): Uniform {
-    return { type: '4iv', value }
-  }
+  // public uni4iv(value: number[]): PPLCUniforms {
+  //   return { type: '4iv', value }
+  // }
 
-  public uni1fv(value: number[] | Float32Array): Uniform {
-    return { type: '1fv', value }
-  }
+  // public uni1fv(value: number[] | Float32Array): PPLCUniforms {
+  //   return { type: '1fv', value }
+  // }
 
-  public uni2fv(value: number[] | Float32Array): Uniform {
-    return { type: '2fv', value }
-  }
+  // public uni2fv(value: number[] | Float32Array): PPLCUniforms {
+  //   return { type: '2fv', value }
+  // }
 
-  public uni3fv(value: number[] | Float32Array): Uniform {
-    return { type: '3fv', value }
-  }
+  // public uni3fv(value: number[] | Float32Array): PPLCUniforms {
+  //   return { type: '3fv', value }
+  // }
 
-  public uni4fv(value: number[] | Float32Array): Uniform {
-    return { type: '4fv', value }
-  }
+  // public uni4fv(value: number[] | Float32Array): PPLCUniforms {
+  //   return { type: '4fv', value }
+  // }
 
-  public uni1uiv(value: number[]): Uniform {
-    return { type: '1uiv', value }
-  }
+  // public uni1uiv(value: number[]): PPLCUniforms {
+  //   return { type: '1uiv', value }
+  // }
 
-  public uni2uiv(value: number[]): Uniform {
-    return { type: '2uiv', value }
-  }
+  // public uni2uiv(value: number[]): PPLCUniforms {
+  //   return { type: '2uiv', value }
+  // }
 
-  public uni3uiv(value: number[]): Uniform {
-    return { type: '3uiv', value }
-  }
+  // public uni3uiv(value: number[]): PPLCUniforms {
+  //   return { type: '3uiv', value }
+  // }
 
-  public uni4uiv(value: number[]): Uniform {
-    return { type: '4uiv', value }
-  }
+  // public uni4uiv(value: number[]): PPLCUniforms {
+  //   return { type: '4uiv', value }
+  // }
 
-  public uniMatrix2fv(value: number[]): Uniform {
-    return { type: 'matrix2fv', value }
-  }
+  // public uniMatrix2fv(value: number[]): PPLCUniforms {
+  //   return { type: 'matrix2fv', value }
+  // }
 
-  public uniMatrix3x2fv(value: number[]): Uniform {
-    return { type: 'matrix3x2fv', value }
-  }
+  // public uniMatrix3x2fv(value: number[]): PPLCUniforms {
+  //   return { type: 'matrix3x2fv', value }
+  // }
 
-  public uniMatrix4x2fv(value: number[]): Uniform {
-    return { type: 'matrix4x2fv', value }
-  }
+  // public uniMatrix4x2fv(value: number[]): PPLCUniforms {
+  //   return { type: 'matrix4x2fv', value }
+  // }
 
-  public uniMatrix2x3fv(value: number[]): Uniform {
-    return { type: 'matrix2x3fv', value }
-  }
+  // public uniMatrix2x3fv(value: number[]): PPLCUniforms {
+  //   return { type: 'matrix2x3fv', value }
+  // }
 
-  public uniMatrix3fv(value: number[]): Uniform {
-    return { type: 'matrix3fv', value }
-  }
+  // public uniMatrix3fv(value: number[]): PPLCUniforms {
+  //   return { type: 'matrix3fv', value }
+  // }
 
-  public uniMatrix4x3fv(value: number[]): Uniform {
-    return { type: 'matrix4x3fv', value }
-  }
+  // public uniMatrix4x3fv(value: number[]): PPLCUniforms {
+  //   return { type: 'matrix4x3fv', value }
+  // }
 
-  public uniMatrix2x4fv(value: number[]): Uniform {
-    return { type: 'matrix2x4fv', value }
-  }
+  // public uniMatrix2x4fv(value: number[]): PPLCUniforms {
+  //   return { type: 'matrix2x4fv', value }
+  // }
 
-  public uniMatrix3x4fv(value: number[]): Uniform {
-    return { type: 'matrix3x4fv', value }
-  }
+  // public uniMatrix3x4fv(value: number[]): PPLCUniforms {
+  //   return { type: 'matrix3x4fv', value }
+  // }
 
-  public uniMatrix4fv(value: number[]): Uniform {
-    return { type: 'matrix4fv', value }
-  }
+  // public uniMatrix4fv(value: number[]): PPLCUniforms {
+  //   return { type: 'matrix4fv', value }
+  // }
 
-  public uniTexture2D(
-    value: TexImageSource,
-    {
-      clamp = 'clampToEdge',
-      filter = 'linear',
-    }: {
-      clamp?: WebGLContext.TextureClamp
-      filter?: WebGLContext.TextureFilter
-    } = {},
-  ): Uniform {
-    return { type: 'texture2d', value, clamp, filter }
-  }
+  // public uniTexture2D(
+  //   value: TexImageSource,
+  //   {
+  //     clamp = 'clampToEdge',
+  //     filter = 'linear',
+  //   }: {
+  //     clamp?: WebGLContext.TextureClamp
+  //     filter?: WebGLContext.TextureFilter
+  //   } = {},
+  // ): PPLCUniforms {
+  //   return { type: 'texture2d', value, clamp, filter }
+  // }
 
   private attachUniforms(
-    gl: WebGLRenderingContext,
+    gl: WebGL2RenderingContext,
     program: WebGLProgram,
-    uniforms: { [uniform: string]: Uniform },
+    uniforms: { [uniform: string]: PPLCUniforms },
   ) {
     for (const uniKey of Object.keys(uniforms)) {
       const uni = uniforms[uniKey]
@@ -505,28 +672,28 @@ export class WebGLContext {
           break
         }
         // WebGL2
-        // case '1ui': {
-        //   gl.uniform1ui(loc, uni.value[0])
-        //   break
-        // }
-        // case '2ui': {
-        //   gl.uniform2ui(loc, uni.value[0], uni.value[1])
-        //   break
-        // }
-        // case '3ui': {
-        //   gl.uniform3ui(loc, uni.value[0], uni.value[1], uni.value[2])
-        //   break
-        // }
-        // case '4ui': {
-        //   gl.uniform4ui(
-        //     loc,
-        //     uni.value[0],
-        //     uni.value[1],
-        //     uni.value[2],
-        //     uni.value[3]
-        //   )
-        //   break
-        // }
+        case '1ui': {
+          gl.uniform1ui(loc, uni.value[0])
+          break
+        }
+        case '2ui': {
+          gl.uniform2ui(loc, uni.value[0], uni.value[1])
+          break
+        }
+        case '3ui': {
+          gl.uniform3ui(loc, uni.value[0], uni.value[1], uni.value[2])
+          break
+        }
+        case '4ui': {
+          gl.uniform4ui(
+            loc,
+            uni.value[0],
+            uni.value[1],
+            uni.value[2],
+            uni.value[3],
+          )
+          break
+        }
         case '1f': {
           gl.uniform1f(loc, uni.value[0])
           break
@@ -666,7 +833,7 @@ void main(void) {
 `
 
 const handleShadeCompilationError = (
-  gl: WebGLRenderingContext,
+  gl: WebGL2RenderingContext,
   shader: WebGLShader,
 ) => {
   if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
@@ -676,7 +843,7 @@ const handleShadeCompilationError = (
 }
 
 const getTextureClampValue = (
-  gl: WebGLRenderingContext,
+  gl: WebGL2RenderingContext,
   value: WebGLContext.TextureClamp,
   xy: 'x' | 'y',
 ): number => {
@@ -695,7 +862,7 @@ const getTextureClampValue = (
 }
 
 const getTextureFilterValue = (
-  gl: WebGLRenderingContext,
+  gl: WebGL2RenderingContext,
   value: WebGLContext.TextureFilter | null,
   minmag: 'min' | 'mag',
 ): number | null => {

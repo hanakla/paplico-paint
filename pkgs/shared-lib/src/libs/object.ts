@@ -44,6 +44,19 @@ export const shallowEquals = (prev: any, next: any) => {
   return false
 }
 
+export const mapEntries = <T, R>(
+  obj: Record<string, T>,
+  mapper: (entry: [string, T]) => R,
+): R[] => {
+  const result: R[] = []
+
+  for (const [k, v] of Object.entries(obj)) {
+    result.push(mapper([k, v]))
+  }
+
+  return result
+}
+
 export const pick = <T extends object, K extends keyof T>(
   obj: T,
   keys: K[],

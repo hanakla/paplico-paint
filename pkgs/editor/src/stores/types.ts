@@ -7,6 +7,7 @@ export const ToolModes = {
   vectorPenTool: 'vectorPenTool',
   rectangleTool: 'rectangleTool',
   ellipseTool: 'ellipseTool',
+  curveTool: 'curveTool',
 } as const
 export type ToolModes = (typeof ToolModes)[keyof typeof ToolModes]
 

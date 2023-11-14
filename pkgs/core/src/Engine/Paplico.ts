@@ -3,6 +3,7 @@ import { BrushRegistry } from '@/Engine/Registry/BrushRegistry'
 import {
   createCanvas,
   createContext2D,
+  createWebGL2Context,
   getCanvasBytes,
 } from '@/Infra/CanvasFactory'
 import { VectorRenderer } from '@/Engine/VectorRenderer'
@@ -67,6 +68,10 @@ import {
 } from '@/Document/Visually/factory'
 import { LogChannel } from '@/Debugging/LogChannel'
 import { chainSignalToAbortController } from '@/utils/abortcontroller'
+import { WebGLFilterContext } from './Filter/WebGLFilterContext'
+import { ChromaticAberration } from '@/Filters/ChromaticAberration'
+import { GaussianBlur } from '@/Filters/GaussianBlur'
+import { KawaseBlur } from '@/Filters/PixiBlur'
 
 export namespace Paplico {
   /** @deprecated */
@@ -91,7 +96,7 @@ export namespace Paplico {
     currentFill: VisuFilter.Structs.FillSetting | null
     currentInk: VisuFilter.Structs.InkSetting
     strokeComposition: VisuElement.StrokeCompositeMode
-    busy: boolean
+    // busy: boolean
   }>
 
   export type StrokeEvent = {
@@ -175,6 +180,7 @@ export class Paplico extends Emitter<Paplico.Events> {
   protected readonly dstCanvas: HTMLCanvasElement
   protected readonly dstctx: CanvasRenderingContext2D
   protected readonly glRendererResource: AtomicResource<WebGLRenderer>
+  protected readonly filterRendererResource: AtomicResource<WebGLFilterContext>
 
   protected document: PaplicoDocument | null = null
   protected runtimeDoc: DocumentContext | null = null
@@ -207,7 +213,7 @@ export class Paplico extends Emitter<Paplico.Events> {
     currentFill: null,
     currentInk: DEFAULT_INK_SETTING(),
     strokeComposition: 'normal',
-    busy: false,
+    // busy: false,
   }
 
   // public static createWithDocument(
@@ -259,20 +265,6 @@ export class Paplico extends Emitter<Paplico.Events> {
 
     this.#preferences.colorSpace = opts.colorSpace ?? 'srgb'
 
-    this.brushes = new BrushRegistry()
-    this.brushes.register(CircleBrush)
-
-    this.inks = new InkRegistry()
-    this.inks.register(PlainInk)
-    this.inks.register(RainbowInk)
-    this.inks.register(TextureReadInk)
-
-    this.filters = new AppearanceRegistry()
-    this.filters.register(TestFilter)
-    this.filters.register(BlurFilter)
-
-    this.fonts = new FontRegistry()
-
     const renderer = new WebGLRenderer({
       alpha: true,
       premultipliedAlpha: true,
@@ -283,9 +275,28 @@ export class Paplico extends Emitter<Paplico.Events> {
     renderer.setClearColor(0xffffff, 0)
     this.glRendererResource = new AtomicResource(renderer, 'Paplico#glRenderer')
 
+    const filterRenderer = new WebGLFilterContext()
+
+    this.brushes = new BrushRegistry()
+    this.brushes.register(CircleBrush)
+
+    this.inks = new InkRegistry()
+    this.inks.register(PlainInk)
+    this.inks.register(RainbowInk)
+    this.inks.register(TextureReadInk)
+
+    this.filters = new AppearanceRegistry(filterRenderer)
+    this.filters.register(TestFilter)
+    this.filters.register(BlurFilter)
+    this.filters.register(ChromaticAberration)
+    // this.filters.register(KawaseBlur)
+    this.filters.register(GaussianBlur)
+
+    this.fonts = new FontRegistry()
+
     this.pipeline = new RenderPipeline({
       filterRegistry: this.filters,
-      glRenderer: this.glRendererResource,
+      filterRenderer: new AtomicResource(filterRenderer),
     })
     this.vectorRenderer = new VectorRenderer({
       brushRegistry: this.brushes,
@@ -699,9 +710,9 @@ export class Paplico extends Emitter<Paplico.Events> {
       const dstctx = destination ?? this.dstctx
       const dstCanvas = dstctx.canvas
 
-      this.setState((d) => {
-        return { ...d, busy: true }
-      })
+      // this.setState((d) => {
+      //   return { ...d, busy: true }
+      // })
 
       if (clearCache) {
         this.runtimeDoc.invalidateAllLayerBitmapCache()
@@ -739,9 +750,9 @@ export class Paplico extends Emitter<Paplico.Events> {
       throw e
     } finally {
       runtimeDoc.updaterLock.release(updateLock)
-      this.setState((d) => {
-        return { ...d, busy: false }
-      })
+      // this.setState((d) => {
+      //   return { ...d, busy: false }
+      // })
       RenderCycleLogger.current.printLogs('rerender()')
     }
   }
@@ -827,6 +838,7 @@ export class Paplico extends Emitter<Paplico.Events> {
   ) {
     if (signal?.aborted) return
     if (!this.runtimeDoc?.strokingTarget) return
+    if (this.runtimeDoc.strokingTarget.visu.lock) return
     if (strokeComposition === 'none') return
 
     const renderLogger = RenderCycleLogger.createNext()
@@ -892,6 +904,11 @@ export class Paplico extends Emitter<Paplico.Events> {
         const node = docx.document.layerNodes.getResolvedLayerNodes(
           targetVisu.nodePath,
         )
+
+        const offsetTransform = docx.document.resolveTransformsTo(
+          targetVisu.nodePath,
+        )!
+
         if (node.visu.type)
           node.children.push({
             uid: newVisu.uid,
@@ -908,6 +925,7 @@ export class Paplico extends Emitter<Paplico.Events> {
           {
             abort: aborter.signal,
             pixelRatio: this.#preferences.pixelRatio,
+            offsetTransform,
             viewport: {
               top: 0,
               left: 0,
@@ -1004,8 +1022,6 @@ export class Paplico extends Emitter<Paplico.Events> {
     } catch (e) {
       if (!(e instanceof PPLCIgnoreableError)) {
         throw e
-      } else {
-        // console.info('ignoreable error', e)
       }
     } finally {
       this.tmpctxResource.release(tmpctx)
@@ -1026,6 +1042,7 @@ export class Paplico extends Emitter<Paplico.Events> {
     if (!this.runtimeDoc) return
     if (!pathToTargetVisu && !this.runtimeDoc.strokingTarget) return
     if (this.state.strokeComposition === 'none') return
+    if (this.runtimeDoc.strokingTarget?.visu.lock) return
 
     RenderCycleLogger.createNext()
     RenderCycleLogger.current.log('start: stroke complete')
@@ -1071,14 +1088,16 @@ export class Paplico extends Emitter<Paplico.Events> {
     const tmpctx = Canvas2DAllocator.borrow({
       width: this.dstCanvas.width,
       height: this.dstCanvas.height,
+      permanent: true,
+      willReadFrequently: true,
     })
 
     const strkctx = await this.strokingCtxResource.ensure()
     const dstctx = this.dstctx
 
-    this.setState((d) => {
-      return { ...d, busy: true }
-    })
+    // this.setState((d) => {
+    //   return { ...d, busy: true }
+    // })
 
     try {
       // clear first, if clear after render, it will cause visually freeze
@@ -1196,9 +1215,9 @@ export class Paplico extends Emitter<Paplico.Events> {
 
       LogChannel.l.pplcStroking('UIStrokeChange: Finished ')
 
-      this.setState((d) => {
-        return { ...d, busy: false }
-      })
+      // this.setState((d) => {
+      //   return { ...d, busy: false }
+      // })
     }
   }
 
@@ -1295,7 +1314,7 @@ export class Paplico extends Emitter<Paplico.Events> {
     await this.putStrokeComplete(stroke)
   }
 
-  protected createVectorObjectByCurrentSettings(
+  public createVectorObjectByCurrentSettings(
     path: VisuElement.VectorPath,
   ): VisuElement.VectorObjectElement {
     const obj = createVectorObjectVisually({

@@ -17,6 +17,7 @@ export interface Shortcuts {
     vectorEllipseTool: string[] | null
     vectorObjectTool: string[] | null
     vectorPointTool: string[] | null
+    vectorPenTool: string[] | null
   }
 }
 
@@ -43,6 +44,7 @@ export const DEFAULT_SHORTCUTS: Shortcuts = {
     vectorEllipseTool: ['l'],
     vectorObjectTool: ['v'],
     vectorPointTool: ['a'],
+    vectorPenTool: ['p'],
   } satisfies Shortcuts['global'],
 }
 

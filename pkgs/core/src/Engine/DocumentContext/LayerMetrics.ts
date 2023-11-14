@@ -140,6 +140,21 @@ export class LayerMetrics extends Emitter<LayerMetrics.Events> {
     })
   }
 
+  public visuInRect(
+    x: number,
+    y: number,
+    width: number,
+    height: number,
+    inNodeOf: string[] | null = null,
+  ) {
+    return [...this.layerMetrics].filter(([uid, data]) => {
+      const { left, top, width: w, height: h } = data.originalBBox
+      return (
+        left <= x + width && x <= left + w && top <= y + height && y <= top + h
+      )
+    })
+  }
+
   protected updateZIndex() {
     // last is most top in render order
     const existVisuUids = new Set<string>()

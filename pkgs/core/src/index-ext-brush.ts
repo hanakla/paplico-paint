@@ -8,17 +8,19 @@ import {
   SequencialPointAtLength,
   SVGDCommand,
 } from './fastsvg/IndexedPointAtLength'
-import { ColorRGB, VisuElement } from './Document'
+import { VisuElement } from './Document'
 import {
   createNumSequenceMap,
   createObjectSequenceMap,
-  getTangent,
+  getUnitVector,
   lerp,
 } from './Math'
 import { FuncStats } from './utils/perfstats'
 import { degToRad } from './utils/math'
+import { ColorRGB, ColorRGBA } from './Document/Structs'
 
-export { PPLCAbortError as PaplicoAbortError } from '@/Errors/PPLCPaplicoAbortError'
+export type { ColorRGB, ColorRGBA }
+export { PPLCAbortError } from '@/Errors/PPLCPaplicoAbortError'
 export {
   createBrush,
   type IBrush,
@@ -30,15 +32,15 @@ export {
 } from './Engine/Brush/Brush'
 
 export {
-  vectorPathPointsToSVGPath as vectorPathPointsToSVGPathString,
-  vectorPathPointsToSVGCommandArray as vectorPathPointsToSVGDCommandArray,
-  svgDCommandArrayToSVGPath as svgDCommandArrayToSVGPathString,
+  vectorPathPointsToSVGPath,
+  vectorPathPointsToSVGCommandArray,
+  svgDCommandArrayToSVGPath,
 } from './SVGPathManipul/index'
 export { getRadianFromTangent } from '@/Math/getRadianFromTangent'
 
 export {
-  createNumSequenceMap as interpolateMap,
-  createObjectSequenceMap as interpolateMapObject,
+  createNumSequenceMap,
+  createObjectSequenceMap,
   indexedPointAtLength,
   type IndexedPointAtLength,
   type SVGDCommand,
@@ -101,7 +103,7 @@ export const createStreamScatter = (
           pal.totalLength * frac,
           pal.totalLength * (frac + 0.0001),
         ])
-        const tan = getTangent(p1.pos[0], p1.pos[1], p2.pos[0], p2.pos[1])
+        const tan = getUnitVector(p1.pos[0], p1.pos[1], p2.pos[0], p2.pos[1])
         const rad = Math.atan2(tan.x, tan.y) + degToRad(90)
 
         x += lerp(-_scatterRange, _scatterRange, Math.cos(rad))
@@ -228,6 +230,6 @@ export const scatterPlot = (
 
     stat.finish()
 
-    return getTangent(x1, y1, x2, y2)
+    return getUnitVector(x1, y1, x2, y2)
   }
 }

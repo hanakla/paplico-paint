@@ -40,7 +40,6 @@ export default defineConfig({
       enforce: 'pre',
       ...externals({
         builtins: false,
-        exclude: ['mitt', 'three', 'abs-svg-path', 'is-ios', 'fast-random'],
       }),
     } as any,
     dts({

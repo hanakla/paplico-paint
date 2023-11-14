@@ -3,6 +3,7 @@ import {
   Brushes,
   Document,
   ExtraBrushes,
+  Filters,
   Inks,
   Paplico,
 } from '@paplico/core-new'
@@ -92,7 +93,6 @@ export function usePaplicoInit(
 
     pplc.on('stateChanged', () => {
       engineStore._setEngineState(pplc.state)
-      rerender()
     })
 
     pplc.on('document:layerUpdated', ({ layerEntityUid }) => {
@@ -305,15 +305,15 @@ function createTestDocument(pplc: Paplico) {
             settings: {} satisfies Inks.RainbowInk.Setting,
           },
         }),
-        // Document.visu.createVisuallyFilter('postprocess', {
-        //   processor: {
-        //     enabled: true,
-        //     opacity: 1,
-        //     filterId: Filters.TestFilter.metadata.id,
-        //     filterVersion: Filters.TestFilter.metadata.version,
-        //     settings: Filters.TestFilter.getInitialSetting(),
-        //   },
-        // }),
+        Document.visu.createVisuallyFilter('postprocess', {
+          enabled: true,
+          processor: {
+            opacity: 1,
+            filterId: Filters.ChromaticAberration.metadata.id,
+            filterVersion: Filters.ChromaticAberration.metadata.version,
+            settings: Filters.ChromaticAberration.getInitialSetting(),
+          },
+        }),
       ],
     }),
 
@@ -338,7 +338,6 @@ function createTestDocument(pplc: Paplico) {
         },
       ],
     }),
-
     Document.visu.createVectorObjectVisually({
       path: Document.visu.createVectorPath({
         points: [
@@ -668,7 +667,11 @@ function createTestDocument(pplc: Paplico) {
   // pap.setStrokingTargetLayer([raster.uid])
 
   pplc!.setStrokingTarget([vectorGroupVis.uid])
-  pplc!.rerender()
+  pplc.rerender()
+  // requestAnimationFrame(function anim() {
+  //   pplc!.rerender()
+  //   requestAnimationFrame(anim)
+  // })
 
   pplc.setBrushSetting({
     brushId: ExtraBrushes.ScatterBrush.metadata.id,

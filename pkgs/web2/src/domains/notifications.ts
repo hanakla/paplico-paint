@@ -13,6 +13,12 @@ export type Notifications =
   | {
       type: 'redo'
     }
+  | {
+      type: 'saving'
+    }
+  | {
+      type: 'saved'
+    }
 
 const emitter = new Emitter<{
   notify: Notifications

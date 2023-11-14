@@ -34,7 +34,7 @@ export class ChromaticAberrationFilter implements IFilter {
         angleRad: gl.uni1f(normalizeDegree(angleDeg) * (Math.PI / 180)),
       },
       source,
-      dest
+      dest,
     )
   }
 }

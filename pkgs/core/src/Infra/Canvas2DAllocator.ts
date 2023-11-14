@@ -19,7 +19,11 @@ const EXPIRE_TIME = 1000 * 60
 export type Canvas2DAllocator = {
   readonly allocated: AllocatedCanvasData[]
   borrow: (
-    opt: { width: number; height: number } & CanvasRenderingContext2DSettings,
+    opt: {
+      width: number
+      height: number
+      permanent?: boolean
+    } & CanvasRenderingContext2DSettings,
   ) => CanvasRenderingContext2D
   return: (ctx: CanvasRenderingContext2D | null | undefined) => void
   gc: (options?: { __testOnlyForceCollectAll?: true }) => void
@@ -32,14 +36,7 @@ const allocator: Canvas2DAllocator = {
     return _allocated
   },
 
-  borrow: ({
-    width,
-    height,
-    ...canvasOpt
-  }: {
-    width: number
-    height: number
-  } & CanvasRenderingContext2DSettings) => {
+  borrow: ({ width, height, permanent, ...canvasOpt }) => {
     let lend: AllocatedCanvasData | null = null
 
     for (const entry of _allocated) {
@@ -54,7 +51,7 @@ const allocator: Canvas2DAllocator = {
         // If size and options matched, we can reuse it.
         entry.used = true
         entry.stack = new Error().stack
-        entry.expireAt = Date.now() + EXPIRE_TIME
+        entry.expireAt = permanent ? Infinity : Date.now() + EXPIRE_TIME
         entry.ctx.save()
         clearCanvas(entry.ctx)
         return entry.ctx

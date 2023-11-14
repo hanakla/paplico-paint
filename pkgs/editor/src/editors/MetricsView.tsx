@@ -43,6 +43,8 @@ export const MetricsView = memo(function MetricsView({ width, height }: Props) {
 
       {[...paplico.visuMetrics?.getAllMetrices()!].map(
         ({ visuUid, originalBBox, postFilterBBox }) => {
+          const visu = paplico.currentDocument?.getVisuByUid(visuUid)!
+
           return (
             <g key={visuUid}>
               <text
@@ -52,7 +54,7 @@ export const MetricsView = memo(function MetricsView({ width, height }: Props) {
                 y={originalBBox.bottom + 2}
                 fontSize={12}
               >
-                {visuUid}
+                {visu.name + `(${visuUid})`}
                 &nbsp;w: {roundString(originalBBox.width, 2)}
                 &nbsp;h: {roundString(originalBBox.height, 2)}
                 &nbsp;x: {roundString(originalBBox.left, 2)}

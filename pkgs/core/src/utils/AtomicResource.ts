@@ -81,11 +81,12 @@ export class AtomicResource<T> {
   }
 }
 
-export function chainedAtomicResource<T, U>(
+export function dependenceAtomicResource<T, U>(
   depResource: AtomicResource<T>,
-  resource: U,
+  resourceInit: (t: T) => U,
 ) {
-  const atom = new AtomicResource<U>(resource)
+  const resource = depResource.ensureForce()
+  const atom = new AtomicResource<U>(resourceInit(resource))
   let ensured: T | null = null
 
   const originalEnsure = atom.ensure.bind(atom)

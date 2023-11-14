@@ -1,10 +1,7 @@
 import { pathBounds } from '@/fastsvg/pathBounds'
 import { VisuElement } from '@/Document'
 import { type Point2D } from '@/Document/Structs/Point2D'
-import {
-  vectorPathPointsToSVGDCommandArray,
-  vectorPathPointsToSVGPathString,
-} from '@/index-ext-brush'
+import { vectorPathPointsToSVGPath } from '@/index-ext-brush'
 import { Matrix2D } from '@/Math/matrix2d'
 import { LayerMetrics } from './DocumentContext/LayerMetrics'
 
@@ -118,7 +115,7 @@ export const vectorObjectTransformToMatrix = (
 }
 
 export const calcVectorPathBoundingBox = (path: VisuElement.VectorPath) => {
-  const bbox = pathBounds(vectorPathPointsToSVGPathString(path.points))
+  const bbox = pathBounds(vectorPathPointsToSVGPath(path.points))
 
   const left = bbox.left
   const top = bbox.top
@@ -139,7 +136,7 @@ export const calcVectorPathBoundingBox = (path: VisuElement.VectorPath) => {
 }
 
 export const calcVectorBoundingBox = (obj: VisuElement.VectorObjectElement) => {
-  const bbox = pathBounds(vectorPathPointsToSVGPathString(obj.path.points))
+  const bbox = pathBounds(vectorPathPointsToSVGPath(obj.path.points))
   const left = bbox.left + obj.transform.position.x
   const top = bbox.top + obj.transform.position.y
   const width = Math.abs(bbox.right - bbox.left)

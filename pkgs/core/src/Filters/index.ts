@@ -1,3 +1,5 @@
 export { TestFilter } from './TestFilter'
 export { BlurFilter } from './BlurFilter'
 // export { ZoomBlurFilter } from './ZoomBlur'
+export { GaussianBlur } from './GaussianBlur'
+export { ChromaticAberration } from './ChromaticAberration'

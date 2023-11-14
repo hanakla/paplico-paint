@@ -63,7 +63,7 @@ export const TestFilter = createFilter(
       {
         destSize,
         pixelRatio,
-        filterSetting,
+        settings: filterSetting,
       }: PplcFilter.RasterFilterContext<TestFilter.Options>,
     ) {
       output.fillStyle = filterSetting.color

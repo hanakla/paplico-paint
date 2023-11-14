@@ -29,6 +29,12 @@ export const Notification = memo(function Notification() {
         key: Date.now(),
         message: t(`history.${notify.type}`),
       })
+    } else if (notify.type === 'saved' || notify.type === 'saving') {
+      handled = true
+      setMessage({
+        key: Date.now(),
+        message: t(`save.${notify.type}`),
+      })
     }
 
     if (handled) {

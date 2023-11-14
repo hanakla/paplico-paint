@@ -34,6 +34,9 @@ export function bind(
       editorType: nextEditorType,
     })
 
+    editorStore.setState({
+      strokingTarget: paplico.getStrokingTarget(),
+    })
     paplico.on('strokingTargetChanged', ({ current }) => {
       editorStore.setState({
         strokingTarget: current,

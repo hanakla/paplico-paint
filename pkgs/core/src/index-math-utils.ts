@@ -4,7 +4,7 @@ export {
   degToRad,
   radToDeg,
   getPointWithAngleAndDistance,
-  getTangent,
+  getRadianTangent,
   getRadianFromTangent,
   lerp,
   mapLinear,

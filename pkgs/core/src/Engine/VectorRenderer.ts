@@ -18,7 +18,7 @@ import {
 } from './VectorUtils'
 import { AppearanceRegistry } from './Registry/AppearanceRegistry'
 import { FontRegistry } from './Registry/FontRegistry'
-import { BrushLayoutData, IBrush } from './Brush/Brush'
+import { IBrush } from './Brush/Brush'
 import {
   LayerMetrics,
   createBBox,
@@ -645,7 +645,7 @@ export class VectorRenderer {
 
     const useMemoForPath = async <T>(
       path: VisuElement.VectorPath,
-      factory: () => T,
+      factory: () => Promise<T> | T,
       deps: any[],
       { disposer }: { disposer?: (obj: T) => void } = {},
     ): Promise<T> => {
@@ -663,7 +663,7 @@ export class VectorRenderer {
         disposer?.(memoEntry.data)
       }
 
-      data = factory()
+      data = await factory()
       memoEntry = { data, prevDeps: deps }
 
       memoStore.set(brush, memoEntry)
@@ -673,7 +673,7 @@ export class VectorRenderer {
     }
 
     try {
-      const resultBBox = await saveAndRestoreCanvas(output, async () => {
+      const resultBBoxes = await saveAndRestoreCanvas(output, async () => {
         return await brush.render({
           abort: abort ?? new AbortController().signal,
           throwIfAborted: () => {
@@ -702,24 +702,25 @@ export class VectorRenderer {
         })
       })
 
+      const posttFilterBBox = createEmptyBBox()
+
+      for (const bbox of resultBBoxes) {
+        posttFilterBBox.left = Math.min(posttFilterBBox.left, bbox.bbox.left)
+        posttFilterBBox.top = Math.min(posttFilterBBox.top, bbox.bbox.top)
+        posttFilterBBox.width = Math.max(
+          posttFilterBBox.width,
+          bbox.bbox.left + bbox.bbox.right,
+        )
+        posttFilterBBox.height = Math.max(
+          posttFilterBBox.height,
+          bbox.bbox.top + bbox.bbox.bottom,
+        )
+      }
+
       return {
         metrics: {
           original: originalBBox,
-          // postFilter: applyMatrixToBBox(
-          //   createBBox({
-          //     left: resultBBox.bbox.left,
-          //     top: resultBBox.bbox.top,
-          //     width: resultBBox.bbox.right - resultBBox.bbox.left,
-          //     height: resultBBox.bbox.bottom - resultBBox.bbox.top,
-          //   }),
-          //   visuTransformToMatrix2D(transform),
-          // ),
-          postFilter: createBBox({
-            left: resultBBox.bbox.left,
-            top: resultBBox.bbox.top,
-            width: resultBBox.bbox.right - resultBBox.bbox.left,
-            height: resultBBox.bbox.bottom - resultBBox.bbox.top,
-          }),
+          postFilter: posttFilterBBox,
         },
       }
     } finally {

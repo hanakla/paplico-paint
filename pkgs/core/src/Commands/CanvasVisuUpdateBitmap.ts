@@ -45,6 +45,7 @@ export class CanvasVisuUpdateBitmap implements ICommand {
           'If you want to update bitmap, you must return new Uint8ClampedArray.',
       )
     }
+
     docx.invalidateLayerBitmapCache(this.visuUid)
 
     // compress later to avoid blocking main thread or race condition on canvas

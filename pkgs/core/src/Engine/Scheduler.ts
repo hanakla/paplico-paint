@@ -10,6 +10,8 @@ import {
 import { DocumentContext } from './DocumentContext/DocumentContext'
 import { type RenderPipeline } from './RenderPipeline'
 import { VectorRenderer } from './VectorRenderer'
+import { DEFAULT_VISU_TRANSFORM } from '@/Document/Visually/factory'
+import { composeVisuTransforms } from './VectorUtils'
 
 export function buildRenderSchedule(
   node: PaplicoDocument.ResolvedLayerNode,
@@ -17,6 +19,7 @@ export function buildRenderSchedule(
   {
     layerNodeOverrides, // prevCacheBreakerNodes = {},
     willRenderingViewport,
+    offsetTransform = DEFAULT_VISU_TRANSFORM(),
   }: {
     layerNodeOverrides?: RenderPipeline.LayerNodeOverrides
     // prevCacheBreakerNodes?: { [slashJoinedPath: string]: boolean }
@@ -26,6 +29,8 @@ export function buildRenderSchedule(
       width: number
       height: number
     }
+    /** Transform to Node's parent */
+    offsetTransform?: VisuElement.ElementTransform
   },
 ) {
   const tasks: RenderTask[] = []
@@ -273,6 +278,11 @@ export function buildRenderSchedule(
             filter: filter,
           },
           {
+            command: RenderCommands.CLEAR_TARGET,
+            source: RenderTargets.NONE,
+            renderTarget: RenderTargets.LAYER_PRE_FILTER,
+          },
+          {
             command: RenderCommands.DRAW_SOURCE_TO_DEST,
             source: RenderTargets.SHARED_FILTER_BUF,
             renderTarget: RenderTargets.LAYER_PRE_FILTER,
@@ -297,7 +307,12 @@ export function buildRenderSchedule(
         opacity: nodeVisu.opacity,
       })
     }
-  })(RenderTargets.PREDEST, node, node.visu.transform, node.visu.visible)
+  })(
+    RenderTargets.PREDEST,
+    node,
+    composeVisuTransforms(offsetTransform, node.visu.transform),
+    node.visu.visible,
+  )
 
   return { tasks, stats: { usingCanvaes: 1 } }
 }

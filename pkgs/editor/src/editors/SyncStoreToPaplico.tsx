@@ -20,7 +20,7 @@ export const SyncStoreToPaplico = memo(function SyncStoreToPaplico() {
       : editor.toolMode === ToolModes.objectTool ? 'none'
       : editor.toolMode === ToolModes.vectorPenTool ? 'none'
       : editor.toolMode === ToolModes.pointTool ? 'none'
-      : unreachable(editor.toolMode),
+      : 'none',
     )
   }, [editor.toolMode])
 

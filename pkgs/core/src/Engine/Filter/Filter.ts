@@ -1,5 +1,5 @@
 import type { VNode } from '@/UI/PaneUI/AbstractComponent'
-import { FilterWebGLContext } from './FilterContextAbst'
+import { IFilterWebGLContext } from './FilterContextAbst'
 import { RenderCycleLogger } from '../RenderCycleLogger'
 import { RenderPhase } from '../types'
 import { PaneUIRenderings } from '../PaneUIRenderings'
@@ -9,7 +9,7 @@ import { VisuElement } from '@/Document'
 export type FilterPaneContext<T> = PaneUIRenderings.PaneUIContext<T>
 
 export type FilterInitContext = {
-  gl: FilterWebGLContext
+  gl: IFilterWebGLContext
 }
 
 export type FilterInputSource = RenderPipeline.CompositionImageSource
@@ -18,12 +18,12 @@ export type RasterFilterContext<T extends Record<string, any>> = {
   abort: AbortSignal
   throwIfAborted: () => never | void
 
-  gl: FilterWebGLContext
+  gl: IFilterWebGLContext
   destSize: { width: number; height: number }
   pixelRatio: number
 
   /** Mutation safe copied object */
-  filterSetting: T
+  settings: T
   phase: RenderPhase
   logger: RenderCycleLogger
 
@@ -38,7 +38,7 @@ export type RasterFilterContext<T extends Record<string, any>> = {
 export interface IFilter<T extends Record<string, any>> {
   readonly id: string
 
-  initialize(context: {}): Promise<void>
+  initialize(context: { gl: IFilterWebGLContext }): Promise<void>
 
   transformPath?(path: VisuElement.VectorPath): Promise<VisuElement.VectorPath>
   applyRasterFilter?(

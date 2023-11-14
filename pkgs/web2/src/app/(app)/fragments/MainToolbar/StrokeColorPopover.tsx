@@ -16,6 +16,7 @@ import { Fieldset } from '@/components/Fieldset'
 import { TextField } from '@/components/TextField'
 import { css } from 'styled-components'
 import { usePropsMemo } from '@paplico/shared-lib'
+import { BrushPreviewCanvas } from '../BrushPreviewCanvas'
 
 export const StrokeColorPopoverTrigger = memo(
   function StrokeColorPopoverTrigger({}: {}) {
@@ -61,6 +62,11 @@ export const StrokeColorPopoverTrigger = memo(
             gap: 8px;
           `}
         >
+          <BrushPreviewCanvas
+            css={css`
+              height: 100px;
+            `}
+          />
           <SatAndBright
             css={css`
               width: 100%;

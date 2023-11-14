@@ -4,6 +4,8 @@ description: Install dependencies and build the project
 inputs:
   node-version:
     required: true
+  os:
+    required: true
 
 runs:
   using: composite
@@ -13,9 +15,9 @@ runs:
         path: |
           .yarn/cache
           node_modules/
-        key: ${{ runner.os }}-node${{ inputs.node-version }}-${{ hashFiles(format('{0}{1}', github.workspace, '/yarn.lock')) }}
+        key: ${{ inputs.os }}-node${{ inputs.node-version }}-${{ hashFiles(format('{0}{1}', github.workspace, '/yarn.lock')) }}
         restore-keys: |
-          ${{ runner.os }}-node${{ inputs.node-version }}-
+          ${{ inputs.os }}-node${{ inputs.node-version }}-
 
     - name: Install native libs
       shell: bash

@@ -11,5 +11,5 @@ export {
 export { createSeededRandom } from './random'
 export { clamp, radToDeg, degToRad } from '@/utils/math'
 export { getRadianFromTangent } from './getRadianFromTangent'
-export { getTangent } from './getTangent'
+export { getUnitVector, getRadianTangent } from './getTangent'
 export { getPointWithAngleAndDistance } from './getPointWithAngleAndDistance'

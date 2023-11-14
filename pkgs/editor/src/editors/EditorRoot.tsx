@@ -126,7 +126,7 @@ const useStyles = createUseStyles({
   brushSize: {
     // pointerEvents: 'none',
     fill: 'none',
-    stroke: 'var(--pap-ui-color)',
+    stroke: 'var(--pplc-ui-color)',
     animationName: '$brushSizePreviewFadeOut',
     animationTimingFunction: 'ease-in',
   },

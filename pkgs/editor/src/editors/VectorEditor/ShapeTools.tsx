@@ -41,7 +41,6 @@ export const ShapeTools = memo(function ShapeTools({ width, height }: Props) {
 
   const bindRectDrag = usePointerDrag(
     ({ offsetInitial, offsetMovement, last, event, canceled }) => {
-      console.log(editor.strokingTarget)
       if (!editor.strokingTarget?.visuUid) return
 
       // rectangle tool
@@ -238,7 +237,7 @@ export const ShapeTools = memo(function ShapeTools({ width, height }: Props) {
 const useStyles = createUseStyles({
   feedbackElement: {
     pointerEvents: 'none',
-    stroke: 'var(--pap-ui-color)',
+    stroke: 'var(--pplc-ui-color)',
     fill: 'transparent',
     strokeWidth: 1,
   },

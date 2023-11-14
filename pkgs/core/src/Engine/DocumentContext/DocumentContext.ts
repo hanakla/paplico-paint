@@ -63,9 +63,6 @@ export class DocumentContext extends Emitter<DocumentContext.Events> {
   public updaterLock = new AtomicResource({}, 'RuntimeDocument#updateLock')
 
   protected _strokingTarget: DocumentContext.StrokingTarget | null = null
-  protected _strokingTargetVisu:
-    | (VisuElement.GroupElement | VisuElement.CanvasElement)
-    | null = null
 
   constructor(document: PaplicoDocument) {
     super()
@@ -81,7 +78,6 @@ export class DocumentContext extends Emitter<DocumentContext.Events> {
 
   public dispose() {
     this._strokingTarget = null
-    this._strokingTargetVisu = null
 
     this.mitt.all.clear()
     this.updaterLock.clearQueue()
@@ -110,42 +106,36 @@ export class DocumentContext extends Emitter<DocumentContext.Events> {
     return this._strokingTarget
   }
 
-  /** @deprecated use `strokingTarget` instead */
-  public get strokingTargetVisu() {
-    return this._strokingTargetVisu
-  }
-
   public setStrokingTarget(path: string[] | null | undefined): boolean {
     if (!path) {
       this._strokingTarget = null
-      this._strokingTargetVisu = null
       this.emit('strokingTargetChanged', { current: null })
       return true
     }
 
     const doc = this.document
 
-    const target = doc.layerNodes.getNodeAtPath(path)
-    if (!target) {
+    const targetNode = doc.layerNodes.getNodeAtPath(path)
+    if (!targetNode) {
       return false
     }
 
-    const visu = doc.getVisuByUid(target.visuUid)!
+    const visu = doc.getVisuByUid(targetNode.visuUid)!
     if (!doc.isDrawableVisu(visu)) {
       return false
     }
 
     this._strokingTarget = {
       visuType: visu.type,
-      visuUid: target!.visuUid,
+      visuUid: targetNode!.visuUid,
       nodePath: path,
       visu,
     }
 
-    this._strokingTargetVisu = visu
-
     throwLaterIfFailure([
-      rescue(() => this.emit('strokingTargetChanged', { current: null })),
+      rescue(() =>
+        this.emit('strokingTargetChanged', { current: this._strokingTarget }),
+      ),
     ])
 
     return true

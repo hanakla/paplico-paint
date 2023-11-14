@@ -7,6 +7,8 @@ import { VisuElement } from './VectorEditor/VisuElement'
 import { Document } from '@paplico/core-new'
 import { useMemoRevailidatable } from '@/utils/hooks'
 import { DisplayedResolvedNode } from '@/stores/editor'
+import { createUseStyles } from 'react-jss'
+import { VectorPenTool } from './VectorEditor/VectorPenTool'
 
 type Props = {
   width: number
@@ -133,10 +135,12 @@ export const VectorEditor = memo(function VectorEditor({
           key={node.uid}
           visu={node.visu}
           layerNodePath={node.path}
-          visible={node.visible}
-          locked={node.locked}
+          canVisible={node.visible}
+          isLocked={node.locked}
         />
       ))}
+
+      <VectorPenTool width={width} height={height} />
 
       <ShapeTools width={width} height={height} />
     </svg>

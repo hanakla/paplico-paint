@@ -19,6 +19,9 @@ export const notificationTexts = tx({
 
     'history.undo': 'Undo',
     'history.redo': 'Redo',
+
+    'save.saving': 'Saving...',
+    'save.saved': 'Saved',
   },
   ja: {
     toolChanged: '{{tool}} ツール',
@@ -33,6 +36,9 @@ export const notificationTexts = tx({
 
     'history.undo': '元に戻す',
     'history.redo': 'やりなおす',
+
+    'save.saving': '保存しています...',
+    'save.saved': '保存しました',
   },
 })
 

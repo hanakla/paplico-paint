@@ -10,11 +10,11 @@ import { VectorRenderer } from './VectorRenderer'
 import { DocumentContext } from './DocumentContext/DocumentContext'
 import { RenderPhase, Viewport } from './types'
 import { PPLCAbortError, PPLCInvariantViolationError } from '@/Errors'
-import { WebGLRenderer } from 'three'
-import { AtomicResource, chainedAtomicResource } from '@/utils/AtomicResource'
+// import { WebGLRenderer } from 'three'
+import { AtomicResource } from '@/utils/AtomicResource'
 import { AppearanceRegistry } from '@/Engine/Registry/AppearanceRegistry'
-import { FilterWebGLContext } from './Filter/FilterContextAbst'
-import { ThreeFilterContext } from './Filter/ThreeFilterContext'
+import { IFilterWebGLContext } from './Filter/FilterContextAbst'
+// import { ThreeFilterContext } from './Filter/ThreeFilterContext'
 import { deepClone } from '@paplico/shared-lib'
 import { type LayerMetrics } from './DocumentContext/LayerMetrics'
 import {
@@ -34,6 +34,7 @@ import {
 } from './VectorUtils'
 import { formatStack } from '@/utils/debug-utils'
 import { unreachable } from '@paplico/shared-lib'
+import { WebGLFilterContext } from './Filter/WebGLFilterContext'
 
 export namespace RenderPipeline {
   /**
@@ -49,6 +50,7 @@ export namespace RenderPipeline {
     viewport: Viewport
     layerNodeOverrides?: LayerNodeOverrides
     transformOverrides?: VectorRenderer.VisuTransformOverrides
+    offsetTransform?: VisuElement.ElementTransform
     pixelRatio: number
     phase: RenderPhase
     logger: RenderCycleLogger
@@ -72,25 +74,16 @@ export namespace RenderPipeline {
 
 export class RenderPipeline {
   protected filterRegistry: AppearanceRegistry
-  protected papGLContext: AtomicResource<FilterWebGLContext>
+  protected papGLContext: AtomicResource<WebGLFilterContext>
 
   protected precompBitmapCache: Record<string, ImageBitmap> = {}
 
   constructor(options: {
     filterRegistry: AppearanceRegistry
-    glRenderer: AtomicResource<WebGLRenderer>
+    filterRenderer: AtomicResource<WebGLFilterContext>
   }) {
     this.filterRegistry = options.filterRegistry
-
-    const glcx = options.glRenderer.ensureForce()
-    try {
-      this.papGLContext = chainedAtomicResource(
-        options.glRenderer,
-        new ThreeFilterContext(glcx) as FilterWebGLContext,
-      )
-    } finally {
-      options.glRenderer.release(glcx)
-    }
+    this.papGLContext = options.filterRenderer
   }
 
   public dispose() {
@@ -133,7 +126,8 @@ export class RenderPipeline {
       pixelRatio,
       phase,
       logger,
-      updateCacheIfAble: updateCache,
+      updateCacheIfAble,
+      offsetTransform,
     }: RenderPipeline.RenderOptions,
   ): Promise<RenderPipeline.RenderResult | undefined> {
     LogChannel.l.pipeline(
@@ -149,6 +143,7 @@ export class RenderPipeline {
     const { tasks: schedules } = buildRenderSchedule(startNode, docx, {
       layerNodeOverrides,
       willRenderingViewport: viewport,
+      offsetTransform,
       // prevCacheBreakerNodes: this.previousCacheBreakerNodes,
     })
 
@@ -628,7 +623,7 @@ export class RenderPipeline {
             if (!hasOverrideForThisVectorVisu) {
               visuMetrics[visuNode.uid] = metrics
 
-              if (updateCache) {
+              if (updateCacheIfAble) {
                 LogChannel.l.pipeline.info(
                   `Update bitmap cache for ${visuNode.uid}`,
                 )
@@ -717,7 +712,7 @@ export class RenderPipeline {
           destSize: { width: viewport.width, height: viewport.height },
           pixelRatio,
 
-          filterSetting: deepClone(filter.settings),
+          settings: deepClone(filter.settings),
           phase,
           logger: logger ?? new RenderCycleLogger(),
         })

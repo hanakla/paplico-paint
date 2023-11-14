@@ -16,22 +16,28 @@ export function createUseStore<S extends StoreApi<any>>(
     const prevRef = useRef<T | null>(null)
     const mountedStack = useMemo(() => new Error().stack, [])
 
-    let state = useSyncExternalStore(store.subscribe, () => {
-      const next = selectorRef.current(store.getState())
+    let state = useSyncExternalStore(
+      store.subscribe,
+      () => {
+        const next = selectorRef.current(store.getState())
 
-      if (shallowEquals(next, prevRef.current)) {
-        return prevRef.current
-      }
+        if (shallowEquals(next, prevRef.current)) {
+          return prevRef.current
+        }
 
-      // if (prevRef.current && next) {
-      //   console.groupCollapsed('changed', changedKeys(prevRef.current, next))
-      //   console.log(getLine(mountedStack!, 1, Infinity))
-      //   console.groupEnd()
-      // }
+        // if (prevRef.current && next) {
+        //   console.groupCollapsed('changed', changedKeys(prevRef.current, next))
+        //   console.log(getLine(mountedStack!, 1, Infinity))
+        //   console.groupEnd()
+        // }
 
-      prevRef.current = next
-      return next
-    })
+        prevRef.current = next
+        return next
+      },
+      () => {
+        return store.getState()
+      },
+    )
 
     return state
   }

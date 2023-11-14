@@ -7,30 +7,32 @@ import msgpack from 'msgpack5'
 import { letDownload } from '@hanakla/arma'
 import { Commands } from '@paplico/core-new'
 import { ToolModes } from '@paplico/editor'
+import { useNotifyStore } from '@/domains/notifications'
 
 export const GlobalShortcutHandler = memo(function GlobalShortcutHandler() {
   const { pplc: pap, canvasEditor: editorHandle } = usePaplicoInstance()
+  const notifyStore = useNotifyStore()
 
   const { fileHandlers, setFileHandlerForDocument, getShortcuts } =
     useEditorStore()
 
   const shortcuts = getShortcuts()
 
-  useGlobalMousetrap(shortcuts.global.delete, async () => {
-    const currentDocument = editorHandle?.currentDocument
-    if (!currentDocument) return
+  // useGlobalMousetrap(shortcuts.global.delete, async () => {
+  //   const currentDocument = editorHandle?.currentDocument
+  //   if (!currentDocument) return
 
-    const visuUids = editorHandle!.getSelectedVisuUids()
-    const removePaths = visuUids.map(
-      (uid) => currentDocument.layerNodes.findNodePathByVisu(uid)!,
-    )
+  //   const visuUids = editorHandle!.getSelectedVisuUids()
+  //   const removePaths = visuUids.map(
+  //     (uid) => currentDocument.layerNodes.findNodePathByVisu(uid)!,
+  //   )
 
-    pap!.command.do(
-      new Commands.DocumentManipulateLayerNodes({
-        remove: removePaths,
-      }),
-    )
-  })
+  //   pap!.command.do(
+  //     new Commands.DocumentManipulateLayerNodes({
+  //       remove: removePaths,
+  //     }),
+  //   )
+  // })
 
   useGlobalMousetrap(shortcuts.global.save, async () => {
     if (!pap?.currentDocument) return
@@ -53,6 +55,9 @@ export const GlobalShortcutHandler = memo(function GlobalShortcutHandler() {
       setFileHandlerForDocument(doc.uid, handler)
     }
 
+    notifyStore.emit({ type: 'saving' })
+    await new Promise<void>((r) => setTimeout(r, 100))
+
     const packer = msgpack()
     const bin = packer.encode({ doc, papEditor: {} }) as unknown as Uint8Array
     const blob = new Blob([bin], { type: 'application/octet-stream' })
@@ -62,6 +67,8 @@ export const GlobalShortcutHandler = memo(function GlobalShortcutHandler() {
       await (
         await handler.createWritable({ keepExistingData: false })
       ).write(blob)
+
+      notifyStore.emit({ type: 'saved' })
     } else {
       letDownload(url, 'test.paplic')
     }
@@ -108,6 +115,14 @@ export const GlobalShortcutHandler = memo(function GlobalShortcutHandler() {
 
   useGlobalMousetrap(shortcuts.global.vectorPointTool, () => {
     editorHandle?.setToolMode(ToolModes.pointTool)
+  })
+
+  useGlobalMousetrap(shortcuts.global.vectorPenTool, () => {
+    editorHandle?.setToolMode(ToolModes.vectorPenTool)
+  })
+
+  useGlobalMousetrap(['shift+c'], () => {
+    editorHandle?.setToolMode(ToolModes.curveTool)
   })
 
   return null

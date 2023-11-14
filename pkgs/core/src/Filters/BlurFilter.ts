@@ -62,7 +62,7 @@ export const BlurFilter = createFilter(
       {
         destSize,
         pixelRatio,
-        filterSetting,
+        settings: filterSetting,
       }: PplcFilter.RasterFilterContext<BlurFilter.Options>,
     ) {
       output.filter = `blur(${filterSetting.size * pixelRatio}px)`

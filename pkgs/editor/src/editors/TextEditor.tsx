@@ -50,7 +50,7 @@ export const TextEditor = memo(function TextEditor({ width, height }: Props) {
         // engineState.activeVisu?.layerType === 'vector' ? 'none' : 'none',
       }}
       tabIndex={-1}
-      id="--paplico-vector-editor-text"
+      id="--pplclico-vector-editor-text"
     ></svg>
   )
 })

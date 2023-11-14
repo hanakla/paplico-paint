@@ -125,7 +125,9 @@ export namespace VisuElement {
     randomSeed: number
   }
 
-  export type VectorPathPoint =
+  export type VectorPathPoint = LooseTypedVectorPathPoint
+
+  export type VectorPathPointStrict =
     | {
         isMoveTo: true
         isClose?: false | undefined

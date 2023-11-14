@@ -16,6 +16,8 @@ import { unstable_batchedUpdates } from 'react-dom'
 import { createUseStyles } from 'react-jss'
 import useEvent from 'react-use-event-hook'
 import { VectorObjectElement } from './VisuElement.VectorObject'
+import { storePicker } from '@/utils/zustand'
+import { mapEntries } from '@paplico/shared-lib'
 
 const RECT_SIZE = 10
 const HALF_OF_RECT_SIZE = RECT_SIZE / 2
@@ -29,12 +31,12 @@ type Props = {
     | VisuElementType.TextElement
     | VisuElementType.VectorObjectElement
   layerNodePath: string[]
-  visible: boolean
-  locked: boolean
+  canVisible: boolean
+  isLocked: boolean
 }
 
 export const VisuElement = memo(function VisuElement(props: Props) {
-  if (!props.visible || props.locked) return null
+  if (!props.canVisible || props.isLocked) return null
 
   return <VisuElementInternal {...props} />
 })
@@ -43,57 +45,79 @@ const VisuElementInternal = memo(function VisuElementInternal({
   visu,
   layerNodePath,
 }: Props) {
-  const editor = useEditorStore()
+  const editor = useEditorStore(
+    storePicker([
+      'toolMode',
+      'selectedVisuUidMap',
+      'canvasScale',
+      'visuTransformOverride',
+      'setVisuTransformOverride',
+    ]),
+  )
 
   const { paplico } = useEngineStore()
   const s = usePathStyle()
   const rerender = useReducer((s) => s + 1, 0)[1]
 
-  const isEditableToolMode = editor.toolMode === ToolModes.objectTool
+  const isEditableToolMode =
+    editor.toolMode === ToolModes.objectTool ||
+    editor.toolMode === ToolModes.curveTool
   const elementScale = 1 / editor.canvasScale
 
-  const [transformOverride, setTransfromOverride] = useState<{
-    x: number
-    y: number
-  } | null>(null)
+  console.log(editor.toolMode)
 
   const bindDrag = usePointerDrag(
     async ({ movement, offsetMovement, last, event }) => {
       if (editor.toolMode !== ToolModes.objectTool) return
       if (PaplicoMath.distance2D(0, 0, movement[0], movement[1]) < 4) return
+      if (!editor.selectedVisuUidMap[visu.uid]) return
+
+      event.stopPropagation()
 
       if (!last) {
-        setTransfromOverride({
-          x: offsetMovement[0] / elementScale,
-          y: offsetMovement[1] / elementScale,
-        })
+        editor.setVisuTransformOverride((prev) => ({
+          ...prev,
+          position: {
+            x: offsetMovement[0] / elementScale,
+            y: offsetMovement[1] / elementScale,
+          },
+        }))
 
         paplico.requestPreviewPriolityRerender({
-          transformOverrides: {
-            [visu.uid]: (base) => {
-              base.transform.position.x += offsetMovement[0] / elementScale
-              base.transform.position.y += offsetMovement[1] / elementScale
-              return base
-            },
-          },
+          transformOverrides: Object.fromEntries(
+            mapEntries(editor.selectedVisuUidMap, ([uid]) => {
+              return [
+                uid,
+                (base) => {
+                  base.transform.position.x += offsetMovement[0] / elementScale
+                  base.transform.position.y += offsetMovement[1] / elementScale
+                  return base
+                },
+              ]
+            }),
+          ),
         })
       } else {
-        await paplico.command.do(
-          new Commands.VisuUpdateAttributes(visu.uid, {
-            updater: (target) => {
-              target.transform.position = {
-                x:
-                  target.transform.position.x +
-                  offsetMovement[0] / elementScale,
-                y:
-                  target.transform.position.y +
-                  offsetMovement[1] / elementScale,
-              }
-            },
+        const command = new Commands.CommandGroup(
+          mapEntries(editor.selectedVisuUidMap, ([uid]) => {
+            return new Commands.VisuUpdateAttributes(uid, {
+              updater: (target) => {
+                target.transform.position = {
+                  x:
+                    target.transform.position.x +
+                    offsetMovement[0] / elementScale,
+                  y:
+                    target.transform.position.y +
+                    offsetMovement[1] / elementScale,
+                }
+              },
+            })
           }),
         )
 
-        setTransfromOverride(null)
+        await paplico.command.do(command)
+
+        editor.setVisuTransformOverride(null)
       }
     },
   )
@@ -101,7 +125,9 @@ const VisuElementInternal = memo(function VisuElementInternal({
   const handleKeyDown = useEvent((e: KeyboardEvent<SVGElement>) => {
     if (editor.toolMode !== ToolModes.objectTool) return
 
-    if (e.key === 'Delete') {
+    e.stopPropagation()
+
+    if (e.key === 'Delete' || e.key === 'Backspace') {
       paplico.command.do(
         new Commands.DocumentManipulateLayerNodes({
           remove: [layerNodePath],
@@ -158,11 +184,14 @@ const VisuElementInternal = memo(function VisuElementInternal({
     const metrics = paplico.visuMetrics?.getLayerMetrics(visu.uid)
     if (!metrics) return null
 
-    const left = metrics.originalBBox.left + (transformOverride?.x ?? 0)
-    const top = metrics.originalBBox.top + (transformOverride?.y ?? 0)
-    const right = metrics.originalBBox.right + (transformOverride?.x ?? 0)
-    const bottom = metrics.originalBBox.bottom + (transformOverride?.y ?? 0)
-    console.log(metrics.visuUid, metrics.originalBBox)
+    const override = editor.selectedVisuUidMap[visu.uid]
+      ? editor.visuTransformOverride
+      : null
+
+    const left = metrics.originalBBox.left + (override?.position.x ?? 0)
+    const top = metrics.originalBBox.top + (override?.position.y ?? 0)
+    const right = metrics.originalBBox.right + (override?.position.x ?? 0)
+    const bottom = metrics.originalBBox.bottom + (override?.position.y ?? 0)
 
     return [
       <rect
@@ -233,7 +262,9 @@ const VisuElementInternal = memo(function VisuElementInternal({
       data-pplc-visu-uid={visu.uid}
       style={{
         display: !visu.visible ? 'none' : undefined,
-        pointerEvents: editor.selectedVisuUids[visu.uid] ? 'painted' : 'stroke',
+        pointerEvents: editor.selectedVisuUidMap[visu.uid]
+          ? 'painted'
+          : 'stroke',
         transform: `translate(${visu.transform.position.x}px, ${visu.transform.position.y}px)`,
       }}
       onKeyDown={handleKeyDown}
@@ -262,17 +293,17 @@ const usePathStyle = createUseStyles({
     '&:where([data-editable-tooled="true"] > *)': {
       fill: 'transparent',
       strokeWidth: 2,
-      stroke: 'var(--pap-stroke-color)',
+      stroke: 'var(--pplc-stroke-color)',
     },
     // '&:hover': {
     //   cursor: 'move',
-    //   stroke: 'var(--pap-stroke-color)',
+    //   stroke: 'var(--pplc-stroke-color)',
     // },
   },
   controlPoint: {
     display: 'none',
     fill: 'white',
-    stroke: 'var(--pap-stroke-color)',
+    stroke: 'var(--pplc-stroke-color)',
     strokeWidth: 1.5,
     paintOrder: 'fill stroke',
     '&:where([data-editable-tooled="true"] > *)': {

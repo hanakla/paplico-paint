@@ -20,7 +20,7 @@ import {
 } from 'three'
 import {
   InputSource,
-  OutputTarget,
+  RenderTarget,
   PPLCRenderTarget,
   PPLCFilterProgram,
   PPLCUniforms,
@@ -28,13 +28,13 @@ import {
   __paplicoFilterProgram,
   WebGLTypes,
   TexUniform,
-  FilterWebGLContext,
+  IFilterWebGLContext,
 } from './FilterContextAbst'
 
 type PapThreeFilterProgram = PPLCFilterProgram<RawShaderMaterial>
 type PapThreeRenderTarget = PPLCRenderTarget<WebGLRenderTarget>
 
-export class ThreeFilterContext implements FilterWebGLContext {
+export class ThreeFilterContext implements IFilterWebGLContext {
   protected renderer: WebGLRenderer
   protected scene: Scene
   protected camera: Camera
@@ -78,6 +78,9 @@ export class ThreeFilterContext implements FilterWebGLContext {
     return {
       [__papRenderTargetMark]: true,
       renderTarget,
+      dispose: () => {
+        renderTarget.dispose()
+      },
     }
   }
 
@@ -95,6 +98,9 @@ export class ThreeFilterContext implements FilterWebGLContext {
     return {
       [__paplicoFilterProgram]: true,
       program,
+      dispose: () => {
+        program.dispose()
+      },
     }
   }
 
@@ -142,10 +148,10 @@ export class ThreeFilterContext implements FilterWebGLContext {
   }
 
   public apply(
+    input: InputSource,
+    output: RenderTarget,
     program: PPLCFilterProgram,
     uniforms: Record<string, PPLCUniforms>,
-    input: InputSource,
-    output: OutputTarget,
   ) {
     const originalUniforms = { ...program.program.uniforms }
 

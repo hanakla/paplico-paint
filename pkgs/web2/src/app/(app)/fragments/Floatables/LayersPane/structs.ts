@@ -14,6 +14,7 @@ export type LayerTreeNode = {
   dragging: boolean
   collapsedByParent: boolean
   invisibleByParent: boolean
+  lockByParent: boolean
 }
 
 export function convertLayerNodeToTreeViewNode(
@@ -27,9 +28,11 @@ export function convertLayerNodeToTreeViewNode(
     parentPath: string[],
     depth: number,
     parentVisibility: boolean | null = null,
+    parentLock: boolean | null = null,
   ) => {
     const visu = document.getVisuByUid(node.visuUid)!
     parentVisibility ??= visu.visible
+    parentLock ??= visu.lock
 
     items.push({
       id: node.visuUid,
@@ -41,6 +44,7 @@ export function convertLayerNodeToTreeViewNode(
       collapsed: false,
       collapsedByParent: false, //depth > 0,
       invisibleByParent: !parentVisibility,
+      lockByParent: parentLock,
     })
 
     node.children.toReversed().forEach((child) => {
@@ -49,6 +53,7 @@ export function convertLayerNodeToTreeViewNode(
         [...parentPath, node.visuUid],
         depth + 1,
         parentVisibility,
+        parentLock,
       )
     })
   }

@@ -20,17 +20,15 @@ import {
   type Payload,
   type WorkerResponse,
 } from './ScatterBrush-worker'
-import {} from '@/Engine/Brush/Brush'
-import { ColorRGBA } from '@/Document'
 import { PaplicoError } from '@/Errors/PaplicoError'
 import { createImage } from '@/Infra/CanvasFactory'
-
 import {
   createBrush,
   BrushContext,
   BrushLayoutData,
   BrushMetadata,
-  PaplicoAbortError,
+  PPLCAbortError,
+  ColorRGBA,
 } from '@/index-ext-brush'
 import { scatterBrushTexts } from '@/misc/locales'
 
@@ -255,7 +253,7 @@ export const ScatterBrush = createBrush(
 
     public async render(
       ctx: BrushContext<ScatterBrush.Settings, ScatterBrush.MemoData>,
-    ): Promise<BrushLayoutData> {
+    ): Promise<BrushLayoutData[]> {
       return this.renderWithWorker(ctx)
     }
 
@@ -273,14 +271,14 @@ export const ScatterBrush = createBrush(
       destSize,
       phase,
       useMemoForPath,
-    }: BrushContext<
-      ScatterBrush.Settings,
-      ScatterBrush.MemoData
-    >): Promise<BrushLayoutData> {
+    }: BrushContext<ScatterBrush.Settings, ScatterBrush.MemoData>): Promise<
+      BrushLayoutData[]
+    > {
       const sp = { ...ScatterBrush.getInitialSetting(), settings }
       const baseColor: ColorRGBA = { ...color, a: opacity }
       const _color = new Color()
 
+      const layouts: BrushLayoutData[] = []
       const bbox: BrushLayoutData['bbox'] = {
         left: 0,
         top: 0,
@@ -294,54 +292,62 @@ export const ScatterBrush = createBrush(
         // const { points, closed } = path
         const id = generateId()
 
-        let res: GetPointWorkerResponse = await useMemoForPath(
-          path,
-          async () => {
-            try {
-              return await new Promise<GetPointWorkerResponse>((r, reject) => {
-                const receiver = (e: MessageEvent<WorkerResponse>) => {
-                  if (e.data.type === 'aborted' && e.data.id === id) {
-                    this.worker!.removeEventListener('message', receiver)
-                    reject(new PaplicoAbortError())
-                    return
-                  }
+        let res: GetPointWorkerResponse
+        try {
+          res = await useMemoForPath(
+            path,
+            async () => {
+              try {
+                return await new Promise<GetPointWorkerResponse>(
+                  (resolve, reject) => {
+                    const receiver = (e: MessageEvent<WorkerResponse>) => {
+                      if (e.data.type === 'aborted' && e.data.id === id) {
+                        this.worker!.removeEventListener('message', receiver)
+                        reject(new PPLCAbortError())
+                      }
 
-                  if (e.data.type !== 'getPoints' || e.data.id !== id) return
+                      if (e.data.type !== 'getPoints' || e.data.id !== id)
+                        return
 
-                  r(e.data)
-                  this.worker!.removeEventListener('message', receiver)
-                }
+                      resolve(e.data)
+                      this.worker!.removeEventListener('message', receiver)
+                    }
 
-                const onAbort = () => {
-                  this.worker!.postMessage({
-                    type: 'aborted',
-                    id,
-                  } satisfies Payload)
-                }
+                    const onAbort = () => {
+                      this.worker!.postMessage({
+                        type: 'aborted',
+                        id,
+                      } satisfies Payload)
+                    }
 
-                abort.addEventListener('abort', onAbort, { once: true })
-                this.worker!.addEventListener('message', receiver)
+                    abort.addEventListener('abort', onAbort, { once: true })
+                    this.worker!.addEventListener('message', receiver)
 
-                this.worker!.postMessage({
-                  id,
-                  type: 'getPoints',
-                  path,
-                  pixelRatio,
-                  brushSize: size,
-                  destSize,
-                  scatterRange: sp.scatterRange ?? 0,
-                  inOutInfluence: sp.inOutInfluence ?? 0,
-                  inOutLength: sp.inOutLength ?? 0,
-                  scatterScale: 1,
-                } satisfies Payload)
-              })
-            } catch (e) {
-              // console.info(e)
-              throw e
-            }
-          },
-          [...Object.values(sp)],
-        )
+                    this.worker!.postMessage({
+                      id,
+                      type: 'getPoints',
+                      path,
+                      pixelRatio,
+                      brushSize: size,
+                      destSize,
+                      scatterRange: sp.scatterRange ?? 0,
+                      inOutInfluence: sp.inOutInfluence ?? 0,
+                      inOutLength: sp.inOutLength ?? 0,
+                      scatterScale: 1,
+                    } satisfies Payload)
+                  },
+                )
+              } catch (e) {
+                // console.info(e)
+                throw e
+              }
+            },
+            [...Object.values(sp)],
+          )
+        } catch (e) {
+          console.log({ e })
+          throw e
+        }
 
         if (res.matrices == null) {
           throw new PaplicoError(
@@ -360,8 +366,6 @@ export const ScatterBrush = createBrush(
 
         mesh.matrixAutoUpdate = false
         mesh.instanceMatrix.needsUpdate = false
-
-        ctx.fillStyle = 'rgb(0,255,255)'
 
         try {
           for (let i = 0, l = res.matrices.length; i < l; i++) {
@@ -398,19 +402,21 @@ export const ScatterBrush = createBrush(
           threeRenderer.render(scene, threeCamera)
           ctx.drawImage(threeRenderer.domElement, 0, 0)
 
-          return {
+          layouts.push({
             bbox: {
               left: bbox.left - destSize.width / 2,
               top: bbox.top - destSize.height / 2,
               right: bbox.right + destSize.width / 2,
               bottom: bbox.bottom + destSize.height / 2,
             },
-          }
+          })
         } finally {
           mesh.dispose()
           geometry.dispose()
         }
       }
+
+      return layouts
     }
 
     protected async createWorker() {

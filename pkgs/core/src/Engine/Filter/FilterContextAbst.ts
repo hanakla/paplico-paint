@@ -3,16 +3,18 @@ import { FilterInputSource } from './Filter'
 export type PPLCFilterProgram<T = any> = {
   [__paplicoFilterProgram]: true
   program: T
+  dispose(): void
 }
 
 export type PPLCRenderTarget<T = any> = {
   [__papRenderTargetMark]: true
   renderTarget: T
+  dispose(): void
 }
 
-export type InputSource = FilterInputSource | PPLCRenderTarget
+export type InputSource<T = any> = FilterInputSource | PPLCRenderTarget<T>
 
-export type OutputTarget =
+export type RenderTarget =
   | CanvasRenderingContext2D
   | OffscreenCanvasRenderingContext2D
   | PPLCRenderTarget
@@ -62,7 +64,7 @@ export declare namespace WebGLTypes {
     | { min: TextureFilterValue; mag: TextureFilterValue }
 }
 
-export interface FilterWebGLContext {
+export interface IFilterWebGLContext {
   dispose(): void
   createRenderTarget(width: number, height: number): PPLCRenderTarget<any>
   createProgram(frag: string, vert?: string): PPLCFilterProgram<any>
@@ -78,10 +80,10 @@ export interface FilterWebGLContext {
     values: number[] | Float32Array,
   ): PPLCUniforms
   apply(
+    input: InputSource,
+    output: RenderTarget,
     program: PPLCFilterProgram,
     uniforms: Record<string, PPLCUniforms>,
-    input: InputSource,
-    output: OutputTarget,
   ): void
 }
 

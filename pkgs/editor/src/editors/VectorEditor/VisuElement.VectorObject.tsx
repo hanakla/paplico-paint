@@ -1,4 +1,9 @@
-import { Commands, Document, SVGPathManipul } from '@paplico/core-new'
+import {
+  Commands,
+  Document,
+  PaplicoMath,
+  SVGPathManipul,
+} from '@paplico/core-new'
 import {
   MouseEvent,
   ReactNode,
@@ -6,7 +11,6 @@ import {
   memo,
   useCallback,
   useEffect,
-  useMemo,
   useState,
 } from 'react'
 import { useEditorStore, useEngineStore } from '@/store'
@@ -15,10 +19,10 @@ import { useMemoRevailidatable, usePointerDrag } from '@/utils/hooks'
 import { unstable_batchedUpdates } from 'react-dom'
 import { ToolModes } from '@/stores/types'
 import { getTangent } from '@/utils/math'
-import { VisuElement } from './VisuElement'
-import { pick, usePropsMemo } from '@paplico/shared-lib'
+import { mapEntries, usePropsMemo } from '@paplico/shared-lib'
 import { storePicker } from '@/utils/zustand'
 import clsx from 'clsx'
+import useEvent from 'react-use-event-hook'
 
 type Props = {
   visuUid: string
@@ -33,8 +37,8 @@ const usePathStyle = createUseStyles({
     },
   },
   point: {
-    width: 4,
-    height: 4,
+    width: 10,
+    height: 10,
     strokeWidth: 2,
     stroke: '#4e7fff',
     paintOrder: 'stroke fill',
@@ -46,14 +50,14 @@ const usePathStyle = createUseStyles({
     cursor: 'pointer',
     touchAction: 'none',
     "&:where([data-state-selected='true'] > *)": {
-      stroke: 'var(--pap-stroke-color)',
+      stroke: 'var(--pplc-stroke-color)',
     },
     '&:hover': {
-      stroke: 'var(--pap-stroke-color)',
+      stroke: 'var(--pplc-stroke-color)',
     },
   },
   poitoToAnchorLine: {
-    stroke: 'var(--pap-stroke-color)',
+    stroke: 'var(--pplc-stroke-color)',
     pointerEvents: 'none',
   },
   disableTouchAction: {
@@ -65,10 +69,13 @@ export const VectorObjectElement = memo(function VectorObjectElement({
   visuUid,
   visu,
 }: Props) {
-  const editor = useEditorStore(storePicker(['toolMode']))
+  const editor = useEditorStore(storePicker(['toolMode', 'selectedVisuUidMap']))
   const isEditableToolMode =
     editor.toolMode === ToolModes.objectTool ||
-    editor.toolMode === ToolModes.pointTool
+    editor.toolMode === ToolModes.pointTool ||
+    editor.toolMode === ToolModes.curveTool ||
+    (editor.toolMode === ToolModes.vectorPenTool &&
+      editor.selectedVisuUidMap[visu.uid])
 
   if (!isEditableToolMode) return null
 
@@ -83,13 +90,18 @@ export const VectorObjectElementInternal = memo(function VectorObjectElement({
     storePicker([
       'toolMode',
       'canvasScale',
-      'selectedVisuUids',
+      'selectedVisuUidMap',
       'setSelectedVisuUids',
+      'setSelectedPoints',
+      'setVisuTransformOverride',
+      'vectorPenLastPoint',
+      'setVectorPenLastPoint',
     ]),
   )
 
-  const isSelected = editor.selectedVisuUids[visu.uid]
+  const isSelected = editor.selectedVisuUidMap[visu.uid]
   const isPointToolMode = editor.toolMode === ToolModes.pointTool
+  const isCurveToolMode = editor.toolMode === ToolModes.curveTool
 
   const { paplico } = useEngineStore()
   const s = usePathStyle()
@@ -132,152 +144,286 @@ export const VectorObjectElementInternal = memo(function VectorObjectElement({
     })
   }, [])
 
-  const bindDrag = usePointerDrag(({ movement, last, event }) => {
-    if (!last) {
-      paplico.requestPreviewPriolityRerender({
-        transformOverrides: {
-          [visu.uid]: (base) => {
-            base.transform.position.x += movement[0] / editor.canvasScale
-            base.transform.position.y += movement[1] / editor.canvasScale
-            return base
-          },
-        },
+  const onClickPoint = useEvent(async (e: MouseEvent) => {
+    if (isPointToolMode) {
+      const visuUid = (e.currentTarget as HTMLElement).dataset.objectUid!
+      const pointIdx = +(e.currentTarget as HTMLElement).dataset.pointIdx!
+
+      editor.setSelectedPoints((prev) => {
+        if (e.shiftKey) {
+          if (prev[visuUid]?.[pointIdx]) {
+            delete prev[visuUid]![pointIdx]
+            return prev
+          } else {
+            return {
+              ...prev,
+              [visuUid]: { ...prev[visuUid], [pointIdx]: true },
+            }
+          }
+        } else {
+          return { [visuUid]: { [pointIdx]: true } }
+        }
       })
+
+      editor.setVectorPenLastPoint(null)
+    } else if (editor.toolMode === ToolModes.vectorPenTool) {
+      const visuUid = (e.currentTarget as HTMLElement).dataset.objectUid!
+      const pointIdx = +(e.currentTarget as HTMLElement).dataset.pointIdx!
+
+      if (editor.vectorPenLastPoint != null) {
+        const lastPoint = editor.vectorPenLastPoint
+        const nextPtOfVectorPenLast = visu.path.points[lastPoint.pointIdx + 1]
+
+        const isEndOfFragmentPoint =
+          nextPtOfVectorPenLast == null || !!nextPtOfVectorPenLast?.isMoveTo
+        if (!isEndOfFragmentPoint) return
+
+        editor.setVectorPenLastPoint({
+          visu,
+          pointIdx,
+        })
+      }
+    }
+  })
+
+  const bindDrag = usePointerDrag(({ offsetMovement, last, event }) => {
+    if (editor.toolMode === ToolModes.curveTool) return
+
+    if (!last) {
+      editor.setVisuTransformOverride((prev) => ({
+        ...prev,
+        position: {
+          x: offsetMovement[0] / elementScale,
+          y: offsetMovement[1] / elementScale,
+        },
+      }))
+
+      paplico.requestPreviewPriolityRerender({
+        transformOverrides: Object.fromEntries(
+          mapEntries(editor.selectedVisuUidMap, ([uid]) => {
+            return [
+              uid,
+              (base) => {
+                base.transform.position.x += offsetMovement[0] / elementScale
+                base.transform.position.y += offsetMovement[1] / elementScale
+                return base
+              },
+            ]
+          }),
+        ),
+      })
+
+      // paplico.requestPreviewPriolityRerender({
+      //   transformOverrides: {
+      //     [visu.uid]: (base) => {
+      //       base.transform.position.x += movement[0] / editor.canvasScale
+      //       base.transform.position.y += movement[1] / editor.canvasScale
+      //       return base
+      //     },
+      //   },
+      // })
     } else {
       paplico.command.do(
         new Commands.VectorVisuUpdateAttributes(visuUid, {
           updater: (target) => {
             const prevPosition = target.transform.position
             target.transform.position = {
-              x: prevPosition.x + movement[0] / editor.canvasScale,
-              y: prevPosition.y + movement[1] / editor.canvasScale,
+              x: prevPosition.x + offsetMovement[0] / elementScale,
+              y: prevPosition.y + offsetMovement[1] / elementScale,
             }
           },
         }),
       )
+
+      editor.setVisuTransformOverride(null)
     }
   })
 
-  const bindDragPoint = usePointerDrag(({ event, offsetMovement, last }) => {
-    const dataset = (event.currentTarget as HTMLElement)!.dataset
-    const pointIdx = +dataset.pointIdx!
-    const isCloseToPathHeadPoint = !!dataset.isCloseToPathHeadPoint
-    const startPointIdx = dataset.startPointIdx ? +dataset.startPointIdx : null
+  const bindDragPoint = usePointerDrag(
+    ({ event, offsetInitial, offsetMovement, first, last }) => {
+      const dataset = (event.currentTarget as HTMLElement)!.dataset
+      const pointIdx = +dataset.pointIdx!
+      const isCloseToPathHeadPoint = !!dataset.isCloseToPathHeadPoint
+      const startPointIdx = dataset.startPointIdx
+        ? +dataset.startPointIdx
+        : null
 
-    // console.log({
-    //   dataset,
-    //   event: { ...event },
-    //   target: event.currentTarget,
-    //   pointIdx,
-    //   isCloseToPathHeadPoint,
-    //   startPointIdx,
-    // })
-    if (pointIdx == null) return
+      // console.log({
+      //   dataset,
+      //   event: { ...event },
+      //   target: event.currentTarget,
+      //   pointIdx,
+      //   isCloseToPathHeadPoint,
+      //   startPointIdx,
+      // })
+      if (pointIdx == null) return
 
-    const moveX = offsetMovement[0]
-    const moveY = offsetMovement[1]
+      if (isCurveToolMode) {
+        const oppositeSidePos = PaplicoMath.getPointWithAngleAndDistance({
+          base: { x: offsetInitial[0], y: offsetInitial[1] },
+          angle:
+            PaplicoMath.getRadianTangent(
+              offsetInitial[0],
+              offsetInitial[1],
+              offsetInitial[0] + offsetMovement[0],
+              offsetInitial[1] + offsetMovement[1],
+            ) + PaplicoMath.degToRad(180),
+          distance: PaplicoMath.distance2D(
+            offsetInitial[0],
+            offsetInitial[1],
+            offsetInitial[0] + offsetMovement[0],
+            offsetInitial[1] + offsetMovement[1],
+          ),
+        })
 
-    const patchPointIndices = [pointIdx]
-    if (isCloseToPathHeadPoint && startPointIdx != null) {
-      patchPointIndices.push(startPointIdx)
-    }
+        if (!last) {
+        } else {
+          paplico.requestPreviewPriolityRerender({
+            transformOverrides: {
+              [visu.uid]: (base) => {
+                if (base.type !== 'vectorObject') return base
 
-    if (!last) {
-      paplico.requestPreviewPriolityRerender({
-        transformOverrides: {
-          [visu.uid]: (base) => {
-            if (base.type !== 'vectorObject') return base
+                const point = base.path.points[pointIdx]
+                // if (!point?.begin) return base
 
-            patchPointIndices.forEach((idx) => {
-              const point = base.path.points[idx]
-              const next = base.path.points[+idx + 1]
+                point.begin = {
+                  x:
+                    (point.begin?.x ?? 0) +
+                    offsetMovement[0] / editor.canvasScale,
+                  y:
+                    (point.begin?.y ?? 0) +
+                    offsetMovement[1] / editor.canvasScale,
+                }
+                point.end = {
+                  x:
+                    (point.end?.x ?? 0) +
+                    oppositeSidePos.x / editor.canvasScale,
+                  y:
+                    (point.end?.y ?? 0) +
+                    oppositeSidePos.y / editor.canvasScale,
+                }
 
-              if (!point) return base
+                return base
+              },
+            },
+          })
 
-              point.x += moveX
-              point.y += moveY
+          setBeginAnchorOverride({
+            idx: +pointIdx,
+            x: offsetMovement[0],
+            y: offsetMovement[1],
+          })
 
-              if ('end' in point && point.end) {
-                point.end.x += moveX
-                point.end.y += moveY
-              }
+          setEndAnchorOverride({
+            idx: +pointIdx,
+            x: oppositeSidePos.x,
+            y: oppositeSidePos.y,
+          })
+        }
+      } else if (isPointToolMode) {
+        const moveX = offsetMovement[0]
+        const moveY = offsetMovement[1]
 
-              if (next && 'begin' in next && next.begin) {
-                next.begin.x += moveX
-                next.begin.y += moveY
-              }
-            })
+        const patchPointIndices = [pointIdx]
 
-            return base
-          },
-        },
-      })
+        if (isCloseToPathHeadPoint && startPointIdx != null) {
+          // if close to path head point, move head point too
+          patchPointIndices.push(startPointIdx)
+        }
 
-      setPointMoveOverride({
-        idxs: patchPointIndices,
-        x: moveX,
-        y: moveY,
-        beginX: 0,
-        beginY: 0,
-        endX: 0,
-        endY: 0,
-      })
-    } else {
-      paplico.command.do(
-        new Commands.VectorVisuUpdateAttributes(visuUid, {
-          updater: (target) => {
-            patchPointIndices.forEach((idx) => {
-              const point = target.path.points[idx]
-              const next = target.path.points[idx + 1]
-              if (!point) return
+        if (!last) {
+          paplico.requestPreviewPriolityRerender({
+            transformOverrides: {
+              [visu.uid]: (base) => {
+                if (base.type !== 'vectorObject') return base
 
-              point.x += moveX / editor.canvasScale
-              point.y += moveY / editor.canvasScale
+                patchPointIndices.forEach((idx) => {
+                  const point = base.path.points[idx]
+                  const next = base.path.points[+idx + 1]
 
-              if (point.end) {
-                point.end.x += moveX / editor.canvasScale
-                point.end.y += moveY / editor.canvasScale
-              }
+                  if (!point) return base
 
-              if (next?.begin) {
-                next.begin.x += moveX / editor.canvasScale
-                next.begin.y += moveY / editor.canvasScale
-              }
-            })
-          },
-        }),
-      )
+                  point.x += moveX
+                  point.y += moveY
 
-      setPointMoveOverride(null)
-    }
-  })
+                  if ('end' in point && point.end) {
+                    point.end.x += moveX
+                    point.end.y += moveY
+                  }
+
+                  if (next && 'begin' in next && next.begin) {
+                    next.begin.x += moveX
+                    next.begin.y += moveY
+                  }
+                })
+
+                return base
+              },
+            },
+          })
+
+          setPointMoveOverride({
+            idxs: patchPointIndices,
+            x: moveX,
+            y: moveY,
+            beginX: 0,
+            beginY: 0,
+            endX: 0,
+            endY: 0,
+          })
+        } else {
+          paplico.command.do(
+            new Commands.VectorVisuUpdateAttributes(visuUid, {
+              updater: (target) => {
+                patchPointIndices.forEach((idx) => {
+                  const point = target.path.points[idx]
+                  const next = target.path.points[idx + 1]
+                  if (!point) return
+
+                  point.x += moveX / editor.canvasScale
+                  point.y += moveY / editor.canvasScale
+
+                  if (point.end) {
+                    point.end.x += moveX / editor.canvasScale
+                    point.end.y += moveY / editor.canvasScale
+                  }
+
+                  if (next?.begin) {
+                    next.begin.x += moveX / editor.canvasScale
+                    next.begin.y += moveY / editor.canvasScale
+                  }
+                })
+              },
+            }),
+          )
+
+          setPointMoveOverride(null)
+        }
+      }
+    },
+  )
 
   const onDblClickPoint = useCallback((e: MouseEvent) => {
-    const pointIdx = +e.currentTarget.dataset.pointIdx!
-
-    const prevPt = visu.path.points[pointIdx - 1]
-    const pt = visu.path.points[pointIdx]
-    const nextPt = visu.path.points[pointIdx + 1]
-
-    if (!pt || !prevPt || !nextPt) return
-
-    paplico.command.do(
-      new Commands.VectorVisuUpdateAttributes(visuUid, {
-        updater: (target) => {
-          const prev = target.path.points[pointIdx - 1]
-          const next = target.path.points[pointIdx + 1]
-          const current = target.path.points[pointIdx]
-
-          if (!prev || !next || !current) return
-
-          const tan = getTangent(current.x, current.y, prev.x, prev.y)
-          prev.end = {
-            x: prev.x + tan.x,
-            y: prev.y + tan.y,
-          }
-        },
-      }),
-    )
+    // const pointIdx = +e.currentTarget.dataset.pointIdx!
+    // const prevPt = visu.path.points[pointIdx - 1]
+    // const pt = visu.path.points[pointIdx]
+    // const nextPt = visu.path.points[pointIdx + 1]
+    // if (!pt || !prevPt || !nextPt) return
+    // paplico.command.do(
+    //   new Commands.VectorVisuUpdateAttributes(visuUid, {
+    //     updater: (target) => {
+    //       const prev = target.path.points[pointIdx - 1]
+    //       const next = target.path.points[pointIdx + 1]
+    //       const current = target.path.points[pointIdx]
+    //       if (!prev || !next || !current) return
+    //       const tan = getTangent(current.x, current.y, prev.x, prev.y)
+    //       prev.end = {
+    //         x: prev.x + tan.x,
+    //         y: prev.y + tan.y,
+    //       }
+    //     },
+    //   }),
+    // )
   }, [])
 
   const bindBeginAnchorDrag = usePointerDrag(
@@ -382,7 +528,7 @@ export const VectorObjectElementInternal = memo(function VectorObjectElement({
           <MemoPath
             stroke="transparent"
             d={d}
-            strokeWidth={3 * elementScale}
+            strokeWidth={5}
             onClick={onClickPath}
             className={s.previewStroke}
             {...bindDrag()}
@@ -409,8 +555,8 @@ export const VectorObjectElementInternal = memo(function VectorObjectElement({
 
     let currentMoveToIdx = 0
     visu.path.points.forEach((pt, idx, list) => {
-      if (!editor.selectedVisuUids[visu.uid]) return
-      if (!isPointToolMode) return
+      if (!editor.selectedVisuUidMap[visu.uid]) return
+      if (!isPointToolMode && !isCurveToolMode) return
       if (pt.isMoveTo) currentMoveToIdx = idx
       if (pt.isClose) return
 
@@ -436,13 +582,14 @@ export const VectorObjectElementInternal = memo(function VectorObjectElement({
       pointElements.push(
         <MemoRect
           key={'pt' + idx}
-          x={pt.x - 2 + ptOvrOffsetX}
-          y={pt.y - 2 + ptOvrOffsetY}
+          x={pt.x - 5 + ptOvrOffsetX}
+          y={pt.y - 5 + ptOvrOffsetY}
           className={clsx(s.disableTouchAction, s.point)}
           {...bindDragPoint()}
           onDoubleClick={onDblClickPoint}
           data-object-uid={visu.uid}
           data-point-idx={idx}
+          onClick={onClickPoint}
           {...(isCloseToPathHeadPoint
             ? {
                 'data-isCloseToPathHeadPoint': isCloseToPathHeadPoint,
@@ -480,7 +627,7 @@ export const VectorObjectElementInternal = memo(function VectorObjectElement({
         pathFragmentElements.push(
           <MemoPath
             key={'path' + idx}
-            stroke="var(--pap-stroke-color)"
+            stroke="var(--pplc-stroke-color)"
             data-point-idx={idx}
             d={d}
           />,
@@ -492,7 +639,7 @@ export const VectorObjectElementInternal = memo(function VectorObjectElement({
             <MemoLine
               key={'begin-line' + idx}
               className={s.poitoToAnchorLine}
-              strokeWidth={1 * elementScale}
+              strokeWidth={1}
               data-begin-line
               x1={prev.x + prevOvrOffsetX}
               y1={prev.y + prevOvrOffsetY}
@@ -504,12 +651,12 @@ export const VectorObjectElementInternal = memo(function VectorObjectElement({
           beginAnchorElements.push(
             <MemoCircle
               key={'begin-control' + idx}
-              r={3 * elementScale}
+              r={3}
               cx={pt.begin.x + prevOvrOffsetX + beginOvrX}
               cy={pt.begin.y + prevOvrOffsetY + beginOvrY}
               paintOrder="stroke fill"
               fill="white"
-              stroke="var(--pap-stroke-color)"
+              stroke="var(--pplc-stroke-color)"
               data-beginning-of-curve-for={idx}
               className={s.disableTouchAction}
               data-point-idx={idx}
@@ -525,7 +672,7 @@ export const VectorObjectElementInternal = memo(function VectorObjectElement({
               key={'end-line' + idx}
               className={s.poitoToAnchorLine}
               data-end-line
-              strokeWidth={1 * elementScale}
+              strokeWidth={1}
               x1={pt.x + ptOvrOffsetX}
               y1={pt.y + ptOvrOffsetY}
               x2={pt.end.x + ptOvrOffsetX + endOvrX}
@@ -540,12 +687,12 @@ export const VectorObjectElementInternal = memo(function VectorObjectElement({
           endAnchorElements.push(
             <MemoCircle
               key={'end-control' + idx}
-              r={3 * elementScale}
+              r={3}
               cx={pt.end.x + ptOvrOffsetX + endOvrX}
               cy={pt.end.y + ptOvrOffsetY + endOvrY}
               paintOrder="stroke"
               fill="white"
-              stroke="var(--pap-stroke-color)"
+              stroke="var(--pplc-stroke-color)"
               data-point-idx={idx}
               className={s.disableTouchAction}
               {...bindEndAnchorDrag()}
@@ -565,7 +712,7 @@ export const VectorObjectElementInternal = memo(function VectorObjectElement({
   }, [
     visu.path,
     visu.path.points,
-    editor.selectedVisuUids[visu.uid],
+    editor.selectedVisuUidMap[visu.uid],
     isPointToolMode,
     pointMoveOverride,
     beginAnchorOverride,

@@ -5,7 +5,6 @@ import {
 import { type PaplicoDocument } from './PaplicoDocument'
 import { type LayerNode } from './Structs/LayerNode'
 import { VisuElement } from './Visually/VisuElement'
-import { DocumentContext } from '@/Engine'
 
 export type NodesController = {
   getRootNode(): LayerNode
@@ -39,10 +38,7 @@ export type NodesController = {
    * Get ancestor of specified node contained node (likes GroupVisuallly)
    * @param Ancestor node list. first is root. last is parent
    */
-  getAncestorContainerNodes(
-    path: string[],
-    includeSelf?: boolean,
-  ): LayerNode[] | null
+  getAncestorNodes(path: string[], includeSelf?: boolean): LayerNode[] | null
 
   /**
    *  Add new Visually into specified node,
@@ -176,7 +172,7 @@ export function createNodesController(doc: PaplicoDocument): NodesController {
       return flatten
     },
 
-    getAncestorContainerNodes(path: string[], includeSelf = false) {
+    getAncestorNodes(path: string[], includeSelf = false) {
       if (path[0] === '__root__') path = path.slice(1)
       if (path.length === 0) return [rootNode]
 
@@ -241,7 +237,7 @@ export function createNodesController(doc: PaplicoDocument): NodesController {
     removeLayerNode(path: string[]) {
       const targetNodeUid = path.at(-1)
 
-      const parent = this.getAncestorContainerNodes(path)?.at(-1)
+      const parent = this.getAncestorNodes(path)?.at(-1)
       if (!parent) {
         throw new PPLCTargetEntityNotFoundError(
           `Document.layerNodes.removeNodeAt: Parent node not found (on removing ${path.join(
@@ -272,11 +268,11 @@ export function createNodesController(doc: PaplicoDocument): NodesController {
       const placeItMark = overPath.at(-1) === 'PLACE_IT'
       overPath = placeItMark ? overPath.slice(0, -1) : overPath
 
-      const sourceNodeAncestors = me.getAncestorContainerNodes(sourcePath, true)
+      const sourceNodeAncestors = me.getAncestorNodes(sourcePath, true)
       const sourceNode = sourceNodeAncestors?.at(-1)!
       const sourceParent = sourceNodeAncestors?.at(-2)
 
-      const overNodeAncestors = me.getAncestorContainerNodes(overPath, true)
+      const overNodeAncestors = me.getAncestorNodes(overPath, true)
       const overNode = overNodeAncestors?.at(-1)
       const overParentNode = placeItMark ? overNode : overNodeAncestors?.at(-2)
 

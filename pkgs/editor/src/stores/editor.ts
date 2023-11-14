@@ -18,6 +18,13 @@ type SelectedPointMap = {
     | undefined
 }
 
+const INITIAL_NO_TRANSFORM: () => Document.VisuElement.ElementTransform =
+  () => ({
+    position: { x: 0, y: 0 },
+    scale: { x: 1, y: 1 },
+    rotate: 0,
+  })
+
 export type DisplayedResolvedNode = Readonly<
   Document.PaplicoDocument.ResolvedLayerNode & {
     uid: string
@@ -43,8 +50,19 @@ export type EditorStore = {
   displayedResolvedNodes: DisplayedResolvedNode[]
   setDisplayResolvedNodes: (nodes: DisplayedResolvedNode[]) => void
 
-  selectedVisuUids: SelectedVisuMap
-  selectedPoints: SelectedPointMap
+  selectedVisuUidMap: SelectedVisuMap
+  selectedPointsMap: SelectedPointMap
+  vectorPenLastPoint: {
+    visuUid: string
+    pointIdx: number
+  } | null
+
+  setVectorPenLastPoint: (
+    pointData: {
+      visuUid: string
+      pointIdx: number
+    } | null,
+  ) => void
 
   visuTransformOverride: Document.VisuElement.ElementTransform | null
   pointTransformOverride: Document.VisuElement.ElementTransform | null
@@ -57,6 +75,22 @@ export type EditorStore = {
   ) => void
   setSelectedPoints: (
     updater: (prev: SelectedPointMap) => SelectedPointMap,
+  ) => void
+
+  setVisuTransformOverride: (
+    updater:
+      | ((
+          prev: Document.VisuElement.ElementTransform,
+        ) => Document.VisuElement.ElementTransform | null)
+      | null,
+  ) => void
+
+  setPointTransformOverride: (
+    updater:
+      | ((
+          prev: Document.VisuElement.ElementTransform,
+        ) => Document.VisuElement.ElementTransform | null)
+      | null,
   ) => void
 }
 
@@ -89,8 +123,12 @@ export const createEditorStore = () => {
       set(() => ({ displayedResolvedNodes: nodes }))
     },
 
-    selectedVisuUids: {},
-    selectedPoints: {},
+    selectedVisuUidMap: {},
+    selectedPointsMap: {},
+    vectorPenLastPoint: null,
+    setVectorPenLastPoint: (pointData) => {
+      set(() => ({ vectorPenLastPoint: pointData }))
+    },
 
     visuTransformOverride: null,
     pointTransformOverride: null,
@@ -99,10 +137,25 @@ export const createEditorStore = () => {
     getEditorState: get,
 
     setSelectedVisuUids: (updater) => {
-      set((prev) => ({ selectedVisuUids: updater(prev.selectedVisuUids) }))
+      set((prev) => ({ selectedVisuUidMap: updater(prev.selectedVisuUidMap) }))
     },
     setSelectedPoints: (updater) => {
-      set((prev) => ({ selectedPoints: updater(prev.selectedPoints) }))
+      set((prev) => ({ selectedPointsMap: updater(prev.selectedPointsMap) }))
+    },
+
+    setVisuTransformOverride: (updater) => {
+      set((prev) => ({
+        visuTransformOverride:
+          updater?.(prev.visuTransformOverride ?? INITIAL_NO_TRANSFORM()) ??
+          null,
+      }))
+    },
+    setPointTransformOverride: (updater) => {
+      set((prev) => ({
+        pointTransformOverride:
+          updater?.(prev.pointTransformOverride ?? INITIAL_NO_TRANSFORM()) ??
+          null,
+      }))
     },
   }))
 }

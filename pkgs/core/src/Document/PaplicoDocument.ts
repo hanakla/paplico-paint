@@ -3,8 +3,10 @@ import { assign, deepClone } from '@paplico/shared-lib'
 import { LayerNode } from './Structs/LayerNode'
 import { PaplicoBlob } from './PaplicoBlob'
 import { VisuElement } from './Visually/VisuElement'
-import { createGroupVisually } from './Visually/factory'
+import { DEFAULT_VISU_TRANSFORM, createGroupVisually } from './Visually/factory'
 import { createNodesController } from './PaplicoDocument.LayerNodes'
+import { composeVisuTransforms } from '@/Engine/VectorUtils'
+import { PPLCInvariantViolationError } from '@/Errors'
 
 export namespace PaplicoDocument {
   export type Meta = {
@@ -87,6 +89,30 @@ export class PaplicoDocument {
 
   public readonly layerNodes = createNodesController(this)
 
+  /** Resolve visu transforms to target node parent (not merged targetNode self) */
+  public resolveTransformsTo(targetNode: string[]) {
+    const ancestors = this.layerNodes.getAncestorNodes(targetNode)
+    if (!ancestors) return null
+
+    const parents = ancestors.slice(0, -1)
+    let result = DEFAULT_VISU_TRANSFORM()
+
+    for (const parent of parents) {
+      const node = this.visuByIdMap[parent.visuUid]
+      if (!node) {
+        throw new PPLCInvariantViolationError('Visu not found')
+      }
+
+      result = composeVisuTransforms(result, node.transform)
+    }
+
+    return result
+  }
+
+  /**
+   * Get Visu object by UID.
+   * It can be frequently call, using `uid: element` hash map internally.
+   */
   public getVisuByUid(visuUid: string): VisuElement.AnyElement | undefined {
     if (visuUid === '__root__') {
       const vis = createGroupVisually({})
@@ -134,18 +160,6 @@ export class PaplicoDocument {
   public __internal_RemoveLayerNode(path: string[]) {
     this.layerNodes.removeLayerNode(path)
     delete this.visuByIdMap[path[path.length - 1]]
-  }
-
-  /** @deprecated */
-  public resolveVectorObject(
-    uid: string,
-  ): VisuElement.VectorObjectElement | null {
-    return (
-      this.visuElements.find(
-        (v): v is VisuElement.VectorObjectElement =>
-          v.type === 'vectorObject' && v.uid === uid,
-      ) ?? null
-    )
   }
 
   public serialize(): PaplicoDocument.SerializedSchema {

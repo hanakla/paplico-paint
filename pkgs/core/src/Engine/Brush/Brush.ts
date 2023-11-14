@@ -87,7 +87,7 @@ export interface IBrush<
   Memo = any,
 > {
   initialize(context: {}): Promise<void>
-  render(brushContext: BrushContext<Settings, Memo>): Promise<BrushLayoutData>
+  render(brushContext: BrushContext<Settings, Memo>): Promise<BrushLayoutData[]>
 }
 
 export const createBrush = <T extends BrushClass<any>>(Class: T) => Class

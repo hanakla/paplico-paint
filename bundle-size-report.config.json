@@ -1,0 +1,34 @@
+[
+  {
+    "sourceFilePath": "./pkgs/core/dist/index.js",
+    "sizeUnit": "kb"
+  },
+  {
+    "sourceFilePath": "./pkgs/core/dist/index.mjs",
+    "sizeUnit": "kb"
+  },
+  {
+    "sourceFilePath": "./pkgs/core/dist/ext-brush.js",
+    "sizeUnit": "kb"
+  },
+  {
+    "sourceFilePath": "./pkgs/core/dist/ext-brush.mjs",
+    "sizeUnit": "kb"
+  },
+  {
+    "sourceFilePath": "./pkgs/core/dist/extras.js",
+    "sizeUnit": "kb"
+  },
+  {
+    "sourceFilePath": "./pkgs/core/dist/extras.mjs",
+    "sizeUnit": "kb"
+  }
+  {
+    "sourceFilePath": "./pkgs/editor/dist/index.umd.js",
+    "sizeUnit": "kb"
+  },
+  {
+    "sourceFilePath": "./pkgs/editor/dist/index.mjs",
+    "sizeUnit": "kb"
+  },
+]

@@ -1,9 +1,13 @@
-import { pointsToSVGCommandArray } from '@/Engine/VectorUtils'
-import { type BrushLayoutData } from '@/index'
-import { getRadianFromTangent } from '@/StrokingHelper'
-import { Matrix4, mapLinear } from '@/Math'
+import {
+  BrushLayoutData,
+  createStreamScatter,
+  getRadianFromTangent,
+} from '@/index-ext-brush'
+import { Matrix4 } from '@/Math'
 import { indexedPointAtLength } from '@/fastsvg/IndexedPointAtLength'
-import { type VectorPath } from '@/Document/LayerEntity/VectorPath'
+import { mapLinear } from '@/Math/interpolation'
+import { vectorPathPointsToSVGCommandArray } from '@/SVGPathManipul'
+import { VisuElement } from '@/Document'
 
 export type Payload =
   | { type: 'warming' }
@@ -11,8 +15,9 @@ export type Payload =
   | {
       id: string
       type: 'getPoints'
-      path: VectorPath
+      path: VisuElement.VectorPath
       destSize: { width: number; height: number }
+      pixelRatio: number
       brushSize: number
       scatterRange: number
       scatterScale: number
@@ -27,7 +32,7 @@ export type GetPointWorkerResponse = {
   lengths: number[]
   totalLength: number
   bbox: { left: number; top: number; right: number; bottom: number } | null
-  _internals: any
+  _debug: any
 }
 
 export type WorkerResponse =
@@ -40,7 +45,9 @@ const queue: Payload[] = []
 const queueResult = new Map<string, WorkerResponse>()
 
 const handleMessage = (
-  handler: (event: MessageEvent<Payload>) => Promise<WorkerResponse | undefined>
+  handler: (
+    event: MessageEvent<Payload>,
+  ) => Promise<WorkerResponse | undefined>,
 ) => {
   return async (event: MessageEvent<Payload>) => {
     const result = await handler(event)
@@ -113,66 +120,67 @@ export async function processInput(data: Payload): Promise<WorkerResponse> {
     id,
     path,
     destSize,
+    pixelRatio,
     brushSize,
     scatterRange,
     scatterScale,
     inOutInfluence,
-    inOutLength
+    inOutLength,
   } = data
 
-  const positions: [number, number][] = []
+  const originalWidth = destSize.width
+  const originalHeight = destSize.height
+
+  const destWidth = destSize.width * pixelRatio
+  const destHeight = destSize.height * pixelRatio
+
+  const _debug_positions: [number, number][] = []
   const lengths: number[] = []
   const matrices: (number[] | Float32Array)[] = []
   const bbox: BrushLayoutData['bbox'] = {
     left: 0,
     top: 0,
     right: 0,
-    bottom: 0
+    bottom: 0,
   }
 
-  // const scattered = scatterPlot(path, {
-  //   counts: path.points.length * 300,
-  //   scatterRange: 2,
-  //   scatterScale: 1,
-  // })
-
-  // console.time('build pal')
-
   const pal = indexedPointAtLength(
-    pointsToSVGCommandArray(path.points, path.closed)
+    vectorPathPointsToSVGCommandArray(path.points),
   )
-  // console.timeEnd('build pal')
+
   const totalLen = pal.totalLength
 
   if (totalLen === 0) {
     return {
       id,
       type: 'getPoints',
-      matrices: null,
+      matrices: [],
       lengths: [],
       bbox: null,
-      totalLength: 0
+      totalLength: 0,
+      _debug: {},
     }
   }
 
   const step = 1
 
-  let count = 0
-  let times = 0
-  let requestAts: number[] = []
-
+  const requestAts: number[] = []
   for (let len = 0; len <= totalLen; len += step) {
     requestAts.push(len)
     requestAts.push(len + 0.01)
   }
-
   requestAts.push(totalLen)
 
   const points = pal.atBatch(requestAts)
+  const scatter = createStreamScatter(path, pal, {
+    counts: path.points.length * 300,
+    scatterRange,
+    scatterScale,
+  })
 
-  for (let idx = 0, l = points.length; idx < l; idx += 1) {
+  for (let idx = 0, l = points.length; idx < l; idx += 2) {
     // wait for tick (for receiving abort message from main thread)
-    await Promise.resolve()
+    await new Promise<void>((r) => queueMicrotask(r))
 
     if (abortedTasks.has(id)) {
       // console.info('aboterd on worker')
@@ -181,12 +189,13 @@ export async function processInput(data: Payload): Promise<WorkerResponse> {
     }
 
     const len = points[idx].length
-    const [x, y] = points[idx].pos //pal.at(len)
+    const frac = len / totalLen
+    let [x, y] = points[idx].pos
+    _debug_positions.push([x, y])
     const next = points[idx + 1]?.pos ?? points[idx]?.pos //pal.at(len + 0.01, { seek: false })
 
-    const rad = getRadianFromTangent({ x, y }, { x: next[0], y: next[1] })
-
-    // const ypos =
+    const rad = getRadianFromTangent(x, y, next[0], next[1])
+    const scatPoint = scatter.scatterPoint(x, y, frac)
 
     // if len in inOutLength from start or end, scale by inOutInfluence
     // prettier-ignore
@@ -199,34 +208,36 @@ export async function processInput(data: Payload): Promise<WorkerResponse> {
       : len >= totalLen - inOutLength ? inOutInfluence * (totalLen - len) / inOutLength
       : 1;
 
-    const matt4 = new Matrix4().translate(
-      // x,
-      // y,
-      mapLinear(
-        x,
-        [0, destSize.width],
-        [-destSize.width / 2, destSize.width / 2]
-      ),
-      mapLinear(
-        y,
-        [0, destSize.height],
-        [destSize.height / 2, -destSize.height / 2]
-      ),
-      0
-    )
-    // .scale([brushSize * inoutScale, brushSize * inoutScale, 1])
-    // .rotateZ(rad)
+    const matt4 = new Matrix4()
+      .translate(
+        // x,
+        // y,
+        mapLinear(
+          scatPoint.x,
+          [0, originalWidth],
+          [-destWidth / 2, destWidth / 2],
+        ),
+        mapLinear(
+          scatPoint.y,
+          [0, originalHeight],
+          [destHeight / 2, -destHeight / 2],
+        ),
+        0,
+      )
+      .scale([
+        brushSize * inoutScale * scatPoint.scale * pixelRatio,
+        brushSize * inoutScale * scatPoint.scale * pixelRatio,
+        1,
+      ])
+      .rotateZ(rad + scatPoint.rotate)
 
     matrices.push(matt4.toArray())
     lengths.push(len)
-    positions.push([x, y])
 
     bbox.left = Math.min(bbox.left, x)
     bbox.top = Math.min(bbox.top, y)
     bbox.right = Math.max(bbox.right, x)
     bbox.bottom = Math.max(bbox.bottom, y)
-
-    count++
   }
 
   if (abortedTasks.has(id)) {
@@ -241,9 +252,10 @@ export async function processInput(data: Payload): Promise<WorkerResponse> {
     lengths,
     totalLength: totalLen,
     matrices,
-    _internals: {
-      requestAts,
-      positions
-    }
+    _debug: {
+      // requestAts,
+      // path,
+      // positions: _debug_positions,
+    },
   }
 }

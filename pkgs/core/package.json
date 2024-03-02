@@ -8,11 +8,33 @@
   "exports": {
     ".": {
       "import": "./dist/index.mjs",
-      "require": "./dist/index.umd.js"
+      "types": "./dist/index.d.ts",
+      "require": "./dist/index.js"
+    },
+    "./ext-brush": {
+      "import": "./dist/ext-brush.mjs",
+      "types": "./dist/index-ext-brush.d.ts",
+      "require": "./dist/ext-brush.js"
+    },
+    "./ext-ink": {
+      "import": "./dist/ext-ink.mjs",
+      "types": "./dist/index-ext-ink.d.ts",
+      "require": "./dist/ext-ink.js"
+    },
+    "./math-utils": {
+      "import": "./dist/math-utils.mjs",
+      "types": "./dist/index-math-utils.d.ts",
+      "require": "./dist/math-utils.js"
+    },
+    "./expr-webgl": {
+      "import": "./dist/expr-webgl.mjs",
+      "types": "./dist/index-expr-webgl.d.ts",
+      "require": "./dist/expr-webgl.js"
     },
     "./extras": {
       "import": "./dist/extras.mjs",
-      "require": "./dist/extras.umd.js"
+      "types": "./dist/index-extras.d.ts",
+      "require": "./dist/extras.js"
     }
   },
   "scripts": {
@@ -22,32 +44,41 @@
     "build": "vite build"
   },
   "devDependencies": {
+    "@paplico/shared-lib": "workspace:^",
     "@rollup/plugin-typescript": "^9.0.2",
-    "@types/gl-matrix": "^3.2.0",
+    "@types/opentype.js": "^1.3.7",
     "@types/three": "^0.146.0",
+    "@types/web": "^0.0.119",
     "point-at-length": "^1.1.0",
+    "random-seedable": "^1.0.8",
+    "rollup-plugin-node-externals": "^6.1.2",
     "typescript": "^5.0.4",
-    "vite": "^4.4.9",
-    "vite-plugin-dts": "^3.5.3",
+    "vite": "^4.5.0",
+    "vite-plugin-dts": "^3.6.3",
     "vite-tsconfig-paths": "^4.2.0",
     "vitest": "^0.34.3"
   },
   "dependencies": {
     "@luncheon/simplify-svg-path": "^0.2.0",
+    "@thednp/dommatrix": "^2.0.6",
     "abs-svg-path": "^0.1.1",
     "crypto-js": "^4.1.1",
     "fast-random": "^2.0.4",
     "fast-shallow-equal": "^1.0.0",
-    "gl-matrix": "^3.4.3",
-    "immer": "^9.0.16",
     "is-ios": "^2.1.0",
-    "jsondiffpatch-rc": "^0.4.2",
+    "jsondiffpatch": "^0.5.0",
     "math.gl": "^3.6.3",
     "matrixgl": "^2.0.0",
-    "mitt": "^3.0.0",
+    "mitt": "^3.0.1",
+    "opentype.js": "^1.3.4",
     "polished": "^4.2.2",
+    "svg-path-bounding-box": "^1.0.4",
     "three": "^0.146.0",
     "ulid": "^2.3.0",
     "zod": "^3.19.1"
+  },
+  "peerDependencies": {
+    "ag-psd": "^17.0.6",
+    "react": "*"
   }
 }

@@ -1,6 +1,6 @@
 {
   "compilerOptions": {
-    "target": "ES2016",
+    "target": "ES2022",
     "strict": true,
     "esModuleInterop": true,
     "forceConsistentCasingInFileNames": true,
@@ -11,11 +11,12 @@
     "isolatedModules": true,
     "skipLibCheck": true,
     "paths": {
-      "@/*": ["src/*", "dist/*"]
+      "@/*": ["src/*"]
     },
     "baseUrl": ".",
-    "lib": ["ES2022", "DOM"],
-    "types": ["vitest/importMeta", "vitest/globals"]
+    "lib": ["ES2022",],
+    "jsx": "react-jsx",
+    "types": ["vitest/importMeta", "vitest/globals", "@types/web"]
   },
   "include": ["src/**/*"]
 }

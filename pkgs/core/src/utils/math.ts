@@ -15,11 +15,3 @@ export const degToRad = (deg: number) => normalizeDegree(deg) * (Math.PI / 180)
 
 export const suppressNaN = (value: number, { to = 0 }: { to?: number }) =>
   Number.isNaN(value) ? to : value
-
-export const mapLinear = (
-  x: number,
-  a: [number, number],
-  b: [number, number]
-) => {
-  return lerp(b[0], b[1], clamp((x - a[0]) / (a[1] - a[0]), 0, 1))
-}

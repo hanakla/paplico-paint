@@ -1,34 +1,47 @@
-import { createSeededRandom, hsvToRgb, rgbToHsv } from '@/Math'
-import { IInk, InkGenerator } from '../Engine/Ink'
+import { hsvToRgb, rgbToHsv } from '@/Math'
+import { IInk, InkGenerator, createInk } from '../Engine/Ink'
 
 export declare namespace RainbowInk {
-  type SpecificSetting = {}
+  type Setting = {}
 }
 
-export class RainbowInk implements IInk {
-  public static id = '@paplico/core/ink/rainbow'
-  public static version = '0.0.1'
+export const RainbowInk = createInk(
+  class RainbowInk implements IInk<RainbowInk.Setting> {
+    public static metadata = {
+      id: '@paplico/core/ink/rainbow',
+      version: '0.0.1',
+      name: 'Rainbow Ink',
+    }
 
-  public get class() {
-    return RainbowInk
-  }
+    public static getInitialSetting(): RainbowInk.Setting {
+      return {}
+    }
 
-  public initialize() {}
+    public get id() {
+      return RainbowInk.metadata.id
+    }
 
-  public getInkGenerator(ctx: any): InkGenerator {
-    return {
-      applyTexture(canvas, context) {
-        return
-      },
-      getColor({ pointIndex, points, baseColor, pointAtLength, totalLength }) {
-        // const random = createSeededRandom(pointIndex)
+    public initialize() {}
 
-        const [h, s, v] = rgbToHsv(baseColor.r, baseColor.g, baseColor.b)
-        const newH = h + pointAtLength / totalLength
-        const [r, g, b] = hsvToRgb(newH, s, v)
+    public getInkGenerator(ctx: any): InkGenerator {
+      return {
+        applyTexture(canvas, context) {
+          return
+        },
+        getColor({
+          pointIndex,
+          points,
+          baseColor,
+          pointAtLength,
+          totalLength,
+        }) {
+          const [h, s, v] = rgbToHsv(baseColor.r, baseColor.g, baseColor.b)
+          const newH = h + pointAtLength / totalLength
+          const [r, g, b] = hsvToRgb(newH, s, v)
 
-        return { r, g, b, a: baseColor.a }
+          return { r, g, b, a: baseColor.a }
+        },
       }
     }
-  }
-}
+  },
+)

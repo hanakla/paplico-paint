@@ -12,8 +12,12 @@ export class AtomicResource<T> {
 
   constructor(
     private resource: T,
-    private name?: string
+    private name?: string,
   ) {}
+
+  public clearQueue() {
+    this.que = []
+  }
 
   public ensure({ owner }: { owner?: any } = {}): Promise<T> {
     const requestStack = new Error()
@@ -29,7 +33,7 @@ export class AtomicResource<T> {
     return defer.promise
   }
 
-  public enjureForce({ owner }: { owner?: any } = {}): T {
+  public ensureForce({ owner }: { owner?: any } = {}): T {
     const requestStack = new Error()
 
     this.locked = true
@@ -45,13 +49,13 @@ export class AtomicResource<T> {
   public release(resource: T) {
     if (resource !== this.resource) {
       throw new Error(`Incorrect resource released: ${this.name}`, {
-        cause: this.currentOwner
+        cause: this.currentOwner,
       })
     }
 
     if (!this.locked) {
       throw new Error(`Unused resource released: ${this.name}`, {
-        cause: this.currentOwner
+        cause: this.currentOwner,
       })
     }
 
@@ -75,4 +79,29 @@ export class AtomicResource<T> {
       this.locked = false
     }
   }
+}
+
+export function dependenceAtomicResource<T, U>(
+  depResource: AtomicResource<T>,
+  resourceInit: (t: T) => U,
+) {
+  const resource = depResource.ensureForce()
+  const atom = new AtomicResource<U>(resourceInit(resource))
+  let ensured: T | null = null
+
+  const originalEnsure = atom.ensure.bind(atom)
+  atom.ensure = async (...args) => {
+    ensured = await depResource.ensure()
+    return originalEnsure(...args)
+  }
+
+  const originalRelease = atom.release.bind(atom)
+  atom.release = (...args) => {
+    depResource.release(ensured!)
+    ensured = null
+
+    return originalRelease(...args)
+  }
+
+  return atom
 }

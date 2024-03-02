@@ -1,11 +1,13 @@
-export * as CanvasFactory from './CanvasFactory'
-export { MixerPipeline as Pipeline } from './MixerPipeline'
-export { RuntimeDocument } from './RuntimeDocument'
-export * as Brushes from '../Brushes/index'
-export {
-  createCustomBrush,
-  type IBrush,
-  type BrushClass,
-  type BrushContext,
-  type BrushLayoutData
-} from './Brush'
+export * as CanvasFactory from '../Infra/CanvasFactory'
+export { RenderPipeline } from './RenderPipeline'
+export { DocumentContext } from './DocumentContext/DocumentContext'
+
+export * as PplcInk from './Ink'
+
+export { createBrush } from './Brush/Brush'
+export * as PplcBrush from './Brush/PplcBrush'
+
+export { createFilter } from './Filter/Filter'
+export * as PplcFilter from './Filter/PplcFilter'
+
+export { type MicroCanvas } from './MicroCanvas'

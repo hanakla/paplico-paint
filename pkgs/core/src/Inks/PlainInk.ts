@@ -1,27 +1,40 @@
-import { IInk, InkGenerator } from '../Engine/Ink'
+import { IInk, InkGenerator, createInk } from '../Engine/Ink'
 
 export declare namespace PlainInk {
-  type SpecificSetting = {}
+  type Setting = {}
 }
 
-export class PlainInk implements IInk {
-  public static id = '@paplico/core/ink/plain'
-  public static version = '0.0.1'
+export const PlainInk = createInk(
+  class PlainInk implements IInk<PlainInk.Setting> {
+    public static metadata = {
+      id: '@paplico/core/ink/plain',
+      version: '0.0.1',
+      name: 'Plain',
+    }
 
-  public get class() {
-    return PlainInk
-  }
+    public static getInitialSetting() {
+      return {}
+    }
 
-  public initialize() {}
+    public get id() {
+      return PlainInk.metadata.id
+    }
 
-  getInkGenerator(ctx: any): InkGenerator {
-    return {
-      applyTexture(canvas, context) {
-        return
-      },
-      getColor({ pointIndex, points, baseColor }) {
-        return baseColor
+    public get class() {
+      return PlainInk
+    }
+
+    public initialize() {}
+
+    getInkGenerator(ctx: any): InkGenerator {
+      return {
+        applyTexture(canvas, context) {
+          return
+        },
+        getColor({ pointIndex, points, baseColor }) {
+          return baseColor
+        },
       }
     }
-  }
-}
+  },
+)

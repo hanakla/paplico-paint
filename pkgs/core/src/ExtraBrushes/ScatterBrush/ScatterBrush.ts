@@ -1,7 +1,5 @@
-import { BrushContext, BrushLayoutData, IBrush, StrokingHelper } from '@/index'
+import Paplico, { PplcBrush } from '@/index'
 import * as Textures from './textures/index'
-import { PaplicoAbortError } from '@/Errors'
-import { mergeToNew } from '@/utils/object'
 import {
   AddEquation,
   CanvasTexture,
@@ -14,25 +12,32 @@ import {
   OneFactor,
   OneMinusSrcAlphaFactor,
   PlaneGeometry,
-  Scene
+  Scene,
 } from 'three'
-
 import ScatterBrushWorker from './ScatterBrush-worker?worker&inline'
 import {
   type GetPointWorkerResponse,
   type Payload,
-  type WorkerResponse
+  type WorkerResponse,
 } from './ScatterBrush-worker'
-import { ColorRGBA } from '@/Document'
-import { Matrix4 } from '@/Math'
-import { clamp, mapLinear } from '@/utils/math'
+import { PaplicoError } from '@/Errors/PaplicoError'
+import { createImage } from '@/Infra/CanvasFactory'
+import {
+  createBrush,
+  BrushContext,
+  BrushLayoutData,
+  BrushMetadata,
+  PPLCAbortError,
+  ColorRGBA,
+} from '@/index-ext-brush'
+import { scatterBrushTexts } from '@/misc/locales'
 
 const _mat4 = new ThreeMatrix4()
 
 const generateId = () => (Date.now() + Math.random()).toString(36)
 
 export declare namespace ScatterBrush {
-  export type SpecificSetting = Partial<{
+  export type Settings = {
     texture: keyof typeof Textures
     divisions: number
     scatterRange: number
@@ -42,7 +47,7 @@ export declare namespace ScatterBrush {
     randomRotation: number
     /** 0..1, each particle scale randomize range */
     randomScale: number
-    /** Influence of stroke in / out weight. 0..1 */
+    /** Influence to stroke width by stroke in / out. 0..1 */
     inOutInfluence: number
     /** In / out length */
     inOutLength: number
@@ -50,313 +55,390 @@ export declare namespace ScatterBrush {
     pressureInfluence: number
     /** 0..1 */
     noiseInfluence: number
-  }>
+  }
+
+  export type MemoData = GetPointWorkerResponse
 }
 
-export class ScatterBrush implements IBrush {
-  static id = '@paplico/core/extras/scatter-brush'
-
-  public get id() {
-    return ScatterBrush.id
-  }
-
-  public getInitialSpecificConfig(): ScatterBrush.SpecificSetting {
-    return {
-      texture: 'pencil',
-      divisions: 1000,
-      scatterRange: 0.5,
-      rotationAdjust: 1,
-      randomRotation: 0,
-      randomScale: 0,
-      inOutInfluence: 1,
-      inOutLength: 100,
-      pressureInfluence: 0.8,
-      noiseInfluence: 0
-    }
-  }
-
-  protected worker: Worker | null = null
-  protected textures: { [name: string]: ImageBitmap } = {}
-  protected materials: { [name: string]: MeshBasicMaterial } = {}
-
-  public async initialize(context: {}): Promise<void> {
-    this.worker = await this.createWorker()
-
-    await Promise.all(
-      Object.entries(Textures).map(async ([name, url]) => {
-        const img = await new Promise<HTMLImageElement>((resolve, reject) => {
-          const img = new Image()
-          img.onload = () => resolve(img)
-          img.onerror = (e) => reject(e)
-          img.src = url
-        })
-
-        // const c = CanvasFactory.createCanvas()
-        // const ctx = c.getContext('2d')!
-        // c.width = img.width
-        // c.height = img.height
-        // ctx.drawImage(img, 0, 0)
-
-        // const data = ctx.getImageData(0, 0, c.width, c.height)
-        // for (let i = 0; i < data.data.length; i += 4) {
-        //   data.data[i + 3] = data.data[i]
-        // }
-        // ctx.putImageData(data, 0, 0)
-
-        const texture = new CanvasTexture(img)
-        this.materials[name] = new MeshBasicMaterial({
-          color: 0xffffff,
-
-          premultipliedAlpha: true,
-          transparent: true,
-          alphaMap: texture,
-
-          blending: CustomBlending,
-          blendSrc: OneFactor,
-          blendDst: OneMinusSrcAlphaFactor,
-          blendSrcAlpha: OneFactor,
-          blendDstAlpha: OneMinusSrcAlphaFactor,
-          blendEquation: AddEquation
-        })
-
-        // this.materials[name] = new ShaderMaterial({
-        //   uniforms: {
-        //     texture: { value: texture },
-        //     // color: { value: new Color(0xffffff) },
-        //   },
-        //   vertexShader: VS,
-        //   fragmentShader: FS,
-        //   vertexColors: true,
-        //   depthTest: true,
-        // })
-
-        // this.textures[name] = await createImageBitmap(data)
-      })
-    )
-  }
-
-  protected async renderWithWorker({
-    abort,
-    abortIfNeeded,
-    context: ctx,
-    path: inputPath,
-    transform,
-    ink,
-    brushSetting: { size, color, opacity, specific },
-    threeRenderer,
-    threeCamera,
-    destSize,
-    phase
-  }: BrushContext<ScatterBrush.SpecificSetting>): Promise<BrushLayoutData> {
-    const sp = mergeToNew(this.getInitialSpecificConfig(), specific)
-    const baseColor: ColorRGBA = { ...color, a: opacity }
-    const _color = new Color()
-
-    const bbox: BrushLayoutData['bbox'] = {
-      left: 0,
-      top: 0,
-      right: 0,
-      bottom: 0
+export const ScatterBrush = createBrush(
+  class ScatterBrush implements PplcBrush.IBrush {
+    public static readonly metadata: BrushMetadata = {
+      id: '@paplico/core/extras/scatter-brush',
+      version: '0.0.1',
+      name: 'Scatter Brush',
     }
 
-    for (const path of inputPath) {
-      abortIfNeeded()
+    public static renderPane({
+      c,
+      h,
+      settings: state,
+      setSettings: setState,
+      locale,
+      makeTranslation,
+    }: PplcBrush.BrushPaneContext<ScatterBrush.Settings>) {
+      const t = makeTranslation(scatterBrushTexts)
+      const brushes = ScatterBrush.getTextures()
 
-      // const { points, closed } = path
-      const id = generateId()
+      return h(
+        c.View,
+        { flexFlow: 'column' },
+        // Texture
+        h(c.FieldSet, {
+          title: t('texture'),
+          inputs: h(c.SelectBox, {
+            placeholder: 'Select texture',
+            value: state.texture,
+            items: brushes.map((entry) => ({
+              value: entry.textureId,
+              label: entry.name[locale] ?? entry.name.en,
+            })),
+            onChange: (value) =>
+              setState({ texture: value as keyof typeof Textures }),
+          }),
+        }),
 
-      let res
-      try {
-        res = await new Promise<GetPointWorkerResponse>((r, reject) => {
-          const receiver = (e: MessageEvent<WorkerResponse>) => {
-            if (e.data.type === 'aborted' && e.data.id === id) {
-              reject(new PaplicoAbortError())
-            }
+        // Scatter
+        h(c.FieldSet, {
+          title: t('scatter'),
+          displayValue: state.scatterRange,
+          inputs: h(c.Slider, {
+            min: 0,
+            max: 100,
+            step: 0.1,
+            value: state.scatterRange,
+            onChange: (value) => setState({ scatterRange: value }),
+          }),
+        }),
 
-            if (e.data.type !== 'getPoints' || e.data.id !== id) return
+        // in/out
+        h(c.FieldSet, {
+          title: t('inOut'),
+          displayValue: state.inOutInfluence,
+          inputs: h(c.Slider, {
+            min: 0,
+            max: 1,
+            step: 0.01,
+            value: state.inOutInfluence,
+            onChange: (value) => setState({ inOutInfluence: value }),
+          }),
+        }),
 
-            r(e.data)
-            this.worker!.removeEventListener('message', receiver)
-          }
+        // in/out length
+        h(c.FieldSet, {
+          title: t('inOutLength'),
+          displayValue: state.inOutLength,
+          inputs: h(c.Slider, {
+            min: 0,
+            max: 200,
+            step: 0.1,
+            value: state.inOutLength,
+            onChange: (value) => setState({ inOutLength: value }),
+          }),
+        }),
 
-          const onAbort = () => {
-            this.worker!.postMessage({
-              type: 'aborted',
-              id
-            } as const satisfies Payload)
-          }
+        // Pressure
+        h(c.FieldSet, {
+          title: t('pressureInfluence'),
+          displayValue: state.pressureInfluence,
+          inputs: h(c.Slider, {
+            min: 0,
+            max: 1,
+            step: 0.01,
+            value: state.pressureInfluence,
+            onChange: (value) => setState({ pressureInfluence: value }),
+          }),
+        }),
+      )
+    }
 
-          abort.addEventListener('abort', onAbort, { once: true })
-          this.worker!.addEventListener('message', receiver)
+    public static getInitialSetting(): ScatterBrush.Settings {
+      return {
+        texture: 'pencil',
+        divisions: 1000,
+        scatterRange: 0.5,
+        rotationAdjust: 1,
+        randomRotation: 0,
+        randomScale: 0,
+        inOutInfluence: 1,
+        inOutLength: 100,
+        pressureInfluence: 0.8,
+        noiseInfluence: 0,
+      }
+    }
 
-          this.worker!.postMessage({
-            id,
-            type: 'getPoints',
+    public static onScaled(
+      settings: ScatterBrush.Settings,
+      transform: PplcBrush.ScaledTransform,
+    ) {
+      return settings
+    }
+
+    /** Extend this method to adding your custom brush */
+    public static getTextures(): Array<{
+      name: { [K in Paplico.SupportedLocales]: string }
+      textureId: string
+      url: string
+    }> {
+      return [
+        {
+          name: {
+            en: 'Pencil',
+            ja: '鉛筆',
+          },
+          textureId: 'pencil',
+          url: Textures.pencil,
+        },
+        {
+          name: {
+            en: 'AirBrush',
+            ja: 'エアブラシ',
+          },
+          textureId: 'airbrush',
+          url: Textures.airBrushTexture,
+        },
+      ]
+    }
+
+    public get id() {
+      return ScatterBrush.metadata.id
+    }
+
+    protected worker: Worker | null = null
+    protected textures: { [name: string]: ImageBitmap } = {}
+    protected materials: { [name: string]: MeshBasicMaterial } = {}
+
+    public async initialize(context: {}): Promise<void> {
+      this.worker = await this.createWorker()
+
+      await Promise.all(
+        ScatterBrush.getTextures().map(async ({ textureId, url }) => {
+          const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+            const img = createImage()
+            img.onload = () => resolve(img)
+            img.onerror = (e) => reject(e)
+            img.src = url
+          })
+
+          const texture = new CanvasTexture(img)
+          this.materials[textureId] = new MeshBasicMaterial({
+            color: 0xffffff,
+
+            premultipliedAlpha: true,
+            transparent: true,
+            alphaMap: texture,
+
+            blending: CustomBlending,
+            blendSrc: OneFactor,
+            blendDst: OneMinusSrcAlphaFactor,
+            blendSrcAlpha: OneFactor,
+            blendDstAlpha: OneMinusSrcAlphaFactor,
+            blendEquation: AddEquation,
+          })
+
+          // this.materials[name] = new ShaderMaterial({
+          //   uniforms: {
+          //     texture: { value: texture },
+          //     // color: { value: new Color(0xffffff) },
+          //   },
+          //   vertexShader: VS,
+          //   fragmentShader: FS,
+          //   vertexColors: true,
+          //   depthTest: true,
+          // })
+
+          // this.textures[name] = await createImageBitmap(data)
+        }),
+      )
+    }
+
+    public async render(
+      ctx: BrushContext<ScatterBrush.Settings, ScatterBrush.MemoData>,
+    ): Promise<BrushLayoutData[]> {
+      return this.renderWithWorker(ctx)
+    }
+
+    protected async renderWithWorker({
+      abort,
+      throwIfAborted,
+      destContext: ctx,
+      path: inputPath,
+      transform,
+      pixelRatio,
+      ink,
+      brushSetting: { size, color, opacity, settings },
+      threeRenderer,
+      threeCamera,
+      destSize,
+      phase,
+      useMemoForPath,
+    }: BrushContext<ScatterBrush.Settings, ScatterBrush.MemoData>): Promise<
+      BrushLayoutData[]
+    > {
+      const sp = { ...ScatterBrush.getInitialSetting(), settings }
+      const baseColor: ColorRGBA = { ...color, a: opacity }
+      const _color = new Color()
+
+      const layouts: BrushLayoutData[] = []
+      const bbox: BrushLayoutData['bbox'] = {
+        left: 0,
+        top: 0,
+        right: 0,
+        bottom: 0,
+      }
+
+      for (const path of inputPath) {
+        throwIfAborted()
+
+        // const { points, closed } = path
+        const id = generateId()
+
+        let res: GetPointWorkerResponse
+        try {
+          res = await useMemoForPath(
             path,
-            // closed,
-            brushSize: size,
-            destSize,
-            scatterRange: sp.scatterRange ?? 0,
-            inOutInfluence: sp.inOutInfluence ?? 0,
-            inOutLength: sp.inOutLength ?? 0,
-            scatterScale: 1
-          } satisfies Payload)
-        })
-      } catch (e) {
-        // console.info(e)
-        throw e
-      }
+            async () => {
+              try {
+                return await new Promise<GetPointWorkerResponse>(
+                  (resolve, reject) => {
+                    const receiver = (e: MessageEvent<WorkerResponse>) => {
+                      if (e.data.type === 'aborted' && e.data.id === id) {
+                        this.worker!.removeEventListener('message', receiver)
+                        reject(new PPLCAbortError())
+                      }
 
-      if (res.matrices == null) return { bbox }
-      // console.log({ res })
+                      if (e.data.type !== 'getPoints' || e.data.id !== id)
+                        return
 
-      const scene = new Scene()
-      const material = this.materials[sp.texture]
-      // material.color.set(new Color(color.r, color.g, color.b))
-      material.needsUpdate = true
+                      resolve(e.data)
+                      this.worker!.removeEventListener('message', receiver)
+                    }
 
-      const group = new Group()
-      const geometry = new PlaneGeometry(1, 1)
-      const mesh = new InstancedMesh(geometry, material, res.matrices.length)
+                    const onAbort = () => {
+                      this.worker!.postMessage({
+                        type: 'aborted',
+                        id,
+                      } satisfies Payload)
+                    }
 
-      mesh.matrixAutoUpdate = false
-      mesh.instanceMatrix.needsUpdate = false
+                    abort.addEventListener('abort', onAbort, { once: true })
+                    this.worker!.addEventListener('message', receiver)
 
-      ctx.fillStyle = 'rgb(0,255,255)'
-      for (let i = 0, l = res.matrices.length; i < l; i++) {
-        // render circle at res.position[i]
-        // ctx.beginPath()
-
-        // ctx.arc(
-        //   res._internals.positions[i][0],
-        //   res._internals.positions[i][1],
-        //   0.3,
-        //   0,
-        //   Math.PI * 2
-        // )
-        // ctx.closePath()
-        // ctx.fill()
-
-        _mat4.fromArray(res.matrices[i])
-        mesh.setMatrixAt(i, _mat4)
-        mesh.setColorAt(
-          i,
-          StrokingHelper.rgbToThreeRGB(
-            // ink.getColor({
-            //   pointIndex: i,
-            //   points: path.points,
-            //   pointAtLength: res.lengths[i],
-            //   totalLength: res.totalLength,
-            //   baseColor
-            // }),
-            {
-              r: i / l,
-              g: 1 - i / l,
-              b: 0
+                    this.worker!.postMessage({
+                      id,
+                      type: 'getPoints',
+                      path,
+                      pixelRatio,
+                      brushSize: size,
+                      destSize,
+                      scatterRange: sp.scatterRange ?? 0,
+                      inOutInfluence: sp.inOutInfluence ?? 0,
+                      inOutLength: sp.inOutLength ?? 0,
+                      scatterScale: 1,
+                    } satisfies Payload)
+                  },
+                )
+              } catch (e) {
+                // console.info(e)
+                throw e
+              }
             },
-            _color
+            [...Object.values(sp)],
           )
-        )
+        } catch (e) {
+          console.log({ e })
+          throw e
+        }
+
+        if (res.matrices == null) {
+          throw new PaplicoError(
+            'ScatterBrush: failed to render (receive null matrices)',
+          )
+        }
+
+        const scene = new Scene()
+        const material = this.materials[sp.texture]
+        // material.color.set(new Color(color.r, color.g, color.b))
+        material.needsUpdate = true
+
+        const group = new Group()
+        const geometry = new PlaneGeometry(1, 1)
+        const mesh = new InstancedMesh(geometry, material, res.matrices.length)
+
+        mesh.matrixAutoUpdate = false
+        mesh.instanceMatrix.needsUpdate = false
+
+        try {
+          for (let i = 0, l = res.matrices.length; i < l; i++) {
+            const inked = ink.getColor({
+              pointIndex: i,
+              points: path.points,
+              pointAtLength: res.lengths[i],
+              totalLength: res.totalLength,
+              baseColor,
+              pixelRatio,
+              settings: {},
+            })
+
+            _color.setRGB(inked.r, inked.g, inked.b)
+
+            _mat4.fromArray(res.matrices[i])
+            mesh.setMatrixAt(i, _mat4)
+            mesh.setColorAt(i, _color)
+          }
+
+          if (res.bbox) {
+            bbox.left = Math.min(bbox.left, res.bbox.left)
+            bbox.top = Math.min(bbox.top, res.bbox.top)
+            bbox.right = Math.max(bbox.right, res.bbox.right)
+            bbox.bottom = Math.max(bbox.bottom, res.bbox.bottom)
+          }
+
+          group.add(mesh)
+          group.scale.set(transform.scale.x, transform.scale.y, 1)
+          group.position.set(transform.translate.x, -transform.translate.y, 0)
+          // group.rotation.set(transform.rotate)
+
+          scene.add(group)
+          threeRenderer.render(scene, threeCamera)
+          ctx.drawImage(threeRenderer.domElement, 0, 0)
+
+          layouts.push({
+            bbox: {
+              left: bbox.left - destSize.width / 2,
+              top: bbox.top - destSize.height / 2,
+              right: bbox.right + destSize.width / 2,
+              bottom: bbox.bottom + destSize.height / 2,
+            },
+          })
+        } finally {
+          mesh.dispose()
+          geometry.dispose()
+        }
       }
 
-      if (phase === 'final') {
-        console.log({ inputPath })
-      }
-
-      if (res.bbox) {
-        bbox.left = Math.min(bbox.left, res.bbox.left)
-        bbox.top = Math.min(bbox.top, res.bbox.top)
-        bbox.right = Math.max(bbox.right, res.bbox.right)
-        bbox.bottom = Math.max(bbox.bottom, res.bbox.bottom)
-      }
-
-      group.add(mesh)
-      group.scale.set(transform.scale.x, transform.scale.y, 1)
-      group.position.set(transform.translate.x, -transform.translate.y, 0)
-      // group.rotation.set(transform.rotate)
-
-      scene.add(group)
-      threeRenderer.render(scene, threeCamera)
-      ctx.drawImage(threeRenderer.domElement, 0, 0)
+      return layouts
     }
 
-    return {
-      bbox: {
-        left: bbox.left - destSize.width / 2,
-        top: bbox.top - destSize.height / 2,
-        right: bbox.right + destSize.width / 2,
-        bottom: bbox.bottom + destSize.height / 2
-      }
+    protected async createWorker() {
+      const worker = new ScatterBrushWorker()
+
+      return await new Promise<Worker>((r, rj) => {
+        const listener = (e: MessageEvent<WorkerResponse>) => {
+          if (e.data.type !== 'warming') return
+          r(worker)
+        }
+
+        const onError = (e: ErrorEvent) => {
+          rj(new Error(e.message, { cause: e }))
+        }
+
+        worker.addEventListener('error', onError, { once: true })
+        worker.addEventListener('message', listener, { once: true })
+        worker.postMessage({ type: 'warming' })
+      })
     }
-  }
-
-  public async render(
-    ctx: BrushContext<ScatterBrush.SpecificSetting>
-  ): Promise<BrushLayoutData> {
-    return this.renderWithWorker(ctx)
-    // const interX = interpolateMapObject(points, (idx, arr) => arr[idx].x)
-    // const interY = interpolateMapObject(points, (idx, arr) => arr[idx].y)
-    // let idx = 0
-    // for (let len = 0; len <= totalLen; len += step) {
-    //   const t = len / totalLen
-    //   const [x, y] = [interX(t), interY(t)]
-    //   const rad = StrokingHelper.getRadianFromTangent(
-    //     { x, y },
-    //     { x: interX(t + 0.01), y: interY(t + 0.01) }
-    //   )
-    //   const ypos = y / destSize.height
-    //   const matt4 = new Matrix4()
-    //     .translate(
-    //       x - destSize.width / 2,
-    //       (1 - ypos) * destSize.height - destSize.height / 2,
-    //       0
-    //     )
-    //     .rotateZ(rad)
-    //   _mat4.fromArray(matt4.toArray())
-    //   mesh.setMatrixAt(idx, _mat4)
-    //   idx++
-    //   bbox.left = Math.min(bbox.left, x)
-    //   bbox.top = Math.min(bbox.top, y)
-    //   bbox.right = Math.max(bbox.right, x)
-    //   bbox.bottom = Math.max(bbox.bottom, y)
-    // }
-    //   group.add(mesh)
-    //   group.scale.set(transform.scale.x, transform.scale.y, 1)
-    //   group.position.set(transform.translate.x, -transform.translate.y, 0)
-    //   // group.rotation.set(transform.rotate)
-    //   scene.add(group)
-    //   threeRenderer.render(scene, threeCamera)
-    //   ctx.drawImage(threeRenderer.domElement, 0, 0)
-    // }
-    // return {
-    //   bbox: {
-    //     left: bbox.left - destSize.width / 2,
-    //     top: bbox.top - destSize.height / 2,
-    //     right: bbox.right + destSize.width / 2,
-    //     bottom: bbox.bottom + destSize.height / 2,
-    //   },
-    // }
-  }
-
-  protected async createWorker() {
-    const worker = new ScatterBrushWorker()
-
-    return await new Promise<Worker>((r, rj) => {
-      const listener = (e: MessageEvent<WorkerResponse>) => {
-        if (e.data.type !== 'warming') return
-        r(worker)
-      }
-
-      const onError = (e: ErrorEvent) => {
-        rj(new Error(e.message, { cause: e }))
-      }
-
-      worker.addEventListener('error', onError, { once: true })
-      worker.addEventListener('message', listener, { once: true })
-      worker.postMessage({ type: 'warming' })
-    })
-  }
-}
+  },
+)
 
 // export const ScatterBrush = createCustomBrush(
 
@@ -371,7 +453,7 @@ if (import.meta.vitest) {
       ;[
         [0, 100],
         [100, 0],
-        [200, -100]
+        [200, -100],
       ].forEach(([y, mapped]) => {
         const pos = y / height
         const result = (1 - pos) * height - height / 2

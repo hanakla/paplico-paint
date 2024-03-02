@@ -1,108 +1,144 @@
 import pal from 'point-at-length'
 import { SVGDCommand, indexedPointAtLength } from './IndexedPointAtLength'
-import { pointsToSVGCommandArray } from '@/StrokingHelper'
+import { vectorPathPointsToSVGPathString } from '@/index-ext-brush'
 
 describe('IndexedPointAtLength', () => {
   const path = complexPath()
 
-  it('should be correctly sorted lengthCache and lengthCacheDetail', () => {
-    const cached = indexedPointAtLength(path)
-
-    expect(cached._lengthAtSubvert).toEqual(
-      [...cached._lengthAtSubvert].sort((a, b) => a - b)
-    )
-
-    expect(cached._lengthAtSubvert).toHaveLength(cached._subvertIndex.length)
+  describe('.lengthOfVertex', () => {
+    it.each([
+      [1, 'M0,0 L10,10'],
+      [2, 'M0,0 L10,10 L20,20'],
+      [3, 'M0,0 C10,10 10,10 10,10'],
+    ])('should be returns equal value to totalLength: %d', (_, path) => {
+      const cached = indexedPointAtLength(path)
+      expect(cached.lengthOfVertex(cached.vertexCount - 1)).toEqual(
+        cached.totalLength,
+      )
+    })
   })
 
-  it('should work with pointsToSVGCommandArray', () => {
-    const pal = indexedPointAtLength(
-      pointsToSVGCommandArray(
-        [
+  describe('.at / .atBatch', () => {
+    it('should be correctly sorted lengthCache and lengthCacheDetail', () => {
+      const cached = indexedPointAtLength(path)
+
+      expect(cached._lengthAtSubvert).toEqual(
+        [...cached._lengthAtSubvert].sort((a, b) => a - b),
+      )
+
+      expect(cached._lengthAtSubvert).toHaveLength(cached._subvertIndex.length)
+    })
+
+    it('should work with pointsToSVGCommandArray', () => {
+      const pal = indexedPointAtLength(
+        vectorPathPointsToSVGPathString([
           {
+            isMoveTo: true,
             x: 0,
             y: 0,
-            begin: null,
-            end: null
           },
           {
             x: 1000,
             y: 1000,
             begin: { x: 333.3333333333333, y: 666.6666666666667 },
-            end: { x: 666.6666666666667, y: 666.6666666666667 }
-          }
-        ],
-        false
+            end: { x: 666.6666666666667, y: 666.6666666666667 },
+          },
+        ]),
       )
-    )
 
-    expect(pal.at(pal.totalLength)).toEqual([1000, 1000])
+      expect(pal.at(pal.totalLength)).toEqual([1000, 1000])
+    })
+
+    it.each(
+      // prettier-ignore
+      [
+        [1, path],
+        [2, [['M', 0, 0],['L', 1000, 1000]] satisfies SVGDCommand[]]
+      ],
+    )('should be returns same result to point-at-length: %d', (_, input) => {
+      const original = pal(input)
+      const cached = indexedPointAtLength(input)
+      const length = cached.totalLength
+
+      expect(length).toBeCloseTo(original.length(), 2)
+
+      for (let i = 0; i < length; i += length / 500) {
+        const origP = original.at(i)
+        const point = cached.at(i)
+        expect(point[0], `pos x: ${i}`).toBeCloseTo(origP[0], 2)
+        expect(point[1], `pos y: ${i}`).toBeCloseTo(origP[1], 2)
+      }
+    })
+
+    it('noBinsearch should be returns same to binsearch result', () => {
+      const get = indexedPointAtLength(path)
+      const length = get.totalLength
+
+      for (let pos = 0, i = 0; pos < length; pos += length / 500, i++) {
+        const point = get.at(pos)
+        const nobin = get.at(pos, { noBinsearch: true })
+        expect(point, `pos: ${i}(${pos}): `).toEqual(nobin)
+      }
+    })
+
+    it('.atBatch should be returns same result to .at', () => {
+      const pal = indexedPointAtLength(path)
+      const length = pal.totalLength
+
+      const req: number[] = []
+      const atResults: any[] = []
+
+      for (let i = 0; i < length; i += length / 500) req.push(i)
+      for (const at of req) atResults.push(pal.atWithDetail(at))
+
+      const atBatchResults = pal.atBatch(req)
+      expect(atBatchResults).toEqual(atResults)
+    })
+
+    it('.atBatch should be returns expected length', () => {
+      const pal = indexedPointAtLength(path)
+      const length = pal.totalLength
+
+      const req: number[] = Array.from(
+        { length: Math.floor(length) },
+        (_, i) => i,
+      )
+      const atBatchResults = pal.atBatch(req)
+
+      expect(atBatchResults).toHaveLength(Math.floor(length))
+    })
+
+    // it.only('.atBatch should be returns same result to .at (breaking case)', () => {
+    //   const req = [
+    //     0, 0.01, 1, 1.01, 2, 2.01, 3, 3.01, 4, 4.01, 5, 5.01, 6, 6.01, 7, 7.01, 8,
+    //     8.01, 9, 9.01, 10, 10.01, 11, 11.01, 12, 12.01, 13, 13.01, 14, 14.01,
+    //     14.142135623730951
+    //   ]
+
+    //   const pal = indexedPointAtLength('M0,0 L10,10')
+    //   const atResults: any[] = []
+
+    //   console.log(pal._subvertIndex)
+
+    //   for (const at of req) atResults.push(pal.atWithDetail(at))
+
+    //   const atBatchResults = pal.atBatch(req)
+    //   expect(atBatchResults).toEqual(atResults)
+    // })
+
+    describe('line', () => {
+      it('Should not return NaN', () => {
+        const line = 'M0,0 C 50,50 50,50 50,50 L100,100'
+        const cached = indexedPointAtLength(line)
+
+        expect(cached.totalLength).not.toBeNaN()
+
+        const pt = cached.at(0.5)
+        expect(pt[0]).not.toBeNaN()
+        expect(pt[1]).not.toBeNaN()
+      })
+    })
   })
-
-  it.each(
-    // prettier-ignore
-    [
-      [path],
-      [[['M', 0, 0],['L', 1000, 1000]] satisfies SVGDCommand[]]
-    ]
-  )('should be returns same result to point-at-length', (input) => {
-    const original = pal(input)
-    const cached = indexedPointAtLength(input)
-    const length = cached.totalLength
-
-    expect(length).toBeCloseTo(original.length(), 2)
-
-    for (let i = 0; i < length; i += length / 500) {
-      const origP = original.at(i)
-      const point = cached.at(i)
-      expect(point[0], `pos x: ${i}`).toBeCloseTo(origP[0], 2)
-      expect(point[1], `pos y: ${i}`).toBeCloseTo(origP[1], 2)
-    }
-  })
-
-  it('noBinsearch should be returns same to binsearch result', () => {
-    const get = indexedPointAtLength(path)
-    const length = get.totalLength
-
-    for (let pos = 0, i = 0; pos < length; pos += length / 500, i++) {
-      const point = get.at(pos)
-      const nobin = get.at(pos, { noBinsearch: true })
-      expect(point, `pos: ${i}(${pos}): `).toEqual(nobin)
-    }
-  })
-
-  it('.atBatch should be returns same result to .at', () => {
-    const pal = indexedPointAtLength(path)
-    const length = pal.totalLength
-
-    const req: number[] = []
-    const atResults: any[] = []
-
-    for (let i = 0; i < length; i += length / 500) req.push(i)
-
-    for (const at of req) atResults.push(pal.atWithDetail(at))
-
-    const atBatchResults = pal.atBatch(req)
-    expect(atBatchResults).toEqual(atResults)
-  })
-
-  // it.only('.atBatch should be returns same result to .at (breaking case)', () => {
-  //   const req = [
-  //     0, 0.01, 1, 1.01, 2, 2.01, 3, 3.01, 4, 4.01, 5, 5.01, 6, 6.01, 7, 7.01, 8,
-  //     8.01, 9, 9.01, 10, 10.01, 11, 11.01, 12, 12.01, 13, 13.01, 14, 14.01,
-  //     14.142135623730951
-  //   ]
-
-  //   const pal = indexedPointAtLength('M0,0 L10,10')
-  //   const atResults: any[] = []
-
-  //   console.log(pal._subvertIndex)
-
-  //   for (const at of req) atResults.push(pal.atWithDetail(at))
-
-  //   const atBatchResults = pal.atBatch(req)
-  //   expect(atBatchResults).toEqual(atResults)
-  // })
 
   describe('getSequencialReader', () => {
     it('should returns same result to .at()', () => {
@@ -112,19 +148,6 @@ describe('IndexedPointAtLength', () => {
       expect(seqPal.at(0)).toEqual(pal.at(0))
       expect(seqPal.at(50)).toEqual(pal.at(50))
       expect(seqPal.at(100)).toEqual(pal.at(100))
-    })
-  })
-
-  describe('line', () => {
-    it('Should not return NaN', () => {
-      const line = 'M0,0 C 50,50 50,50 50,50 L100,100'
-      const cached = indexedPointAtLength(line)
-
-      expect(cached.totalLength).not.toBeNaN()
-
-      const pt = cached.at(0.5)
-      expect(pt[0]).not.toBeNaN()
-      expect(pt[1]).not.toBeNaN()
     })
   })
 
@@ -247,15 +270,15 @@ describe('IndexedPointAtLength', () => {
 
       console.log(`original point-at-length ${times}times: ${originalTime}ms`)
       console.log(
-        `normal(disable binsearch) ${times}times: ${noBinsearchTime}ms`
+        `normal(disable binsearch) ${times}times: ${noBinsearchTime}ms`,
       )
       console.log(`normal ${times}times: ${normalTime}ms`)
       console.log(`batchTime ${times}points: ${batchTime}ms`)
       console.log(`sequencial ${times}times: ${sequencialTime}ms`)
       console.log(
         `faster (normal vs cached): ${formatNumber(
-          normalTime - sequencialTime
-        )}`
+          normalTime - sequencialTime,
+        )}`,
       )
     })
   })

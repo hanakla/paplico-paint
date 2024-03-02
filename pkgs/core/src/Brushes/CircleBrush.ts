@@ -1,50 +1,63 @@
 import { rgba } from 'polished'
-import { BrushContext, BrushLayoutData, IBrush } from '@/Engine/Brush'
+import {
+  BrushContext,
+  BrushLayoutData,
+  IBrush,
+  createBrush,
+} from '@/Engine/Brush/Brush'
 import { mergeToNew } from '@/utils/object'
-import { mapPoints } from '../Engine/VectorUtils'
-import { scatterPlot } from '@/StrokingHelper'
+import { PplcBrush } from '@/index'
 
 export declare namespace CircleBrush {
-  type SpecificSetting = {
+  type Settings = {
     lineCap: CanvasLineCap
   }
 }
 
-export class CircleBrush implements IBrush {
-  public static readonly id = '@paplico/core/circle-brush'
-
-  public get id() {
-    return CircleBrush.id
-  }
-
-  public getInitialSpecificConfig(): CircleBrush.SpecificSetting {
-    return {
-      lineCap: 'round'
-    }
-  }
-
-  public async initialize() {}
-
-  public async render({
-    context: ctx,
-    path: inputPath,
-    transform,
-    // ink,
-    brushSetting: { size, color, opacity, specific },
-    destSize
-  }: BrushContext<CircleBrush.SpecificSetting>): Promise<BrushLayoutData> {
-    const sp = mergeToNew(this.getInitialSpecificConfig(), specific)
-
-    const bbox: BrushLayoutData['bbox'] = {
-      left: 0,
-      top: 0,
-      right: 0,
-      bottom: 0
+export const CircleBrush = createBrush(
+  class CircleBrush implements IBrush {
+    public static readonly metadata = {
+      id: '@paplico/core/circle-brush',
+      version: '0.0.1',
+      name: 'Circle Brush',
     }
 
-    inputPath.forEach((path) => {
-      const { points, closed } = path
-      const [start] = points
+    public static getInitialSetting(): CircleBrush.Settings {
+      return {
+        lineCap: 'round',
+      }
+    }
+
+    public static renderPane({
+      c,
+      h,
+      settings: state,
+      setSettings: setState,
+    }: PplcBrush.BrushPaneContext<CircleBrush.Settings>) {
+      return h(c.Text, {}, 'WIP')
+    }
+
+    public async initialize() {}
+
+    public async render({
+      destContext: ctx,
+      path: inputPath,
+      transform,
+      // ink,
+      brushSetting: { size, color, opacity, specific },
+      destSize,
+    }: BrushContext<CircleBrush.Settings>): Promise<BrushLayoutData> {
+      const metrices: BrushLayoutData[] = []
+      const sp = mergeToNew(CircleBrush.getInitialSetting(), specific)
+
+      const bbox: BrushLayoutData['bbox'] = {
+        left: 0,
+        top: 0,
+        right: 0,
+        bottom: 0,
+      }
+
+      ctx.beginPath()
 
       ctx.translate(destSize.width / 2, destSize.height / 2)
       ctx.translate(transform.translate.x, transform.translate.y)
@@ -57,43 +70,39 @@ export class CircleBrush implements IBrush {
         color.r * 255,
         color.g * 255,
         color.b * 255,
-        opacity
+        opacity,
       )}`
       ctx.lineCap = sp.lineCap
 
-      ctx.beginPath()
-      ctx.moveTo(start.x, start.y)
+      for (const path of inputPath) {
+        for (let idx = 0, l = path.points.length; idx < l; idx++) {
+          const pt = path.points[idx]
+          const prev = path.points[idx - 1]
 
-      // const scattered = scatterPlot(path, {
-      //   counts: path.points.length,
-      //   scatterRange: 2,
-      //   scatterScale: 1,
-      // })
+          if (pt.isMoveTo) {
+            ctx.moveTo(pt.x, pt.y)
+          } else if (pt.isClose) {
+            ctx.closePath()
+          } else {
+            if (!prev) {
+              throw new Error('Unexpected point, previouse point is nukk')
+            }
 
-      // console.log(scattered)
-
-      console.log('Circle brush: ', path.points)
-
-      // mapPoints(
-      //   path.points,
-      //   (point, prev) => {
-      //     ctx.bezierCurveTo(
-      //       prev!.begin?.x ?? prev!.x,
-      //       prev!.begin?.y ?? prev!.y,
-      //       point.end?.x ?? point.x,
-      //       point.end?.y ?? point.y,
-      //       point.x,
-      //       point.y
-      //     )
-      //   },
-      //   { startOffset: 1 }
-      // )
-
-      if (closed) ctx.closePath()
+            ctx.bezierCurveTo(
+              pt!.begin?.x ?? prev!.x,
+              pt!.begin?.y ?? prev!.y,
+              pt.end?.x ?? pt.x,
+              pt.end?.y ?? pt.y,
+              pt.x,
+              pt.y,
+            )
+          }
+        }
+      }
 
       ctx.stroke()
-    })
 
-    return { bbox }
-  }
-}
+      return metrices
+    }
+  },
+)

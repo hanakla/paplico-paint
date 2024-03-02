@@ -40,9 +40,8 @@ export const ActionSheet = forwardRef<HTMLDivElement, Props>(
       onClose,
       ...props
     },
-    ref
+    ref,
   ) => {
-    const theme = useTheme()
     const styles = useSpring({
       config: {
         duration: 150,
@@ -117,7 +116,7 @@ export const ActionSheet = forwardRef<HTMLDivElement, Props>(
             style={{
               ...styles,
               pointerEvents: opened ? 'all' : 'none',
-              backgroundColor: fill ? theme.exactColors.white50 : 'transparent',
+              // backgroundColor: fill ? theme.exactColors.white50 : 'transparent',
               // color: fill ? theme.exactColors.black50 : 'transparent',
             }}
             className={className}
@@ -164,7 +163,7 @@ export const ActionSheet = forwardRef<HTMLDivElement, Props>(
         </div>
       </ActionSheetContext.Provider>
     )
-  }
+  },
 )
 
 export const ActionSheetItemGroup = ({
@@ -179,7 +178,6 @@ export const ActionSheetItemGroup = ({
   return (
     <div
       css={css`
-        background-color: ${({ theme }) => theme.exactColors.white60};
         backdrop-filter: blur(8px);
         border-radius: 4px;
         overflow: hidden;
@@ -212,9 +210,7 @@ export const ActionSheetItem = ({
         padding: 20px;
         text-align: center;
         font-size: 18px;
-        /* font-weight: 600; */
-
-        ${tm((o) => [o.font.primary])}
+        font-weight: 600;
 
         & + & {
           border-top: 1px solid ${rgba('#333', 0.3)};

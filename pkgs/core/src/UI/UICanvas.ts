@@ -1,7 +1,7 @@
 // Reference: https://stackoverflow.com/a/56204437
 
 import isIOS from 'is-ios'
-import { Emitter } from '@/utils/Emitter'
+import { Emitter } from '@paplico/shared-lib'
 import { UIStroke, UIStrokePointRequired } from './UIStroke'
 
 type Events = {
@@ -12,10 +12,12 @@ type Events = {
 }
 
 export class UICanvas extends Emitter<Events> {
-  public currentStroke: UIStroke | null = null
+  public currentBrush: UIStroke | null = null
   protected ctx: CanvasRenderingContext2D
 
-  constructor(public canvas: HTMLCanvasElement) {
+  #enabled = true
+
+  constructor(public readonly canvas: HTMLCanvasElement) {
     super()
     this.ctx = canvas.getContext('2d')! // settle to 2d context
 
@@ -27,53 +29,65 @@ export class UICanvas extends Emitter<Events> {
     this.handleMouseUp = this.handleMouseUp.bind(this)
   }
 
+  public get enabled() {
+    return this.#enabled
+  }
+
+  public set enabled(v: boolean) {
+    this.#enabled = v
+  }
+
   public activate() {
     const passive = { passive: true }
 
     // Touch Event is used in iOS because PointerEvent cannot be used as a basis for smooth paths.
-    if (isIOS) {
-      this.canvas.addEventListener('touchstart', this.handleTouchStart, passive)
-      this.canvas.addEventListener('touchmove', this.handleTouchMove, passive)
-      this.canvas.addEventListener('touchend', this.handleTouchEnd, passive)
-    } else {
-      this.canvas.addEventListener('pointerdown', this.handleMouseDown, passive)
-      this.canvas.addEventListener('pointermove', this.handleMouseMove, passive)
-      this.canvas.addEventListener('pointerup', this.handleMouseUp, passive)
-    }
+
+    this.canvas.addEventListener('touchstart', this.handleTouchStart, passive)
+    // this.canvas.addEventListener('touchmove', this.handleTouchMove, passive)
+    // this.canvas.addEventListener('touchend', this.handleTouchEnd, passive)
+    this.canvas.addEventListener('pointerdown', this.handleMouseDown, passive)
+    this.canvas.addEventListener('pointermove', this.handleMouseMove, passive)
+    this.canvas.addEventListener('pointerup', this.handleMouseUp, passive)
 
     return this
   }
 
   public dispose() {
     this.canvas.removeEventListener('touchstart', this.handleTouchStart)
-    this.canvas.removeEventListener('touchmove', this.handleTouchMove)
-    this.canvas.removeEventListener('touchend', this.handleTouchEnd)
+    // this.canvas.removeEventListener('touchmove', this.handleTouchMove)
+    // this.canvas.removeEventListener('touchend', this.handleTouchEnd)
     this.canvas.removeEventListener('pointerdown', this.handleMouseDown)
     this.canvas.removeEventListener('pointermove', this.handleMouseMove)
     this.canvas.removeEventListener('pointerup', this.handleMouseUp)
+    this.mitt.all.clear()
   }
 
   protected handleTouchStart(e: TouchEvent) {
-    e.preventDefault()
-    e.stopPropagation()
-
-    this.currentStroke = null
-
     if (e.touches.length > 1) {
       this.cancelStroke()
       return
     }
 
-    const offset = this._getTouchOffset(e)
+    // e.preventDefault()
+    // e.stopPropagation()
 
-    this.startStroke([
-      {
-        x: (offset.x * this.ctx.canvas.width) / this.ctx.canvas.clientWidth,
-        y: (offset.y * this.ctx.canvas.height) / this.ctx.canvas.clientHeight,
-        pressure: e.touches[0].force,
-        tilt: null
-      }
-    ])
+    // this.currentBrush = null
+
+    // if (e.touches.length > 1) {
+    //   this.cancelStroke()
+    //   return
+    // }
+
+    // const offset = this._getTouchOffset(e)
+
+    // this.startStroke([
+    //   {
+    //     x: (offset.x * this.ctx.canvas.width) / this.ctx.canvas.clientWidth,
+    //     y: (offset.y * this.ctx.canvas.height) / this.ctx.canvas.clientHeight,
+    //     pressure: e.touches[0].force,
+    //     tilt: null,
+    //   },
+    // ])
   }
 
   protected handleTouchMove(e: TouchEvent) {
@@ -84,16 +98,16 @@ export class UICanvas extends Emitter<Events> {
       return
     }
 
-    const offset = this._getTouchOffset(e)
+    // const offset = this._getTouchOffset(e)
 
-    this.updateStroke([
-      {
-        x: (offset.x * this.ctx.canvas.width) / this.ctx.canvas.clientWidth,
-        y: (offset.y * this.ctx.canvas.height) / this.ctx.canvas.clientHeight,
-        pressure: e.touches[0].force,
-        tilt: null
-      }
-    ])
+    // this.updateStroke([
+    //   {
+    //     x: (offset.x * this.ctx.canvas.width) / this.ctx.canvas.clientWidth,
+    //     y: (offset.y * this.ctx.canvas.height) / this.ctx.canvas.clientHeight,
+    //     pressure: e.touches[0].force,
+    //     tilt: null,
+    //   },
+    // ])
   }
 
   protected handleTouchEnd(e: TouchEvent) {
@@ -104,6 +118,7 @@ export class UICanvas extends Emitter<Events> {
   protected handleMouseDown(e: PointerEvent) {
     if (e.buttons === 0) return
 
+    this.canvas.setPointerCapture(e.pointerId)
     this.startStroke(this.getPointsFromCoalescedEvent(e))
   }
 
@@ -114,11 +129,14 @@ export class UICanvas extends Emitter<Events> {
   }
 
   protected handleMouseUp(e: PointerEvent) {
+    this.canvas.releasePointerCapture(e.pointerId)
     this.finishStroke()
   }
 
   protected startStroke(input: UIStrokePointRequired[]) {
-    const s = (this.currentStroke = new UIStroke())
+    if (!this.#enabled) return
+
+    const s = (this.currentBrush = new UIStroke())
     s.markStartTime()
     input.forEach((p) => s.addPoint(p))
 
@@ -126,7 +144,9 @@ export class UICanvas extends Emitter<Events> {
   }
 
   protected updateStroke(input: UIStrokePointRequired[]) {
-    const s = this.currentStroke
+    if (!this.#enabled) return
+
+    const s = this.currentBrush
     if (!s) return
 
     input.forEach((p) => s.addPoint(p))
@@ -135,37 +155,23 @@ export class UICanvas extends Emitter<Events> {
   }
 
   protected cancelStroke() {
-    const s = this.currentStroke
+    if (!this.#enabled) return
+
+    const s = this.currentBrush
     if (!s) return
 
-    this.currentStroke = null
+    this.currentBrush = null
     this.emit('strokeCancel', s)
   }
 
   protected finishStroke() {
-    const s = this.currentStroke
+    if (!this.#enabled) return
+
+    const s = this.currentBrush
     if (!s) return
 
-    this.currentStroke = null
+    this.currentBrush = null
     this.emit('strokeComplete', s)
-
-    // const stroke = new UIStroke()
-    // stroke.markStartTime()
-    // stroke.addPoint({
-    //   x: 0,
-    //   y: 0,
-    //   pressure: 0,
-    //   tilt: { x: 0, y: 0 },
-    //   deltaTimeMs: 0
-    // })
-    // stroke.addPoint({
-    //   x: 1000,
-    //   y: 1000,
-    //   pressure: 0,
-    //   tilt: { x: 0, y: 0 },
-    //   deltaTimeMs: 1
-    // })
-    // this.emit('strokeComplete', stroke)
   }
 
   protected _getTouchOffset = (event: TouchEvent) => {
@@ -180,47 +186,45 @@ export class UICanvas extends Emitter<Events> {
   }
 
   protected getPointsFromCoalescedEvent(
-    e: PointerEvent
+    e: PointerEvent,
   ): UIStrokePointRequired[] {
-    if (e.getCoalescedEvents) {
-      const events = e.getCoalescedEvents()
-
-      if (events.length === 0)
-        return [
-          {
-            x:
-              (e.offsetX * this.ctx.canvas.width) / this.ctx.canvas.clientWidth,
-            y:
-              (e.offsetY * this.ctx.canvas.height) /
-              this.ctx.canvas.clientHeight,
-            pressure: e.pressure,
-            tilt: { x: e.tiltX, y: e.tiltY }
-          }
-        ]
-
-      return e.getCoalescedEvents().map(
-        (e): UIStrokePointRequired => ({
-          x: (e.offsetX * this.ctx.canvas.width) / this.ctx.canvas.clientWidth,
-          y:
-            (e.offsetY * this.ctx.canvas.height) / this.ctx.canvas.clientHeight,
-          pressure: e.pressure,
-          tilt: { x: e.tiltX, y: e.tiltY },
-          deltaTimeMs: this.currentStroke?.startTime
-            ? e.timeStamp - this.currentStroke.startTime
-            : 0
-        })
-      )
-    } else {
+    if (!e.getCoalescedEvents) {
       return [
         {
           x: (e.offsetX * this.ctx.canvas.width) / this.ctx.canvas.clientWidth,
           y:
             (e.offsetY * this.ctx.canvas.height) / this.ctx.canvas.clientHeight,
           pressure: e.pressure,
-          tilt: { x: e.tiltX, y: e.tiltY }
-        }
+          tilt: { x: e.tiltX, y: e.tiltY },
+        },
       ]
     }
+
+    const events = e.getCoalescedEvents()
+
+    if (events.length === 0) {
+      return [
+        {
+          x: (e.offsetX * this.ctx.canvas.width) / this.ctx.canvas.clientWidth,
+          y:
+            (e.offsetY * this.ctx.canvas.height) / this.ctx.canvas.clientHeight,
+          pressure: e.pressure,
+          tilt: { x: e.tiltX, y: e.tiltY },
+        },
+      ]
+    }
+
+    return e.getCoalescedEvents().map(
+      (e): UIStrokePointRequired => ({
+        x: (e.offsetX * this.ctx.canvas.width) / this.ctx.canvas.clientWidth,
+        y: (e.offsetY * this.ctx.canvas.height) / this.ctx.canvas.clientHeight,
+        pressure: e.pressure,
+        tilt: { x: e.tiltX, y: e.tiltY },
+        deltaTimeMs: this.currentBrush?.startTime
+          ? e.timeStamp - this.currentBrush.startTime
+          : 0,
+      }),
+    )
   }
 
   public transformPoints() {}

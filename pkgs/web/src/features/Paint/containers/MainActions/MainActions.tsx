@@ -117,7 +117,7 @@ export const MainActions = memo(function MainActions() {
           g: Math.round(displayingBrushSetting.color.g * 255),
           b: Math.round(displayingBrushSetting.color.b * 255),
         }
-      : { r: 30, g: 30, b: 30 }
+      : { r: 30, g: 30, b: 30 },
   )
   const [appMenuOpened, toggleAppMenuOpened] = useToggle(false)
   const [pickerOpened, toggleBrushColorPicker] = useToggle(false)
@@ -126,10 +126,10 @@ export const MainActions = memo(function MainActions() {
   const [vectorColorOpened, toggleVectorColorOpened] = useToggle(false)
 
   const [brushSize, setBrushSize] = useBufferedState(
-    displayingBrushSetting?.size ?? 20
+    displayingBrushSetting?.size ?? 20,
   )
   const [brushOpacity, setBrushOpacity] = useBufferedState(
-    displayingBrushSetting?.opacity ?? 1
+    displayingBrushSetting?.opacity ?? 1,
   )
 
   const handleCloseAppMenu = useFunk(() => {
@@ -156,7 +156,7 @@ export const MainActions = memo(function MainActions() {
       EditorOps.setTool,
       currentTool === 'cursor' && activeLayer?.layerType === 'vector'
         ? 'point-cursor'
-        : 'cursor'
+        : 'cursor',
     )
   })
 
@@ -186,7 +186,7 @@ export const MainActions = memo(function MainActions() {
     if (
       DOMUtils.isChildren(
         e.target,
-        colorPickerFl.refs.reference.current as Element
+        colorPickerFl.refs.reference.current as Element,
       )
     )
       return
@@ -198,7 +198,7 @@ export const MainActions = memo(function MainActions() {
     if (
       DOMUtils.closestOrSelf(
         e.target,
-        '[data-ignore-click],[data-dont-close-layer-float]'
+        '[data-ignore-click],[data-dont-close-layer-float]',
       )
     )
       return
@@ -215,7 +215,7 @@ export const MainActions = memo(function MainActions() {
       }
 
       toggleVectorColorOpened()
-    }
+    },
   )
 
   const handleClickVectorFillColor = useFunk(
@@ -227,7 +227,7 @@ export const MainActions = memo(function MainActions() {
       }
 
       toggleVectorColorOpened()
-    }
+    },
   )
 
   const handleCloseVectorColorPicker = useFunk(() => {
@@ -288,7 +288,7 @@ export const MainActions = memo(function MainActions() {
     if (
       DOMUtils.childrenOrSelf(
         e.target,
-        colorPickerFl.refs.reference.current as HTMLElement | null
+        colorPickerFl.refs.reference.current as HTMLElement | null,
       )
     )
       return
@@ -300,7 +300,7 @@ export const MainActions = memo(function MainActions() {
     if (
       DOMUtils.childrenOrSelf(
         e.target,
-        brushesFl.refs.reference.current as HTMLElement | null
+        brushesFl.refs.reference.current as HTMLElement | null,
       )
     )
       return
@@ -314,7 +314,7 @@ export const MainActions = memo(function MainActions() {
         return
 
       toggleLayers(false)
-    }
+    },
   )
 
   useDelayedLeave(colorPickerFl.refs.floating, 1300, () => {
@@ -376,7 +376,7 @@ export const MainActions = memo(function MainActions() {
     },
     {
       threshold: 2,
-    }
+    },
   )
 
   return (
@@ -497,7 +497,9 @@ export const MainActions = memo(function MainActions() {
                 rgba(0, 0, 0, 0.2) 75%
               );
             background-size: 4px 4px;
-            background-position: 0 0, 2px 2px; ;
+            background-position:
+              0 0,
+              2px 2px;
           `}
           {...bindBrushOpacityDrag()}
         >
@@ -514,7 +516,7 @@ export const MainActions = memo(function MainActions() {
               color: readableColor(
                 rgb(color.r, color.g, color.b),
                 '#222',
-                '#eee'
+                '#eee',
               ),
             }}
           >
@@ -608,7 +610,7 @@ export const MainActions = memo(function MainActions() {
                 borderColor: currentVectorBrush
                   ? rgba(
                       ...normalRgbToRgbArray(currentVectorBrush.color),
-                      currentVectorBrush.opacity
+                      currentVectorBrush.opacity,
                     )
                   : undefined,
               }}
@@ -941,7 +943,7 @@ const AppMenu = memo(function AppMenu({
       url,
       !currentDocument.title
         ? `${t('untitled')}.paplc`
-        : `${currentDocument.title}.paplc`
+        : `${currentDocument.title}.paplc`,
     )
 
     onClose()
@@ -975,7 +977,7 @@ const AppMenu = memo(function AppMenu({
       url,
       !currentDocument.title
         ? `${t('untitled')}.png`
-        : `${currentDocument.title}.png`
+        : `${currentDocument.title}.png`,
     )
 
     onClose()
@@ -1095,7 +1097,7 @@ const VectorColorPicker = memo(function VectorColorPicker({
         : activeObject?.fill?.type === 'linear-gradient' ? 'gradient'
         : null
       )
-      : target === 'stroke' ? 'solid' : null) ?? 'solid'
+      : target === 'stroke' ? 'solid' : null) ?? 'solid',
   )
   const [gradientIndices, setGradientIndices] = useState<number[]>([])
   const [currentColor, setFillColor] = useBufferedState<RGBColor>(() =>
@@ -1105,7 +1107,7 @@ const VectorColorPicker = memo(function VectorColorPicker({
           r: 0,
           g: 0,
           b: 0,
-        }
+        },
   )
 
   const [gradientLength, setGradientLength] = useBufferedState(() => {
@@ -1185,7 +1187,7 @@ const VectorColorPicker = memo(function VectorColorPicker({
             patcher: (attrs) => {
               attrs.fill = null
             },
-          })
+          }),
         )
       }
     }
@@ -1200,7 +1202,7 @@ const VectorColorPicker = memo(function VectorColorPicker({
             patcher: (attrs) => {
               attrs.brush = null
             },
-          })
+          }),
         )
       }
 
@@ -1218,7 +1220,7 @@ const VectorColorPicker = memo(function VectorColorPicker({
                 opacity: currentColor.a != null ? currentColor.a * 100 : 100,
               }
             },
-          })
+          }),
         )
       }
 
@@ -1292,7 +1294,7 @@ const VectorColorPicker = memo(function VectorColorPicker({
               opacity: rgb.a ?? 1,
             }
           },
-        })
+        }),
       )
     }
   })
@@ -1307,7 +1309,7 @@ const VectorColorPicker = memo(function VectorColorPicker({
           colorStops,
         }
       })
-    }
+    },
   )
 
   const handleChangeGradientIndices = useFunk((indices: number[]) => {
@@ -1340,7 +1342,7 @@ const VectorColorPicker = memo(function VectorColorPicker({
 
       const pointE = PapWebMath.pointByAngleAndDistance({
         angle: PapWebMath.degToRad(
-          PapWebMath.deg(PapWebMath.radToDeg(rad) + 180)
+          PapWebMath.deg(PapWebMath.radToDeg(rad) + 180),
         ),
         distance: length,
         base: { x: 0, y: 0 },
@@ -1357,10 +1359,10 @@ const VectorColorPicker = memo(function VectorColorPicker({
             patcher: (attrs) => {
               attrs.fill = fill
             },
-          })
+          }),
         )
       }
-    }
+    },
   )
 
   const handleCompleteGradientLength = useFunk(() => {
@@ -1379,7 +1381,7 @@ const VectorColorPicker = memo(function VectorColorPicker({
 
       const nextFill = deepClone({ ...activeObject.fill })
       const rad = PapWebMath.degToRad(
-        PapWebMath.deg(currentTarget.valueAsNumber)
+        PapWebMath.deg(currentTarget.valueAsNumber),
       )
       const length = PapWebMath.distanceOfPoint(nextFill.start, nextFill.end)
 
@@ -1391,7 +1393,7 @@ const VectorColorPicker = memo(function VectorColorPicker({
 
       const pointE = PapWebMath.pointByAngleAndDistance({
         angle: PapWebMath.degToRad(
-          PapWebMath.deg(PapWebMath.radToDeg(rad) + 180)
+          PapWebMath.deg(PapWebMath.radToDeg(rad) + 180),
         ),
         distance: length / 2,
         base: { x: 0, y: 0 },
@@ -1413,10 +1415,10 @@ const VectorColorPicker = memo(function VectorColorPicker({
             patcher: (attrs) => {
               attrs.fill = nextFill
             },
-          })
+          }),
         )
       }
-    }
+    },
   )
 
   const handleCompleteGradientAngle = useFunk(() => {
@@ -1629,108 +1631,7 @@ const BrushColorPicker = memo(
         <CustomColorPicker {...props} />
       </div>
     )
-  })
-)
-
-const CustomColorPicker = CustomPicker<{ disableAlpha?: boolean }>(
-  function CustomColorPicker(props) {
-    const [stringValue, setStringValue] = useBufferedState(
-      rgbToColorString({
-        red: props.rgb?.r ?? 0,
-        green: props.rgb?.g ?? 0,
-        blue: props.rgb?.b ?? 0,
-      }).slice(1)
-    )
-
-    const handleChangeColor = useFunk(
-      ({ currentTarget }: ChangeEvent<HTMLInputElement>) => {
-        const color = currentTarget.value.replace(/#/g, '')
-        console.log(color)
-        setStringValue(color)
-      }
-    )
-
-    const handleCompleteColor = useFunk(
-      ({ currentTarget }: KeyboardEvent<HTMLInputElement>) => {
-        const color = currentTarget.value.replace(/#/g, '')
-        setStringValue(color)
-        props.onChange?.(`#${color}`)
-      }
-    )
-
-    return (
-      <div
-        css={`
-          position: relative;
-          display: flex;
-          flex-flow: column;
-          gap: 8px;
-          padding-bottom: 8px;
-        `}
-      >
-        {/* <Hue {...props} direction="vertical" /> */}
-        <div
-          css={`
-            position: relative;
-            width: 100%;
-            height: 100px;
-            padding: 8px 8px 0;
-          `}
-        >
-          <Saturation
-            {...props}
-            onChange={props.onChange!}
-            pointer={HuePointer}
-          />
-        </div>
-        <div
-          css={`
-            position: relative;
-            height: 8px;
-            margin: 0 8px;
-          `}
-        >
-          <Hue {...props} onChange={props.onChange!} pointer={Pointer} />
-        </div>
-
-        {!props.disableAlpha && (
-          <div
-            css={`
-              position: relative;
-              height: 8px;
-              margin: 0 8px;
-            `}
-          >
-            <Alpha {...props} onChange={props.onChange!} pointer={Pointer} />
-          </div>
-        )}
-
-        <div
-          css={`
-            display: flex;
-            align-items: center;
-            justify-content: flex-end;
-            position: relative;
-            margin: 0 8px;
-            text-align: right;
-          `}
-        >
-          #
-          <TextInput
-            css={`
-              width: 6em;
-            `}
-            sizing="sm"
-            value={stringValue}
-            onChange={handleChangeColor}
-            onComplete={handleCompleteColor}
-          />
-        </div>
-
-        {/* <ChromePicker {...props} /> */}
-      </div>
-    )
-  }
+  }),
 )
 
 const HuePointer = styled.div.withConfig({
@@ -1739,7 +1640,9 @@ const HuePointer = styled.div.withConfig({
   width: 10px;
   height: 10px;
   border: 1px solid #fff;
-  box-shadow: inset 0 0 0 0.5px #000, 0 0 0 0.5px #000;
+  box-shadow:
+    inset 0 0 0 0.5px #000,
+    0 0 0 0.5px #000;
   border-radius: 100px;
   transform: translate(-50%, -50%);
 `

@@ -1,0 +1,22 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "strict": true,
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
+    "downlevelIteration": true,
+    "module": "ESNext",
+    "moduleResolution": "NodeNext",
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "skipLibCheck": true,
+    "paths": {
+      "@/*": ["src/*"]
+    },
+    "baseUrl": ".",
+    "lib": ["ES2023", "DOM"],
+    "types": ["vitest/importMeta", "vitest/globals"],
+    "jsx": "react-jsx"
+  },
+  "include": ["src/**/*"]
+}

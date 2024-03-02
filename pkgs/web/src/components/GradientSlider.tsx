@@ -134,7 +134,7 @@ export const GradientSlider = ({
         onChangeSelectIndices([index])
       },
     },
-    { drag: { threshold: 2, lockDirection: true } }
+    { drag: { threshold: 2, lockDirection: true } },
   )
 
   return (
@@ -142,8 +142,7 @@ export const GradientSlider = ({
       css={`
         padding: ${displayOnly ? '4px' : '24px 8px 4px'};
       `}
-      className={className}
-    >
+      className={className}>
       <div
         ref={rootRef}
         css={`
@@ -157,8 +156,7 @@ export const GradientSlider = ({
         style={{
           transform: displayOnly ? undefined : 'translateY(-6px)',
         }}
-        onDoubleClick={handleClickTrack}
-      >
+        onDoubleClick={handleClickTrack}>
         <div
           css={`
             position: absolute;
@@ -177,8 +175,7 @@ export const GradientSlider = ({
               position: relative;
               height: 14px;
               /* transform- */
-            `}
-          >
+            `}>
             {stops.map((colorStop, index) => (
               <div
                 key={colorStop.id}
@@ -196,7 +193,7 @@ export const GradientSlider = ({
                 style={{
                   backgroundColor: rgba(
                     ...normalRgbToRgbArray(colorStop.color),
-                    1
+                    1,
                   ),
                   left: `${colorStop.position * 100}%`,
                   pointerEvents:
@@ -226,7 +223,7 @@ export const GradientSlider = ({
 
 export const addColorStopAt = (
   pos: number,
-  colorStops: (PapValueTypes.ColorStop1D & { id: string })[]
+  colorStops: (PapValueTypes.ColorStop1D & { id: string })[],
 ) => {
   const id = nanoid()
 

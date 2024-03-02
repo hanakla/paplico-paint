@@ -1,0 +1,15 @@
+export {
+  clamp,
+  distance2D,
+  degToRad,
+  radToDeg,
+  getPointWithAngleAndDistance,
+  getRadianTangent,
+  getRadianFromTangent,
+  lerp,
+  mapLinear,
+  Matrix4,
+  clampNumInLength,
+  createNumSequenceMap,
+  createObjectSequenceMap,
+} from './Math/index'

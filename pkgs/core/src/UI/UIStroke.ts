@@ -1,11 +1,9 @@
 import prand from 'pure-rand'
-import abs from 'abs-svg-path'
-
-import { VectorPath, VectorPathPoint } from '@/Document/LayerEntity/VectorPath'
-
-import { interpolateMap } from '@/Math'
+import { createNumSequenceMap } from '@/Math'
 import { indexedPointAtLength } from '@/fastsvg/IndexedPointAtLength'
-import { simplifySvgPath } from '@/VectorProcess'
+import { simplifySvgPath } from '@/SVGPathManipul'
+import { VisuElement } from '@/Document'
+import { absNormalizePath } from '@/fastsvg/absNormalizePath'
 
 export type UIStrokePoint = {
   x: number
@@ -35,18 +33,24 @@ export class UIStroke {
     this.points.push({ ...point, deltaTimeMs })
   }
 
-  public toPath(): VectorPath {
+  public toPath(): VisuElement.VectorPath {
     return {
-      points: this.points.map((p) => ({
-        x: p.x,
-        y: p.y,
-        in: null,
-        out: null,
-        pressure: p.pressure,
-        tilt: p.tilt
-      })),
+      fillRule: 'nonzero',
+      points: this.points.map((p, idx: number): VisuElement.VectorPathPoint => {
+        if (idx === 0) {
+          return { isMoveTo: true, x: p.x, y: p.y }
+        } else {
+          return {
+            x: p.x,
+            y: p.y,
+            begin: null,
+            end: null,
+            pressure: p.pressure,
+            tilt: p.tilt,
+          }
+        }
+      }),
       randomSeed: this.randomSeed,
-      closed: false
     }
   }
 
@@ -56,63 +60,75 @@ export class UIStroke {
    *
    *  SEE: https://luncheon.github.io/simplify-svg-path/index.html
    */
-  public toSimplefiedPath({
-    tolerance = 5
-  }: { tolerance?: number } = {}): VectorPath {
+  public toSimplifiedPath({
+    tolerance = 5,
+  }: { tolerance?: number } = {}): VisuElement.VectorPath {
     const simplified = simplifySvgPath(
       this.points.map((p) => [p.x, p.y] as const),
-      { closed: false, precision: 5, tolerance }
+      { closed: false, precision: 5, tolerance },
     )
 
-    const absolutedPath = abs(simplified)
-    const simplifiedPal = indexedPointAtLength(simplified)
+    const absolutedPath = absNormalizePath(simplified)
+    const simplifiedPal = indexedPointAtLength(absolutedPath)
 
-    const deltaMap = interpolateMap(this.points.map((p) => p.deltaTimeMs))
-    const pressureMap = interpolateMap(this.points.map((p) => p.pressure))
-    const tiltXMap = interpolateMap(this.points.map((p) => p.tilt?.x ?? 0))
-    const tiltYMap = interpolateMap(this.points.map((p) => p.tilt?.y ?? 0))
+    const deltaMap = createNumSequenceMap(this.points.map((p) => p.deltaTimeMs))
+    const pressureMap = createNumSequenceMap(this.points.map((p) => p.pressure))
+    const tiltXMap = createNumSequenceMap(
+      this.points.map((p) => p.tilt?.x ?? 0),
+    )
+    const tiltYMap = createNumSequenceMap(
+      this.points.map((p) => p.tilt?.y ?? 0),
+    )
 
-    const points = absolutedPath.map(([cmd, ...args], idx): VectorPathPoint => {
-      const next = absolutedPath[idx + 1]
-      const frac = simplifiedPal.lengthOfVertex(idx) / simplifiedPal.totalLength
+    const points = absolutedPath.map(
+      ([cmd, ...args], idx): VisuElement.VectorPathPoint => {
+        const frac =
+          simplifiedPal.lengthOfVertex(idx) / simplifiedPal.totalLength
 
-      switch (cmd) {
-        case 'M':
-          return {
-            x: args[0],
-            y: args[1],
-            begin: null,
-            end: next ? { x: next[1], y: next[2] } : null,
-            pressure: pressureMap(frac),
-            deltaTime: deltaMap(frac),
-            tilt: {
-              x: tiltXMap(frac),
-              y: tiltYMap(frac)
+        switch (cmd) {
+          case 'M':
+            return {
+              isMoveTo: true,
+              x: args[0],
+              y: args[1],
             }
-          }
-        case 'C':
-          return {
-            x: args[4],
-            y: args[5],
-            end: { x: args[2], y: args[3] },
-            begin: next ? { x: next[1], y: next[2] } : null,
-            pressure: pressureMap(frac),
-            deltaTime: deltaMap(frac),
-            tilt: {
-              x: tiltXMap(frac),
-              y: tiltYMap(frac)
+          case 'C':
+            return {
+              x: args[4],
+              y: args[5],
+              begin: { x: args[0], y: args[1] },
+              end: { x: args[2], y: args[3] },
+              pressure: pressureMap.atFrac(frac),
+              deltaTime: deltaMap.atFrac(frac),
+              tilt: {
+                x: tiltXMap.atFrac(frac),
+                y: tiltYMap.atFrac(frac),
+              },
             }
+          case 'L':
+            return {
+              x: args[0],
+              y: args[1],
+              begin: null,
+              end: null,
+              pressure: pressureMap.atFrac(frac),
+              deltaTime: deltaMap.atFrac(frac),
+              tilt: {
+                x: tiltXMap.atFrac(frac),
+                y: tiltYMap.atFrac(frac),
+              },
+            }
+          default: {
+            throw new Error(`Unknown command: ${cmd}`)
           }
-        default: {
-          throw new Error(`Unknown command: ${cmd}`)
         }
-      }
-    })
+      },
+    )
 
     return {
       points,
       randomSeed: this.randomSeed,
-      closed: false
+      fillRule: 'nonzero',
     }
   }
 }

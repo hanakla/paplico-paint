@@ -35,7 +35,7 @@ export declare namespace Path {
     /** 0 to 1 */
     at: number,
     /** 0 to 1 */
-    pressure: number
+    pressure: number,
   ]
 
   export type PathPoint = {
@@ -94,7 +94,7 @@ export class Path implements ISilkDOMElement {
 
   public static fromSVGPath(
     path: string,
-    { randomSeed }: { randomSeed?: number } = {}
+    { randomSeed }: { randomSeed?: number } = {},
   ) {
     const points = normalize(abs(parseSVGPath(path)))
     const closed = /z[\n\s]*$/i.test(path)
@@ -105,7 +105,7 @@ export class Path implements ISilkDOMElement {
           // prettier-ignore
           cmd === 'M' ? { x: args[0], y: args[1], in: null, out: null } :
           cmd === 'C' ? { x: args[4], y: args[5], in: { x: args[0], y: args[1] }, out: { x: args[2], y:args[3] } } :
-          null
+          null,
         )
         .filter((p: any): p is Path.PathPoint => p != null),
       closed,
@@ -210,11 +210,11 @@ export class Path implements ISilkDOMElement {
       },
       getPointAtLength: (
         len: number,
-        { seek = true }: { seek?: boolean } = {}
+        { seek = true }: { seek?: boolean } = {},
       ) => {
         if (len < prevLen) {
           throw new Error(
-            `sequencialPointAtLength : Querying length too small than previous length (previous: ${prevLen}, query: ${len})`
+            `sequencialPointAtLength : Querying length too small than previous length (previous: ${prevLen}, query: ${len})`,
           )
         }
 
@@ -271,7 +271,7 @@ export class Path implements ISilkDOMElement {
     return lerp(
       prev.element.pressure ?? defaultPressure,
       next.element.pressure ?? defaultPressure,
-      tAtFragment
+      tAtFragment,
     )
   }
 
@@ -295,11 +295,11 @@ export class Path implements ISilkDOMElement {
       },
       getPressureAtLength: (
         len: number,
-        { seek = true }: { seek?: boolean } = {}
+        { seek = true }: { seek?: boolean } = {},
       ) => {
         if (len < prevLen) {
           throw new Error(
-            `sequencialPressureAtLength: Querying length too small than previous length (previous: ${prevLen}, query: ${len})`
+            `sequencialPressureAtLength: Querying length too small than previous length (previous: ${prevLen}, query: ${len})`,
           )
         }
 
@@ -332,7 +332,7 @@ export class Path implements ISilkDOMElement {
         return lerp(
           prev.element.pressure ?? defaultPressure,
           next.element.pressure ?? defaultPressure,
-          tOnFragment
+          tOnFragment,
         )
       },
     }
@@ -351,7 +351,7 @@ export class Path implements ISilkDOMElement {
 
     const vector = { x: p2.x - p1.x, y: p2.y - p1.y }
     const magnitude = Math.sqrt(
-      Math.abs(vector.x * vector.x + vector.y * vector.y)
+      Math.abs(vector.x * vector.x + vector.y * vector.y),
     )
     vector.x /= magnitude
     vector.y /= magnitude
@@ -389,7 +389,7 @@ export class Path implements ISilkDOMElement {
         // console.time('sqrt')
 
         let magnitude = Math.sqrt(
-          Math.abs(vector.x * vector.x + vector.y * vector.y)
+          Math.abs(vector.x * vector.x + vector.y * vector.y),
         )
         magnitude = Number.isNaN(magnitude) ? 0 : magnitude
 
@@ -415,7 +415,7 @@ export class Path implements ISilkDOMElement {
   } = {}) {
     const stringPath = simplify(
       this.points.map((p) => [p.x, p.y]),
-      { tolerance, precision, closed: this.closed }
+      { tolerance, precision, closed: this.closed },
     )
 
     const svgPoints = abs(parseSVGPath(stringPath)) as [string, ...number[]][]
@@ -458,9 +458,9 @@ export class Path implements ISilkDOMElement {
       point: Path.PathPoint,
       prevPoint: Path.PathPoint | undefined,
       idx: number,
-      points: readonly Path.PathPoint[]
+      points: readonly Path.PathPoint[],
     ) => T,
-    option: { startOffset?: number } = { startOffset: 0 }
+    option: { startOffset?: number } = { startOffset: 0 },
   ): T[] {
     const [start] = this.points
     const points: Path.PathPoint[] = this.closed
@@ -555,7 +555,7 @@ const pointsToSVGPath = (points: Path.PathPoint[], closed: boolean) => {
           return `L ${point.x} ${point.y}`
         }
       },
-      { startOffset: 1 }
+      { startOffset: 1 },
     ).join(' '),
     closed ? 'Z' : '',
   ].join(' ')
@@ -564,7 +564,7 @@ const pointsToSVGPath = (points: Path.PathPoint[], closed: boolean) => {
 const findIndex = <T>(
   arr: T[],
   cb: (el: T, idx: number) => boolean,
-  opt: { from: number; increments: number }
+  opt: { from: number; increments: number },
 ) => {
   if (!(opt.from in arr)) return undefined
 

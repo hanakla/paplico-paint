@@ -1,11 +1,17 @@
-import { type mat4 } from 'gl-matrix'
-
 export type Vector3Tuple = [x: number, y: number, z: number]
+
+// prettier-ignore
+export type Matrix4Array = [
+  number, number, number, number,
+  number, number, number, number,
+  number, number, number, number,
+  number, number, number, number
+]
 
 // from: https://github.com/toji/gl-matrix/blob/master/src/mat4.js
 export class Matrix4 {
   // prettier-ignore
-  protected matrix: mat4 = [
+  protected matrix: Matrix4Array = [
     1, 0, 0, 0,
     0, 1, 0, 0,
     0, 0, 1, 0,

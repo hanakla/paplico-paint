@@ -36,6 +36,7 @@
     "focus-trap": "^7.5.4",
     "focus-trap-react": "^10.2.3",
     "immer": "^10.0.3",
+    "just-debounce": "^1.1.0",
     "mitt": "^3.0.1",
     "monaco-themes": "^0.4.4",
     "mousetrap": "^1.6.5",

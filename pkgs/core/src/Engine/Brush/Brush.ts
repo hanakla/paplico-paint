@@ -1,10 +1,11 @@
 import type { WebGLRenderer, Camera } from 'three'
-import type { VectorBrushSetting, VectorPath } from '@/Document'
+// import type { VectorBrushSetting, VectorPath } from '@/Document'
 import type { RenderCycleLogger } from '../RenderCycleLogger'
 import type { InkGenerator } from '../Ink'
 import type { RenderPhase } from '../types'
 import type { VNode } from '@/UI/PaneUI/AbstractComponent'
 import { PaneUIRenderings } from '../PaneUIRenderings'
+import { VisuElement, VisuFilter } from '@/Document'
 
 export type BrushPaneContext<T> = PaneUIRenderings.PaneUIContext<T>
 
@@ -22,14 +23,10 @@ export type BrushContext<T extends Record<string | symbol, any>, M> = {
   threeCamera: Camera
   // gl: WebGLContext
   /** Input path. this is cloned and freezed */
-  path: VectorPath[]
-  transform: {
-    rotate: number
-    scale: { x: number; y: number }
-    translate: { x: number; y: number }
-  }
+  path: VisuElement.VectorPath[]
+  transform: VisuElement.ElementTransform
   ink: InkGenerator<any>
-  brushSetting: VectorBrushSetting<T | null>
+  brushSetting: VisuFilter.Structs.BrushSetting<T>
   /** Expected destination canvas size */
   destSize: { width: number; height: number }
   pixelRatio: number
@@ -42,7 +39,7 @@ export type BrushContext<T extends Record<string | symbol, any>, M> = {
   logger: RenderCycleLogger
 
   useMemoForPath: (
-    vectorPath: VectorPath,
+    vectorPath: VisuElement.VectorPath,
     factory: () => Promise<M>,
     deps: (number | boolean | string | null | undefined)[],
   ) => Promise<M>

@@ -82,8 +82,8 @@ export class SVGExporter implements IExporter {
           await createImageBitmap(
             new ImageData(visu.bitmap, visu.width, visu.height),
           ),
-          visu.transform.position.x * pixelRatio,
-          visu.transform.position.y * pixelRatio,
+          visu.transform.translate.x * pixelRatio,
+          visu.transform.translate.y * pixelRatio,
           visu.width * pixelRatio,
           visu.height * pixelRatio,
         )
@@ -164,8 +164,8 @@ export class SVGExporter implements IExporter {
         return svgElement(
           'text',
           {
-            x: visu.transform.position.x,
-            y: visu.transform.position.y,
+            x: visu.transform.translate.x,
+            y: visu.transform.translate.y,
             'font-size': visu.fontSize,
             ...((visu.fontFamily ?? 'Poppins') !== 'Poppins'
               ? { 'font-family': visu.fontFamily }

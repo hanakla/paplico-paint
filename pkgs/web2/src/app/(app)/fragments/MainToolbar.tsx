@@ -33,7 +33,7 @@ import { pick } from '@/utils/object'
 import { ToolSelectPane } from './MainToolbar/ToolSelectPane'
 import { papColorToRGBA, useToolbarStore } from './MainToolbar/toolbar.store'
 import { StrokeColorPopoverTrigger } from './MainToolbar/StrokeColorPopover'
-import { usePropsMemo } from '@paplico/shared-lib'
+import { usePropsMemo } from '@paplico/shared-lib/react'
 
 type Props = {
   className?: string

@@ -15,7 +15,7 @@ import { Popover } from '@/components/Popover'
 import { Fieldset } from '@/components/Fieldset'
 import { TextField } from '@/components/TextField'
 import { css } from 'styled-components'
-import { usePropsMemo } from '@paplico/shared-lib'
+import { usePropsMemo } from '@paplico/shared-lib/react'
 import { BrushPreviewCanvas } from '../BrushPreviewCanvas'
 
 export const StrokeColorPopoverTrigger = memo(

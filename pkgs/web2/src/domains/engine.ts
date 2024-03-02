@@ -1,6 +1,7 @@
 import { PaneUIImpls } from '@/components/FilterPane'
 import {
   Brushes,
+  Commands,
   Document,
   ExtraBrushes,
   Filters,
@@ -24,6 +25,7 @@ import { useUpdate } from 'react-use'
 import { useNotifyStore } from './notifications'
 import { createUseStore, storePicker } from '@/utils/zustand'
 import { shallowEquals } from '@paplico/shared-lib'
+import debounce from 'just-debounce'
 
 interface EngineStore {
   _engine: Paplico | null
@@ -240,6 +242,55 @@ function usePaplicoChat(papRef: RefObject<Paplico | null>, enabled: boolean) {
   }, [papRef.current])
 }
 
+export function useCommandGrouper({
+  threshold = 500,
+}: {
+  threshold?: number
+} = {}) {
+  const rerender = useUpdate()
+  const { pplc } = usePaplicoInstance()
+
+  const ref = useRef<Commands.CommandGroup | null>(null)
+  const debouncedCommit = useMemo(
+    () =>
+      debounce(() => {
+        ref.current = null
+      }, threshold),
+    [threshold],
+  )
+
+  return useMemo(
+    () => ({
+      get isStarted() {
+        return !!ref.current
+      },
+      autoStartAndDoAdd: (command: Commands.AnyCommand) => {
+        if (!ref.current) {
+          ref.current = new Commands.CommandGroup([])
+          pplc?.command.do(ref.current)
+          // execute(EditorOps.runCommand, ref.current)
+        }
+
+        ref.current.doAndAddCommand(command)
+        pplc?.requestPreviewPriolityRerender()
+        rerender()
+      },
+      cancel: () => {
+        if (!ref.current) return
+        if (pplc?.command.getUndoStack()?.at(-1) !== ref.current) return
+
+        pplc?.command.undo()
+        ref.current = null
+      },
+      commit: () => {
+        ref.current = null
+      },
+      debouncedCommit,
+    }),
+    [debouncedCommit],
+  )
+}
+
 /// TEST DOCUMENT
 function createTestDocument(pplc: Paplico) {
   const docSize = { width: 1000, height: 1400 }
@@ -247,6 +298,82 @@ function createTestDocument(pplc: Paplico) {
     width: docSize.width,
     height: docSize.height,
   })
+
+  const group = Document.visu.createGroupVisually({})
+  group.transform.translate = {
+    x: 100,
+    y: 100,
+  }
+  // doc.layerNodes.addLayerNode(group)
+
+  // doc.layerNodes.addLayerNode(
+  //   Document.visu.createVectorObjectVisually({
+  //     transform: {
+  //       ...Document.visu.DEFAULT_VISU_TRANSFORM(),
+  //       translate: { x: 10, y: 10 },
+  //       scale: { x: 1.1, y: 1.1 },
+  //     },
+  //     filters: [
+  //       Document.visu.createVisuallyFilter('stroke', {
+  //         stroke: {
+  //           brushId: Brushes.CircleBrush.metadata.id,
+  //           brushVersion: Brushes.CircleBrush.metadata.version,
+  //           color: { r: 0, g: 0, b: 0 },
+  //           opacity: 1,
+  //           size: 20,
+  //           settings: {
+  //             lineCap: 'round',
+  //           } satisfies Brushes.CircleBrush.Settings,
+  //         },
+  //         ink: {
+  //           inkId: Inks.PlainInk.metadata.id,
+  //           inkVersion: Inks.PlainInk.metadata.version,
+  //           settings: {} satisfies Inks.PlainInk.Setting,
+  //         },
+  //       }),
+  //     ],
+  //     path: Document.visu.createVectorPath({
+  //       points: [
+  //         { isMoveTo: true, x: 0, y: 0 },
+  //         { x: 100, y: 100, begin: null, end: null },
+  //       ],
+  //     }),
+  //   }),
+  //   [group.uid],
+  // )
+
+  // pplc.loadDocument(doc)
+
+  // pplc.rerender()
+  // // requestAnimationFrame(function anim() {
+  // //   pplc!.rerender()
+  // //   requestAnimationFrame(anim)
+  // // })
+
+  // pplc.setBrushSetting({
+  //   brushId: ExtraBrushes.ScatterBrush.metadata.id,
+  //   brushVersion: '0.0.1',
+  //   color: { r: 0, g: 0, b: 0 },
+  //   opacity: 0.4,
+  //   size: 2,
+  //   settings: {
+  //     texture: 'pencil',
+  //     noiseInfluence: 1,
+  //     scatterRange: 0,
+  //     randomScale: 10,
+  //     randomRotation: 1,
+  //     inOutInfluence: 1,
+  //     inOutLength: 0.2,
+  //   } satisfies ExtraBrushes.ScatterBrush.Settings,
+  // })
+
+  // pplc.setInkSetting({
+  //   inkId: Inks.RainbowInk.metadata.id,
+  //   inkVersion: Inks.RainbowInk.metadata.version,
+  //   settings: {} satisfies Inks.RainbowInk.Setting,
+  // })
+
+  // return doc
 
   // const vector = Document.visu.createVectorObjectVisually({
   //   objec
@@ -266,9 +393,14 @@ function createTestDocument(pplc: Paplico) {
 
   const fgElements = [
     Document.visu.createCanvasVisually({
-      width: docSize.width,
-      height: docSize.height,
+      width: docSize.width * 2,
+      height: docSize.height * 2,
       // compositeMode: 'multiply',
+      transform: {
+        translate: { x: 0, y: 0 },
+        scale: { x: 0.5, y: 0.5 },
+        rotate: 0,
+      },
     }),
 
     Document.visu.createVectorObjectVisually({
@@ -282,22 +414,25 @@ function createTestDocument(pplc: Paplico) {
       filters: [
         Document.visu.createVisuallyFilter('stroke', {
           stroke: {
-            brushId: ExtraBrushes.ScatterBrush.metadata.id,
+            brushId: Brushes.CircleBrush.metadata.id,
             brushVersion: '0.0.1',
             color: { r: 1, g: 1, b: 0 },
             opacity: 1,
             size: 400,
             settings: {
-              texture: 'pencil',
-              noiseInfluence: 1,
-              inOutInfluence: 0,
-              inOutLength: 0,
-              scatterRange: 100,
-              randomScale: 0.1,
-              rotationAdjust: 1,
-              pressureInfluence: 1,
-              randomRotation: 1,
-            } satisfies ExtraBrushes.ScatterBrush.Settings,
+              lineCap: 'round',
+            } satisfies Brushes.CircleBrush.Settings,
+            // settings: {
+            //   texture: 'pencil',
+            //   noiseInfluence: 1,
+            //   inOutInfluence: 0,
+            //   inOutLength: 0,
+            //   scatterRange: 100,
+            //   randomScale: 0.1,
+            //   rotationAdjust: 1,
+            //   pressureInfluence: 1,
+            //   randomRotation: 1,
+            // } satisfies ExtraBrushes.ScatterBrush.Settings,
           },
           ink: {
             inkId: Inks.RainbowInk.metadata.id,
@@ -321,7 +456,7 @@ function createTestDocument(pplc: Paplico) {
       blendMode: 'multiply',
       opacity: 0.8,
       transform: {
-        position: { x: 32, y: -16 },
+        translate: { x: 32, y: -16 },
         scale: { x: 1, y: 1 },
         rotate: 0,
       },
@@ -329,11 +464,11 @@ function createTestDocument(pplc: Paplico) {
       fontStyle: 'Bold',
       fontSize: 72,
       textNodes: [
-        { text: 'PAPLIC-o-\n', position: { x: 0, y: 0 } },
+        { text: 'PAPLIC-o-\n', translate: { x: 0, y: 0 } },
         {
           text: 'MAGIC',
           fontSize: 128,
-          position: { x: 0, y: 0 },
+          translate: { x: 0, y: 0 },
           color: { r: 0, g: 0.5, b: 0.5, a: 1 },
         },
       ],
@@ -560,7 +695,7 @@ function createTestDocument(pplc: Paplico) {
     }),
     Document.visu.createVectorObjectVisually({
       transform: {
-        position: { x: 32, y: docSize.height - 100 - 32 },
+        translate: { x: 32, y: docSize.height - 100 - 32 },
         scale: { x: 1, y: 1 },
         rotate: 0,
       },
@@ -621,7 +756,7 @@ function createTestDocument(pplc: Paplico) {
     }),
     Document.visu.createVectorObjectVisually({
       transform: {
-        position: {
+        translate: {
           x: 56,
           y: docSize.height - 152 - 56,
         },
@@ -695,4 +830,6 @@ function createTestDocument(pplc: Paplico) {
     inkVersion: Inks.RainbowInk.metadata.version,
     settings: {} satisfies Inks.RainbowInk.Setting,
   })
+
+  console.log('hi')
 }

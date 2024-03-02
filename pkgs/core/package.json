@@ -26,6 +26,11 @@
       "types": "./dist/index-math-utils.d.ts",
       "require": "./dist/math-utils.js"
     },
+    "./expr-webgl": {
+      "import": "./dist/expr-webgl.mjs",
+      "types": "./dist/index-expr-webgl.d.ts",
+      "require": "./dist/expr-webgl.js"
+    },
     "./extras": {
       "import": "./dist/extras.mjs",
       "types": "./dist/index-extras.d.ts",

@@ -6,8 +6,8 @@
     "pkgs/*"
   ],
   "scripts": {
-    "dev": "wsrun -p @paplico/shared-lib @paplico/web2 @paplico/core-new @paplico/editor -c dev",
-    "build": "wsrun -p @paplico/shared-lib @paplico/web2 @paplico/core-new @paplico/editor -c build",
+    "dev": "BUILD_TARGET_ENV=development wsrun -p @paplico/shared-lib @paplico/web2 @paplico/core-new @paplico/editor -c dev",
+    "build": "BUILD_TARGET_ENV=production wsrun -p @paplico/shared-lib @paplico/web2 @paplico/core-new @paplico/editor -c build",
     "start": "cd pkgs/web; yarn start",
     "prepare": "husky install"
   },

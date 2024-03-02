@@ -19,16 +19,16 @@ void main() {
   float total = 0.0;
   float sigma = radius / 3.0;
 
-  for (float x = -radius; x <= radius; x++) {
-    for (float y = -radius; y <= radius; y++) {
-      vec2 offset = vec2(x, y) / resolution;
-      float weight = gaussian(length(vec2(x, y)), sigma);
-      vec4 sample = texture2D(uSource, vUv + offset);
+  // for (float x = -radius; x <= radius; x++) {
+  //   for (float y = -radius; y <= radius; y++) {
+  //     vec2 offset = vec2(x, y) / resolution;
+  //     float weight = gaussian(length(vec2(x, y)), sigma);
+  //     vec4 sample = texture2D(uSource, vUv + offset);
 
-      color += sample * weight;
-      total += weight;
-    }
-  }
+  //     color += sample * weight;
+  //     total += weight;
+  //   }
+  // }
 
   // gl_FragColor = color / total;
   gl_FragColor = color;
@@ -38,7 +38,7 @@ void main() {
 export const GaussianBlur = createFilter(
   class GaussianBlur implements PplcFilter.IFilter<any> {
     public static readonly metadata: PplcFilter.FilterMetadata = {
-      id: '@paplico/filters/gauss-blur',
+      id: '@paplico/filters/gaussian-blur',
       version: '0.0.1',
       name: 'Gaussian Blur',
     }

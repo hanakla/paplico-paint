@@ -142,16 +142,16 @@ export class PaneUIRenderings {
     const setState = this.createSetState(entry.processor.settings, (next) => {
       onSettingsChange?.(next)
 
-      let cmd = new VisuManipulateFilters([
-        {
-          visuUid,
-          filterUid: entry.uid,
-          update: (filter) => {
-            ;(filter as VisuFilter.PostProcessFilter).processor.settings = next
-          },
-        },
-      ])
-      this._pap.command.do(cmd)
+      // let cmd = new VisuManipulateFilters([
+      //   {
+      //     visuUid,
+      //     filterUid: entry.uid,
+      //     update: (filter) => {
+      //       ;(filter as VisuFilter.PostProcessFilter).processor.settings = next
+      //     },
+      //   },
+      // ])
+      // this._pap.command.do(cmd)
     })
 
     return Class.renderPane({
@@ -167,23 +167,27 @@ export class PaneUIRenderings {
 
   public renderBrushPane(
     brushId: string,
-    settings: Paplico.BrushSetting,
+    settings: VisuFilter.Structs.BrushSetting['settings'],
     {
       onSettingsChange,
-    }: { onSettingsChange: (settings: Paplico.BrushSetting) => void },
+    }: {
+      onSettingsChange: (
+        settings: VisuFilter.Structs.BrushSetting['settings'],
+      ) => void
+    },
   ) {
     const Class = this.brushRegistry.getClass(brushId)
     if (!Class) return null
 
-    const setState = this.createSetState(settings.settings, (next) => {
-      onSettingsChange({ ...settings, settings: next })
+    const setState = this.createSetState(settings, (next) => {
+      onSettingsChange({ ...settings, ...next })
     })
 
     return Class.renderPane({
       c: this.paneImpl.components,
       components: this.paneImpl.components,
       h: this.paneImpl.h,
-      settings: { ...Class.getInitialSetting(), ...settings.settings },
+      settings: { ...Class.getInitialSetting(), ...settings },
       setSettings: setState,
       locale: this._pap.getPreferences().paneUILocale,
       makeTranslation: this.makeTranslation.bind(this),

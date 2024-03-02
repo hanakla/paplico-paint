@@ -13,6 +13,7 @@ import {
 } from './FilterContextAbst'
 import { createWebGL2Context } from '@/Infra/CanvasFactory'
 import { logImage } from '@/utils/DebugHelper'
+import { PPLCShaderCompilationError } from '@/Errors'
 
 class TextureResource {
   constructor(public tex: WebGLTexture) {}
@@ -838,7 +839,7 @@ const handleShadeCompilationError = (
 ) => {
   if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
     const log = gl.getShaderInfoLog(shader)
-    throw new Error(`Failed to compile shader: \n${log}`)
+    throw new PPLCShaderCompilationError(`Failed to compile shader: \n${log}`)
   }
 }
 

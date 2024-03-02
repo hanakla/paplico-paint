@@ -46,6 +46,13 @@ jobs:
           # yarn prepublishOnly
           yarn test
 
+      - name: Testing @paplico/editor
+        continue-on-error: true
+        run: |
+          cd pkgs/editor
+          # yarn prepublishOnly
+          yarn test
+
       - name: Testing @paplico/web2
         continue-on-error: true
         run: |

@@ -26,9 +26,9 @@ export namespace VisuElement {
   export type BlendMode = TypenGlossary.BlendMode
   export type StrokeCompositeMode = TypenGlossary.StrokeCompositeMode
 
-  /** movement of origin position (origin position default to left-top) */
+  /** movement of origin position (origin position default to center) */
   export type ElementTransform = {
-    position: Point2D
+    translate: Point2D
     scale: Point2D
     /** radian degree */
     rotate: number
@@ -87,7 +87,7 @@ export namespace VisuElement {
     fontFamily?: string
     fontStyle?: string
     fontSize?: number
-    position: Point2D
+    translate: Point2D
     color?: ColorRGBA
   }
 

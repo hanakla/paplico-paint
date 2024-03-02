@@ -14,8 +14,8 @@ export function paplicoChat(
   pap.on('strokePreComplete', (e) => {
     backend.putStrokeComplete({
       uiStroke: e.stroke,
-      strokeSettings: pap.state.currentStroke,
-      targetLayerUid: pap.state.activeLayer!.layerUid,
+      strokeSettings: pap.getBrushSetting(),
+      targetNode: pap.getStrokingTarget()!.nodePath,
     })
   })
 
@@ -25,8 +25,8 @@ export function paplicoChat(
     backend.dispose()
   }
   return {
-    joinRoom: (roomId?: string) => {
-      backend.requestJoin(roomId)
+    joinRoom: async (roomId?: string) => {
+      await backend.requestJoin(roomId)
     },
     dispose,
   }

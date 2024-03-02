@@ -20,8 +20,8 @@ type FactoryParameter<
   RequiredFields extends { requires: Exclude<keyof T, 'uid' | 'type'> } = never,
 > = Requires<Partial<Omit<T, 'uid' | 'type'>>, RequiredFields['requires']>
 
-export const DEFAULT_VISU_TRANSFORM = () => ({
-  position: { x: 0, y: 0 },
+export const DEFAULT_VISU_TRANSFORM = (): VisuElement.ElementTransform => ({
+  translate: { x: 0, y: 0 },
   rotate: 0,
   scale: { x: 1, y: 1 },
 })

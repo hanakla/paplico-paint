@@ -47,7 +47,7 @@ export const CircleBrush = createBrush(
       brushSetting: { size, color, opacity, specific },
       destSize,
     }: BrushContext<CircleBrush.Settings>): Promise<BrushLayoutData> {
-      const metrices: BrushLayoutData = []
+      const metrices: BrushLayoutData[] = []
       const sp = mergeToNew(CircleBrush.getInitialSetting(), specific)
 
       const bbox: BrushLayoutData['bbox'] = {
@@ -56,6 +56,8 @@ export const CircleBrush = createBrush(
         right: 0,
         bottom: 0,
       }
+
+      ctx.beginPath()
 
       ctx.translate(destSize.width / 2, destSize.height / 2)
       ctx.translate(transform.translate.x, transform.translate.y)

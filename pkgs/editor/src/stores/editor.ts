@@ -5,6 +5,7 @@ import { StoresContext } from './context'
 import { EditorTypes, ToolModes as ToolModes } from '@/stores/types'
 import { BoundedUseStore, createUseStore } from '@/utils/zustand'
 import Paplico, { Document } from '@paplico/core-new'
+import { findLoopedLastFrom } from '@paplico/shared-lib'
 
 type SelectedVisuMap = {
   [visuUid: string]: true | undefined
@@ -20,7 +21,7 @@ type SelectedPointMap = {
 
 const INITIAL_NO_TRANSFORM: () => Document.VisuElement.ElementTransform =
   () => ({
-    position: { x: 0, y: 0 },
+    translate: { x: 0, y: 0 },
     scale: { x: 1, y: 1 },
     rotate: 0,
   })
@@ -184,4 +185,127 @@ export const isVectorShapeToolMode = (toolMode: ToolModes) => {
     toolMode === ToolModes.rectangleTool ||
     toolMode === ToolModes.objectTool
   )
+}
+
+type EditableVectorPathPoint = {
+  isMoveTo?: boolean
+  isClose?: boolean
+  x: number
+  y: number
+  currentEnd?: { x: number; y: number } | null
+  nextBegin?: { x: number; y: number } | null
+  /** Recently encountered moveTo point index */
+  pathBeginnerIdx: number
+}
+
+export function vectorPathPointsToEditablePathForm(
+  points: Document.VisuElement.VectorPathPointStrict[],
+): EditableVectorPathPoint[] {
+  const editablePoints: EditableVectorPathPoint[] = []
+
+  const segments: Document.VisuElement.VectorPathPointStrict[][] = []
+  let currentSegment: Document.VisuElement.VectorPathPointStrict[] = []
+  for (const point of points) {
+    if (point.isMoveTo) {
+      currentSegment = []
+      segments.push(currentSegment)
+      currentSegment.push(point)
+      continue
+    }
+
+    if (point.isClose) {
+      currentSegment.push(point)
+      segments.push(currentSegment)
+      continue
+    }
+
+    currentSegment.push(point)
+  }
+
+  for (const seg of segments) {
+    let currentMoveToIdx = 0
+    for (let i = 0; i < seg.length; i++) {
+      const prevPt = findLoopedLastFrom(points, i - 1, (pt) => !pt.isClose)
+      const pt = points[i]
+      const nextPt = findLoopedLastFrom(
+        points,
+        i + 1,
+        (pt) => !pt.isClose && !pt.isMoveTo,
+      )
+
+      if (pt.isMoveTo) currentMoveToIdx = i
+      if (pt.isClose) {
+        editablePoints.push({
+          isClose: true,
+          x: Infinity,
+          y: Infinity,
+          pathBeginnerIdx: currentMoveToIdx,
+        })
+        continue
+      }
+
+      const beginMoveToPt = points[currentMoveToIdx]
+      const isCloseToPathHeadPoint =
+        nextPt?.isClose && pt.x === beginMoveToPt.x && pt.y === beginMoveToPt.y
+
+      editablePoints.push({
+        ...(pt.isMoveTo ? { isMoveTo: pt.isMoveTo } : {}),
+        x: pt.x,
+        y: pt.y,
+        currentEnd: pt.isMoveTo ? prevPt?.end : pt.end,
+        nextBegin: isCloseToPathHeadPoint
+          ? points[currentMoveToIdx + 1]?.begin
+          : nextPt?.begin,
+        nextPtIdx: i + 1,
+        pathBeginnerIdx: currentMoveToIdx,
+      })
+    }
+  }
+
+  return editablePoints
+}
+
+export function editablePathFormToVectorPath(
+  points: EditableVectorPathPoint[],
+) {
+  const vectorPoints: Document.VisuElement.VectorPathPointStrict[] = []
+
+  let currentMoveToIdx = 0
+  for (let i = 0; i < points.length; i++) {
+    const prevPt = points.at(i - 1)
+    const pt = points[i]
+    const nextPt = points[i + 1]
+
+    if (pt.isClose) {
+      vectorPoints.push({
+        isClose: true,
+      })
+
+      continue
+    }
+
+    if (pt.isMoveTo) {
+      currentMoveToIdx = i
+      vectorPoints.push({
+        isMoveTo: true,
+        x: pt.x,
+        y: pt.y,
+      })
+
+      continue
+    }
+
+    const beginMoveToPt = points[currentMoveToIdx]
+    const isCloseToPathHeadPoint =
+      nextPt?.isClose && pt.x === beginMoveToPt.x && pt.y === beginMoveToPt.y
+
+    vectorPoints.push({
+      x: pt.x,
+      y: pt.y,
+      begin: prevPt.nextBegin,
+      end: pt.currentEnd,
+    })
+  }
+
+  return vectorPoints
 }

@@ -7,6 +7,7 @@ export { PPLCCommandExecutionError } from './PPLCCommandExecutionError'
 export { PPLCExportError } from './PPLCExportError'
 export { PPLCTargetEntityNotFoundError } from './PPLCTargetEntityNotFoundError'
 export { PPLCInvariantViolationError } from './PPLCInvariantViolationError'
+export { PPLCShaderCompilationError } from './PPLCShaderCompilationError'
 
 // warns
 export { MissingFilterWarn } from './Warns/MissingFilterWarn'

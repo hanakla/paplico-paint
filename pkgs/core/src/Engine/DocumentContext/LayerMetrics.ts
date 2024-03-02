@@ -8,8 +8,9 @@ export namespace LayerMetrics {
   export type MetricsData = {
     visuUid: string
     type: 'canvas' | 'vectorObject' | 'group' | 'text' | undefined
+    /** Left / Top must be calculate parent and self transforms */
     originalBBox: BBox
-    postFilterBBox: BBox
+    // postFilterBBox: BBox
     pathToParent: string[]
     /* 0 is the bottom layer */
     zIndex: number

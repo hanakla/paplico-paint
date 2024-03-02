@@ -1,10 +1,11 @@
 import { ClientSentPayloads } from '@/shared/client-sent-payloads'
 import { ServerSentPayloads } from '@/shared/server-sent-payloads'
 import { Document, Paplico, UIStroke } from '@paplico/core-new'
+import { IPaplicoChatBackend } from './IPaplicoChatBackend'
 
 const serialize = (payload: ClientSentPayloads) => JSON.stringify(payload)
 
-export class PaplicoChatWebSocketBackend {
+export class PaplicoChatWebSocketBackend implements IPaplicoChatBackend {
   protected ws: WebSocket | null = null
   protected wsUrl: string
 
@@ -48,7 +49,11 @@ export class PaplicoChatWebSocketBackend {
         }
         case 'strokeComplete': {
           console.log('⚡ receive strokeComplete')
-          const { uiStroke, targetLayerUid, strokeSettings } = message
+          const {
+            uiStroke,
+            targetLayerUid,
+            brushSetting: strokeSettings,
+          } = message
 
           pap.putStrokeComplete(Object.assign(new UIStroke(), uiStroke), {
             targetLayerUid,
@@ -73,7 +78,7 @@ export class PaplicoChatWebSocketBackend {
     })
   }
 
-  public requestJoin(roomId?: string) {
+  public async requestJoin(roomId?: string) {
     this.ws?.send(
       serialize({
         type: 'join',

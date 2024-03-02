@@ -498,6 +498,8 @@ export class Paplico extends Emitter<Paplico.Events> {
     redo: () => this.runtimeDoc?.command.redo(),
     canUndo: () => this.runtimeDoc?.command.canUndo() ?? false,
     canRedo: () => this.runtimeDoc?.command.canRedo() ?? false,
+    getUndoStack: () => this.runtimeDoc?.history.undoStack,
+    getRedoStack: () => this.runtimeDoc?.history.redoStack,
   }
 
   public loadDocument(doc: PaplicoDocument | null) {
@@ -954,6 +956,22 @@ export class Paplico extends Emitter<Paplico.Events> {
         // Copy current layer image to tmpctx
         tmpctx.drawImage(currentBitmap, 0, 0)
 
+        await this.vectorRenderer.renderCanvasVisu(
+          strokingTargetVisu,
+          tmpctx,
+          docx,
+          {
+            phase: 'stroking',
+            pixelRatio: this.#preferences.pixelRatio,
+            viewport: {
+              left: 0,
+              top: 0,
+              width: currentBitmap.width,
+              height: currentBitmap.height,
+            },
+          },
+        )
+
         renderLogger.log('render stroke')
 
         // Write stroke to current layer
@@ -965,6 +983,14 @@ export class Paplico extends Emitter<Paplico.Events> {
             top: 0,
             width: currentBitmap.width,
             height: currentBitmap.height,
+          },
+          parentTransform: {
+            translate: { x: 0, y: 0 },
+            scale: {
+              x: currentBitmap.width / this.dstCanvas.width,
+              y: currentBitmap.height / this.dstCanvas.height,
+            },
+            rotate: 0,
           },
           phase: 'stroking',
           logger: renderLogger,

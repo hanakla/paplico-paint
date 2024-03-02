@@ -5,7 +5,7 @@ import useEvent from 'react-use-event-hook'
 export const SelectBox = memo(function SelectBox({
   placeholder,
   items,
-  value,
+  value: currentValue,
   style,
   onChange,
 }: PaneUI.PaneComponentProps.SelectBox) {
@@ -15,7 +15,7 @@ export const SelectBox = memo(function SelectBox({
 
   return (
     <select
-      value={value}
+      value={currentValue}
       placeholder={placeholder}
       style={style}
       onChange={handleChange}

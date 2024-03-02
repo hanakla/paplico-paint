@@ -1,8 +1,7 @@
 import { useEditorStore, useEngineStore } from '@/store'
 import { ToolModes } from '@/stores/types'
 import { usePointerDrag } from '@/utils/hooks'
-import { Commands, PaplicoMath } from '@paplico/core-new'
-import { VisuElement as VisuElementType } from '@paplico/core-new/dist/Document'
+import { Commands, Document, PaplicoMath } from '@paplico/core-new'
 import {
   KeyboardEvent,
   ReactNode,
@@ -24,12 +23,12 @@ const HALF_OF_RECT_SIZE = RECT_SIZE / 2
 
 type Props = {
   visu:
-    | VisuElementType.FilterElement
-    | VisuElementType.GroupElement
-    | VisuElementType.CanvasElement
-    | VisuElementType.ImageReferenceElement
-    | VisuElementType.TextElement
-    | VisuElementType.VectorObjectElement
+    | Document.VisuElement.FilterElement
+    | Document.VisuElement.GroupElement
+    | Document.VisuElement.CanvasElement
+    | Document.VisuElement.ImageReferenceElement
+    | Document.VisuElement.TextElement
+    | Document.VisuElement.VectorObjectElement
   layerNodePath: string[]
   canVisible: boolean
   isLocked: boolean
@@ -78,8 +77,8 @@ const VisuElementInternal = memo(function VisuElementInternal({
         editor.setVisuTransformOverride((prev) => ({
           ...prev,
           position: {
-            x: offsetMovement[0] / elementScale,
-            y: offsetMovement[1] / elementScale,
+            x: offsetMovement[0],
+            y: offsetMovement[1],
           },
         }))
 
@@ -89,8 +88,8 @@ const VisuElementInternal = memo(function VisuElementInternal({
               return [
                 uid,
                 (base) => {
-                  base.transform.position.x += offsetMovement[0] / elementScale
-                  base.transform.position.y += offsetMovement[1] / elementScale
+                  base.transform.translate.x += offsetMovement[0]
+                  base.transform.translate.y += offsetMovement[1]
                   return base
                 },
               ]
@@ -102,13 +101,9 @@ const VisuElementInternal = memo(function VisuElementInternal({
           mapEntries(editor.selectedVisuUidMap, ([uid]) => {
             return new Commands.VisuUpdateAttributes(uid, {
               updater: (target) => {
-                target.transform.position = {
-                  x:
-                    target.transform.position.x +
-                    offsetMovement[0] / elementScale,
-                  y:
-                    target.transform.position.y +
-                    offsetMovement[1] / elementScale,
+                target.transform.translate = {
+                  x: target.transform.translate.x + offsetMovement[0],
+                  y: target.transform.translate.y + offsetMovement[1],
                 }
               },
             })
@@ -139,7 +134,7 @@ const VisuElementInternal = memo(function VisuElementInternal({
       paplico.command.do(
         new Commands.VisuUpdateAttributes(visu.uid, {
           updater: (target) => {
-            target.transform.position.y += amount
+            target.transform.translate.y += amount
           },
         }),
       )
@@ -149,7 +144,7 @@ const VisuElementInternal = memo(function VisuElementInternal({
       paplico.command.do(
         new Commands.VisuUpdateAttributes(visu.uid, {
           updater: (target) => {
-            target.transform.position.x += amount
+            target.transform.translate.x += amount
           },
         }),
       )
@@ -188,10 +183,12 @@ const VisuElementInternal = memo(function VisuElementInternal({
       ? editor.visuTransformOverride
       : null
 
-    const left = metrics.originalBBox.left + (override?.position.x ?? 0)
-    const top = metrics.originalBBox.top + (override?.position.y ?? 0)
-    const right = metrics.originalBBox.right + (override?.position.x ?? 0)
-    const bottom = metrics.originalBBox.bottom + (override?.position.y ?? 0)
+    const left = metrics.originalBBox.left + (override?.translate.x ?? 0)
+    const top = metrics.originalBBox.top + (override?.translate.y ?? 0)
+    const right = metrics.originalBBox.right + (override?.translate.x ?? 0)
+    const bottom = metrics.originalBBox.bottom + (override?.translate.y ?? 0)
+
+    console.log(metrics)
 
     return [
       <rect
@@ -265,7 +262,7 @@ const VisuElementInternal = memo(function VisuElementInternal({
         pointerEvents: editor.selectedVisuUidMap[visu.uid]
           ? 'painted'
           : 'stroke',
-        transform: `translate(${visu.transform.position.x}px, ${visu.transform.position.y}px)`,
+        transform: `translate(${visu.transform.translate.x}px, ${visu.transform.translate.y}px)`,
       }}
       onKeyDown={handleKeyDown}
       tabIndex={0}

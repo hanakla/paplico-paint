@@ -1,4 +1,4 @@
-import { VectorStrokeSetting } from '@paplico/core-new/dist/Document'
+import { Document } from '@paplico/core-new'
 import { UIStrokeJSON } from './structs'
 
 export type ServerSentPayloads = RoomJoinedPayload | StrokeCompletePayload
@@ -13,6 +13,6 @@ export type RoomJoinedPayload = {
 export type StrokeCompletePayload = {
   type: 'strokeComplete'
   uiStroke: UIStrokeJSON
-  strokeSettings: VectorStrokeSetting<any> | null
+  brushSetting: Document.VisuFilter.StrokeFilter<any> | null
   targetLayerUid: string
 }

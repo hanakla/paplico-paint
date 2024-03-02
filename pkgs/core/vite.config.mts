@@ -15,11 +15,12 @@ export default defineConfig({
     },
   },
   build: {
-    minify: false,
-    emptyOutDir: false,
+    minify: process.env.BUILD_TARGET_ENV === 'production',
+    emptyOutDir: process.env.BUILD_TARGET_ENV === 'production',
     lib: {
       entry: {
         index: 'src/index.ts',
+        'expr-webgl': 'src/index-expr-webgl.ts',
         'ext-brush': 'src/index-ext-brush.ts',
         'ext-ink': 'src/index-ext-ink.ts',
         'ext-filter': 'src/index-ext-filter.ts',
@@ -50,7 +51,7 @@ export default defineConfig({
           'abs-svg-path',
           'is-ios',
           'fast-random',
-          '@paplico/shared-lib',
+          // '@paplico/shared-lib',
         ],
       }),
     } as any,

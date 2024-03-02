@@ -12,6 +12,11 @@
       "import": "./dist/index.mjs",
       "types": "./dist/index.d.ts",
       "require": "./dist/index.js"
+    },
+    "./react": {
+      "import": "./dist/react.mjs",
+      "types": "./dist/react.d.ts",
+      "require": "./dist/react.js"
     }
   },
   "scripts": {

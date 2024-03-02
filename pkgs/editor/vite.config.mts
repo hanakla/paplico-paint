@@ -17,8 +17,8 @@ export default defineConfig({
     },
   },
   build: {
-    minify: false,
-    emptyOutDir: false,
+    minify: process.env.BUILD_TARGET_ENV === 'production',
+    emptyOutDir: process.env.BUILD_TARGET_ENV === 'production',
     lib: {
       entry: 'src/index.tsx',
       name: 'PapVectorEditor',

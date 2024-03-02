@@ -19,7 +19,7 @@ import { useTranslation } from '@/lib/i18n'
 import { layersPaneTexts } from '@/locales'
 import { NewTreeView } from './LayersPane/NewTreeView'
 import { StoreApi, create } from 'zustand'
-import { usePropsMemo } from '@paplico/shared-lib'
+import { usePropsMemo } from '@paplico/shared-lib/react'
 
 type Props = {
   size?: 'sm' | 'lg'
@@ -35,30 +35,14 @@ type LayerContextMenuParams = {
   layerUid: string
 }
 
-type LayersPaneStore = {
-  selectedVisu: Document.VisuElement.AnyElement | null
-  set: StoreApi<LayersPaneStore>['setState']
-}
-
-const useLayersPaneStore = create<LayersPaneStore>((get, set) => ({
-  selectedVisu: null,
-  set,
-}))
-
 export const LayersPane = memo(function LayersPane({ size = 'sm' }: Props) {
   const t = useTranslation(layersPaneTexts)
   const { pplc: pplc, canvasEditor } = usePaplicoInstance()
   const rerender = useUpdate()
   const propsMemo = usePropsMemo()
 
-  const layersPaneStore = useLayersPaneStore()
-  useStateSync(() => {
-    layersPaneStore.set({
-      selectedVisu: canvasEditor?.getStrokingTarget()?.visu,
-    })
-  }, [canvasEditor?.getStrokingTarget()?.visuUid])
-
   const strokeTarget = canvasEditor?.getStrokingTarget()
+  const selectedVisu = strokeTarget?.visu
 
   const handleChangeLayerName = useEvent((e: ChangeEvent<HTMLInputElement>) => {
     if (!strokeTarget) return
@@ -140,7 +124,7 @@ export const LayersPane = memo(function LayersPane({ size = 'sm' }: Props) {
           border-radius: 4px;
         `}
       >
-        {!layersPaneStore.selectedVisu ? (
+        {!selectedVisu ? (
           <PlaceholderStringSpan>
             Select a layer to show properties
           </PlaceholderStringSpan>
@@ -149,7 +133,7 @@ export const LayersPane = memo(function LayersPane({ size = 'sm' }: Props) {
             <Fieldset label={t('layerName')}>
               <TextField
                 size="1"
-                value={strokeTarget?.vi ?? ''}
+                value={selectedVisu?.name ?? ''}
                 placeholder={`<${t('layerName')}>`}
                 onChange={handleChangeLayerName}
               />
@@ -157,30 +141,40 @@ export const LayersPane = memo(function LayersPane({ size = 'sm' }: Props) {
 
             <Fieldset
               label={t('compositeMode')}
-              valueField={
-                layersPaneStore.selectedVisu?.blendMode ?? '<Blend mode>'
-              }
+              valueField={selectedVisu?.blendMode ?? '<Blend mode>'}
             >
               {propsMemo.memo(
                 'blendmode-fieldset-root',
                 () => (
                   <Select.Root
                     size="1"
-                    value={layersPaneStore.selectedVisu?.blendMode}
+                    value={selectedVisu?.blendMode}
                     onValueChange={handleChangeCompositeMode}
                   >
                     <>
-                      <Select.Trigger />
+                      <Select.Trigger
+                        css={css`
+                          width: 100%;
+                        `}
+                      />
                       <Select.Content>
-                        <Select.Item value="normal">Normal</Select.Item>
-                        <Select.Item value="multiply">Multiply</Select.Item>
-                        <Select.Item value="screen">Screen</Select.Item>
-                        <Select.Item value="overlay">Overlay</Select.Item>
+                        <Select.Item value="normal">
+                          {t('compositeMode.normal')}
+                        </Select.Item>
+                        <Select.Item value="multiply">
+                          {t('compositeMode.multiply')}
+                        </Select.Item>
+                        <Select.Item value="screen">
+                          {t('compositeMode.screen')}
+                        </Select.Item>
+                        <Select.Item value="overlay">
+                          {t('compositeMode.overlay')}
+                        </Select.Item>
                       </Select.Content>
                     </>
                   </Select.Root>
                 ),
-                [],
+                [selectedVisu?.blendMode],
               )}
             </Fieldset>
 

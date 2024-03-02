@@ -12,6 +12,7 @@ import { type RenderPipeline } from './RenderPipeline'
 import { VectorRenderer } from './VectorRenderer'
 import { DEFAULT_VISU_TRANSFORM } from '@/Document/Visually/factory'
 import { composeVisuTransforms } from './VectorUtils'
+import { LogChannel } from '@/Debugging/LogChannel'
 
 export function buildRenderSchedule(
   node: PaplicoDocument.ResolvedLayerNode,
@@ -120,7 +121,7 @@ export function buildRenderSchedule(
     _debug: ['initial'],
   })
   ;(function scheduleForTree(
-    GROUP_RENDER_TARGET: RenderTargets,
+    groupRenderTarget: RenderTargets,
     node: PaplicoDocument.ResolvedLayerNode,
     parentTransform: VisuElement.ElementTransform,
     parentVisible: boolean,
@@ -129,6 +130,7 @@ export function buildRenderSchedule(
 
     if (!parentVisible) return
     if (nodeVisu.visible == false || nodeVisu.opacity === 0) return
+    LogChannel.l.pipelineSchedule(node, parentTransform)
 
     const hasPostProcessFilter = nodeVisu.filters.some((f) => {
       return f.kind === 'postprocess' && f.enabled && f.processor.opacity > 0
@@ -156,7 +158,7 @@ export function buildRenderSchedule(
         command: RenderCommands.DRAW_OVERRIDED_SOURCE_TO_DEST,
         source: { bitmap: layerNodeOverrides[node.uid] },
         renderTarget: canUseGroupRenderTarget
-          ? GROUP_RENDER_TARGET
+          ? groupRenderTarget
           : RenderTargets.LAYER_PRE_FILTER,
         blendMode: nodeVisu.blendMode,
         opacity: nodeVisu.opacity,
@@ -175,7 +177,7 @@ export function buildRenderSchedule(
         command: RenderCommands.DRAW_BITMAP_CACHE_TO_DEST,
         source: RenderTargets.NONE,
         renderTarget: canUseGroupRenderTarget
-          ? GROUP_RENDER_TARGET
+          ? groupRenderTarget
           : RenderTargets.LAYER_PRE_FILTER,
         blendMode: nodeVisu.blendMode,
         opacity: nodeVisu.opacity,
@@ -187,10 +189,10 @@ export function buildRenderSchedule(
 
         scheduleForTree(
           canUseGroupRenderTarget
-            ? GROUP_RENDER_TARGET
+            ? groupRenderTarget
             : CHILDREN_AGGREGATE_TARGET,
           child,
-          addTransform(parentTransform, nodeVisu.transform),
+          composeVisuTransforms(parentTransform, nodeVisu.transform),
           parentVisible && nodeVisu.visible,
         )
       }
@@ -212,7 +214,7 @@ export function buildRenderSchedule(
         command: RenderCommands.DRAW_VISU_TO_DEST,
         source: { visuNode: node },
         renderTarget: canUseGroupRenderTarget
-          ? GROUP_RENDER_TARGET
+          ? groupRenderTarget
           : RenderTargets.LAYER_PRE_FILTER,
         blendMode: nodeVisu.blendMode,
         opacity: nodeVisu.opacity,
@@ -224,7 +226,7 @@ export function buildRenderSchedule(
         command: RenderCommands.DRAW_VISU_TO_DEST,
         source: { visuNode: node },
         renderTarget: canUseGroupRenderTarget
-          ? GROUP_RENDER_TARGET
+          ? groupRenderTarget
           : RenderTargets.LAYER_PRE_FILTER,
         blendMode: nodeVisu.blendMode,
         opacity: nodeVisu.opacity,
@@ -252,9 +254,8 @@ export function buildRenderSchedule(
             command: RenderCommands.APPLY_INTERNAL_OBJECT_FILTER,
             source: null,
             renderTarget: canUseGroupRenderTarget
-              ? GROUP_RENDER_TARGET
+              ? groupRenderTarget
               : RenderTargets.LAYER_PRE_FILTER,
-            visuUid: node.uid,
             objectVisu: nodeVisu,
             filter,
             parentTransform,
@@ -302,7 +303,7 @@ export function buildRenderSchedule(
       tasks.push({
         command: RenderCommands.DRAW_SOURCE_TO_DEST,
         source: RenderTargets.LAYER_PRE_FILTER,
-        renderTarget: GROUP_RENDER_TARGET,
+        renderTarget: groupRenderTarget,
         blendMode: nodeVisu.blendMode,
         opacity: nodeVisu.opacity,
       })
@@ -315,23 +316,6 @@ export function buildRenderSchedule(
   )
 
   return { tasks, stats: { usingCanvaes: 1 } }
-}
-
-function addTransform(
-  t1: VisuElement.ElementTransform,
-  t2: VisuElement.ElementTransform,
-): VisuElement.ElementTransform {
-  return {
-    position: {
-      x: t1.position.x,
-      y: t1.position.y,
-    },
-    scale: {
-      x: t1.scale.x,
-      y: t1.scale.y,
-    },
-    rotate: t1.rotate,
-  }
 }
 
 function flattenResolvedNode(node: PaplicoDocument.ResolvedLayerNode) {

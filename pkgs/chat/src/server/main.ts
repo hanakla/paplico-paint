@@ -80,7 +80,11 @@ export function startPaplicoChatServer({
           break
         }
         case 'strokeComplete': {
-          const { uiStroke, targetLayerUid, strokeSettings } = request
+          const {
+            uiStroke,
+            targetNode: targetLayerUid,
+            strokeSettings,
+          } = request
           const { roomId } = clients.get(ws) ?? {}
           if (roomId == null) return
 
@@ -96,7 +100,7 @@ export function startPaplicoChatServer({
                 type: 'strokeComplete',
                 uiStroke,
                 targetLayerUid,
-                strokeSettings,
+                brushSetting: strokeSettings,
               }),
             )
           }

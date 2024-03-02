@@ -58,7 +58,8 @@ import { DisplayContents } from '@/components/DisplayContents'
 import { createUseStore } from '@/utils/zustand'
 import { StoreApi, createStore } from 'zustand/vanilla'
 import { clamp } from '@/utils/math'
-import { emptyCoalease, pick, usePropsMemo } from '@paplico/shared-lib'
+import { emptyCoalease, pick } from '@paplico/shared-lib'
+import { usePropsMemo } from '@paplico/shared-lib/react'
 
 type LayerContextMenuEvent = {
   event: MouseEvent

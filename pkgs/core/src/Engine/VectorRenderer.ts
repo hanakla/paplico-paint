@@ -204,9 +204,9 @@ export class VectorRenderer {
             const metrics = await this.renderFill(obj.path, output, ap.fill, {
               pixelRatio: pixelRatio,
               transform: {
-                position: addPoint2D(
-                  parentTransform.position,
-                  obj.transform.position,
+                translate: addPoint2D(
+                  parentTransform.translate,
+                  obj.transform.translate,
                 ),
                 scale: multiplyPoint2D(
                   parentTransform.scale,
@@ -234,9 +234,9 @@ export class VectorRenderer {
                 inkSetting: ap.ink,
                 pixelRatio,
                 transform: {
-                  position: addPoint2D(
-                    parentTransform.position,
-                    obj.transform.position,
+                  translate: addPoint2D(
+                    parentTransform.translate,
+                    obj.transform.translate,
                   ),
                   scale: multiplyPoint2D(
                     parentTransform.scale,
@@ -292,8 +292,8 @@ export class VectorRenderer {
 
     const objects: VisuElement.VectorObjectElement[] = []
 
-    let curX = layer.transform.position.x
-    let curY = layer.transform.position.y
+    let curX = layer.transform.translate.x
+    let curY = layer.transform.translate.y
     let curBaseline = 0
 
     // #region Linebreak nomarlize
@@ -411,9 +411,9 @@ export class VectorRenderer {
               blendMode: 'normal',
               path: charPath,
               transform: {
-                position: {
-                  x: node.position.x,
-                  y: node.position.y,
+                translate: {
+                  x: node.translate.x,
+                  y: node.translate.y,
                 },
                 scale: {
                   x: 1,
@@ -638,10 +638,14 @@ export class VectorRenderer {
     this.camera.bottom = -height / 2.0
     this.camera.updateProjectionMatrix()
 
-    const originalBBox = applyMatrixToBBox(
-      calcVectorPathBoundingBox(path),
-      visuTransformToMatrix2D(transform),
-    )
+    // const originalBBox = applyMatrixToBBox(
+    //   calcVectorPathBoundingBox(path),
+    //   visuTransformToMatrix2D(transform),
+    // )
+
+    const originalBBox = calcVectorPathBoundingBox(path)
+
+    console.log({ bounding: calcVectorPathBoundingBox(path), originalBBox })
 
     const useMemoForPath = async <T>(
       path: VisuElement.VectorPath,
@@ -692,7 +696,7 @@ export class VectorRenderer {
             height: output.canvas.height,
           },
           transform: {
-            translate: { x: transform.position.x, y: transform.position.y },
+            translate: { x: transform.translate.x, y: transform.translate.y },
             scale: { x: transform.scale.x, y: transform.scale.y },
             rotate: transform.rotate,
           },

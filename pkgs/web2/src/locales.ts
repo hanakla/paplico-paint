@@ -88,6 +88,7 @@ export const filtersPaneTexts = tx({
     'filterType.stroke': 'Stroke',
     'filterType.missingPostProcess': 'Missing filter {{id}}',
 
+    'stroke.brush': 'Brush',
     'stroke.width': 'Width',
   },
   ja: {
@@ -97,6 +98,7 @@ export const filtersPaneTexts = tx({
     'filterType.stroke': '線',
     'filterType.missingPostProcess': '不明なフィルター {{id}}',
 
+    'stroke.brush': 'ブラシ',
     'stroke.width': '線幅',
   },
 })

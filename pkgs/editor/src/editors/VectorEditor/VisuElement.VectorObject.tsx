@@ -18,11 +18,12 @@ import { createUseStyles } from 'react-jss'
 import { useMemoRevailidatable, usePointerDrag } from '@/utils/hooks'
 import { unstable_batchedUpdates } from 'react-dom'
 import { ToolModes } from '@/stores/types'
-import { getTangent } from '@/utils/math'
-import { mapEntries, usePropsMemo } from '@paplico/shared-lib'
+import { mapEntries } from '@paplico/shared-lib'
+import { usePropsMemo } from '@paplico/shared-lib/react'
 import { storePicker } from '@/utils/zustand'
 import clsx from 'clsx'
 import useEvent from 'react-use-event-hook'
+import { radToDeg } from '@paplico/core-new/math-utils'
 
 type Props = {
   visuUid: string
@@ -107,7 +108,7 @@ export const VectorObjectElementInternal = memo(function VectorObjectElement({
   const s = usePathStyle()
   const propsMemo = usePropsMemo()
 
-  const elementScale = 1 / editor.canvasScale
+  const elementScale = 1
 
   const [pointMoveOverride, setPointMoveOverride] = useState<{
     idxs: number[]
@@ -123,12 +124,14 @@ export const VectorObjectElementInternal = memo(function VectorObjectElement({
     idx: number
     x: number
     y: number
+    isCurveTool?: true
   } | null>(null)
 
   const [endAnchorOverride, setEndAnchorOverride] = useState<{
     idx: number
     x: number
     y: number
+    isCurveTool?: true
   } | null>(null)
 
   const onClickPath = useCallback((e: MouseEvent) => {
@@ -193,8 +196,8 @@ export const VectorObjectElementInternal = memo(function VectorObjectElement({
       editor.setVisuTransformOverride((prev) => ({
         ...prev,
         position: {
-          x: offsetMovement[0] / elementScale,
-          y: offsetMovement[1] / elementScale,
+          x: offsetMovement[0],
+          y: offsetMovement[1],
         },
       }))
 
@@ -204,8 +207,8 @@ export const VectorObjectElementInternal = memo(function VectorObjectElement({
             return [
               uid,
               (base) => {
-                base.transform.position.x += offsetMovement[0] / elementScale
-                base.transform.position.y += offsetMovement[1] / elementScale
+                base.transform.translate.x += offsetMovement[0]
+                base.transform.translate.y += offsetMovement[1]
                 return base
               },
             ]
@@ -216,8 +219,8 @@ export const VectorObjectElementInternal = memo(function VectorObjectElement({
       // paplico.requestPreviewPriolityRerender({
       //   transformOverrides: {
       //     [visu.uid]: (base) => {
-      //       base.transform.position.x += movement[0] / editor.canvasScale
-      //       base.transform.position.y += movement[1] / editor.canvasScale
+      //       base.transform.position.x += movement[0]
+      //       base.transform.position.y += movement[1]
       //       return base
       //     },
       //   },
@@ -226,10 +229,10 @@ export const VectorObjectElementInternal = memo(function VectorObjectElement({
       paplico.command.do(
         new Commands.VectorVisuUpdateAttributes(visuUid, {
           updater: (target) => {
-            const prevPosition = target.transform.position
-            target.transform.position = {
-              x: prevPosition.x + offsetMovement[0] / elementScale,
-              y: prevPosition.y + offsetMovement[1] / elementScale,
+            const prevPosition = target.transform.translate
+            target.transform.translate = {
+              x: prevPosition.x + offsetMovement[0],
+              y: prevPosition.y + offsetMovement[1],
             }
           },
         }),
@@ -259,8 +262,10 @@ export const VectorObjectElementInternal = memo(function VectorObjectElement({
       if (pointIdx == null) return
 
       if (isCurveToolMode) {
+        const pt = visu.path.points[pointIdx]
+
         const oppositeSidePos = PaplicoMath.getPointWithAngleAndDistance({
-          base: { x: offsetInitial[0], y: offsetInitial[1] },
+          base: { x: pt.x, y: pt.y },
           angle:
             PaplicoMath.getRadianTangent(
               offsetInitial[0],
@@ -277,7 +282,6 @@ export const VectorObjectElementInternal = memo(function VectorObjectElement({
         })
 
         if (!last) {
-        } else {
           paplico.requestPreviewPriolityRerender({
             transformOverrides: {
               [visu.uid]: (base) => {
@@ -287,20 +291,12 @@ export const VectorObjectElementInternal = memo(function VectorObjectElement({
                 // if (!point?.begin) return base
 
                 point.begin = {
-                  x:
-                    (point.begin?.x ?? 0) +
-                    offsetMovement[0] / editor.canvasScale,
-                  y:
-                    (point.begin?.y ?? 0) +
-                    offsetMovement[1] / editor.canvasScale,
+                  x: (point.begin?.x ?? 0) + offsetMovement[0],
+                  y: (point.begin?.y ?? 0) + offsetMovement[1],
                 }
                 point.end = {
-                  x:
-                    (point.end?.x ?? 0) +
-                    oppositeSidePos.x / editor.canvasScale,
-                  y:
-                    (point.end?.y ?? 0) +
-                    oppositeSidePos.y / editor.canvasScale,
+                  x: oppositeSidePos.x,
+                  y: oppositeSidePos.y,
                 }
 
                 return base
@@ -312,13 +308,36 @@ export const VectorObjectElementInternal = memo(function VectorObjectElement({
             idx: +pointIdx,
             x: offsetMovement[0],
             y: offsetMovement[1],
+            isCurveTool: true,
           })
 
           setEndAnchorOverride({
             idx: +pointIdx,
             x: oppositeSidePos.x,
             y: oppositeSidePos.y,
+            isCurveTool: true,
           })
+        } else {
+          paplico.command.do(
+            new Commands.VectorVisuUpdateAttributes(visuUid, {
+              updater: (target) => {
+                const point = target.path.points[pointIdx]
+                if (!point) return
+
+                point.begin = {
+                  x: (point.begin?.x ?? 0) + offsetMovement[0],
+                  y: (point.begin?.y ?? 0) + offsetMovement[1],
+                }
+                point.end = {
+                  x: oppositeSidePos.x,
+                  y: oppositeSidePos.y,
+                }
+              },
+            }),
+          )
+
+          setBeginAnchorOverride(null)
+          setEndAnchorOverride(null)
         }
       } else if (isPointToolMode) {
         const moveX = offsetMovement[0]
@@ -380,17 +399,17 @@ export const VectorObjectElementInternal = memo(function VectorObjectElement({
                   const next = target.path.points[idx + 1]
                   if (!point) return
 
-                  point.x += moveX / editor.canvasScale
-                  point.y += moveY / editor.canvasScale
+                  point.x += moveX
+                  point.y += moveY
 
                   if (point.end) {
-                    point.end.x += moveX / editor.canvasScale
-                    point.end.y += moveY / editor.canvasScale
+                    point.end.x += moveX
+                    point.end.y += moveY
                   }
 
                   if (next?.begin) {
-                    next.begin.x += moveX / editor.canvasScale
-                    next.begin.y += moveY / editor.canvasScale
+                    next.begin.x += moveX
+                    next.begin.y += moveY
                   }
                 })
               },
@@ -427,7 +446,7 @@ export const VectorObjectElementInternal = memo(function VectorObjectElement({
   }, [])
 
   const bindBeginAnchorDrag = usePointerDrag(
-    ({ event, delta, movement, last }) => {
+    ({ event, delta, offsetMovement, last }) => {
       const pointIdx = event.currentTarget!.dataset!.pointIdx!
 
       if (!last) {
@@ -439,8 +458,8 @@ export const VectorObjectElementInternal = memo(function VectorObjectElement({
               const point = base.path.points[pointIdx]
               if (!point?.begin) return base
 
-              point.begin.x += movement[0] / editor.canvasScale
-              point.begin.y += movement[1] / editor.canvasScale
+              point.begin.x += offsetMovement[0]
+              point.begin.y += offsetMovement[1]
 
               return base
             },
@@ -449,8 +468,8 @@ export const VectorObjectElementInternal = memo(function VectorObjectElement({
 
         setBeginAnchorOverride({
           idx: +pointIdx,
-          x: movement[0],
-          y: movement[1],
+          x: offsetMovement[0],
+          y: offsetMovement[1],
         })
       } else {
         paplico.command.do(
@@ -459,8 +478,8 @@ export const VectorObjectElementInternal = memo(function VectorObjectElement({
               const point = target.path.points[pointIdx]
               if (!point) return
 
-              point.begin!.x += movement[0] / editor.canvasScale
-              point.begin!.y += movement[1] / editor.canvasScale
+              point.begin!.x += offsetMovement[0]
+              point.begin!.y += offsetMovement[1]
             },
           }),
         )
@@ -470,43 +489,49 @@ export const VectorObjectElementInternal = memo(function VectorObjectElement({
     },
   )
 
-  const bindEndAnchorDrag = usePointerDrag(({ event, movement, last }) => {
-    const pointIdx = event.currentTarget!.dataset!.pointIdx!
+  const bindEndAnchorDrag = usePointerDrag(
+    ({ event, offsetMovement, last }) => {
+      const pointIdx = event.currentTarget!.dataset!.pointIdx!
 
-    if (!last) {
-      paplico.requestPreviewPriolityRerender({
-        transformOverrides: {
-          [visu.uid]: (base) => {
-            if (base.type !== 'vectorObject') return base
+      if (!last) {
+        paplico.requestPreviewPriolityRerender({
+          transformOverrides: {
+            [visu.uid]: (base) => {
+              if (base.type !== 'vectorObject') return base
 
-            const point = base.path.points[pointIdx]
-            if (!point?.end) return base
+              const point = base.path.points[pointIdx]
+              if (!point?.end) return base
 
-            point.end.x += movement[0] / editor.canvasScale
-            point.end.y += movement[1] / editor.canvasScale
+              point.end.x += offsetMovement[0]
+              point.end.y += offsetMovement[1]
 
-            return base
+              return base
+            },
           },
-        },
-      })
+        })
 
-      setEndAnchorOverride({ idx: +pointIdx, x: movement[0], y: movement[1] })
-    } else {
-      paplico.command.do(
-        new Commands.VectorVisuUpdateAttributes(visuUid, {
-          updater: (target) => {
-            const point = target.path.points[pointIdx]
-            if (!point) return
+        setEndAnchorOverride({
+          idx: +pointIdx,
+          x: offsetMovement[0],
+          y: offsetMovement[1],
+        })
+      } else {
+        paplico.command.do(
+          new Commands.VectorVisuUpdateAttributes(visuUid, {
+            updater: (target) => {
+              const point = target.path.points[pointIdx]
+              if (!point) return
 
-            point.end!.x += movement[0] / editor.canvasScale
-            point.end!.y += movement[1] / editor.canvasScale
-          },
-        }),
-      )
+              point.end!.x += offsetMovement[0]
+              point.end!.y += offsetMovement[1]
+            },
+          }),
+        )
 
-      setEndAnchorOverride(null)
-    }
-  })
+        setEndAnchorOverride(null)
+      }
+    },
+  )
 
   useEffect(() => {
     return paplico.on('document:layerUpdated', ({ layerEntityUid }) => {
@@ -634,7 +659,42 @@ export const VectorObjectElementInternal = memo(function VectorObjectElement({
         )
 
         // beginning of curve control point
-        if (prev && pt.begin) {
+        if (
+          beginAnchorOverride?.isCurveTool &&
+          beginAnchorOverride?.idx === idx
+        ) {
+          console.log({ beginAnchorOverride })
+
+          // Maybe in Curve tool
+          anchorLineElements.push(
+            <MemoLine
+              key={'begin-line' + idx}
+              className={s.poitoToAnchorLine}
+              strokeWidth={1}
+              data-begin-line
+              x1={pt.x + ptOvrOffsetX}
+              y1={pt.y + ptOvrOffsetY}
+              x2={pt.x + ptOvrOffsetX + beginOvrX}
+              y2={pt.y + ptOvrOffsetY + beginOvrY}
+            />,
+          )
+
+          beginAnchorElements.push(
+            <MemoCircle
+              key={'begin-control' + idx}
+              r={3}
+              cx={pt.x + ptOvrOffsetX + beginOvrX}
+              cy={pt.y + ptOvrOffsetY + beginOvrY}
+              paintOrder="stroke fill"
+              fill="white"
+              stroke="var(--pplc-stroke-color)"
+              data-beginning-of-curve-for={idx}
+              className={s.disableTouchAction}
+              data-point-idx={idx}
+              {...bindBeginAnchorDrag()}
+            />,
+          )
+        } else if (prev && pt.begin) {
           anchorLineElements.push(
             <MemoLine
               key={'begin-line' + idx}
@@ -666,7 +726,35 @@ export const VectorObjectElementInternal = memo(function VectorObjectElement({
         }
 
         // end of curve control point
-        if (pt.end) {
+        if (endAnchorOverride?.isCurveTool && endAnchorOverride?.idx === idx) {
+          anchorLineElements.push(
+            <MemoLine
+              key={'end-line' + idx}
+              className={s.poitoToAnchorLine}
+              data-end-line
+              strokeWidth={1}
+              x1={pt.x + ptOvrOffsetX}
+              y1={pt.y + ptOvrOffsetY}
+              x2={ptOvrOffsetX + endOvrX}
+              y2={ptOvrOffsetY + endOvrY}
+            />,
+          )
+
+          endAnchorElements.push(
+            <MemoCircle
+              key={'end-control' + idx}
+              r={3}
+              cx={ptOvrOffsetX + endOvrX}
+              cy={ptOvrOffsetY + endOvrY}
+              paintOrder="stroke"
+              fill="white"
+              stroke="var(--pplc-stroke-color)"
+              data-point-idx={idx}
+              className={s.disableTouchAction}
+              {...bindEndAnchorDrag()}
+            />,
+          )
+        } else if (pt.end) {
           anchorLineElements.push(
             <MemoLine
               key={'end-line' + idx}
@@ -714,6 +802,7 @@ export const VectorObjectElementInternal = memo(function VectorObjectElement({
     visu.path.points,
     editor.selectedVisuUidMap[visu.uid],
     isPointToolMode,
+    isCurveToolMode,
     pointMoveOverride,
     beginAnchorOverride,
     endAnchorOverride,
@@ -723,7 +812,11 @@ export const VectorObjectElementInternal = memo(function VectorObjectElement({
     <g
       data-pap-component="ObjectPath"
       style={{
-        transform: `translate(${visu.transform.position.x}px, ${visu.transform.position.y}px)`,
+        transform: `translate(${visu.transform.translate.x}px, ${
+          visu.transform.translate.y
+        }px) scale(${visu.transform.scale.x}, ${
+          visu.transform.scale.y
+        }) rotate(${radToDeg(visu.transform.rotate)}deg)})`,
       }}
       className={s.root}
       data-state-selected={isSelected}

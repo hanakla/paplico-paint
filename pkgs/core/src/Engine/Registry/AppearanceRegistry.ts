@@ -25,7 +25,7 @@ export class AppearanceRegistry extends Emitter<Events> {
     } catch (e) {
       this.filters.delete(Class.metadata.id)
       this.instances.delete(Class)
-      console.warn('Failed to register brush', Class, e)
+      console.warn('Failed to register filter', Class.metadata.id, e)
       throw e
     }
 

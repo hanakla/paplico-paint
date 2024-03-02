@@ -32,7 +32,12 @@ export const Fieldset = memo(function Fieldset({
           margin-bottom: 2px;
         `}
       >
-        <label htmlFor={htmlFor}>
+        <label
+          css={css`
+            display: block;
+          `}
+          htmlFor={htmlFor}
+        >
           <Text
             css={css`
               display: flow-root;

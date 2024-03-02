@@ -14,11 +14,12 @@ export default defineConfig({
     },
   },
   build: {
-    minify: false,
-    emptyOutDir: false,
+    minify: process.env.BUILD_TARGET_ENV === 'production',
+    emptyOutDir: process.env.BUILD_TARGET_ENV === 'production',
     lib: {
       entry: {
         index: 'src/index.ts',
+        react: 'src/react.ts',
       },
       name: 'PapCore',
       formats: ['es', 'cjs'],

@@ -26,6 +26,7 @@ import { useNotifyStore } from './notifications'
 import { createUseStore, storePicker } from '@/utils/zustand'
 import { shallowEquals } from '@paplico/shared-lib'
 import debounce from 'just-debounce'
+import { rescue } from '@hanakla/arma'
 
 interface EngineStore {
   _engine: Paplico | null
@@ -87,11 +88,12 @@ export function usePaplicoInit(
       // colorSpace: 'display-p3',
     })
 
+    console.log(pplc)
     ;(window as any).pplc = pplc
     pplc.exposeLogChannelToGlobalThis()
 
     await pplc.brushes.register(ExtraBrushes.ScatterBrush)
-    await pplc.fonts.requestToRegisterLocalFonts()
+    await rescue(() => pplc.fonts.requestToRegisterLocalFonts())
 
     pplc.on('stateChanged', () => {
       engineStore._setEngineState(pplc.state)
@@ -136,11 +138,11 @@ export function usePaplicoInit(
 
   // Canvas editor event
   useDangerouslyEffectAsync(() => {
-    const handler = engineStore.canvasEditor
-    if (!handler) return
+    const canvasEditor = engineStore.canvasEditor
+    if (!canvasEditor) return
 
     const offs = [
-      handler.on('toolModeChanged', ({ next }) => {
+      canvasEditor.on('toolModeChanged', ({ next }) => {
         notifyStore.emit({ type: 'toolChanged', tool: next })
       }),
     ]

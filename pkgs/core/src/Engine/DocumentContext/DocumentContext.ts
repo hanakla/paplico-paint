@@ -49,6 +49,7 @@ export namespace DocumentContext {
   }
 }
 
+/** Managing runtime document states and caches */
 export class DocumentContext extends Emitter<DocumentContext.Events> {
   public document: PaplicoDocument
   public history: History

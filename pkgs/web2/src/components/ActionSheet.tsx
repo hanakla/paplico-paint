@@ -19,7 +19,6 @@ import { centering } from '@/utils/cssMixin'
 import useEvent from 'react-use-event-hook'
 import { FocusTrap } from '@/components/FocusTrap'
 import { GhostButton } from '@/components/GhostButton'
-import { Portal } from '@radix-ui/themes'
 
 type Props = {
   opened: boolean

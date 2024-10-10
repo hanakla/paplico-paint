@@ -3,7 +3,6 @@ import {
   useSortable,
   SortableContext,
   sortableKeyboardCoordinates,
-  verticalListSortingStrategy,
 } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import {
@@ -20,10 +19,6 @@ import {
   useSensors,
 } from '@dnd-kit/core'
 import {
-  restrictToParentElement,
-  restrictToVerticalAxis,
-} from '@dnd-kit/modifiers'
-import {
   LayerTreeNode,
   convertLayerNodeToTreeViewNode,
   getMoveToNodePath,
@@ -31,7 +26,6 @@ import {
   updateTree,
 } from './structs'
 import {
-  initializeOnlyUseEngineStore,
   useCanvasEditorState,
   usePaplicoInstance,
 } from '@/domains/engine'
@@ -47,19 +41,18 @@ import {
   RxEyeNone,
   RxEyeOpen,
   RxLockClosed,
-  RxLockOpen1,
   RxLockOpen2,
   RxTriangleDown,
   RxTriangleUp,
 } from 'react-icons/rx'
 import { useStateSync } from '@/utils/hooks'
 import { GhostButton } from '@/components/GhostButton'
-import { DisplayContents } from '@/components/DisplayContents'
 import { createUseStore } from '@/utils/zustand'
 import { StoreApi, createStore } from 'zustand/vanilla'
 import { clamp } from '@/utils/math'
 import { emptyCoalease, pick } from '@paplico/shared-lib'
 import { usePropsMemo } from '@paplico/shared-lib/react'
+import { twx } from '@/utils/tailwind'
 
 type LayerContextMenuEvent = {
   event: MouseEvent
@@ -404,45 +397,11 @@ export const SortableItem = memo(function SortableItem({
       )}
 
       <div
-        css={css`
-          display: flex;
-          align-items: center;
-          gap: 2px;
-          padding: 2px 4px;
-        `}
+        className={twx('flex items-center gap-[2px] p-[2px_4px]')}
         style={{
           display: item.dragging ? 'none' : undefined,
         }}
       >
-        <GhostButton
-          css={s.layerControlButton}
-          onClick={handleClickToggleVisible}
-          data-filter-uid={item.visUid}
-          style={{
-            opacity: item.invisibleByParent ? 0.3 : 1,
-          }}
-        >
-          {item.visu.visible ? (
-            <RxEyeOpen size={12} />
-          ) : (
-            <RxEyeNone size={12} />
-          )}
-        </GhostButton>
-
-        <GhostButton
-          css={s.layerControlButton}
-          onClick={handleClickToggleLock}
-          data-filter-uid={item.visUid}
-          style={{
-            opacity: item.lockByParent ? 0.3 : 1,
-          }}
-        >
-          {item.visu.lock ? (
-            <RxLockClosed size={12} />
-          ) : (
-            <RxLockOpen2 size={12} />
-          )}
-        </GhostButton>
 
         <GhostButton
           css={css`
@@ -539,7 +498,39 @@ export const SortableItem = memo(function SortableItem({
               )
             }
           </span>
+
         </div>
+
+        <GhostButton
+          css={s.layerControlButton}
+          onClick={handleClickToggleVisible}
+          data-filter-uid={item.visUid}
+          className="ml-auto"
+          style={{
+            opacity: item.invisibleByParent ? 0.3 : 1,
+          }}
+        >
+          {item.visu.visible ? (
+            <RxEyeOpen size={12} />
+          ) : (
+            <RxEyeNone size={12} />
+          )}
+        </GhostButton>
+
+        <GhostButton
+          css={s.layerControlButton}
+          onClick={handleClickToggleLock}
+          data-filter-uid={item.visUid}
+          style={{
+            opacity: item.lockByParent ? 0.3 : 1,
+          }}
+        >
+          {item.visu.lock ? (
+            <RxLockClosed size={12} />
+          ) : (
+            <RxLockOpen2 size={12} />
+          )}
+        </GhostButton>
       </div>
     </div>
   )

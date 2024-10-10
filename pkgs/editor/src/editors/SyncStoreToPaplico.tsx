@@ -1,5 +1,4 @@
 import { useEditorStore, useEngineStore } from '@/store'
-import { unreachable } from '@/utils/unreachable'
 import { storePicker } from '@/utils/zustand'
 import { memo, useEffect } from 'react'
 import { ToolModes } from '..'

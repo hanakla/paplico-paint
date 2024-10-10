@@ -38,6 +38,7 @@ export const getDatabase = cache(async (databaseId: string) => {
 })
 
 export const getPage = cache(async (pageId: string) => {
+  console.log(pageId)
   const response = await notion.pages.retrieve({ page_id: pageId })
   return response
 })

@@ -34,6 +34,7 @@ import { ToolSelectPane } from './MainToolbar/ToolSelectPane'
 import { papColorToRGBA, useToolbarStore } from './MainToolbar/toolbar.store'
 import { StrokeColorPopoverTrigger } from './MainToolbar/StrokeColorPopover'
 import { usePropsMemo } from '@paplico/shared-lib/react'
+import { ConfirmDiscardDialog } from './MainToolbar/ConfirmDiscardDialog'
 
 type Props = {
   className?: string

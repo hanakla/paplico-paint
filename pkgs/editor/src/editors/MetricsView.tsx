@@ -44,7 +44,6 @@ export const MetricsView = memo(function MetricsView({ width, height }: Props) {
       {[...(paplico.visuMetrics?.getAllMetrices() ?? [])].map(
         ({ visuUid, originalBBox, postFilterBBox }) => {
           const visu = paplico.currentDocument?.getVisuByUid(visuUid)!
-          console.log({ originalBBox })
 
           return (
             <g key={visuUid}>

@@ -70,6 +70,7 @@
     "styled-media-query": "^2.1.2",
     "styled-reset": "^4.3.4",
     "svg-path-commander": "^1.0.4",
+    "tailwind-merge": "^2.5.3",
     "use-immer": "^0.7.0",
     "use-long-press": "^2.0.0",
     "use-measure": "^0.3.0",

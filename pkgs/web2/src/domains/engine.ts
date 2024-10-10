@@ -801,6 +801,7 @@ function createTestDocument(pplc: Paplico) {
   )
 
   pplc.loadDocument(doc)
+  console.log('loaded')
   // pap.setStrokingTargetLayer([raster.uid])
 
   pplc!.setStrokingTarget([vectorGroupVis.uid])

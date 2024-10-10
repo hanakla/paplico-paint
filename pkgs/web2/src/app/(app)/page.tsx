@@ -1,5 +1,7 @@
 'use client'
 
+import './globals.css'
+
 import { MutableRefObject, forwardRef, memo, useRef } from 'react'
 import { css } from 'styled-components'
 import { EditorArea } from './fragments/EditorArea'

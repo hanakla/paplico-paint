@@ -3,18 +3,17 @@ import { Button, Dialog, Flex, Grid } from '@radix-ui/themes'
 import { memo } from 'react'
 import useEvent from 'react-use-event-hook'
 
-type Result = { type: 'paplic' | 'png' } | { type: 'psd' }
-type Props = DialogProps<Result>
+type Props = DialogProps<boolean>
 
-export const FileSaveDialog = function FileSaveDialog({ onClose }: Props) {
+export const ConfirmDiscardDialog = function FileSaveDialog({
+  onClose,
+}: Props) {
   const handleCancel = useEvent(() => {
-    onClose()
+    onClose(false)
   })
 
-  const handleClickType = useEvent((e: React.MouseEvent<HTMLButtonElement>) => {
-    const type = e.currentTarget.dataset.type!
-    console.log(type)
-    onClose({ type })
+  const handleDiscard = useEvent(() => {
+    onClose(true)
   })
 
   return (
@@ -22,19 +21,12 @@ export const FileSaveDialog = function FileSaveDialog({ onClose }: Props) {
       <Dialog.Content>
         <Dialog.Title>Caution</Dialog.Title>
 
-        <Grid gap="4">
-          <Button variant="soft" data-type="paplic" onClick={handleClickType}>
-            Save as .paplic
-          </Button>
-          <Button variant="soft" data-type="png" onClick={handleClickType}>
-            Save as PNG
-          </Button>
-          <Button variant="soft" data-type="psd" onClick={handleClickType}>
-            Save as PSD
-          </Button>
-        </Grid>
+        <Grid gap="4">Would you like to discard your changes?</Grid>
 
         <Flex gap="3" justify="end" mt="8">
+          <Button color="gray" variant="soft" onClick={handleDiscard}>
+            Discard
+          </Button>
           <Button color="gray" variant="soft" onClick={handleCancel}>
             Cancel
           </Button>

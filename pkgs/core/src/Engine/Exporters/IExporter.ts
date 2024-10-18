@@ -23,6 +23,8 @@ export namespace IExporter {
      * SEE: https://html.spec.whatwg.org/multipage/canvas.html#serialising-bitmaps-to-a-file
      */
     dpi: number
+
+    viewport: Paplico.Viewport
   }
 
   export type OptionsToRequest<T extends Options> = Omit<

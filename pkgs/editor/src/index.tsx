@@ -16,7 +16,6 @@ import { SyncStoreToPaplico } from './editors/SyncStoreToPaplico'
 import { MutableRefObject, createRef, useSyncExternalStore } from 'react'
 import { ErrorBoundary } from 'react-error-boundary'
 import { ErrorFallback } from './editors/ErrorFallback'
-import { e } from 'vitest/dist/reporters-2ff87305.js'
 export { EditorTypes, ToolModes } from './stores/types'
 
 export type PplcEditorHandle = ReturnType<typeof bindPaplico>
@@ -67,7 +66,6 @@ export function bindPaplico(
         // canvasRef={canvasRef}
         />
       </StoresContext.Provider>
-      ,
     </ErrorBoundary>,
   )
 

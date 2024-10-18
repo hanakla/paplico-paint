@@ -42,16 +42,17 @@ export const MetricsView = memo(function MetricsView({ width, height }: Props) {
       </defs>
 
       {[...(paplico.visuMetrics?.getAllMetrices() ?? [])].map(
-        ({ visuUid, originalBBox, postFilterBBox }) => {
+        ({ visuUid, originalBBox }) => {
           const visu = paplico.currentDocument?.getVisuByUid(visuUid)!
+          const viewport = paplico.getViewport()
 
           return (
             <g key={visuUid}>
               <text
                 filter="url(#pap-editor-metrics-text-bg)"
                 dominantBaseline="hanging"
-                x={originalBBox.left}
-                y={originalBBox.bottom + 2}
+                x={originalBBox.left - viewport.left}
+                y={originalBBox.bottom - viewport.top + 2}
                 fontSize={12}
               >
                 {visu.name + `(${visuUid})`}
@@ -71,8 +72,8 @@ export const MetricsView = memo(function MetricsView({ width, height }: Props) {
               ) : null} */}
 
               <rect
-                x={originalBBox.left}
-                y={originalBBox.top}
+                x={originalBBox.left - viewport.left}
+                y={originalBBox.top - viewport.top}
                 width={originalBBox.width}
                 height={originalBBox.height}
                 fill="none"

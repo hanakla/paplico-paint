@@ -1,5 +1,3 @@
-import { clamp } from '@/utils/math'
-
 type InterpolatorFunction = (a: number, b: number, ratio: number) => number
 
 export const lerp = (a: number, b: number, t: number) => {
@@ -15,7 +13,7 @@ export const mapLinear = (
   a: [number, number],
   b: [number, number],
 ) => {
-  return lerp(b[0], b[1], clamp((x - a[0]) / (a[1] - a[0]), 0, 1))
+  return lerp(b[0], b[1], (x - a[0]) / (a[1] - a[0]))
 }
 
 export const clampNumInLength = (array: any[], num: number) => {

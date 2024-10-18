@@ -174,6 +174,7 @@ export namespace VisuElement {
   }
 
   export type LooseTypedVectorPathPoint = {
+    /** Absolute position(x1, y1), control point for end of curve */
     begin?: { x: number; y: number } | null
     /** Absolute position(x2, y2), control point for end of curve */
     end?: { x: number; y: number } | null

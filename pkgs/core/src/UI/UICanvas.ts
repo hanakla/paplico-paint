@@ -12,7 +12,7 @@ type Events = {
 }
 
 export class UICanvas extends Emitter<Events> {
-  public currentBrush: UIStroke | null = null
+  public currentStroke: UIStroke | null = null
   protected ctx: CanvasRenderingContext2D
 
   #enabled = true
@@ -136,7 +136,7 @@ export class UICanvas extends Emitter<Events> {
   protected startStroke(input: UIStrokePointRequired[]) {
     if (!this.#enabled) return
 
-    const s = (this.currentBrush = new UIStroke())
+    const s = (this.currentStroke = new UIStroke())
     s.markStartTime()
     input.forEach((p) => s.addPoint(p))
 
@@ -146,7 +146,7 @@ export class UICanvas extends Emitter<Events> {
   protected updateStroke(input: UIStrokePointRequired[]) {
     if (!this.#enabled) return
 
-    const s = this.currentBrush
+    const s = this.currentStroke
     if (!s) return
 
     input.forEach((p) => s.addPoint(p))
@@ -157,20 +157,20 @@ export class UICanvas extends Emitter<Events> {
   protected cancelStroke() {
     if (!this.#enabled) return
 
-    const s = this.currentBrush
+    const s = this.currentStroke
     if (!s) return
 
-    this.currentBrush = null
+    this.currentStroke = null
     this.emit('strokeCancel', s)
   }
 
   protected finishStroke() {
     if (!this.#enabled) return
 
-    const s = this.currentBrush
+    const s = this.currentStroke
     if (!s) return
 
-    this.currentBrush = null
+    this.currentStroke = null
     this.emit('strokeComplete', s)
   }
 
@@ -220,8 +220,8 @@ export class UICanvas extends Emitter<Events> {
         y: (e.offsetY * this.ctx.canvas.height) / this.ctx.canvas.clientHeight,
         pressure: e.pressure,
         tilt: { x: e.tiltX, y: e.tiltY },
-        deltaTimeMs: this.currentBrush?.startTime
-          ? e.timeStamp - this.currentBrush.startTime
+        deltaTimeMs: this.currentStroke?.startTime
+          ? e.timeStamp - this.currentStroke.startTime
           : 0,
       }),
     )

@@ -72,6 +72,12 @@ import { WebGLFilterContext } from './Filter/WebGLFilterContext'
 import { ChromaticAberration } from '@/Filters/ChromaticAberration'
 import { GaussianBlur } from '@/Filters/GaussianBlur'
 import { KawaseBlur } from '@/Filters/PixiBlur'
+import { Viewport } from './types'
+import {
+  applyTransformTranslateToVectorPath,
+  mapPathInViewport,
+  viewportToTransform,
+} from './VectorUtils'
 
 export namespace Paplico {
   /** @deprecated */
@@ -96,7 +102,7 @@ export namespace Paplico {
     currentFill: VisuFilter.Structs.FillSetting | null
     currentInk: VisuFilter.Structs.InkSetting
     strokeComposition: VisuElement.StrokeCompositeMode
-    // busy: boolean
+    viewport: Viewport
   }>
 
   export type StrokeEvent = {
@@ -139,6 +145,7 @@ export namespace Paplico {
     clearCache?: boolean
     destination?: CanvasRenderingContext2D
     pixelRatio?: number
+    viewport?: Viewport
     signal?: AbortSignal
   }
 
@@ -162,6 +169,8 @@ export namespace Paplico {
     h: AbstractElementCreator
   }
 }
+
+const DEFAULT_VIEWPORT: Viewport = { left: 0, top: 0, width: 0, height: 0 }
 
 /**
  * An frontend class of Paplico.
@@ -214,6 +223,7 @@ export class Paplico extends Emitter<Paplico.Events> {
     currentInk: DEFAULT_INK_SETTING(),
     strokeComposition: 'normal',
     // busy: false,
+    viewport: DEFAULT_VIEWPORT,
   }
 
   // public static createWithDocument(
@@ -421,6 +431,7 @@ export class Paplico extends Emitter<Paplico.Events> {
     this.glRendererResource.ensureForce().dispose()
   }
 
+  // TODO: Rename to `createSubCanvas`
   public createMicroCanvas(canvas: CanvasRenderingContext2D) {
     const mc = new MicroCanvas(canvas.canvas, this)
     this._childMicroCanvases
@@ -465,6 +476,7 @@ export class Paplico extends Emitter<Paplico.Events> {
       return this.export(new SVGExporter(), {
         looseSVGOriginalStrict: false,
         targetNodePath: undefined,
+        viewport: this.#state.viewport,
         ...options,
       })
     },
@@ -473,6 +485,7 @@ export class Paplico extends Emitter<Paplico.Events> {
     ) => {
       return this.export(new PNGExporter(), {
         targetNodePath: undefined,
+        viewport: this.#state.viewport,
         ...options,
       })
     },
@@ -481,6 +494,7 @@ export class Paplico extends Emitter<Paplico.Events> {
     ) => {
       return this.export(new PSDExporter(), {
         targetNodePath: undefined,
+        viewport: this.#state.viewport,
         ...options,
       })
     },
@@ -502,7 +516,12 @@ export class Paplico extends Emitter<Paplico.Events> {
     getRedoStack: () => this.runtimeDoc?.history.redoStack,
   }
 
-  public loadDocument(doc: PaplicoDocument | null) {
+  public loadDocument(
+    doc: PaplicoDocument | null,
+    options: {
+      viewport?: Viewport
+    } = {},
+  ) {
     const prevDocument = this.document
 
     this.runtimeDoc?.dispose()
@@ -510,6 +529,12 @@ export class Paplico extends Emitter<Paplico.Events> {
     if (doc == null) {
       this.document = null
       this.runtimeDoc = null
+
+      this.setState((d) => ({
+        ...d,
+        viewport: options.viewport ?? DEFAULT_VIEWPORT,
+      }))
+
       this.emit('documentChanged', {
         current: null,
         previous: prevDocument,
@@ -568,10 +593,33 @@ export class Paplico extends Emitter<Paplico.Events> {
       )
     })
 
+    this.setState((d) => ({
+      ...d,
+      viewport: options.viewport ?? {
+        top: 0,
+        left: 0,
+        width: doc.meta.mainArtboard.width,
+        height: doc.meta.mainArtboard.height,
+      },
+    }))
+
     this.emit('documentChanged', {
       previous: prevDocument,
       current: doc,
     })
+  }
+
+  public setViewport(viewport: Viewport) {
+    this.setState((d) => ({
+      ...d,
+      viewport,
+    }))
+
+    this.requestPreviewPriolityRerender()
+  }
+
+  public getViewport(): Viewport {
+    return this.#state.viewport
   }
 
   public getStrokingTarget(): DocumentContext.StrokingTarget | null {
@@ -697,6 +745,7 @@ export class Paplico extends Emitter<Paplico.Events> {
     transformOverrides,
     destination,
     pixelRatio = this.#preferences.pixelRatio,
+    viewport,
     clearCache,
     signal,
   }: Paplico.RenderOptions = {}) {
@@ -709,6 +758,7 @@ export class Paplico extends Emitter<Paplico.Events> {
     try {
       RenderCycleLogger.current.log('Refresh all layers')
 
+      const vp = viewport ?? this.#state.viewport
       const dstctx = destination ?? this.dstctx
       const dstCanvas = dstctx.canvas
 
@@ -729,12 +779,7 @@ export class Paplico extends Emitter<Paplico.Events> {
           layerNodeOverrides: layerOverrides,
           transformOverrides,
           pixelRatio,
-          viewport: {
-            top: 0,
-            left: 0,
-            width: dstCanvas.width,
-            height: dstCanvas.height,
-          },
+          viewport: vp,
           phase: 'final',
           logger: RenderCycleLogger.current,
         },
@@ -928,12 +973,7 @@ export class Paplico extends Emitter<Paplico.Events> {
             abort: aborter.signal,
             pixelRatio: this.#preferences.pixelRatio,
             offsetTransform,
-            viewport: {
-              top: 0,
-              left: 0,
-              width: this.dstCanvas.width,
-              height: this.dstCanvas.height,
-            },
+            viewport: this.#state.viewport,
             phase: 'stroking',
             logger: renderLogger,
           },
@@ -1030,12 +1070,7 @@ export class Paplico extends Emitter<Paplico.Events> {
             layerNodeOverrides: { [targetVisu.visuUid]: tmpctx.canvas },
             abort: aborter.signal,
             pixelRatio: this.#preferences.pixelRatio,
-            viewport: {
-              top: 0,
-              left: 0,
-              width: this.dstCanvas.width,
-              height: this.dstCanvas.height,
-            },
+            viewport: this.#state.viewport,
             phase: 'stroking',
             logger: renderLogger,
           },
@@ -1276,7 +1311,7 @@ export class Paplico extends Emitter<Paplico.Events> {
     }
 
     const newVisu = createVectrObjectVisuWithSettings(
-      stroke.toPath(),
+      mapPathInViewport(stroke.toPath(), this.#state.viewport),
       fillSetting,
       brushSetting,
       inkSetting,
@@ -1312,9 +1347,12 @@ export class Paplico extends Emitter<Paplico.Events> {
     inkSetting ??= this.#state.currentInk // Disallow null
 
     const newVisu = createVectrObjectVisuWithSettings(
-      stroke.toSimplifiedPath({
-        tolerance: this.#preferences.strokeTrelance,
-      }),
+      applyTransformTranslateToVectorPath(
+        stroke.toSimplifiedPath({
+          tolerance: this.#preferences.strokeTrelance,
+        }),
+        viewportToTransform(this.#state.viewport, true),
+      ),
       fillSetting,
       brushSetting,
       inkSetting,

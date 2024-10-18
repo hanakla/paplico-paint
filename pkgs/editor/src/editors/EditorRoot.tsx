@@ -7,6 +7,7 @@ import useMeasure from 'react-use-measure'
 import { storePicker } from '@/utils/zustand'
 import { TextEditor } from './TextEditor'
 import { MetricsView } from './MetricsView'
+import { DragHandler } from './DragHandler'
 
 type Props = {
   theme?: typeof themeVariables
@@ -104,6 +105,8 @@ export const EditorRoot = memo(function EditorRoot({
         r={brushSizePreview?.size ?? 0}
       />
       <MetricsView width={size.width} height={size.height} />
+
+      <DragHandler width={size.width} height={size.height} />
 
       <VectorEditor rootBBox={bound} width={size.width} height={size.height} />
 

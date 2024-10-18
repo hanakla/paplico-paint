@@ -3,7 +3,7 @@ import {
   createVectorPath,
 } from '@/Document/Visually/factory'
 import {
-  applyTransformToVectorPath,
+  applyTransformTranslateToVectorPath,
   vectorObjectTransformToMatrix,
 } from './VectorUtils'
 
@@ -39,7 +39,7 @@ describe('VectorUtils', () => {
         ],
       })
 
-      const result = applyTransformToVectorPath(path, {
+      const result = applyTransformTranslateToVectorPath(path, {
         translate: { x: 10, y: 10 },
         rotate: 0,
         scale: { x: 1, y: 1 },
@@ -59,7 +59,7 @@ describe('VectorUtils', () => {
         ],
       })
 
-      const result = applyTransformToVectorPath(path, {
+      const result = applyTransformTranslateToVectorPath(path, {
         translate: { x: 0, y: 0 },
         rotate: 20,
         scale: { x: 1, y: 1 },

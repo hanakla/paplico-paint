@@ -10,6 +10,7 @@ import { RenderPhase, Viewport } from './types'
 import {
   addPoint2D,
   applyMatrixToBBox,
+  applyTransformTranslateToVectorPath,
   calcVectorBoundingBox,
   calcVectorPathBoundingBox,
   composeVisuTransformsToDOMMatrix,
@@ -500,13 +501,22 @@ export class VectorRenderer {
 
           if (!processor.transformPath) return path
 
-          return await processor.transformPath?.(deepClone(path))
+          return await processor.transformPath?.(path)
         },
-        path,
+        deepClone(path),
       )
 
       saveAndRestoreCanvas(outcx, (cx) => {
         cx.globalCompositeOperation = 'source-over'
+
+        cx.transform(
+          transform.scale.x,
+          0,
+          0,
+          transform.scale.y,
+          transform.translate.x,
+          transform.translate.y,
+        )
 
         cx.beginPath()
 
@@ -645,8 +655,6 @@ export class VectorRenderer {
 
     const originalBBox = calcVectorPathBoundingBox(path)
 
-    console.log({ bounding: calcVectorPathBoundingBox(path), originalBBox })
-
     const useMemoForPath = async <T>(
       path: VisuElement.VectorPath,
       factory: () => Promise<T> | T,
@@ -676,6 +684,11 @@ export class VectorRenderer {
       return memoEntry.data
     }
 
+    const transformedPaths = applyTransformTranslateToVectorPath(
+      path,
+      transform,
+    )
+
     try {
       const resultBBoxes = await saveAndRestoreCanvas(output, async () => {
         return await brush.render({
@@ -690,16 +703,12 @@ export class VectorRenderer {
 
           brushSetting: deepClone(brushSetting),
           ink: ink.getInkGenerator({}),
-          path: [path],
+          path: [transformedPaths],
           destSize: {
             width: output.canvas.width,
             height: output.canvas.height,
           },
-          transform: {
-            translate: { x: transform.translate.x, y: transform.translate.y },
-            scale: { x: transform.scale.x, y: transform.scale.y },
-            rotate: transform.rotate,
-          },
+          transform: DEFAULT_VISU_TRANSFORM(),
           phase,
           logger: logger ?? new RenderCycleLogger(),
           useMemoForPath,

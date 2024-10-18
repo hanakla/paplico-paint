@@ -63,8 +63,6 @@ const VisuElementInternal = memo(function VisuElementInternal({
     editor.toolMode === ToolModes.curveTool
   const elementScale = 1 / editor.canvasScale
 
-  console.log(editor.toolMode)
-
   const bindDrag = usePointerDrag(
     async ({ movement, offsetMovement, last, event }) => {
       if (editor.toolMode !== ToolModes.objectTool) return

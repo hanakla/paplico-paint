@@ -16,7 +16,6 @@ export function bind(
 ) {
   engineStore.getState()._setPaplicoInstance(paplico)
   engineStore.getState()._setEngineState(paplico.state)
-  engineStore.getState().set({ busyState: paplico.state.busy })
 
   // Editor type handling by stroking target
   {
@@ -44,7 +43,7 @@ export function bind(
     })
   }
 
-  // Copy registered entries change for dedbup rendering views
+  // Listening registered filter / ink /brush entries change
   {
     engineStore.setState({
       availableBrushes: paplico.brushes.entries,
@@ -75,8 +74,8 @@ export function bind(
     draggingThreadholdRealPixels: settings.draggingThreadholdRealPixels,
   })
 
-  paplico.on('stateChanged', ({ busy, ...state }) => {
-    engineStore.setState((prv) => ({ state, busyState: busy }))
+  paplico.on('stateChanged', (state) => {
+    engineStore.setState((prv) => ({ state }))
   })
 
   paplico.on('documentChanged', ({ current }) => {
@@ -91,6 +90,7 @@ export function bind(
     editorStore.setState(() => ({
       enabled: visuType === 'group' || visuType === 'canvas',
       editorType: nextEditorType,
+      viewport: paplico.getViewport(),
     }))
   })
 

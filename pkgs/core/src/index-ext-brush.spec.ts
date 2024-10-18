@@ -1,9 +1,9 @@
 import { createVectorPath } from './Document/Visually/factory'
 import {
   indexedPointAtLength,
-  vectorPathPointsToSVGPathString,
+  vectorPathPointsToSVGPath,
   scatterPlot,
-  vectorPathPointsToSVGDCommandArray,
+  vectorPathPointsToSVGCommandArray,
 } from './index-ext-brush'
 import { FuncStats } from './utils/perfstats'
 
@@ -17,9 +17,7 @@ describe('scatterPlot', () => {
       ],
     })
 
-    const pal = indexedPointAtLength(
-      vectorPathPointsToSVGPathString(path.points),
-    )
+    const pal = indexedPointAtLength(vectorPathPointsToSVGPath(path.points))
 
     const result = scatterPlot(path, pal, {
       counts: 10,
@@ -37,7 +35,7 @@ describe('scatterPlot', () => {
       randomSeed: 0,
       points: Array.from({ length: POINTS }, (_, i) =>
         i === 0
-          ? { isMoveTo: true, x: i, y: y }
+          ? { isMoveTo: true, x: i, y: i }
           : {
               x: i,
               y: i,
@@ -48,9 +46,7 @@ describe('scatterPlot', () => {
       ),
     })
 
-    const pal = indexedPointAtLength(
-      vectorPathPointsToSVGPathString(path.points),
-    )
+    const pal = indexedPointAtLength(vectorPathPointsToSVGPath(path.points))
 
     console.time('scatterPlot once')
     scatterPlot(path, pal, {
@@ -67,7 +63,7 @@ describe('scatterPlot', () => {
 
 describe('pointsToSVGCommandArray', () => {
   it('works', () => {
-    const result = vectorPathPointsToSVGDCommandArray([
+    const result = vectorPathPointsToSVGCommandArray([
       { isMoveTo: true, x: 0, y: 0 },
       { x: 0.6, y: 0.6, begin: { x: 0.5, y: 0.5 }, end: { x: 0, y: 0.5 } },
       { x: 1, y: 1, end: null, begin: null },

@@ -32,7 +32,7 @@ export type GetPointWorkerResponse = {
   lengths: number[]
   totalLength: number
   bbox: { left: number; top: number; right: number; bottom: number } | null
-  _debug: any
+  _debug?: any
 }
 
 export type WorkerResponse =
@@ -252,10 +252,14 @@ export async function processInput(data: Payload): Promise<WorkerResponse> {
     lengths,
     totalLength: totalLen,
     matrices,
-    _debug: {
-      // requestAts,
-      // path,
-      // positions: _debug_positions,
-    },
+    ...(process.env.NODE_ENV === 'test'
+      ? {
+          _debug: {
+            requestAts,
+            path,
+            positions: _debug_positions,
+          },
+        }
+      : {}),
   }
 }

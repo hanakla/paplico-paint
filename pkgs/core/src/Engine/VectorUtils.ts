@@ -4,6 +4,7 @@ import { type Point2D } from '@/Document/Structs/Point2D'
 import { vectorPathPointsToSVGPath } from '@/index-ext-brush'
 import { Matrix2D } from '@/Math/matrix2d'
 import { LayerMetrics } from './DocumentContext/LayerMetrics'
+import { Viewport } from './types'
 
 export const addPoint2D = (a: Point2D, b: Point2D) => ({
   x: a.x + b.x,
@@ -80,14 +81,20 @@ export function applyMatrixToBBox(
   }
 }
 export const composeVisuTransforms = (
-  a: VisuElement.ElementTransform,
-  b: VisuElement.ElementTransform,
+  ...transforms: VisuElement.ElementTransform[]
 ): VisuElement.ElementTransform => {
-  return {
-    translate: addPoint2D(a.translate, b.translate),
-    scale: multiplyPoint2D(a.scale, b.scale),
-    rotate: a.rotate + b.rotate,
-  }
+  return transforms.reduce(
+    (acc, trns) => ({
+      translate: addPoint2D(acc.translate, trns.translate),
+      scale: multiplyPoint2D(acc.scale, trns.scale),
+      rotate: acc.rotate + trns.rotate,
+    }),
+    {
+      translate: { x: 0, y: 0 },
+      scale: { x: 1, y: 1 },
+      rotate: 0,
+    },
+  )
 }
 
 export const composeVisuTransformsToDOMMatrix = (
@@ -165,97 +172,77 @@ export const calcVectorBoundingBox = (obj: VisuElement.VectorObjectElement) => {
   }
 }
 
-export function applyTransformToVectorPath(
+export const mapPathInViewport = (
+  path: VisuElement.VectorPath,
+  viewport: Viewport,
+): VisuElement.VectorPath => {
+  return {
+    ...path,
+    points: path.points.map((point) => {
+      return {
+        ...point,
+        x: point.x + viewport.left,
+        y: point.y + viewport.top,
+        begin: point.begin
+          ? {
+              x: point.begin.x + viewport.left,
+              y: point.begin.y + viewport.top,
+            }
+          : undefined,
+        end: point.end
+          ? {
+              x: point.end.x + viewport.left,
+              y: point.end.y + viewport.top,
+            }
+          : undefined,
+      }
+    }),
+  }
+}
+
+export const viewportToTransform = (viewport: Viewport, neg?: boolean) => {
+  return {
+    translate: {
+      x: neg ? viewport.left : -viewport.left,
+      y: neg ? viewport.top : -viewport.top,
+    },
+    scale: { x: 1, y: 1 },
+    rotate: 0,
+  }
+}
+
+export function applyTransformTranslateToVectorPath(
   path: VisuElement.VectorPath,
   transform: VisuElement.ElementTransform,
 ): VisuElement.VectorPath {
-  const bounds = pathBounds(vectorPathPointsToSVGPath(path.points))
-
-  const centerX = bounds.left + (bounds.right - bounds.left) / 2
-  const centerY = bounds.top + (bounds.bottom - bounds.top) / 2
-
   const newPoints = path.points.map((point) => {
     if (point.isClose) {
       return point
     }
 
-    // Translate
-    let newX = point.x + transform.translate.x
-    let newY = point.y + transform.translate.y
-
-    // Scale
-    newX *= transform.scale.x
-    newY *= transform.scale.y
-
-    // 回転前の準備：点を重心に向けて移動
-    newX -= centerX
-    newY -= centerY
-
-    // Rotate
-    const angle = (transform.rotate * Math.PI) / 180 // Convert to radians
-    const rotatedX = newX * Math.cos(angle) - newY * Math.sin(angle)
-    const rotatedY = newX * Math.sin(angle) + newY * Math.cos(angle)
-
-    // 回転後の調整：元の位置に戻す
-    newX = rotatedX + centerX
-    newY = rotatedY + centerY
-
-    // Return the transformed point
-    return {
+    const translatedPoint = {
       ...point,
-      x: newX,
-      y: newY,
+      x: point.x + transform.translate.x,
+      y: point.y + transform.translate.y,
       ...(point.begin
         ? {
             begin: {
-              x:
-                (point.begin.x * transform.scale.x +
-                  transform.translate.x -
-                  centerX) *
-                  Math.cos(angle) -
-                (point.begin.y * transform.scale.y +
-                  transform.translate.y -
-                  centerY) *
-                  Math.sin(angle) +
-                centerX,
-              y:
-                (point.begin.x * transform.scale.x +
-                  transform.translate.x -
-                  centerX) *
-                  Math.sin(angle) +
-                (point.begin.y * transform.scale.y +
-                  transform.translate.y -
-                  centerY) *
-                  Math.cos(angle) +
-                centerY,
+              x: point.begin.x + transform.translate.x,
+              y: point.begin.y + transform.translate.y,
             },
           }
         : {}),
       ...(point.end
         ? {
-            x:
-              (point.end.x * transform.scale.x +
-                transform.translate.x -
-                centerX) *
-                Math.cos(angle) -
-              (point.end.y * transform.scale.y +
-                transform.translate.y -
-                centerY) *
-                Math.sin(angle) +
-              centerX,
-            y:
-              (point.end.x * transform.scale.x +
-                transform.translate.x -
-                centerX) *
-                Math.sin(angle) +
-              (point.end.y * transform.scale.y +
-                transform.translate.y -
-                centerY) *
-                Math.cos(angle) +
-              centerY,
+            end: {
+              x: point.end.x + transform.translate.x,
+              y: point.end.y + transform.translate.y,
+            },
           }
         : {}),
     }
+
+    return translatedPoint
   })
 
   return {

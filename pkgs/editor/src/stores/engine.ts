@@ -13,7 +13,6 @@ import { BoundedUseStore, createUseStore } from '@/utils/zustand'
 export type EngineStore = {
   paplico: Paplico
   state: Omit<Paplico.State, 'busy'>
-  busyState: Paplico.State['busy']
 
   currentBrushSetting: Document.VisuFilter.Structs.BrushSetting | null
   currentInkSetting: Document.VisuFilter.Structs.InkSetting | null

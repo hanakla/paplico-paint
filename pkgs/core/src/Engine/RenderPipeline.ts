@@ -30,6 +30,7 @@ import { LogChannel } from '@/Debugging/LogChannel'
 import {
   composeVisuTransforms,
   multiplyMatrix,
+  viewportToTransform,
   visuTransformToMatrix2D,
 } from './VectorUtils'
 import { formatStack } from '@/utils/debug-utils'
@@ -139,6 +140,7 @@ export class RenderPipeline {
       },
     )
     LogChannel.l.pipeline('  Requested by:\n' + formatStack(new Error(), 2))
+    LogChannel.l.pipeline('  Viewport:', viewport)
 
     const { tasks: schedules } = buildRenderSchedule(startNode, docx, {
       layerNodeOverrides,
@@ -339,6 +341,7 @@ export class RenderPipeline {
                   transform: composeVisuTransforms(
                     parentTransform,
                     object.transform,
+                    viewportToTransform(viewport),
                   ),
                   phase,
                   pixelRatio,
@@ -359,6 +362,7 @@ export class RenderPipeline {
                   transform: composeVisuTransforms(
                     parentTransform,
                     object.transform,
+                    viewportToTransform(viewport),
                   ),
                   inkSetting: filter.ink,
                   phase,

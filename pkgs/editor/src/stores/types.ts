@@ -1,5 +1,6 @@
 export const ToolModes = {
   none: 'none',
+  scroll: 'scroll',
   objectTool: 'objectTool',
   eraserTool: 'eraserTool',
   strokingTool: 'strokingTool',

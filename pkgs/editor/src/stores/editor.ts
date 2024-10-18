@@ -42,11 +42,13 @@ export type EditorStore = {
   strokingTarget: Paplico.StrokingTarget | null
   // strokeTargetVisu: Document.VisuElement.AnyElement | null
 
+  /** @deprecated */
   enabled: boolean
   editorType: EditorTypes
   toolMode: ToolModes
   canvasScale: number
   brushSizePreview: { size: number; durationMs: number } | null
+  viewport: Paplico.State['viewport']
 
   displayedResolvedNodes: DisplayedResolvedNode[]
   setDisplayResolvedNodes: (nodes: DisplayedResolvedNode[]) => void
@@ -70,6 +72,8 @@ export type EditorStore = {
 
   setEditorState: StoreApi<EditorStore>['setState']
   getEditorState: StoreApi<EditorStore>['getState']
+
+  setViewport: (viewport: Paplico.State['viewport']) => void
 
   setSelectedVisuUids: (
     updater: (prev: SelectedVisuMap) => SelectedVisuMap,
@@ -118,6 +122,15 @@ export const createEditorStore = () => {
 
     canvasScale: 1,
     brushSizePreview: null,
+    viewport: {
+      top: 0,
+      left: 0,
+      width: 0,
+      height: 0,
+    },
+    setViewport: (viewport) => {
+      set(() => ({ viewport }))
+    },
 
     displayedResolvedNodes: [],
     setDisplayResolvedNodes: (nodes) => {

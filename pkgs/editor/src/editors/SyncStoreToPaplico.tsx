@@ -12,6 +12,7 @@ export const SyncStoreToPaplico = memo(function SyncStoreToPaplico() {
     paplico.setStrokeCompositionMode(
       // prettier-ignore
       editor.toolMode === ToolModes.none ? 'none'
+      : editor.toolMode === ToolModes.scroll ? 'none'
       : editor.toolMode === ToolModes.ellipseTool ? 'none'
       : editor.toolMode === ToolModes.rectangleTool ? 'none'
       : editor.toolMode === ToolModes.strokingTool ? 'normal'
@@ -22,6 +23,10 @@ export const SyncStoreToPaplico = memo(function SyncStoreToPaplico() {
       : 'none',
     )
   }, [editor.toolMode])
+
+  useEffect(() => {
+    paplico.setViewport(editor.viewport)
+  }, [editor.viewport])
 
   return null
 })

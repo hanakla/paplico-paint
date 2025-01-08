@@ -7,6 +7,7 @@ import {
   DOMAttributes,
   PointerEvent,
 } from 'react'
+import { useEventCallback } from '@paplico/shared-lib/react'
 
 const useBrowserEffect =
   typeof window !== 'undefined' ? useInsertionEffect : () => {}
@@ -34,14 +35,19 @@ type DragGestureEvent = {
   offsetMovement: [number, number]
 }
 
+type Positions = {
+  clientX: number
+  clientY: number
+  offsetX: number
+  offsetY: number
+}
+
+/** Fork version of @use-gesture/react's useDrag for PointerEvents */
 export function usePointerDrag(handler: (e: DragGestureEvent) => void) {
-  const handlerRef = useStableRef(handler)
-  const startPosition = useRef<{
-    clientX: number
-    clientY: number
-    offsetX: number
-    offsetY: number
-  } | null>(null)
+  const handlerRef = useEventCallback(handler)
+
+  const startPosition = useRef<Positions | null>(null)
+  const prevPosition = useRef<Positions | null>(null)
 
   const handlers = useMemo(
     () =>
@@ -55,9 +61,11 @@ export function usePointerDrag(handler: (e: DragGestureEvent) => void) {
             offsetY: e.nativeEvent.offsetY,
           })
 
+          prevPosition.current = { ...pos }
+
           e.currentTarget.setPointerCapture(e.pointerId)
 
-          handlerRef.current({
+          handlerRef({
             event: e,
             first: true,
             last: false,
@@ -71,84 +79,84 @@ export function usePointerDrag(handler: (e: DragGestureEvent) => void) {
           })
         },
         onPointerMove: (e) => {
+          const ne = e.nativeEvent
           const source = startPosition.current
-          if (!source) return
+          const prev = prevPosition.current
 
-          const event = e.nativeEvent
+          if (!source || !prev) return
 
-          handlerRef.current({
+          prevPosition.current = {
+            clientX: ne.clientX,
+            clientY: ne.clientY,
+            offsetX: ne.offsetX,
+            offsetY: ne.offsetY,
+          }
+
+          handlerRef({
             event: e,
             first: false,
             last: false,
             canceled: false,
             initial: [source.clientX, source.clientY],
             offsetInitial: [source.offsetX, source.offsetY],
-            delta: [
-              event.clientX - source.clientX,
-              event.clientY - source.clientY,
-            ],
-            offsetDelta: [
-              event.offsetX - source.offsetX,
-              event.offsetY - source.offsetY,
-            ],
+            delta: [ne.clientX - prev.clientX, ne.clientY - prev.clientY],
+            offsetDelta: [ne.offsetX - prev.offsetX, ne.offsetY - prev.offsetY],
             movement: [
-              event.clientX - source.clientX,
-              event.clientY - source.clientY,
+              ne.clientX - source.clientX,
+              ne.clientY - source.clientY,
             ],
             offsetMovement: [
-              event.offsetX - source.offsetX,
-              event.offsetY - source.offsetY,
+              ne.offsetX - source.offsetX,
+              ne.offsetY - source.offsetY,
             ],
           })
         },
         onPointerUp: (e) => {
+          const ne = e.nativeEvent
           const source = startPosition.current
-          if (!source) return
+          const prev = prevPosition.current
+          if (!source || !prev) return
 
-          const event = e.nativeEvent
-          e.currentTarget.releasePointerCapture(event.pointerId)
+          e.currentTarget.releasePointerCapture(ne.pointerId)
           startPosition.current = null
+          prevPosition.current = null
 
-          handlerRef.current({
+          handlerRef({
             event: e,
             first: false,
             last: true,
             canceled: false,
             initial: [source.clientX, source.clientY],
             offsetInitial: [source.offsetX, source.offsetY],
-            delta: [
-              event.clientX - source.clientX,
-              event.clientY - source.clientY,
-            ],
-            offsetDelta: [
-              event.offsetX - source.offsetX,
-              event.offsetY - source.offsetY,
-            ],
+            delta: [ne.clientX - prev.clientX, ne.clientY - prev.clientY],
+            offsetDelta: [ne.offsetX - prev.offsetX, ne.offsetY - prev.offsetY],
             movement: [
-              event.clientX - source.clientX,
-              event.clientY - source.clientY,
+              ne.clientX - source.clientX,
+              ne.clientY - source.clientY,
             ],
             offsetMovement: [
-              event.offsetX - source.offsetX,
-              event.offsetY - source.offsetY,
+              ne.offsetX - source.offsetX,
+              ne.offsetY - source.offsetY,
             ],
           })
         },
         onPointerCancel: (e) => {
+          const ne = e.nativeEvent
           const source = startPosition.current
-          if (!source) return
+          const prev = prevPosition.current
+          if (!source || !prev) return
 
-          const event = e.nativeEvent
-          e.currentTarget.releasePointerCapture(event.pointerId)
+          e.currentTarget.releasePointerCapture(ne.pointerId)
           startPosition.current = null
+          prevPosition.current = null
 
-          handlerRef.current({
+          handlerRef({
             event: e,
             first: false,
             last: true,
             canceled: true,
-            initial: [event.clientX, event.clientY],
-            offsetInitial: [event.offsetX, event.offsetY],
+            initial: [ne.clientX, ne.clientY],
+            offsetInitial: [ne.offsetX, ne.offsetY],
             delta: [0, 0],
             offsetDelta: [0, 0],
             movement: [0, 0],

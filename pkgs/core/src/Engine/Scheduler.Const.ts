@@ -76,13 +76,14 @@ export type RenderTask = {
     }
   | {
       command: typeof RenderCommands.CACHE_SOUCE_AS_PRECOMPOSITE_LAYERS
-      cachedNodePaths: Array<string[]>
+      cachedNodePaths: string[][]
     }
 )
 
-export type SkippableVisuesMap = {
-  [uid: string]: { cacheKey: string } | undefined
-}
+export type SkippableVisuesMap = Record<
+  string,
+  { cacheKey: string } | undefined
+>
 
 export const RenderCommands = km({
   DRAW_SOURCE_TO_DEST: null,
@@ -101,7 +102,7 @@ export const RenderCommands = km({
 export type RenderCommands =
   (typeof RenderCommands)[keyof typeof RenderCommands]
 
-export type CanvasToken = {
+export interface CanvasToken {
   __canvasToken: true
 }
 

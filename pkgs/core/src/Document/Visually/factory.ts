@@ -1,10 +1,10 @@
+import { ElementBase, VisuElement } from './VisuElement'
+import { VisuFilter } from './VisuFilter'
+import { LayerNode } from '../Structs/LayerNode'
 import prand from 'pure-rand'
 import { ulid } from '@/utils/ulid'
 
 import { PaplicoDocument } from '@/Document/PaplicoDocument'
-import { ElementBase, VisuElement } from './VisuElement'
-import { VisuFilter } from './VisuFilter'
-import { LayerNode } from '../Structs/LayerNode'
 import { imageBitmapToImageData, loadImage } from '@/utils/imageObject'
 import { deepClone } from '@paplico/shared-lib'
 import { PPLCOptionInvariantViolationError } from '@/Errors'

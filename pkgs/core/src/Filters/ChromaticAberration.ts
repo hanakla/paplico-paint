@@ -2,7 +2,7 @@ import { screenMix_func } from '@/Engine/Filter/fragmentShaders'
 import { PplcFilter, createFilter } from '@/index-ext-filter'
 
 export namespace ChromaticAberration {
-  export type Settings = {
+  export interface Settings {
     distance: number
     angleDeg: number
   }

@@ -1,20 +1,20 @@
 import { Emitter } from '@paplico/shared-lib'
 import { parse, Font } from 'opentype.js'
 
-export type FontEntry = {
+export interface FontEntry {
   family: string
   styles: (BinaryFontStyle | LocalFontStyle)[]
 }
 
 export type FontStyleEntry = BinaryFontStyle | LocalFontStyle
 
-type BinaryFontStyle = {
+interface BinaryFontStyle {
   type: 'binary'
   name: string
   font: Font
 }
 
-type LocalFontStyle = {
+interface LocalFontStyle {
   type: 'local'
   name: string
   blob: () => Promise<Blob>
@@ -28,7 +28,7 @@ type LocalFontStyle = {
 // }
 
 type QueryLocalFonts = () => Promise<LocalFontData[]>
-type LocalFontData = {
+interface LocalFontData {
   family: string
   fullName: string
   postScriptName: string
@@ -37,7 +37,7 @@ type LocalFontData = {
 }
 
 export class FontRegistry extends Emitter<{}> {
-  protected cache: Map</* Family name */ string, FontEntry> = new Map()
+  protected cache = new Map</* Family name */ string, FontEntry>()
 
   public async requestToRegisterLocalFonts() {
     if (!('queryLocalFonts' in window)) {
@@ -137,7 +137,7 @@ export class FontRegistry extends Emitter<{}> {
       }
     } = {},
   ): Promise<Font | null> {
-    let [entry] =
+    const [entry] =
       this.queryFont(family, style) ??
       this.queryFont(fallback.family, fallback.style)
 

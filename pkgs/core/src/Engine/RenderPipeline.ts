@@ -1,21 +1,8 @@
-import { PaplicoDocument, VisuElement, VisuFilter } from '@/Document'
-import {
-  clearCanvas,
-  freeingCanvas,
-  saveAndRestoreCanvas,
-  setCanvasSize,
-} from '@/utils/canvas'
 import { RenderCycleLogger } from './RenderCycleLogger'
 import { VectorRenderer } from './VectorRenderer'
 import { DocumentContext } from './DocumentContext/DocumentContext'
-import { RenderPhase, Viewport } from './types'
-import { PPLCAbortError, PPLCInvariantViolationError } from '@/Errors'
-// import { WebGLRenderer } from 'three'
-import { AtomicResource } from '@/utils/AtomicResource'
-import { AppearanceRegistry } from '@/Engine/Registry/AppearanceRegistry'
+import { RenderPhase } from './types'
 import { IFilterWebGLContext } from './Filter/FilterContextAbst'
-// import { ThreeFilterContext } from './Filter/ThreeFilterContext'
-import { deepClone } from '@paplico/shared-lib'
 import { type LayerMetrics } from './DocumentContext/LayerMetrics'
 import {
   CanvasToken,
@@ -24,31 +11,41 @@ import {
   RenderTargets,
 } from './Scheduler.Const'
 import { buildRenderSchedule } from './Scheduler'
-import { PaplicoError } from '@/Errors/PaplicoError'
-import { Canvas2DAllocator } from '@/Infra/Canvas2DAllocator'
-import { LogChannel } from '@/Debugging/LogChannel'
 import {
   composeVisuTransforms,
   multiplyMatrix,
   viewportToTransform,
   visuTransformToMatrix2D,
 } from './VectorUtils'
+import { WebGLFilterContext } from './Filter/WebGLFilterContext'
+import { PaplicoDocument, VisuElement, VisuFilter } from '@/Document'
+import { clearCanvas, saveAndRestoreCanvas } from '@/utils/canvas'
+import { PPLCAbortError, PPLCInvariantViolationError } from '@/Errors'
+// import { WebGLRenderer } from 'three'
+import { AtomicResource } from '@/utils/AtomicResource'
+import { AppearanceRegistry } from '@/Engine/Registry/AppearanceRegistry'
+// import { ThreeFilterContext } from './Filter/ThreeFilterContext'
+import { deepClone } from '@paplico/shared-lib'
+import { PaplicoError } from '@/Errors/PaplicoError'
+import { Canvas2DAllocator } from '@/Infra/Canvas2DAllocator'
+import { LogChannel } from '@/Debugging/LogChannel'
 import { formatStack } from '@/utils/debug-utils'
 import { unreachable } from '@paplico/shared-lib'
-import { WebGLFilterContext } from './Filter/WebGLFilterContext'
+import { Paplico } from '@/Engine/Paplico'
 
 export namespace RenderPipeline {
   /**
    * Override rendering result of visu, it only specify to Group or Canvas node only
    * Otherwise, it will be ignored
    */
-  export type LayerNodeOverrides = {
-    [visuUid: string]: HTMLCanvasElement | ImageBitmap
-  }
+  export type LayerNodeOverrides = Record<
+    string,
+    HTMLCanvasElement | ImageBitmap
+  >
 
-  export type RenderOptions = {
+  export interface RenderOptions {
     abort?: AbortSignal
-    viewport: Viewport
+    viewport: Paplico.Viewport
     layerNodeOverrides?: LayerNodeOverrides
     transformOverrides?: VectorRenderer.VisuTransformOverrides
     offsetTransform?: VisuElement.ElementTransform
@@ -60,7 +57,7 @@ export namespace RenderPipeline {
     updateCacheIfAble?: boolean
   }
 
-  export type RenderResult = {
+  export interface RenderResult {
     /** Newer calcurated bboxes (not all visues included) */
     visuMetrics: Record<string, LayerMetrics.BBoxSet>
     stats: any
@@ -152,7 +149,7 @@ export class RenderPipeline {
     LogChannel.l.pipeline('scheduled', schedules)
 
     const canvasByToken = new Map<CanvasToken, CanvasRenderingContext2D>()
-    let borrowedCanvases = new Set<CanvasRenderingContext2D>()
+    const borrowedCanvases = new Set<CanvasRenderingContext2D>()
 
     const usedPrecompKeys = new Set<string>()
     const precompBitmapCache = this.precompBitmapCache
@@ -445,7 +442,6 @@ export class RenderPipeline {
 
             const cx = canvasByToken.get(renderTarget)
             if (cx) {
-              freeingCanvas(cx.canvas)
               canvasByToken.delete(renderTarget)
               Canvas2DAllocator.return(cx)
             }
@@ -739,5 +735,5 @@ const layerBlendModeToCanvasCompositeOperation = (
       multiply: 'multiply',
       overlay: 'overlay',
       screen: 'screen',
-    }) as { [k in VisuElement.BlendMode]: GlobalCompositeOperation }
+    }) as Record<VisuElement.BlendMode, GlobalCompositeOperation>
   )[mode]

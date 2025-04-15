@@ -2,13 +2,13 @@ import { deferred, DeferredPromise } from './promise'
 
 export class AtomicResource<T> {
   private que: DeferredPromise<T>[] = []
-  private locked: boolean = false
+  private locked = false
   private currentOwner: {
     stack: Error
     owner: any
     abort?: AbortController
   } | null = null
-  private timeoutId: number = -1
+  private timeoutId = -1
 
   constructor(
     private resource: T,

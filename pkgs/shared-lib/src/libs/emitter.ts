@@ -1,7 +1,7 @@
 import mitt, { WildcardHandler, Handler, type EventType } from 'mitt'
 
 export class Emitter<Events extends Record<EventType, unknown>> {
-  protected mitt = mitt<Events>()
+  #mitt = mitt<Events>()
 
   public on(type: '*', handler: WildcardHandler<Events>): () => void
 
@@ -18,10 +18,10 @@ export class Emitter<Events extends Record<EventType, unknown>> {
       this.off(type as any, handler as any)
     }
 
-    this.mitt.on(type as any, handler as any)
+    this.#mitt.on(type as any, handler as any)
     return unlisten
   }
 
-  public off = this.mitt.off.bind(this.mitt)
-  public emit = this.mitt.emit.bind(this.mitt)
+  public off = this.#mitt.off.bind(this.#mitt)
+  public emit = this.#mitt.emit.bind(this.#mitt)
 }

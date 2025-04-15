@@ -1,8 +1,8 @@
-import { hsvToRgb, rgbToHsv } from '@/Math'
 import { IInk, InkGenerator, createInk } from '../Engine/Ink'
+import { hsvToRgb, rgbToHsv } from '@/Math'
 
 export declare namespace RainbowInk {
-  type Setting = {}
+  interface Setting {}
 }
 
 export const RainbowInk = createInk(

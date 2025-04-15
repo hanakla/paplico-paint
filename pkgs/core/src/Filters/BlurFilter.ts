@@ -1,7 +1,7 @@
 import { createFilter, PplcFilter } from '@/index'
 
 export namespace BlurFilter {
-  export type Options = {
+  export interface Options {
     size: number
   }
 }

@@ -1,8 +1,8 @@
-import { Mock } from 'vitest'
 import { CanvasFactory } from '../Engine'
 import { Canvas2DAllocator } from './Canvas2DAllocator'
+import { Mock } from 'vitest'
 
-type MockCanvas2D = {
+interface MockCanvas2D {
   save: Mock
   option: any
   canvas: {

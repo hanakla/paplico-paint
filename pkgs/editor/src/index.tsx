@@ -13,16 +13,55 @@ import { EditorTypes, ToolModes } from './stores/types'
 import { bind } from './bind'
 import { createEmitterStore } from './stores/emittter'
 import { SyncStoreToPaplico } from './editors/SyncStoreToPaplico'
-import { MutableRefObject, createRef, useSyncExternalStore } from 'react'
+import { MutableRefObject } from 'react'
 import { ErrorBoundary } from 'react-error-boundary'
 import { ErrorFallback } from './editors/ErrorFallback'
+import { DisplayedResolvedNode } from './stores/editor'
 export { EditorTypes, ToolModes } from './stores/types'
 
-export type PplcEditorHandle = ReturnType<typeof bindPaplico>
 export type PplcEditorEvents = {
   editorTypeChanged: { prev: EditorTypes; next: EditorTypes }
   toolModeChanged: { prev: ToolModes; next: ToolModes }
   objectSelectionChanged: { selectedObjectIds: string[] }
+}
+
+export type PplcEditorHandle = {
+  dispose: () => void
+  paplico: Paplico
+  command: Paplico['command']
+  currentDocument: Document.PaplicoDocument | null
+  availableBrushes: readonly PplcBrush.BrushClass[]
+  avaibleInks: readonly PplcInk.InkClass[]
+  availableFilters: PplcFilter.FilterClass[]
+  currentViewport: Paplico.Viewport
+  loadDocument: (doc: Document.PaplicoDocument) => void
+  getStrokingTarget: () => Paplico.StrokingTarget | null
+  setStrokingTarget: (nodePath: string[]) => void
+  currentEditorMode: () => EditorTypes
+  getToolMode: () => ToolModes
+  setToolMode: (mode: ToolModes) => void
+  /**
+   * Set current canvas scale to scaling editor elements scaling.
+   * This is not for scaling canvas UI itself.
+   * Canvas UI scaling must be control by your application.
+   */
+  setCanvasScaledScale: (scale: number) => void
+  setViewport: (viewport: Paplico.Viewport) => void
+  showBrushSizePreview: (size: number, options: { durationMs?: number }) => void
+  getDisplayedResolvedNodes: () => DisplayedResolvedNode
+  getSelectedVisuUids: () => string[]
+  setSelectedVisuUids: (ids: ((prev: string[]) => string[]) | string[]) => void
+  isInSelectedVisuUids: (visuUid: string) => boolean
+  setBrushToSelectedObjects: (brushSetting: Paplico.BrushSetting) => void
+  on: <K extends keyof PplcEditorEvents>(
+    type: K,
+    callback: (payload: PplcEditorEvents[K]) => void,
+  ) => () => void
+  off: <K extends keyof PplcEditorEvents>(
+    type: K,
+    callback: (payload: PplcEditorEvents[K]) => void,
+  ) => void
+  subscribeEditorState: (callback: () => void) => () => void
 }
 
 export function bindPaplico(
@@ -98,6 +137,10 @@ export function bindPaplico(
       return engineStore.getState().availableFilters
     },
 
+    get currentViewport() {
+      return editorStore.getState().viewport
+    },
+
     loadDocument: (doc: Document.PaplicoDocument) => {
       paplico.loadDocument(doc)
     },
@@ -127,14 +170,20 @@ export function bindPaplico(
       editorStore.setState({ toolMode: mode })
     },
 
-    /**
-     * Set current canvas scale to scaling editor elements scaling.
-     * This is not for scaling canvas UI itself.
-     * Canvas UI scaling must be control by your application.
-     */
     setCanvasScaledScale: (scale: number) => {
       editorStore.setState({ canvasScale: scale })
     },
+
+    /** Set canvas viewport */
+    setViewport: (viewport: {
+      left: number
+      top: number
+      width: number
+      height: number
+    }) => {
+      editorStore.setState({ viewport })
+    },
+
     showBrushSizePreview: (
       size: number,
       { durationMs = 1000 }: { durationMs?: number } = {},
@@ -182,8 +231,7 @@ export function bindPaplico(
       type: K,
       callback: (payload: PplcEditorEvents[K]) => void,
     ): () => void {
-      emitterStore.on(type, callback)
-      return () => emitterStore.off(type, callback)
+      return emitterStore.on(type, callback)
     },
     off<K extends keyof PplcEditorEvents>(
       type: K,

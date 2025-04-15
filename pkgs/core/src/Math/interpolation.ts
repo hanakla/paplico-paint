@@ -23,7 +23,7 @@ export const clampNumInLength = (array: any[], num: number) => {
     num
 }
 
-type NumericSeqLerp = {
+interface NumericSeqLerp {
   /** @param t 0 to 1 number */
   atFrac: (t: number) => number
   /** @param idx Index of array accepst floating point number */

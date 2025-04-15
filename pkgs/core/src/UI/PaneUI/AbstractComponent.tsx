@@ -4,7 +4,7 @@ export type AbstractElementCreator = <T extends VComponent<any>>(
   ...children: VNode[]
 ) => VNode
 
-export type StyleProp = {
+export interface StyleProp {
   style: Record<string, string | number>
 }
 

@@ -1,6 +1,6 @@
-export type PostProcessSetting<
+export interface PostProcessSetting<
   T extends Record<string, any> = Record<string, any>,
-> = {
+> {
   filterId: string
   filterVersion: string
 

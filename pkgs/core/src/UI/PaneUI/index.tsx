@@ -15,7 +15,7 @@ export interface PaplicoComponents {
   BrowserDOM: VComponent<PaneComponentProps.BrowserDOM>
 }
 
-export type PaneSetState<T> = {
+export interface PaneSetState<T> {
   (state: Partial<T>): void
   (state: (prev: T) => T): void
 }

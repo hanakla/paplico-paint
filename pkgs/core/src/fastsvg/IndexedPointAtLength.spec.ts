@@ -1,5 +1,5 @@
-import pal from 'point-at-length'
 import { SVGDCommand, indexedPointAtLength } from './IndexedPointAtLength'
+import pal from 'point-at-length'
 import { vectorPathPointsToSVGPathString } from '@/index-ext-brush'
 
 describe('IndexedPointAtLength', () => {

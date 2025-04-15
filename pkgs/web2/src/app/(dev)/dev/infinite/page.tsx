@@ -48,7 +48,7 @@ export default function DevPage() {
           Document.visu.createVisuallyFilter('fill', {
             fill: {
               type: 'fill',
-              color: { r: 0, g: 0, b: 0 },
+              color: { r: 1, g: 0, b: 0 },
               opacity: 1,
             },
           }),
@@ -64,7 +64,7 @@ export default function DevPage() {
       }),
     )
 
-    const layer = Document.visu.createGroupVisually({})
+    // const layer = Document.visu.createGroupVisually({})
 
     doc.layerNodes.addLayerNode(
       Document.visu.createVectorObjectVisually({
@@ -126,9 +126,22 @@ export default function DevPage() {
     //   } satisfies ExtraBrushes.ScatterBrush.Settings,
     // })
     ui.setToolMode(ToolModes.scroll)
+    engine.setBrushSetting({
+      brushId: ExtraBrushes.ScatterBrush.metadata.id,
+      brushVersion: ExtraBrushes.ScatterBrush.metadata.version,
+      color: { r: 0, g: 0, b: 0 },
+      opacity: 1,
+      size: 10,
+      settings: {
+        ...ExtraBrushes.ScatterBrush.getInitialSetting(),
+        texture: 'pencil',
+      } satisfies ExtraBrushes.ScatterBrush.Settings,
+    })
     ui.setStrokingTarget([])
 
     engine.on('finishRenderCompleted', rerender)
+
+    window._pap = engine
 
     return () => {
       engine.dispose()

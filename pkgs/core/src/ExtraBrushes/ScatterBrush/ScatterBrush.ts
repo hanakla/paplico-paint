@@ -1,5 +1,10 @@
-import Paplico, { PplcBrush } from '@/index'
 import * as Textures from './textures/index'
+import ScatterBrushWorker from './ScatterBrush-worker?worker&inline'
+import {
+  type GetPointWorkerResponse,
+  type Payload,
+  type WorkerResponse,
+} from './ScatterBrush-worker'
 import {
   AddEquation,
   CanvasTexture,
@@ -14,12 +19,7 @@ import {
   PlaneGeometry,
   Scene,
 } from 'three'
-import ScatterBrushWorker from './ScatterBrush-worker?worker&inline'
-import {
-  type GetPointWorkerResponse,
-  type Payload,
-  type WorkerResponse,
-} from './ScatterBrush-worker'
+import Paplico, { PplcBrush } from '@/index'
 import { PaplicoError } from '@/Errors/PaplicoError'
 import { createImage } from '@/Infra/CanvasFactory'
 import {
@@ -37,7 +37,7 @@ const _mat4 = new ThreeMatrix4()
 const generateId = () => (Date.now() + Math.random()).toString(36)
 
 export declare namespace ScatterBrush {
-  export type Settings = {
+  export interface Settings {
     texture: keyof typeof Textures
     divisions: number
     scatterRange: number
@@ -174,11 +174,11 @@ export const ScatterBrush = createBrush(
     }
 
     /** Extend this method to adding your custom brush */
-    public static getTextures(): Array<{
-      name: { [K in Paplico.SupportedLocales]: string }
+    public static getTextures(): {
+      name: Record<Paplico.SupportedLocales, string>
       textureId: string
       url: string
-    }> {
+    }[] {
       return [
         {
           name: {
@@ -204,8 +204,8 @@ export const ScatterBrush = createBrush(
     }
 
     protected worker: Worker | null = null
-    protected textures: { [name: string]: ImageBitmap } = {}
-    protected materials: { [name: string]: MeshBasicMaterial } = {}
+    protected textures: Record<string, ImageBitmap> = {}
+    protected materials: Record<string, MeshBasicMaterial> = {}
 
     public async initialize(context: {}): Promise<void> {
       this.worker = await this.createWorker()

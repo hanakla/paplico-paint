@@ -1,10 +1,10 @@
 // Reference: https://stackoverflow.com/a/56204437
 
+import { UIStroke, UIStrokePointRequired } from './UIStroke'
 import isIOS from 'is-ios'
 import { Emitter } from '@paplico/shared-lib'
-import { UIStroke, UIStrokePointRequired } from './UIStroke'
 
-type Events = {
+interface Events {
   strokeStart: UIStroke
   strokeChange: UIStroke
   strokeComplete: UIStroke

@@ -1,5 +1,5 @@
-import { createCanvas } from '@/Infra/CanvasFactory'
 import { setCanvasSize } from './canvas'
+import { createCanvas } from '@/Infra/CanvasFactory'
 
 export const logImage = async (
   img:
@@ -96,7 +96,7 @@ export const installGlobally = () => {
   // ;(window as any).logImage = logImage
 }
 
-export let enableLog = true
+export const enableLog = true
 
 export const logLog: Console['group'] = (...args) => {
   if (!enableLog) return
@@ -128,7 +128,7 @@ export const logTimeEnd: Console['timeEnd'] = (...args) => {
   console.timeEnd(...args)
 }
 
-export type TimeSumming = {
+export interface TimeSumming {
   time: () => void
   timeEnd: (...details: any[]) => void
   log: () => void
@@ -136,7 +136,7 @@ export type TimeSumming = {
 
 const statsMap = new Map<Function, FunctionStat[]>()
 
-type FunctionStat = {
+interface FunctionStat {
   lastStartTime: number | null
   times: Record<string, { time: number; details: any[] }[]>
 }
@@ -226,7 +226,7 @@ type FunctionStat = {
 //   statsMap.set(fn, [])
 // }
 
-export const timeSumming = (label: string, mark: string = ''): TimeSumming => {
+export const timeSumming = (label: string, mark = ''): TimeSumming => {
   let sumTime = 0
   let calls = 0
   let max = { callOf: null as number | null, time: -Infinity }
@@ -234,7 +234,7 @@ export const timeSumming = (label: string, mark: string = ''): TimeSumming => {
   let maxDetail: any = [undefined]
   let minDetail: any = [undefined]
   let lastStartTime: number | null = null
-  let times: number[] = []
+  const times: number[] = []
 
   return {
     time: () => {

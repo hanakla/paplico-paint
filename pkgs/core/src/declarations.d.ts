@@ -8,13 +8,13 @@ declare module '@yr/catmull-rom-spline' {
 
 declare module 'svg-path-bounds' {
   function _(
-    path: string
+    path: string,
   ): [left: number, top: number, right: number, bottom: number]
   export = _
 }
 
 declare module 'normalize-svg-path' {
-  function _(path: Array<[string, ...number[]]>): Array<[string, ...number[]]>
+  function _(path: [string, ...number[]][]): [string, ...number[]][]
   export = _
 }
 
@@ -23,7 +23,7 @@ declare module 'fast-shallow-equal' {
 }
 
 declare module 'point-at-length' {
-  const _: (path: string | Array<[string, ...number[]]>) => {
+  const _: (path: string | [string, ...number[]][]) => {
     _path: [string, ...number[]][]
     length(): number
     at(point: number): [x: number, y: number]
@@ -66,8 +66,6 @@ declare module '*.glsl' {
 }
 
 declare module '*?worker&inline' {
-  const _: {
-    new (): Worker
-  }
+  const _: new () => Worker
   export default _
 }

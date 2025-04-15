@@ -1,11 +1,11 @@
-import { Emitter } from '@paplico/shared-lib'
 import { DocumentContext } from './DocumentContext'
+import { Emitter } from '@paplico/shared-lib'
 import { PaplicoDocument } from '@/Document'
 import { ROOT_LAYER_NODE_UID } from '@/Document/Structs/LayerNode'
 import { LogChannel } from '@/Debugging/LogChannel'
 
 export namespace LayerMetrics {
-  export type MetricsData = {
+  export interface MetricsData {
     visuUid: string
     type: 'canvas' | 'vectorObject' | 'group' | 'text' | undefined
     /** Left / Top must be calculate parent and self transforms */
@@ -16,7 +16,7 @@ export namespace LayerMetrics {
     zIndex: number
   }
 
-  export type BBox = {
+  export interface BBox {
     left: number
     top: number
     right: number
@@ -27,14 +27,14 @@ export namespace LayerMetrics {
     centerY: number
   }
 
-  export type BBoxSet = {
+  export interface BBoxSet {
     /** BBox of visu at vector process */
     original: LayerMetrics.BBox
     /** Bbox of post filtered */
     postFilter: LayerMetrics.BBox
   }
 
-  export type Events = {
+  export interface Events {
     update: { updatedVisuUids: string[] }
   }
 }
@@ -94,9 +94,7 @@ export class LayerMetrics extends Emitter<LayerMetrics.Events> {
     return this.layerMetrics.get(entityUid)
   }
 
-  public setVisuMetrices(metrices: {
-    [visuUid: string]: LayerMetrics.BBoxSet
-  }) {
+  public setVisuMetrices(metrices: Record<string, LayerMetrics.BBoxSet>) {
     clearTimeout(this.batchEmitTimerId)
 
     LogChannel.l.layerMetrics('receive', metrices)

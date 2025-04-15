@@ -1,4 +1,10 @@
-import { DependencyList, useLayoutEffect, useMemo, useRef } from 'react'
+import {
+  DependencyList,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+} from 'react'
 import { shallowEquals } from './object'
 
 export const usePropsMemo = () => {
@@ -40,4 +46,19 @@ export function useEventCallback<T extends (...args: any[]) => any>(fn: T) {
   }, [fn])
 
   return stableRef.current
+}
+
+export function useEffectWithSignal(
+  effect: (signal: AbortSignal) => (() => void) | void,
+  deps: DependencyList,
+) {
+  useEffect(() => {
+    const abort = new AbortController()
+    const cleanup = effect(abort.signal)
+
+    return () => {
+      abort.abort()
+      cleanup?.()
+    }
+  }, deps)
 }

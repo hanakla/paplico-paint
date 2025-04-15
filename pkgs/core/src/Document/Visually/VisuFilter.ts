@@ -4,7 +4,7 @@ import * as FilterStructs from './Settings'
 export namespace VisuFilter {
   export import Structs = FilterStructs
 
-  type FilterBase = {
+  interface FilterBase {
     uid: string
     enabled: boolean
   }
@@ -28,7 +28,7 @@ export namespace VisuFilter {
 
   export type AnyFilter = StrokeFilter | FillFilter | PostProcessFilter<any>
 
-  export type AnyFilterMapType = {
+  export interface AnyFilterMapType {
     stroke: StrokeFilter
     fill: FillFilter
     postprocess: PostProcessFilter<any>

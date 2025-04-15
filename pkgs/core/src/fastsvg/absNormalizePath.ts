@@ -72,7 +72,7 @@ function longhand(path: SVGDCommand[]) {
     T: { to: 'Q', x: 1 },
   }
 
-  for (var i = 0, len = path.length; i < len; i++) {
+  for (let i = 0, len = path.length; i < len; i++) {
     const cmd = path[i]
     const convert = conversion[cmd[0]]
 
@@ -105,12 +105,12 @@ function longhand(path: SVGDCommand[]) {
 */
 // Convert 'Z', 'V' and 'H' segments to 'L' segments
 function zvhToL(path: SVGDCommand[]) {
-  var ret: SVGDCommand[] = []
-  var startPoint: SVGDCommand = ['L', 0, 0]
-  var last_point
+  const ret: SVGDCommand[] = []
+  let startPoint: SVGDCommand = ['L', 0, 0]
+  let last_point
 
-  for (var i = 0, len = path.length; i < len; i++) {
-    var pt = path[i]
+  for (let i = 0, len = path.length; i < len; i++) {
+    const pt = path[i]
     switch (pt[0]) {
       case 'M':
         startPoint = ['L', pt[1], pt[2]]

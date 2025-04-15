@@ -1,12 +1,12 @@
 import { LayerTypes } from '../DOM'
-import { Camera, WebGLRenderer } from 'three'
 import { WebGLContext } from './WebGLContext'
+import { Camera, WebGLRenderer } from 'three'
 
-export type FilterInitContext = {
+export interface FilterInitContext {
   gl: WebGLContext
 }
 
-export type FilterContext<Settings = Record<string, any>> = {
+export interface FilterContext<Settings = Record<string, any>> {
   gl: WebGLContext
   threeRenderer: WebGLRenderer
   threeCamera: Camera

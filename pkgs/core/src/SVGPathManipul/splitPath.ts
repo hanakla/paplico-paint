@@ -12,7 +12,7 @@ function splitCubicBezier(
   p1: Vector2Tuple,
   p2: Vector2Tuple,
   p3: Vector2Tuple,
-  t: number
+  t: number,
 ): [
   Vector2Tuple,
   Vector2Tuple,
@@ -20,7 +20,7 @@ function splitCubicBezier(
   Vector2Tuple,
   Vector2Tuple,
   Vector2Tuple,
-  Vector2Tuple
+  Vector2Tuple,
 ] {
   const q0 = lerpPoint(p0, p1, t)
   const q1 = lerpPoint(p1, p2, t)
@@ -47,8 +47,8 @@ function adaptiveSimpson(
   a: number,
   b: number,
   tolerance: number,
-  maxRecursion: number = 10,
-  wholeArea?: number
+  maxRecursion = 10,
+  wholeArea?: number,
 ): number {
   if (wholeArea === undefined) {
     wholeArea = simpson(f, a, b)
@@ -80,7 +80,7 @@ function cubicBezierLength(
   p1: Vector2Tuple,
   p2: Vector2Tuple,
   p3: Vector2Tuple,
-  tolerance = 1e-4
+  tolerance = 1e-4,
 ): number {
   const f1 = (t: number) => {
     const [x0, y0] = lerpPoint(p0, p1, t)
@@ -96,7 +96,7 @@ function cubicBezierLength(
 
 export function splitPathAt(
   path: PathCommand[],
-  length: number
+  length: number,
 ): [PathCommand[], PathCommand[]] {
   let currentLength = 0
   let currentPoint: Vector2Tuple = [0, 0]
@@ -141,7 +141,7 @@ export function splitPathAt(
           p1,
           p2,
           p3,
-          t
+          t,
         )
         newPath1.push([c, sp1[0], sp1[1], sp2[0], sp2[1], sp3[0], sp3[1]])
         newPath2.push([c, sp4[0], sp4[1], sp5[0], sp5[1], sp6[0], sp6[1]])

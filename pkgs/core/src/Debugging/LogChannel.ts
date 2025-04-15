@@ -24,7 +24,7 @@ const listens = new Set<(typeof channels)[number]>([
 ///////////////////////////////
 ///////////////////////////////
 
-const colors: { [K in Channels]: [string, string] } = {
+const colors: Record<Channels, [string, string]> = {
   // backgroud, text
   paplico: ['#69d813', '#888888'],
   pipeline: ['#eeeeee', '#888888'],
@@ -37,7 +37,7 @@ const colors: { [K in Channels]: [string, string] } = {
 
 type LogType = 'log' | 'info' | 'warn' | 'error' | 'logImage'
 
-const allLogs = new Map<Channels, Array<[type: LogType, ...args: any]>>()
+const allLogs = new Map<Channels, [type: LogType, ...args: any][]>()
 
 function loadLocalSetting() {
   if (typeof localStorage === 'undefined') return
@@ -103,9 +103,7 @@ export const LogChannel = {
         },
       ]),
     ),
-  ) as {
-    [K in Channels]: (enabled: boolean) => void
-  },
+  ) as Record<Channels, (enabled: boolean) => void>,
 
   l: Object.defineProperties(
     Object.create(null),
@@ -151,8 +149,9 @@ export const LogChannel = {
         },
       ]),
     ),
-  ) as {
-    [K in Channels]: {
+  ) as Record<
+    Channels,
+    {
       (...args: any[]): void
       info(...args: any[]): void
       warn(...args: any[]): void
@@ -167,7 +166,7 @@ export const LogChannel = {
         ...args: any
       ): Promise<void>
     }
-  },
+  >,
 }
 
 if (typeof window !== 'undefined') {

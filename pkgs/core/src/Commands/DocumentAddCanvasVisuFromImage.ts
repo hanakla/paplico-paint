@@ -1,5 +1,5 @@
-import { Delta, diff, patch, unpatch } from 'jsondiffpatch'
 import { ICommand } from '../Engine/History/ICommand'
+import { Delta, diff, patch, unpatch } from 'jsondiffpatch'
 import { DocumentContext } from '@/Engine'
 import { deepClone } from '@paplico/shared-lib'
 import { VisuElement } from '@/Document'

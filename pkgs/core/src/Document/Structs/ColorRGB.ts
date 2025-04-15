@@ -1,4 +1,4 @@
-export type ColorRGB = {
+export interface ColorRGB {
   /** 0 to 1 */
   r: number
   /** 0 to 1 */

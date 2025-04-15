@@ -1,8 +1,6 @@
 import { DocumentContext } from '@/Engine/DocumentContext/DocumentContext'
 
-export type CommandConstructor = {
-  new (...args: any[]): ICommand
-}
+export type CommandConstructor = new (...args: any[]) => ICommand
 
 export interface ICommand {
   readonly name: string

@@ -71,7 +71,7 @@
 // }
 // `
 
-export const multiplyMix_func = (name: string = 'multiplyMix') => `
+export const multiplyMix_func = (name = 'multiplyMix') => `
 vec4 ${name}(vec4 fore, vec4 back) {
   // SEE: https://odashi.hatenablog.com/entry/20110921/1316610121
 
@@ -87,7 +87,7 @@ vec4 ${name}(vec4 fore, vec4 back) {
 }
 `
 
-export const screenMix_func = (name: string = 'screenMix') => `
+export const screenMix_func = (name = 'screenMix') => `
 vec4 ${name}(vec4 fore, vec4 back) {
   // SEE: https://odashi.hatenablog.com/entry/20110921/1316610121
 

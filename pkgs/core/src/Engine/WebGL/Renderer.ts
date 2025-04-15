@@ -1,6 +1,6 @@
+import { Scene } from './Scene'
 import { createWebGL2Context } from '@/Infra/CanvasFactory'
 import { setCanvasSize } from '@/utils/canvas'
-import { Scene } from './Scene'
 
 export class PPLCWebGLRenderer {
   public gl: WebGL2RenderingContext

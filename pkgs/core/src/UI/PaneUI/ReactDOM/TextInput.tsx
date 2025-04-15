@@ -1,8 +1,8 @@
-import { ChangeEvent, memo, useCallback } from 'react'
 import { VComponent } from '../AbstractComponent'
+import { ChangeEvent, memo, useCallback } from 'react'
 
 export namespace TextInput {
-  export type Props = {
+  export interface Props {
     value: string
     onChange: (value: string) => void
   }

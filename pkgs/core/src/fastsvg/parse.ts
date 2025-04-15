@@ -21,12 +21,12 @@ const argLength = {
 }
 
 /** segment pattern */
-const SEGMENT_PATTERN: RegExp = /([astvzqmhlc])([^astvzqmhlc]*)/gi
+const SEGMENT_PATTERN = /([astvzqmhlc])([^astvzqmhlc]*)/gi
 
 const NUMBER_PATTERN = /-?[0-9]*\.?[0-9]+(?:e[-+]?\d+)?/gi
 
 function parseValues(args: string) {
-  var numbers = args.match(NUMBER_PATTERN)
+  const numbers = args.match(NUMBER_PATTERN)
   return numbers ? numbers.map(parseFloat) : []
 }
 
@@ -44,7 +44,7 @@ export const parseSVGPath = function parseSVGPath(path: string) {
 
   for (let [, command, args] of matches) {
     let type = command.toLowerCase() as keyof typeof argLength
-    let parsedArgs: number[] = parseValues(args)
+    const parsedArgs: number[] = parseValues(args)
 
     // overloaded moveTo
     if (type == 'm' && parsedArgs.length > 2) {

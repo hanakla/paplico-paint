@@ -1,5 +1,5 @@
-import originalParse from 'parse-svg-path'
 import { parseSVGPath } from './parse'
+import originalParse from 'parse-svg-path'
 
 describe('fastsvg/pathBounds', () => {
   const path =

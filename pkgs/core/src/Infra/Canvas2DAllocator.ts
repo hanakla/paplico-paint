@@ -1,9 +1,9 @@
-import { clearCanvas, freeingCanvas, setCanvasSize } from '@/utils/canvas'
 import { createContext2D } from './CanvasFactory'
+import { clearCanvas, freeingCanvas, setCanvasSize } from '@/utils/canvas'
 import { PPLCCanvasAllocationError } from '@/Errors'
 import { shallowEquals } from '@paplico/shared-lib'
 
-type AllocatedCanvasData = {
+interface AllocatedCanvasData {
   used: boolean
   ctx: StateSafeCanvasRenderingContext2D
   createOpt: CanvasRenderingContext2DSettings
@@ -16,7 +16,7 @@ type AllocatedCanvasData = {
 
 const EXPIRE_TIME = 1000 * 60
 
-export type Canvas2DAllocator = {
+export interface Canvas2DAllocator {
   readonly allocated: AllocatedCanvasData[]
   borrow: (
     opt: {
@@ -29,7 +29,7 @@ export type Canvas2DAllocator = {
   gc: (options?: { __testOnlyForceCollectAll?: true }) => void
 }
 
-let _allocated: Array<AllocatedCanvasData> = []
+let _allocated: AllocatedCanvasData[] = []
 
 const allocator: Canvas2DAllocator = {
   get allocated() {
@@ -112,6 +112,7 @@ const allocator: Canvas2DAllocator = {
     entry.used = false
     entry.lastUserStack = entry.stack
     entry.stack = null
+    // freeingCanvas(entry.ctx.canvas)
     restoreToInitialState(entry.ctx)
   },
 

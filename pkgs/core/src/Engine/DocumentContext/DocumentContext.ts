@@ -1,15 +1,15 @@
+import { LayerMetrics } from './LayerMetrics'
+import {
+  createImageBitmapImpl,
+  createImageData,
+} from '../../Infra/CanvasFactory'
 import { PaplicoDocument } from '@/Document/PaplicoDocument'
 import { AtomicResource } from '@/utils/AtomicResource'
 import { History } from '@/Engine/History/History'
 import { ICommand } from '@/Engine/History/ICommand'
 import { PreviewStore } from '@/Engine/DocumentContext/PreviewStore'
 import { Emitter } from '@paplico/shared-lib'
-import { LayerMetrics } from './LayerMetrics'
 import { VisuElement } from '@/Document'
-import {
-  createImageBitmapImpl,
-  createImageData,
-} from '../../Infra/CanvasFactory'
 import {
   PPLCOptionInvariantViolationError,
   PPLCInvariantViolationError,
@@ -17,19 +17,19 @@ import {
 import { rescue, throwLaterIfFailure } from '@/utils/rescue'
 
 export namespace DocumentContext {
-  export type VisuallyPointer = {
+  export interface VisuallyPointer {
     lastUpdated: number
     source: WeakRef<VisuElement.AnyElement>
   }
 
-  export type LayoutData = {
+  export interface LayoutData {
     left: number
     top: number
     width: number
     height: number
   }
 
-  export type StrokingTarget = {
+  export interface StrokingTarget {
     visuType:
       | VisuElement.GroupElement['type']
       | VisuElement.CanvasElement['type']
@@ -38,7 +38,7 @@ export namespace DocumentContext {
     visu: VisuElement.GroupElement | VisuElement.CanvasElement
   }
 
-  export type Events = {
+  export interface Events {
     invalidateVectorPathCacheRequested: {
       object: VisuElement.VectorObjectElement
     }
@@ -54,8 +54,8 @@ export class DocumentContext extends Emitter<DocumentContext.Events> {
   public document: PaplicoDocument
   public history: History
 
-  public layerNodeBitmapCache: Map<string, ImageBitmap> = new Map()
-  public blobCaches: Map<string, WeakRef<any>> = new Map()
+  public layerNodeBitmapCache = new Map<string, ImageBitmap>()
+  public blobCaches = new Map<string, WeakRef<any>>()
 
   public layerMetrics = new LayerMetrics(this)
   protected visuElements = new Map<string, DocumentContext.VisuallyPointer>()

@@ -23,13 +23,9 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-export interface PRNG {
-  (): number
-}
+export type PRNG = () => number
 
-export interface ULID {
-  (seedTime?: number): string
-}
+export type ULID = (seedTime?: number) => string
 
 export interface LibError extends Error {
   source: string
@@ -123,7 +119,7 @@ export function decodeTime(id: string): number {
   if (id.length !== TIME_LEN + RANDOM_LEN) {
     throw createError('malformed ulid')
   }
-  var time = id
+  const time = id
     .substr(0, TIME_LEN)
     .split('')
     .reverse()
@@ -140,7 +136,7 @@ export function decodeTime(id: string): number {
   return time
 }
 
-export function detectPrng(allowInsecure: boolean = false, root?: any): PRNG {
+export function detectPrng(allowInsecure = false, root?: any): PRNG {
   if (!root) {
     root = typeof window !== 'undefined' ? window : null
   }
@@ -163,7 +159,7 @@ export function detectPrng(allowInsecure: boolean = false, root?: any): PRNG {
   if (allowInsecure) {
     try {
       console.error(
-        'secure crypto unusable, falling back to insecure Math.random()!'
+        'secure crypto unusable, falling back to insecure Math.random()!',
       )
     } catch (e) {}
     return () => Math.random()
@@ -188,7 +184,7 @@ export function monotonicFactory(currPrng?: PRNG): ULID {
   if (!currPrng) {
     currPrng = detectPrng()
   }
-  let lastTime: number = 0
+  let lastTime = 0
   let lastRandom: string
 
   return function ulid(seedTime?: number): string {

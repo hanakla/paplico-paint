@@ -1,4 +1,3 @@
-import { saveAndRestoreCanvas, setCanvasSize } from '@/utils/canvas'
 import {
   IFilterWebGLContext,
   InputSource,
@@ -11,6 +10,7 @@ import {
   __papRenderTargetMark,
   __paplicoFilterProgram,
 } from './FilterContextAbst'
+import { saveAndRestoreCanvas, setCanvasSize } from '@/utils/canvas'
 import { createWebGL2Context } from '@/Infra/CanvasFactory'
 import { logImage } from '@/utils/DebugHelper'
 import { PPLCShaderCompilationError } from '@/Errors'
@@ -49,7 +49,7 @@ export declare namespace WebGLContext {
     | { min: TextureFilterValue; mag: TextureFilterValue }
 }
 
-type WebGLRenderTarget = {
+interface WebGLRenderTarget {
   frameBuffer: WebGLFramebuffer
   // renderBuffer: WebGLRenderbuffer
   texture: WebGLTexture
@@ -292,7 +292,7 @@ export class WebGLFilterContext implements IFilterWebGLContext {
     input: InputSource<WebGLRenderTarget>,
     output: RenderTarget,
     prog: PPLCFilterProgram,
-    uniforms: { [uniformName: string]: PPLCUniforms },
+    uniforms: Record<string, PPLCUniforms>,
   ) {
     const { gl } = this
 
@@ -643,7 +643,7 @@ export class WebGLFilterContext implements IFilterWebGLContext {
   private attachUniforms(
     gl: WebGL2RenderingContext,
     program: WebGLProgram,
-    uniforms: { [uniform: string]: PPLCUniforms },
+    uniforms: Record<string, PPLCUniforms>,
   ) {
     for (const uniKey of Object.keys(uniforms)) {
       const uni = uniforms[uniKey]
@@ -857,7 +857,7 @@ const getTextureClampValue = (
       : null as never
     )
   } else {
-    let dir = xy === 'x' ? value.x : value.y
+    const dir = xy === 'x' ? value.x : value.y
     return getTextureClampValue(gl, dir, xy)
   }
 }
@@ -875,7 +875,7 @@ const getTextureFilterValue = (
       : null
     )
   } else if (value != null) {
-    let val = minmag === 'min' ? value.min : value.mag
+    const val = minmag === 'min' ? value.min : value.mag
     return getTextureFilterValue(gl, val, minmag)
   }
 

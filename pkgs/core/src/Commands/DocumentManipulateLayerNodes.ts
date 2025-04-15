@@ -1,24 +1,24 @@
-import { Delta, diff, patch, unpatch } from 'jsondiffpatch'
 import { ICommand } from '../Engine/History/ICommand'
+import { Delta, diff, patch, unpatch } from 'jsondiffpatch'
 import { DocumentContext } from '@/Engine'
 import { deepClone } from '@paplico/shared-lib'
 import { VisuElement } from '@/Document'
 
-type Changes = {
-  add?: Array<{
+interface Changes {
+  add?: {
     visu: VisuElement.AnyElement
     parentNodePath: string[]
     /** -1 to top of layer  */
     indexInNode?: number | undefined
-  }>
-  move?: Array<{
+  }[]
+  move?: {
     sourceNodePath: string[]
     targetNodePath: string[]
-  }>
-  remove?: Array<string[]>
+  }[]
+  remove?: string[][]
 }
 
-type LayerNodePointer = {
+interface LayerNodePointer {
   visu: VisuElement.AnyElement
   path: string[]
   index: number

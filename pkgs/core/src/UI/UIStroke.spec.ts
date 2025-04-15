@@ -1,5 +1,5 @@
-import { createNumSequenceMap } from '@/Math'
 import { UIStroke } from './UIStroke'
+import { createNumSequenceMap } from '@/Math'
 
 describe('UIStroke', () => {
   describe('toSimplifiedPath', () => {

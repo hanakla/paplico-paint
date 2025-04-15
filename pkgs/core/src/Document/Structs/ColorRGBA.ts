@@ -1,4 +1,4 @@
-export type ColorRGBA = {
+export interface ColorRGBA {
   /** 0 to 1 */
   r: number
   /** 0 to 1 */

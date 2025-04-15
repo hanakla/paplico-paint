@@ -4,6 +4,7 @@
 //
 // SEE: https://github.com/pixijs/filters/tree/main/filters/zoom-blur
 
+import { PplcFilter } from '..'
 import { logImage } from '@/utils/DebugHelper'
 // import { WebGLContext } from '@/Engine/'
 import {
@@ -11,10 +12,9 @@ import {
   IFilter,
   createFilter,
 } from '@/Engine/Filter/Filter'
-import { PplcFilter } from '..'
 
 declare namespace ZoomBlurFilter {
-  export type State = {
+  export interface State {
     strength: number
     /** 0..1 */
     center: [number, number]

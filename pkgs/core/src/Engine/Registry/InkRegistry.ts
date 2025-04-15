@@ -1,13 +1,13 @@
-import { Emitter } from '@paplico/shared-lib'
 import { IInk, InkClass } from '../Ink'
+import { Emitter } from '@paplico/shared-lib'
 
-type Events = {
+interface Events {
   entriesChanged: void
 }
 
 export class InkRegistry extends Emitter<Events> {
-  protected brushes: Map<string, InkClass<any>> = new Map()
-  protected instances: WeakMap<InkClass<any>, IInk<any>> = new WeakMap()
+  protected brushes = new Map<string, InkClass<any>>()
+  protected instances = new WeakMap<InkClass<any>, IInk<any>>()
 
   public async register(Brush: InkClass<any>) {
     try {

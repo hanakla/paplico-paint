@@ -1,12 +1,12 @@
+import { ICommand } from '../Engine/History/ICommand'
 import { diff, patch, unpatch, Delta } from 'jsondiffpatch'
 // ^-- Do not use star imports or named imports from jsondiffpatch-rc, it will break the build.
 
-import { ICommand } from '../Engine/History/ICommand'
 import { DocumentContext } from '@/Engine'
 import { deepClone } from '@paplico/shared-lib'
 import { VectorLayer } from '@/Document/LayerEntity'
 
-type Options = {
+interface Options {
   /**
    * objects can no be modified by this command for performance reason.
    * use `VectorUpdateObject` instead.

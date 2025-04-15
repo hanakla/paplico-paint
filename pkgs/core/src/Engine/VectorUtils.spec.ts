@@ -1,11 +1,11 @@
 import {
-  createVectorObjectVisually,
-  createVectorPath,
-} from '@/Document/Visually/factory'
-import {
   applyTransformTranslateToVectorPath,
   vectorObjectTransformToMatrix,
 } from './VectorUtils'
+import {
+  createVectorObjectVisually,
+  createVectorPath,
+} from '@/Document/Visually/factory'
 
 describe('VectorUtils', () => {
   describe('DOMMatrix', () => {

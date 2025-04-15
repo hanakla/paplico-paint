@@ -2,13 +2,13 @@ import { createContext2D } from '../../Infra/CanvasFactory'
 import { canvasToBlob, freeingCanvas, setCanvasSize } from '@/utils/canvas'
 import { Emitter } from '@paplico/shared-lib'
 
-type PreviewEntry = {
+interface PreviewEntry {
   layerUid: string
   url: string
 }
 
 export namespace PreviewStore {
-  export type Events = {
+  export interface Events {
     updated: Readonly<{ layerUid: string; url: string }>
   }
 }

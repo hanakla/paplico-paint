@@ -1,8 +1,8 @@
-import { memo, useCallback } from 'react'
 import { VNode } from '../AbstractComponent'
+import { memo, useCallback } from 'react'
 
 export namespace Button {
-  export type Props = {
+  export interface Props {
     children?: VNode
     onClick?: () => void
   }

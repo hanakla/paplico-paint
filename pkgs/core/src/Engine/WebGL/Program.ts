@@ -1,8 +1,8 @@
-import { mapEntries } from '@paplico/shared-lib'
 import { TexUniform, TextureClamp, TextureFilter, Uniform } from './types'
 import { BufferAttributes } from './meshes/Mesh'
+import { mapEntries } from '@paplico/shared-lib'
 
-type AttributeNames = {
+interface AttributeNames {
   vertexAttrib: string
 }
 
@@ -204,7 +204,7 @@ const getTextureClampValue = (
       : null as never
     )
   } else {
-    let dir = xy === 'x' ? value.x : value.y
+    const dir = xy === 'x' ? value.x : value.y
     return getTextureClampValue(gl, dir, xy)
   }
 }
@@ -222,7 +222,7 @@ const getTextureFilterValue = (
       : null
     )
   } else if (value != null) {
-    let val = minmag === 'min' ? value.min : value.mag
+    const val = minmag === 'min' ? value.min : value.mag
     return getTextureFilterValue(gl, val, minmag)
   }
 

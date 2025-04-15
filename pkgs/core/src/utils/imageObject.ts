@@ -1,5 +1,5 @@
-import { createImage, createImageBitmapImpl } from '@/Infra/CanvasFactory'
 import { freeingCanvas, setCanvasSize } from './canvas'
+import { createImage, createImageBitmapImpl } from '@/Infra/CanvasFactory'
 import { Canvas2DAllocator } from '@/Infra/Canvas2DAllocator'
 
 export const imageBitmapToImageData = (

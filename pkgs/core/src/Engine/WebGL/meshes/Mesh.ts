@@ -1,6 +1,6 @@
-import { mapEntries } from '@paplico/shared-lib'
 import { IGeometry } from '../interfaces/IGeometry'
 import { Program } from '../Program'
+import { mapEntries } from '@paplico/shared-lib'
 
 export type BufferAttributes = Record<
   string,

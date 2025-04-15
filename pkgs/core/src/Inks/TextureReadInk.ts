@@ -1,11 +1,11 @@
-import { hsvToRgb, rgbToHsv } from '@/Math'
-import { freeingCanvas, setCanvasSize } from '@/utils/canvas'
 import { createCanvas, createImage } from '../Infra/CanvasFactory'
 import { glitchNoise } from './texture/index'
+import { hsvToRgb, rgbToHsv } from '@/Math'
+import { freeingCanvas, setCanvasSize } from '@/utils/canvas'
 import { IInk, InkGenerator, InkMetadata, createInk } from '@/index-ext-ink'
 
 export declare namespace TextureReadInk {
-  type Setting = {}
+  interface Setting {}
 }
 
 export const TextureReadInk = createInk(

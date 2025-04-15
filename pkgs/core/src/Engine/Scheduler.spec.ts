@@ -2,10 +2,10 @@
 //   it('TODO', () => {})
 // })
 
-import { VisuElement, visu } from '@/Document/index'
 import { buildRenderSchedule } from './Scheduler'
-import { createDocument } from '@/Document/Visually/factory'
 import { DocumentContext } from './DocumentContext/DocumentContext'
+import { VisuElement, visu } from '@/Document/index'
+import { createDocument } from '@/Document/Visually/factory'
 // import { DocumentContext } from '.'
 // import { VectorAppearanceFill } from '@/Document/LayerEntity/VectorAppearance'
 // import { ulid } from '@/utils/ulid'

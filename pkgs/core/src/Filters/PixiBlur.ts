@@ -1,10 +1,10 @@
-import { createFilter, PplcFilter } from '@/index-ext-filter'
 import { RenderPipeline } from '..'
+import { createFilter, PplcFilter } from '@/index-ext-filter'
 import { createContext2D } from '@/Infra/CanvasFactory'
 import { saveAndRestoreCanvas, setCanvasSize } from '@/utils/canvas'
 
 export namespace KawaseBlur {
-  export type Setting = {
+  export interface Setting {
     blurSize: number
     quality: number
     pixelSize: [number, number]

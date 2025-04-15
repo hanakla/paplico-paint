@@ -1,6 +1,6 @@
-import { ChangeEvent, memo, useCallback } from 'react'
 import { PaneComponentProps } from '../PaneComponentProps'
 import { VComponent } from '../AbstractComponent'
+import { ChangeEvent, memo, useCallback } from 'react'
 
 export const Slider: VComponent<PaneComponentProps.Slider> = memo(
   function Slider({ min, max, step, value, onChange }) {

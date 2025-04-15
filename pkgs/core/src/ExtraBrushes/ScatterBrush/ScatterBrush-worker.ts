@@ -25,10 +25,10 @@ export type Payload =
       inOutLength: number
     }
 
-export type GetPointWorkerResponse = {
+export interface GetPointWorkerResponse {
   id: string
   type: 'getPoints'
-  matrices: Array<number[] | Float32Array>
+  matrices: (number[] | Float32Array)[]
   lengths: number[]
   totalLength: number
   bbox: { left: number; top: number; right: number; bottom: number } | null
@@ -39,6 +39,9 @@ export type WorkerResponse =
   | { type: 'warming' }
   | { type: 'aborted'; id: string }
   | GetPointWorkerResponse
+
+const IS_TEST_ENV =
+  typeof process !== 'undefined' && process.env.NODE_ENV === 'test'
 
 const abortedTasks = new Set<string>()
 const queue: Payload[] = []
@@ -57,7 +60,7 @@ const handleMessage = (
   }
 }
 
-if (typeof process === 'undefined' || process.env.NODE_ENV !== 'test') {
+if (!IS_TEST_ENV) {
   self.onmessage = handleMessage(async ({ data }) => {
     switch (data.type) {
       case 'warming': {
@@ -190,7 +193,7 @@ export async function processInput(data: Payload): Promise<WorkerResponse> {
 
     const len = points[idx].length
     const frac = len / totalLen
-    let [x, y] = points[idx].pos
+    const [x, y] = points[idx].pos
     _debug_positions.push([x, y])
     const next = points[idx + 1]?.pos ?? points[idx]?.pos //pal.at(len + 0.01, { seek: false })
 
@@ -252,7 +255,7 @@ export async function processInput(data: Payload): Promise<WorkerResponse> {
     lengths,
     totalLength: totalLen,
     matrices,
-    ...(process.env.NODE_ENV === 'test'
+    ...(IS_TEST_ENV
       ? {
           _debug: {
             requestAts,

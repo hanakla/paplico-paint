@@ -72,7 +72,6 @@ import { WebGLFilterContext } from './Filter/WebGLFilterContext'
 import { ChromaticAberration } from '@/Filters/ChromaticAberration'
 import { GaussianBlur } from '@/Filters/GaussianBlur'
 import { KawaseBlur } from '@/Filters/PixiBlur'
-import { Viewport } from './types'
 import {
   applyTransformTranslateToVectorPath,
   mapPathInViewport,
@@ -164,13 +163,27 @@ export namespace Paplico {
 
   export type SupportedLocales = TypenGlossary.SupportedLocales
 
+  export type Viewport = {
+    left: number
+    top: number
+    width: number
+    height: number
+    scale: number
+  }
+
   export type _PaneImpl = {
     components: PaplicoComponents
     h: AbstractElementCreator
   }
 }
 
-const DEFAULT_VIEWPORT: Viewport = { left: 0, top: 0, width: 0, height: 0 }
+const DEFAULT_VIEWPORT: Paplico.Viewport = {
+  left: 0,
+  top: 0,
+  width: 0,
+  height: 0,
+  scale: 1,
+}
 
 /**
  * An frontend class of Paplico.
@@ -770,7 +783,7 @@ export class Paplico extends Emitter<Paplico.Events> {
         this.runtimeDoc.invalidateAllLayerBitmapCache()
       }
 
-      const metrices = await this.pipeline.fullyRenderWithScheduler(
+      const result = await this.pipeline.fullyRenderWithScheduler(
         dstctx,
         runtimeDoc,
         this.vectorRenderer,
@@ -785,8 +798,8 @@ export class Paplico extends Emitter<Paplico.Events> {
         },
       )
 
-      if (metrices) {
-        this.processMetrics(runtimeDoc, metrices.visuMetrics)
+      if (result) {
+        this.processMetrics(runtimeDoc, result.visuMetrics)
       }
 
       if (dstctx === this.dstctx) {

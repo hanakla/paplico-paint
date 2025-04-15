@@ -1,18 +1,19 @@
 import { ColorRGB } from '../../Structs/ColorRGB'
 
-export type BrushSetting<T extends Record<string, any> = Record<string, any>> =
-  {
-    brushId: string
-    brushVersion: string
+export interface BrushSetting<
+  T extends Record<string, any> = Record<string, any>,
+> {
+  brushId: string
+  brushVersion: string
 
-    /** Should be px */
-    size: number
+  /** Should be px */
+  size: number
 
-    color: ColorRGB
+  color: ColorRGB
 
-    /** 0 to 1 */
-    opacity: number
+  /** 0 to 1 */
+  opacity: number
 
-    /** Brush renderer specific settings */
-    settings: T
-  }
+  /** Brush renderer specific settings */
+  settings: T
+}

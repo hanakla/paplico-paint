@@ -2,15 +2,7 @@ import { useEditorStore, useEngineStore } from '@/store'
 import { ToolModes } from '@/stores/types'
 import { usePointerDrag } from '@/utils/hooks'
 import { Commands, Document, PaplicoMath } from '@paplico/core-new'
-import {
-  KeyboardEvent,
-  ReactNode,
-  SVGProps,
-  memo,
-  useEffect,
-  useReducer,
-  useState,
-} from 'react'
+import { KeyboardEvent, SVGProps, memo, useEffect, useReducer } from 'react'
 import { unstable_batchedUpdates } from 'react-dom'
 import { createUseStyles } from 'react-jss'
 import useEvent from 'react-use-event-hook'
@@ -47,6 +39,7 @@ const VisuElementInternal = memo(function VisuElementInternal({
   const editor = useEditorStore(
     storePicker([
       'toolMode',
+      'viewport',
       'selectedVisuUidMap',
       'canvasScale',
       'visuTransformOverride',
@@ -177,16 +170,19 @@ const VisuElementInternal = memo(function VisuElementInternal({
     const metrics = paplico.visuMetrics?.getLayerMetrics(visu.uid)
     if (!metrics) return null
 
+    const { viewport } = editor
     const override = editor.selectedVisuUidMap[visu.uid]
       ? editor.visuTransformOverride
       : null
 
-    const left = metrics.originalBBox.left + (override?.translate.x ?? 0)
-    const top = metrics.originalBBox.top + (override?.translate.y ?? 0)
-    const right = metrics.originalBBox.right + (override?.translate.x ?? 0)
-    const bottom = metrics.originalBBox.bottom + (override?.translate.y ?? 0)
-
-    console.log(metrics)
+    const left =
+      viewport.left - metrics.originalBBox.left + (override?.translate.x ?? 0)
+    const top =
+      viewport.top - metrics.originalBBox.top + (override?.translate.y ?? 0)
+    const right =
+      viewport.left + metrics.originalBBox.right - (override?.translate.x ?? 0)
+    const bottom =
+      viewport.top + metrics.originalBBox.bottom - (override?.translate.y ?? 0)
 
     return [
       <rect

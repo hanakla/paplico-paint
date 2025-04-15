@@ -2,8 +2,8 @@
  * @author GPT-4
  */
 
-import { SVGDCommand } from '@/fastsvg/IndexedPointAtLength'
 import { parseSVGPath, svgDCommandArrayToSVGPath } from '.'
+import { SVGDCommand } from '@/fastsvg/IndexedPointAtLength'
 
 export function roundPathCorners(
   path: SVGDCommand[],

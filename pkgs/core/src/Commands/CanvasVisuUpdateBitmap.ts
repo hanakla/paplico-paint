@@ -12,7 +12,7 @@ import {
   promiseWithResolvers,
 } from '@paplico/shared-lib'
 
-type Options = {
+interface Options {
   updater: (bitmap: ReadonlyUint8ClampedArray) => Uint8ClampedArray
 }
 

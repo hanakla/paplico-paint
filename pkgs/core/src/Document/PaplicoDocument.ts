@@ -1,15 +1,15 @@
-import { ulid } from '@/utils/ulid'
-import { assign, deepClone } from '@paplico/shared-lib'
 import { LayerNode } from './Structs/LayerNode'
 import { PaplicoBlob } from './PaplicoBlob'
 import { VisuElement } from './Visually/VisuElement'
 import { DEFAULT_VISU_TRANSFORM, createGroupVisually } from './Visually/factory'
 import { createNodesController } from './PaplicoDocument.LayerNodes'
+import { assign, deepClone } from '@paplico/shared-lib'
+import { ulid } from '@/utils/ulid'
 import { composeVisuTransforms } from '@/Engine/VectorUtils'
 import { PPLCInvariantViolationError } from '@/Errors'
 
 export namespace PaplicoDocument {
-  export type Meta = {
+  export interface Meta {
     schemaVersion: '2'
     title: string
     mainArtboard: {
@@ -18,7 +18,7 @@ export namespace PaplicoDocument {
     }
   }
 
-  export type SerializedSchema = {
+  export interface SerializedSchema {
     uid: string
     meta: Meta
     visues: VisuElement.AnyElement[]
@@ -26,7 +26,7 @@ export namespace PaplicoDocument {
     blobs: PaplicoBlob[]
   }
 
-  export type ResolvedLayerNode = {
+  export interface ResolvedLayerNode {
     /** uid for Visually */
     uid: string
     visu: VisuElement.AnyElement

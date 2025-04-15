@@ -9,7 +9,7 @@ import { mergeToNew } from '@/utils/object'
 import { PplcBrush } from '@/index'
 
 export declare namespace CircleBrush {
-  type Settings = {
+  interface Settings {
     lineCap: CanvasLineCap
   }
 }

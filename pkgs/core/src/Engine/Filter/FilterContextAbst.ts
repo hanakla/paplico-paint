@@ -1,12 +1,12 @@
 import { FilterInputSource } from './Filter'
 
-export type PPLCFilterProgram<T = any> = {
+export interface PPLCFilterProgram<T = any> {
   [__paplicoFilterProgram]: true
   program: T
   dispose(): void
 }
 
-export type PPLCRenderTarget<T = any> = {
+export interface PPLCRenderTarget<T = any> {
   [__papRenderTargetMark]: true
   renderTarget: T
   dispose(): void
@@ -32,12 +32,12 @@ export type PPLCUniforms =
         | 'matrix2x4fv'
         | 'matrix3x4fv'
         | 'matrix4fv'
-      value: ReadonlyArray<number> | Float32Array
+      value: readonly number[] | Float32Array
       toNativeUniform: () => any
     }
   | TexUniform
 
-export type TexUniform = {
+export interface TexUniform {
   type: 'texture2d'
   value: TexImageSource
   clamp: WebGLTypes.TextureClamp

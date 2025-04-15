@@ -1,7 +1,7 @@
 import { ColorRGBA, VisuElement } from '@/Document'
 import { Camera, WebGLRenderer } from 'three'
 
-export type InkMetadata = {
+export interface InkMetadata {
   readonly id: string
   readonly version: string
   readonly name: string

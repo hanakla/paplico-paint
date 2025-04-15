@@ -1,5 +1,5 @@
-import originalPathBounds from 'svg-path-bounding-box'
 import { pathBounds } from './pathBounds'
+import originalPathBounds from 'svg-path-bounding-box'
 
 describe('fastsvg/parse', () => {
   const path =

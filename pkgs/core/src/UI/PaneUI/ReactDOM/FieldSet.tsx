@@ -1,5 +1,5 @@
-import { memo, useId } from 'react'
 import { PaneComponentProps } from '../PaneComponentProps'
+import { memo, useId } from 'react'
 
 export const FieldSet = memo(function FieldSet({
   title,
@@ -23,7 +23,8 @@ export const FieldSet = memo(function FieldSet({
             style={{ marginLeft: 'auto' }}
             role="status"
             aria-aria-live="polite"
-            aria-label={`Current ${title} value`}>
+            aria-label={`Current ${title} value`}
+          >
             {displayValue}
           </div>
         )}

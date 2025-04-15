@@ -1,7 +1,6 @@
-import { canvasToBlob, setCanvasSize } from '@/utils/canvas'
 import { createContext2D } from '../../Infra/CanvasFactory'
 import { IExporter } from './IExporter'
-import { freeingCanvas } from '@/utils/canvas'
+import { canvasToBlob, setCanvasSize, freeingCanvas } from '@/utils/canvas'
 
 export namespace PNGExporter {
   export type Options = IExporter.Options<{}>

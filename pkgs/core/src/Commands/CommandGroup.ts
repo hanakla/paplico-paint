@@ -1,5 +1,5 @@
-import { PPLCCommandExecutionError } from '@/Errors'
 import { ICommand } from '../Engine/History/ICommand'
+import { PPLCCommandExecutionError } from '@/Errors'
 import { DocumentContext } from '@/Engine'
 
 export class CommandGroup implements ICommand {

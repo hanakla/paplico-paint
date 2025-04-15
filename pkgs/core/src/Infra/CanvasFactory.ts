@@ -1,4 +1,4 @@
-type ImageDataConstructorLike = {
+interface ImageDataConstructorLike {
   (sw: number, sh: number, settings?: ImageDataSettings): ImageData
   (
     data: Uint8ClampedArray,
@@ -40,7 +40,7 @@ let canvasFactory: CanvasFactory = ({ dbgId } = {}) => {
 let CanvasClass: any =
   typeof HTMLCanvasElement !== 'undefined' ? HTMLCanvasElement : void 0
 
-let createdCanvases: Set<WeakRef<HTMLCanvasElement>> = new Set()
+const createdCanvases = new Set<WeakRef<HTMLCanvasElement>>()
 
 export const activeCanvasesCount = () => {
   return [...createdCanvases].filter((r) => r.deref() != null).length

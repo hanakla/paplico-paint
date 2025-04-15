@@ -1,12 +1,12 @@
+import { ICommand } from '../Engine/History/ICommand'
 import { typedArraySafeDiff, patch, unpatch, Delta } from '@/utils/jsondiff'
 
-import { ICommand } from '../Engine/History/ICommand'
 import { DocumentContext } from '@/Engine'
 import { deepClone, omit } from '@paplico/shared-lib'
 import { VisuElement } from '@/Document'
 import { PPLCCommandExecutionError } from '@/Errors'
 
-type Options = {
+interface Options {
   updater: (
     layer: Omit<
       VisuElement.VectorObjectElement,

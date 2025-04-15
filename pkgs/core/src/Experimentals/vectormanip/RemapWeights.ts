@@ -15,11 +15,11 @@ export function remapStrokeWeights(
   const imageData = buf.getImageData(0, 0, map.width, map.height)
   const imageLerp = createImageDataLerp(imageData)
 
-  const patches: Array<{
+  const patches: {
     path: string[]
     objectUid: string
     pointPatches: [idx: number, newWeight: number][]
-  }> = []
+  }[] = []
 
   for (const object of vectorLayer.objects) {
     if (object.type !== 'vectorObject') continue

@@ -17,7 +17,7 @@ export function mockNode(id: string, children: LayerNode[] = []) {
 
 export function fakeVisu<K extends VisuElement.AnyElement['type']>(
   type: K,
-  uid: string = `fake-${type}`,
+  uid = `fake-${type}`,
 ) {
   const visu = createGroupVisually({})
   visu.uid = uid

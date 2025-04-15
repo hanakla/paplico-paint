@@ -169,13 +169,3 @@ export function usePointerDrag(handler: (e: DragGestureEvent) => void) {
 
   return useMemo(() => () => handlers, [])
 }
-
-export const useStableRef = <T>(value: T) => {
-  const stableRef = useRef<T>(value)
-
-  useBrowserEffect(() => {
-    stableRef.current = value
-  }, [value])
-
-  return stableRef
-}

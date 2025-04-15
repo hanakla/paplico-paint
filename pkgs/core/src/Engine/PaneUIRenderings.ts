@@ -1,7 +1,7 @@
-import { VisuFilter } from '@/Document'
 import { type AppearanceRegistry } from './Registry/AppearanceRegistry'
 import { type BrushRegistry } from './Registry/BrushRegistry'
 import { type Paplico } from './Paplico'
+import { VisuFilter } from '@/Document'
 import { type PaneSetState, type PaplicoComponents } from '@/UI/PaneUI'
 import {
   VNode,
@@ -27,7 +27,7 @@ export namespace PaneUIRenderings {
     makeTranslation: <T extends LocaleStrings<any>>(texts: T) => TransFn<T>
   }>
 
-  export type TransFn<T extends LocaleStrings<any>> = {
+  export interface TransFn<T extends LocaleStrings<any>> {
     <K extends keyof T['en']>(key: K): string
 
     <K extends keyof T['en'], P extends Record<string, string>>(
@@ -119,7 +119,7 @@ export class PaneUIRenderings {
         })
         .filter(Boolean)
 
-      let next = includesVNode
+      const next = includesVNode
         ? impl.h(impl.components.Fragment, {}, children)
         : children.join('')
 

@@ -1,11 +1,11 @@
-import { TypenGlossary } from '@/TypesAndGlossary'
 import { Point2D } from '../Structs/Point2D'
 import { ColorRGBA } from '../Structs/ColorRGBA'
 import { VisuFilter } from './VisuFilter'
 import { ReadonlyUint8ClampedArray } from '../Structs/ReadonlyUint8ClampedArray'
+import { TypenGlossary } from '@/TypesAndGlossary'
 
 /** Paplico internal use only */
-export type ElementBase = {
+export interface ElementBase {
   uid: string
   name: string
   visible: boolean
@@ -19,7 +19,7 @@ export type ElementBase = {
   filters: VisuFilter.AnyFilter[]
   clipByLowerLayer: boolean
 
-  features: { [featureName: string]: Record<string, any> }
+  features: Record<string, Record<string, any>>
 }
 
 export namespace VisuElement {
@@ -27,7 +27,7 @@ export namespace VisuElement {
   export type StrokeCompositeMode = TypenGlossary.StrokeCompositeMode
 
   /** movement of origin position (origin position default to center) */
-  export type ElementTransform = {
+  export interface ElementTransform {
     translate: Point2D
     scale: Point2D
     /** radian degree */
@@ -82,7 +82,7 @@ export namespace VisuElement {
     | VisuElement.TextElement
     | VisuElement.VectorObjectElement
 
-  export type TextNode = {
+  export interface TextNode {
     text: string
     fontFamily?: string
     fontStyle?: string
@@ -91,7 +91,7 @@ export namespace VisuElement {
     color?: ColorRGBA
   }
 
-  export type VectorPath = {
+  export interface VectorPath {
     points: VectorPathPoint[]
 
     /** reserved, must be po asc ordered array */
@@ -173,7 +173,7 @@ export namespace VisuElement {
     points: LooseTypedVectorPathPoint[]
   }
 
-  export type LooseTypedVectorPathPoint = {
+  export interface LooseTypedVectorPathPoint {
     /** Absolute position(x1, y1), control point for end of curve */
     begin?: { x: number; y: number } | null
     /** Absolute position(x2, y2), control point for end of curve */

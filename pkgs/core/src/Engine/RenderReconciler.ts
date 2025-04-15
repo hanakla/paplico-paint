@@ -8,7 +8,7 @@ export const RenderQueuePriority = {
 export type RenderQueuePriority =
   (typeof RenderQueuePriority)[keyof typeof RenderQueuePriority]
 
-type QueueEntry = {
+interface QueueEntry {
   priority: RenderQueuePriority
   render: (signal: AbortSignal) => Promise<void>
   abortController: AbortController

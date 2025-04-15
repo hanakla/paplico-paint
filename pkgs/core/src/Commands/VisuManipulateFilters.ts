@@ -1,6 +1,6 @@
+import { ICommand } from '../Engine/History/ICommand'
 import { typedArraySafeDiff, patch, unpatch, Delta } from '@/utils/jsondiff'
 
-import { ICommand } from '../Engine/History/ICommand'
 import { DocumentContext } from '@/Engine'
 import { deepClone } from '@paplico/shared-lib'
 import { VisuFilter } from '@/Document'
@@ -18,9 +18,11 @@ type Updater = { visuUid: string } & (
 
 type Updaters = Updater[]
 
-type Patches = {
-  [visuUid: string]: {
-    [filterUid: string]: {
+type Patches = Record<
+  string,
+  Record<
+    string,
+    {
       add?: {
         filter: VisuFilter.AnyFilter
         insertIndex?: number
@@ -38,8 +40,8 @@ type Patches = {
         delta: Delta
       }
     }
-  }
-}
+  >
+>
 
 /**
  * Update Visu's filters attributes batch.

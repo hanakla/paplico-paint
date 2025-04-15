@@ -1,6 +1,6 @@
 import { ColorRGBA } from './ColorRGBA'
 
-export type ColorStop1D = {
+export interface ColorStop1D {
   /** 0 to 1 */
   position: number
   /** 0..1 */

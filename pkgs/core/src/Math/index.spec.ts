@@ -1,5 +1,5 @@
-import { indexedPointAtLength } from '@/index-ext-brush'
 import { getUnitVector } from './getTangent'
+import { indexedPointAtLength } from '@/index-ext-brush'
 
 describe('getTangentAt', () => {
   it('should return the tangent at the given t', () => {

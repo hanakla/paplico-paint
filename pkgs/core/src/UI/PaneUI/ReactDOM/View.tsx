@@ -1,5 +1,5 @@
-import { memo } from 'react'
 import { PaneComponentProps } from '../PaneComponentProps'
+import { memo } from 'react'
 
 export const View = memo(function View({
   flexFlow = 'row',

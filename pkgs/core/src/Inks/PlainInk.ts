@@ -1,7 +1,7 @@
 import { IInk, InkGenerator, createInk } from '../Engine/Ink'
 
 export declare namespace PlainInk {
-  type Setting = {}
+  interface Setting {}
 }
 
 export const PlainInk = createInk(

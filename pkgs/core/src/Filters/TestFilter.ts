@@ -1,7 +1,7 @@
 import { createFilter, PplcFilter } from '@/index'
 
 export namespace TestFilter {
-  export type Options = {
+  export interface Options {
     color: string
   }
 }

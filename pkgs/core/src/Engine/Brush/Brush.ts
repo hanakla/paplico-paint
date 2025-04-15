@@ -1,19 +1,19 @@
-import type { WebGLRenderer, Camera } from 'three'
 // import type { VectorBrushSetting, VectorPath } from '@/Document'
 import type { RenderCycleLogger } from '../RenderCycleLogger'
 import type { InkGenerator } from '../Ink'
 import type { RenderPhase } from '../types'
-import type { VNode } from '@/UI/PaneUI/AbstractComponent'
 import { PaneUIRenderings } from '../PaneUIRenderings'
+import type { VNode } from '@/UI/PaneUI/AbstractComponent'
+import type { WebGLRenderer, Camera } from 'three'
 import { VisuElement, VisuFilter } from '@/Document'
 
 export type BrushPaneContext<T> = PaneUIRenderings.PaneUIContext<T>
 
-export type ScaledTransform = {
+export interface ScaledTransform {
   scale: { x: number; y: number }
 }
 
-export type BrushContext<T extends Record<string | symbol, any>, M> = {
+export interface BrushContext<T extends Record<string | symbol, any>, M> {
   abort: AbortSignal
   throwIfAborted: () => never | void
 
@@ -45,7 +45,7 @@ export type BrushContext<T extends Record<string | symbol, any>, M> = {
   ) => Promise<M>
 }
 
-export type BrushLayoutData = {
+export interface BrushLayoutData {
   bbox: {
     left: number
     top: number
@@ -54,7 +54,7 @@ export type BrushLayoutData = {
   }
 }
 
-export type BrushMetadata = {
+export interface BrushMetadata {
   readonly id: string
   readonly version: string
   readonly name?: string

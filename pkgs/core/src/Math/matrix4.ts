@@ -100,16 +100,16 @@ export class Matrix4 {
     const out = this.matrix,
       a = this.matrix.slice()
 
-    let s = Math.sin(rad)
-    let c = Math.cos(rad)
-    let a00 = a[0]
-    let a01 = a[1]
-    let a02 = a[2]
-    let a03 = a[3]
-    let a10 = a[4]
-    let a11 = a[5]
-    let a12 = a[6]
-    let a13 = a[7]
+    const s = Math.sin(rad)
+    const c = Math.cos(rad)
+    const a00 = a[0]
+    const a01 = a[1]
+    const a02 = a[2]
+    const a03 = a[3]
+    const a10 = a[4]
+    const a11 = a[5]
+    const a12 = a[6]
+    const a13 = a[7]
 
     if (a !== out) {
       // If the source and destination differ, copy the unchanged last row

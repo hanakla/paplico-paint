@@ -1,4 +1,3 @@
-import { PaplicoDocument, VisuElement } from '@/Document'
 import {
   CanvasToken,
   NEW_CANVAS_TARGET,
@@ -10,8 +9,9 @@ import {
 import { DocumentContext } from './DocumentContext/DocumentContext'
 import { type RenderPipeline } from './RenderPipeline'
 import { VectorRenderer } from './VectorRenderer'
-import { DEFAULT_VISU_TRANSFORM } from '@/Document/Visually/factory'
 import { composeVisuTransforms } from './VectorUtils'
+import { DEFAULT_VISU_TRANSFORM } from '@/Document/Visually/factory'
+import { PaplicoDocument, VisuElement } from '@/Document'
 import { LogChannel } from '@/Debugging/LogChannel'
 
 export function buildRenderSchedule(

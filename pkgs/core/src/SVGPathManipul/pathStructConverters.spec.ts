@@ -1,5 +1,5 @@
-import { VisuElement } from '@/Document'
 import { vectorPathPointsToSVGCommandArray } from './pathStructConverters'
+import { VisuElement } from '@/Document'
 
 describe('pathStructConverters', () => {
   describe('vectorPathPointsToSVGCommandArray', () => {

@@ -25,6 +25,7 @@ import { Commands, Document } from '@paplico/core-new'
 import { loadImage } from '@hanakla/arma'
 import { StoreApi, create } from 'zustand'
 import { storePicker } from '@/utils/zustand'
+import { assign } from '@paplico/shared-lib'
 
 type Props = { className?: string }
 
@@ -136,46 +137,45 @@ export const EditorArea = memo(
           // const rbx = rootRef.current!.getBoundingClientRect()
           const c = combCanvasRef.current!.getBoundingClientRect()
 
-          canvasState.set((prevState, prev = prevState.current) => {
-            // SEE: https://kano.arkoak.com/2020/06/04/zoom/
+          // canvasState.set((prevState, prev = prevState.current) => {
+          //   // SEE: https://kano.arkoak.com/2020/06/04/zoom/
 
-            // 現在の変形を考慮しない、キャンバスに対するピンチの中心点を取得
-            const xOnCanvas = (x - c.left) / prev.scale - prev.x / prev.scale
-            const yOnCanvas = (y - c.top) / prev.scale - prev.y / prev.scale
+          //   // 現在の変形を考慮しない、キャンバスに対するピンチの中心点を取得
+          //   const xOnCanvas = (x - c.left) / prev.scale - prev.x / prev.scale
+          //   const yOnCanvas = (y - c.top) / prev.scale - prev.y / prev.scale
 
-            const newScale = Math.max(0.1, prev.scale + d)
+          //   const newScale = Math.max(0.1, prev.scale + d)
 
-            // 拡大・縮小の影響を受けた後のキャンバスの位置の差異を計算
-            const offsetX = xOnCanvas * newScale - xOnCanvas * prev.scale
-            const offsetY = yOnCanvas * newScale - yOnCanvas * prev.scale
+          //   // 拡大・縮小の影響を受けた後のキャンバスの位置の差異を計算
+          //   const offsetX = xOnCanvas * newScale - xOnCanvas * prev.scale
+          //   const offsetY = yOnCanvas * newScale - yOnCanvas * prev.scale
 
-            // 新しいオフセットを計算
-            const newX = prev.x - offsetX
-            const newY = prev.y - offsetY
+          //   // 新しいオフセットを計算
+          //   const newX = prev.x - offsetX
+          //   const newY = prev.y - offsetY
 
-            canvasEditor?.setCanvasScaledScale(newScale)
+          //   canvasEditor?.setCanvasScaledScale(newScale)
 
-            return {
-              current: {
-                scale: newScale,
-                rotateDeg: prev.rotateDeg + r,
-                x: newX,
-                y: newY,
-              },
-            }
-          })
+          //   return {
+          //     current: {
+          //       scale: newScale,
+          //       rotateDeg: prev.rotateDeg + r,
+          //       x: newX,
+          //       y: newY,
+          //     },
+          //   }
+          // })
         },
 
         onWheel: ({ event, delta, touches }) => {
           event.preventDefault()
 
-          canvasState.set((prevState, prev = prevState.current) => ({
-            current: {
-              ...prev,
-              x: prev.x - delta[0] * (1 / prev.scale),
-              y: prev.y - delta[1] * (1 / prev.scale),
-            },
-          }))
+          canvasEditor?.setViewport({
+            left: canvasEditor.currentViewport.left + delta[0],
+            top: canvasEditor.currentViewport.top + delta[1],
+            width: canvasEditor.currentViewport.width,
+            height: canvasEditor.currentViewport.height,
+          })
         },
 
         onDrag: (e) => {
@@ -214,6 +214,22 @@ export const EditorArea = memo(
         y: editorStore.toolbarPosition?.x ?? rootBBox.height - 65,
       })
     }, [rootBBox.width, rootBBox.height])
+
+    useEffect(() => {
+      console.log(rootBBox, canvasEditor)
+
+      assign(combCanvasRef.current!, {
+        width: rootBBox.width,
+        height: rootBBox.height,
+      })
+
+      canvasEditor?.setViewport({
+        left: canvasEditor.currentViewport.left,
+        top: canvasEditor.currentViewport.top,
+        width: rootBBox.width,
+        height: rootBBox.height,
+      })
+    }, [canvasEditor, rootBBox.width, rootBBox.height])
 
     useEffect(() => {
       if (!pplc || !combCanvasRef) return
@@ -281,18 +297,15 @@ export const EditorArea = memo(
             position: relative;
             touch-action: none;
           `}
-          style={{
-            transformOrigin: /* center */ '50% 50%',
-            transform:
-              `scale(${canvasState.current.scale}) ` +
-              `rotate(${canvasState.current.rotateDeg}deg) ` +
-              `translate(${canvasState.current.x}px, ${canvasState.current.y}px)`,
-          }}
         >
           <div
             ref={vectorEditorRef}
             css={css`
               position: absolute;
+              top: 0;
+              left: 0;
+              right: 0;
+              bottom: 0;
               pointer-events: none;
             `}
           />
@@ -302,17 +315,8 @@ export const EditorArea = memo(
               background-color: #fff;
               ${checkerBoard({ size: 10, opacity: 0.1 })};
             `}
-            width={canvasEditor?.currentDocument?.meta.mainArtboard.width ?? 1}
-            height={
-              canvasEditor?.currentDocument?.meta.mainArtboard.height ?? 1
-            }
-            style={
-              {
-                // aspectRatio: papRef.current?.currentDocument
-                //   ? `${papRef.current.currentDocument.meta.mainArtboard.width}/${papRef.current.currentDocument.meta.mainArtboard.height}`
-                //   : '1',
-              }
-            }
+            width={10}
+            height={10}
           />
         </div>
 

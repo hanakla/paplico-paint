@@ -1,14 +1,14 @@
-import { Emitter } from '@paplico/shared-lib'
 import { FilterClass, IFilter } from '../Filter/Filter'
 import { WebGLFilterContext } from '../Filter/WebGLFilterContext'
+import { Emitter } from '@paplico/shared-lib'
 
-type Events = {
+interface Events {
   entriesChanged: void
 }
 
 export class AppearanceRegistry extends Emitter<Events> {
-  protected filters: Map<string, FilterClass<any>> = new Map()
-  protected instances: WeakMap<FilterClass<any>, IFilter<any>> = new WeakMap()
+  protected filters = new Map<string, FilterClass<any>>()
+  protected instances = new WeakMap<FilterClass<any>, IFilter<any>>()
 
   constructor(protected gl: WebGLFilterContext) {
     super()

@@ -1,7 +1,5 @@
 /** Utility functions for making custom brush */
 
-import fastRandom from 'fast-random'
-import { rgb } from 'polished'
 import {
   IndexedPointAtLength,
   indexedPointAtLength,
@@ -18,6 +16,8 @@ import {
 import { FuncStats } from './utils/perfstats'
 import { degToRad } from './utils/math'
 import { ColorRGB, ColorRGBA } from './Document/Structs'
+import { rgb } from 'polished'
+import fastRandom from 'fast-random'
 
 export type { ColorRGB, ColorRGBA }
 export { PPLCAbortError } from '@/Errors/PPLCPaplicoAbortError'
@@ -155,7 +155,7 @@ export const scatterPlot = (
     scatterScale: number
     useTangent?: boolean
   },
-): Array<ScatteredPoint> => {
+): ScatteredPoint[] => {
   const stat = FuncStats.start(scatterPlot)
 
   let timeEnd = stat.time('seqPal build')

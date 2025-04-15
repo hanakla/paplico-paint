@@ -5,7 +5,7 @@ import { DocumentContext } from '@/Engine/DocumentContext/DocumentContext'
 import { AtomicResource } from '@/utils/AtomicResource'
 
 export namespace History {
-  export type Events = {
+  export interface Events {
     undo: { command: ICommand }
     redo: { command: ICommand }
     affect: { layerIds: string[] }

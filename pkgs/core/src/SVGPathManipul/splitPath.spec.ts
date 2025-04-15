@@ -1,5 +1,5 @@
-import { SVGDCommand } from '@/fastsvg/IndexedPointAtLength'
 import { splitPathAt } from './splitPath'
+import { SVGDCommand } from '@/fastsvg/IndexedPointAtLength'
 
 describe('splitPathAt', () => {
   it('works?', () => {

@@ -9,18 +9,31 @@
     "dev": "BUILD_TARGET_ENV=development wsrun -p @paplico/shared-lib @paplico/web2 @paplico/core-new @paplico/editor -c dev",
     "build": "BUILD_TARGET_ENV=production wsrun -p @paplico/shared-lib @paplico/web2 @paplico/core-new @paplico/editor -c build",
     "start": "cd pkgs/web; yarn start",
+    "lint:fix": "lint-staged",
     "prepare": "husky install"
   },
+  "lint-staged": {
+    "*.{js,jsx,ts,tsx}": [
+      "prettier --write"
+    ]
+  },
   "devDependencies": {
+    "@eslint/js": "^9.17.0",
     "@mdx-js/loader": "^3.0.0",
     "@mdx-js/react": "^3.0.0",
     "@next/mdx": "^14.0.1",
     "@types/mdx": "^2.0.9",
     "autoprefixer": "^10.4.16",
+    "eslint": "^9.17.0",
+    "eslint-plugin-import": "^2.31.0",
+    "eslint-plugin-react": "^7.37.3",
+    "globals": "^15.14.0",
     "husky": "^8.0.0",
+    "lint-staged": "^15.3.0",
     "postcss": "^8.4.31",
     "prettier": "^3.0.3",
     "tailwindcss": "^3.3.5",
+    "typescript-eslint": "^8.19.1",
     "wsrun": "^5.2.4"
   },
   "packageManager": "yarn@3.3.0"

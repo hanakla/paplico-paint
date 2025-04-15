@@ -1,5 +1,5 @@
-import { Matrix4 } from '@/Math'
 import { processInput } from './ScatterBrush-worker'
+import { Matrix4 } from '@/Math'
 import { indexedPointAtLength } from '@/index-ext-brush'
 
 describe('ScatterBrush-worker', () => {

@@ -1,12 +1,12 @@
 export type Delta = DeltaNode | DeltaLeaf
 
-export type DeltaResult<T> = T extends Array<infer R>
+export type DeltaResult<T> = T extends (infer R)[]
   ? { [K in keyof T]: DeltaResult<R> }
   : T extends object
   ? { [K in keyof T]?: DeltaResult<T[K]> }
   : DeltaLeaf
 
-export type DeltaNode = {
+export interface DeltaNode {
   [key: string | number]: DeltaLeaf | Delta
 }
 
@@ -166,7 +166,7 @@ export function patchOrUnpatch<T>(
   unpatch: boolean,
 ): any {
   if (!delta) return target
-  let _target = target
+  const _target = target
 
   if (typeof delta[0] === 'string') {
     if (delta[0] === 'c') {

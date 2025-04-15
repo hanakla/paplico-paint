@@ -13,12 +13,12 @@ export function svgDCommandArrayToSVGPath(pathCommands: SVGDCommand[]): string {
 
 export function svgPathToVisuVectorPath(
   pathStr: string,
-  splitByM: boolean = false,
+  splitByM = false,
 ): VisuElement.VectorPath {
   // FIXME: Boolean path
-  let norm = absNormalizePath(pathStr)
+  const norm = absNormalizePath(pathStr)
 
-  let vectorPath: VisuElement.VectorPath = {
+  const vectorPath: VisuElement.VectorPath = {
     fillRule: 'nonzero',
     points: [],
     randomSeed: 0,

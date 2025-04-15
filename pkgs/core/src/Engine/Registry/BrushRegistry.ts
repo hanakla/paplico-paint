@@ -1,14 +1,14 @@
+import { BrushClass, IBrush } from '../Brush/Brush'
 import { Emitter } from '@paplico/shared-lib'
 import { catchToLog } from '@/utils/error'
-import { BrushClass, IBrush } from '../Brush/Brush'
 
-type Events = {
+interface Events {
   entriesChanged: void
 }
 
 export class BrushRegistry extends Emitter<Events> {
-  protected brushes: Map<string, BrushClass> = new Map()
-  protected instances: WeakMap<BrushClass, IBrush> = new WeakMap()
+  protected brushes = new Map<string, BrushClass>()
+  protected instances = new WeakMap<BrushClass, IBrush>()
 
   public async register(Brush: BrushClass) {
     try {

@@ -11,11 +11,11 @@ export type Uniform =
         | 'matrix2x4fv'
         | 'matrix3x4fv'
         | 'matrix4fv'
-      value: ReadonlyArray<number> | Float32Array
+      value: readonly number[] | Float32Array
     }
   | TexUniform
 
-export type TexUniform = {
+export interface TexUniform {
   type: 'texture2d'
   value: TexImageSource
   clamp: TextureClamp

@@ -2,9 +2,7 @@ import { Paplico } from '../Engine/Paplico'
 
 export type LocaleStrings<
   T extends Record<string, any> = Record<string, string>,
-> = {
-  [K in Paplico.SupportedLocales]: T
-}
+> = Record<Paplico.SupportedLocales, T>
 
 const tx = <T extends Record<string, any>>(texts: LocaleStrings<T>) => texts
 

@@ -1,5 +1,5 @@
-import { VectorPath } from '@/Document'
 import Paplico from '..'
+import { VectorPath } from '@/Document'
 
 type StrokeComposition = 'normal' | 'erase'
 

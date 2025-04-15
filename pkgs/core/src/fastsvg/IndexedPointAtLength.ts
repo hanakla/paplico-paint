@@ -6,21 +6,28 @@ This is fork of below code
 For faster point-at-length searching
 */
 
-import { distance2D } from '@/Math'
 import { absNormalizePath } from './absNormalizePath'
+import { distance2D } from '@/Math'
 
 export type SVGDCommand = [cmd: string, ...args: number[]]
 
-type AtOption = {
+interface AtOption {
   fromSubvertIndex?: number
   /** for benchmark use, it's decreasings performance */
   noBinsearch?: boolean
 }
 
-type Position2D = { x: number; y: number }
-type VertexPosition = { x: number; y: number; len: number }
+interface Position2D {
+  x: number
+  y: number
+}
+interface VertexPosition {
+  x: number
+  y: number
+  len: number
+}
 
-type SubvertData = {
+interface SubvertData {
   pos: Position2D
 
   div: number | null
@@ -29,7 +36,7 @@ type SubvertData = {
   fragStartPos: Position2D
 }
 
-type SVGVertData = {
+interface SVGVertData {
   pos: Position2D
   svgVertIdx: number
 }
@@ -41,15 +48,15 @@ type AtResult = Readonly<{
   _filled?: boolean
 }>
 
-export const indexedPointAtLength = (path: string | Array<SVGDCommand>) => {
+export const indexedPointAtLength = (path: string | SVGDCommand[]) => {
   return new IndexedPointAtLength(path)
 }
 
 const SUBDIVIDES = 100
 
 export class IndexedPointAtLength {
-  protected _path: Array<SVGDCommand>
-  protected _length: number = 0
+  protected _path: SVGDCommand[]
+  protected _length = 0
 
   public readonly _lengthAtSubvert: number[] = []
   public readonly _lengthAtSVGVert: number[] = []
@@ -57,7 +64,7 @@ export class IndexedPointAtLength {
   public readonly _subvertIndex: SubvertData[] = []
   public readonly _svgVertIndex: SVGVertData[] = []
 
-  public static atBatch(path: string | Array<SVGDCommand>, pos: number[]) {
+  public static atBatch(path: string | SVGDCommand[], pos: number[]) {
     const normPath = absNormalizePath(path)
     const walk = IndexedPointAtLength.prototype._walk
 
@@ -67,7 +74,7 @@ export class IndexedPointAtLength {
     })
   }
 
-  constructor(path: string | Array<SVGDCommand>) {
+  constructor(path: string | SVGDCommand[]) {
     this._path = absNormalizePath(path)
     // process.env.NODE_ENV !== 'test' && console.log(this._path)
     const warm = this._walk(null, { warm: true })
@@ -543,8 +550,8 @@ export class IndexedPointAtLength {
     }
 
     function distance(ax: number, ay: number, bx: number, by: number) {
-      var x = ax - bx
-      var y = ay - by
+      const x = ax - bx
+      const y = ay - by
 
       // SEE: https://stackoverflow.com/a/19580786
       // return Math.pow(x * x + y * y, 0.5)

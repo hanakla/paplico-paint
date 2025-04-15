@@ -1,8 +1,8 @@
-import { CSSProperties } from 'react'
 import { VNode } from './AbstractComponent'
+import { CSSProperties } from 'react'
 
 export namespace PaneComponentProps {
-  type StyleProps = {
+  interface StyleProps {
     style?: Partial<{
       position: 'relative' | 'absolute'
       left: CSSProperties['left']
@@ -36,7 +36,7 @@ export namespace PaneComponentProps {
     }>
   }
 
-  export type Fragment = {
+  export interface Fragment {
     children?: VNode
   }
 
@@ -59,10 +59,10 @@ export namespace PaneComponentProps {
   export type SelectBox = StyleProps & {
     placeholder?: string
     value: string | readonly string[] | undefined
-    items: ReadonlyArray<{
+    items: readonly {
       label?: string
       value: string
-    }>
+    }[]
     onChange: (value: string) => void
   }
 
@@ -84,7 +84,7 @@ export namespace PaneComponentProps {
     onChange: (value: string) => void
   }
 
-  export type BrowserDOM = {
+  export interface BrowserDOM {
     children?: VNode
   }
 }

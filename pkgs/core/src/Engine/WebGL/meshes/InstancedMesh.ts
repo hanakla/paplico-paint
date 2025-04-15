@@ -1,7 +1,7 @@
-import { mapEntries } from '@paplico/shared-lib'
 import { IGeometry } from '../interfaces/IGeometry'
 import { IMesh } from '../interfaces/IMesh'
 import { Program } from '../Program'
+import { mapEntries } from '@paplico/shared-lib'
 
 export class InstancedMesh implements IMesh {
   public constructor(

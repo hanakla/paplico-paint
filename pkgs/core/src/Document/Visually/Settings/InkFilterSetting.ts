@@ -1,4 +1,6 @@
-export type InkSetting<T extends Record<string, any> = Record<string, any>> = {
+export interface InkSetting<
+  T extends Record<string, any> = Record<string, any>,
+> {
   inkId: string
   inkVersion: string
 

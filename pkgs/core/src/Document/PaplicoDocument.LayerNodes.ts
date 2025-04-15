@@ -1,12 +1,12 @@
+import { type PaplicoDocument } from './PaplicoDocument'
+import { type LayerNode } from './Structs/LayerNode'
+import { VisuElement } from './Visually/VisuElement'
 import {
   PPLCOptionInvariantViolationError,
   PPLCTargetEntityNotFoundError,
 } from '@/Errors'
-import { type PaplicoDocument } from './PaplicoDocument'
-import { type LayerNode } from './Structs/LayerNode'
-import { VisuElement } from './Visually/VisuElement'
 
-export type NodesController = {
+export interface NodesController {
   getRootNode(): LayerNode
 
   /**
@@ -112,7 +112,7 @@ export function createNodesController(doc: PaplicoDocument): NodesController {
       let cursor = rootNode
 
       for (const uid of path) {
-        let result = cursor.children.find((node) => node.visuUid === uid)
+        const result = cursor.children.find((node) => node.visuUid === uid)
         if (!result) return null
 
         cursor = result
@@ -180,7 +180,7 @@ export function createNodesController(doc: PaplicoDocument): NodesController {
 
       let cursor = rootNode
       for (const uid of path) {
-        let found = cursor.children.find((child) => child.visuUid === uid)
+        const found = cursor.children.find((child) => child.visuUid === uid)
         if (!found) return null
 
         cursor = found
@@ -198,7 +198,7 @@ export function createNodesController(doc: PaplicoDocument): NodesController {
     addLayerNode<T extends VisuElement.AnyElement>(
       visu: T,
       pathToParent: string[] = [],
-      positionInNode: number = -1,
+      positionInNode = -1,
     ) {
       if (!doc.visuElements.find((l) => l.uid === visu.uid)) {
         doc.visuElements.push(visu)

@@ -1,12 +1,11 @@
+import { Canvas2DAllocator } from '../Infra/Canvas2DAllocator'
+import { DEFAULT_INK_SETTING, DEFAULT_BRUSH_SETTING } from './constants'
 import { Paplico } from '@/Engine/Paplico'
 import { UICanvas } from '@/UI/UICanvas'
 import { UIStroke } from '@/UI/UIStroke'
-import { Canvas2DAllocator } from '../Infra/Canvas2DAllocator'
-import { DEFAULT_INK_SETTING, DEFAULT_BRUSH_SETTING } from './constants'
-import { deepClone } from '@paplico/shared-lib'
+import { deepClone, Emitter } from '@paplico/shared-lib'
 import { clearCanvas, setCanvasSize } from '@/utils/canvas'
 import { PPLCDisposedInstanceError } from '@/Errors/PPLCDisposedInstanceError'
-import { Emitter } from '@paplico/shared-lib'
 import { VisuElement, VisuFilter } from '@/Document'
 import {
   createVectorObjectVisually,
@@ -14,7 +13,7 @@ import {
 } from '@/Document/Visually/factory'
 
 export namespace MicroCanvas {
-  export type Events = {
+  export interface Events {
     strokeStart: void
     strokeChange: void
     strokeCancel: void

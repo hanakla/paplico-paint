@@ -1,12 +1,15 @@
-type PerfStats = {
+interface PerfStats {
   calls: CallEntry[]
 }
 
-type CallEntry = {
-  perfs: { [label: string]: LabelEntry[] }
+interface CallEntry {
+  perfs: Record<string, LabelEntry[]>
 }
 
-type LabelEntry = { time: number; details: any[] }
+interface LabelEntry {
+  time: number
+  details: any[]
+}
 ;({
   calls: [
     {
@@ -29,9 +32,7 @@ export class FuncStats {
 
     const entry: CallEntry = { perfs: {} }
 
-    let startTimes: {
-      [label: string]: { lastStartTime: number } | null
-    } = {}
+    const startTimes: Record<string, { lastStartTime: number } | null> = {}
 
     const handlers = {
       finish: () => {
@@ -68,38 +69,44 @@ export class FuncStats {
     if (!callLog) return null
 
     const result = {
-      average: callLog.calls.reduce((acc, entry) => {
-        const callPerLabel: { [label: string]: number } = {}
+      average: callLog.calls.reduce(
+        (acc, entry) => {
+          const callPerLabel: Record<string, number> = {}
 
-        for (const label of Object.keys(entry.perfs)) {
-          callPerLabel[label] ??= 0
+          for (const label of Object.keys(entry.perfs)) {
+            callPerLabel[label] ??= 0
 
-          const labelSum = entry.perfs[label].reduce((sum, perf) => {
-            callPerLabel[label] += 1
-            return sum + perf.time
-          }, 0)
+            const labelSum = entry.perfs[label].reduce((sum, perf) => {
+              callPerLabel[label] += 1
+              return sum + perf.time
+            }, 0)
 
-          acc[label] = {
-            time:
-              (acc[label]?.time ?? 0) + labelSum / entry.perfs[label].length,
-            calls: (acc[label]?.calls ?? 0) + callPerLabel[label],
+            acc[label] = {
+              time:
+                (acc[label]?.time ?? 0) + labelSum / entry.perfs[label].length,
+              calls: (acc[label]?.calls ?? 0) + callPerLabel[label],
+            }
           }
-        }
 
-        return acc
-      }, {} as { [label: string]: { time: number; calls: number } }),
-      sum: callLog.calls.reduce((acc, entry) => {
-        for (const label of Object.keys(entry.perfs)) {
-          acc[label] = {
-            time:
-              (acc[label]?.time ?? 0) +
-              entry.perfs[label].reduce((sum, perf) => sum + perf.time, 0),
-            calls: (acc[label]?.calls ?? 0) + entry.perfs[label].length,
+          return acc
+        },
+        {} as Record<string, { time: number; calls: number }>,
+      ),
+      sum: callLog.calls.reduce(
+        (acc, entry) => {
+          for (const label of Object.keys(entry.perfs)) {
+            acc[label] = {
+              time:
+                (acc[label]?.time ?? 0) +
+                entry.perfs[label].reduce((sum, perf) => sum + perf.time, 0),
+              calls: (acc[label]?.calls ?? 0) + entry.perfs[label].length,
+            }
           }
-        }
 
-        return acc
-      }, {} as { [label: string]: { time: number; calls: number } }),
+          return acc
+        },
+        {} as Record<string, { time: number; calls: number }>,
+      ),
     }
 
     return {
@@ -108,15 +115,15 @@ export class FuncStats {
         console.log('Perf:\n  Averages:')
         Object.keys(result.average).forEach((label) =>
           console.log(
-            `    ${label}: ${result.average[label].time}ms (logs: ${result.average[label].calls} times)`
-          )
+            `    ${label}: ${result.average[label].time}ms (logs: ${result.average[label].calls} times)`,
+          ),
         )
 
         console.log('  Sums:')
         Object.keys(result.sum).forEach((label) =>
           console.log(
-            `    ${label}: ${result.sum[label].time}ms (logs: ${result.sum[label].calls} times)`
-          )
+            `    ${label}: ${result.sum[label].time}ms (logs: ${result.sum[label].calls} times)`,
+          ),
         )
       },
     }

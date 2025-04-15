@@ -62,7 +62,7 @@ export function rgbToHsv(
 
   let h = 0
   let s = 0
-  let v = max
+  const v = max
 
   const delta = max - min
 

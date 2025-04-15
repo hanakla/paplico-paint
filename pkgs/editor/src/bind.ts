@@ -1,8 +1,8 @@
 import { Paplico } from '@paplico/core-new'
 import { EngineStore } from './stores/engine'
 import { EditorStore, layerTypeToEditorType } from './stores/editor'
-import { StoreApi } from 'zustand'
-import { Emitter } from 'mitt'
+import { StoreApi } from 'zustand/vanilla'
+import { Emitter } from '@paplico/shared-lib'
 import { PplcEditorEvents } from '.'
 
 export function bind(

@@ -5,7 +5,7 @@ import { simplifySvgPath } from '@/SVGPathManipul'
 import { VisuElement } from '@/Document'
 import { absNormalizePath } from '@/fastsvg/absNormalizePath'
 
-export type UIStrokePoint = {
+export interface UIStrokePoint {
   x: number
   y: number
   /** 0 to 1, default should be 1 */
@@ -20,7 +20,7 @@ export type UIStrokePointRequired = Omit<UIStrokePoint, 'deltaTimeMs'> & {
 }
 
 export class UIStroke {
-  public startTime: number = 0
+  public startTime = 0
   public points: UIStrokePoint[] = []
   public randomSeed: number = prand.mersenne(Math.random()).next()[0]
 

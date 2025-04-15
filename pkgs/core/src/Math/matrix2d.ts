@@ -71,8 +71,8 @@ export class Matrix2D {
       a = this.matrix.slice()
 
     const [a0, a1, a2, a3, a4, a5] = a
-    let s = Math.sin(rad)
-    let c = Math.cos(rad)
+    const s = Math.sin(rad)
+    const c = Math.cos(rad)
 
     out[0] = a0 * c + a2 * s
     out[1] = a1 * c + a3 * s
@@ -89,8 +89,8 @@ export class Matrix2D {
       a = this.matrix.slice(),
       _b = b.toArray()
 
-    let [a0, a1, a2, a3, a4, a5] = a
-    let [b0, b1, b2, b3, b4, b5] = _b
+    const [a0, a1, a2, a3, a4, a5] = a
+    const [b0, b1, b2, b3, b4, b5] = _b
 
     out[0] = a0 * b0 + a2 * b1
     out[1] = a1 * b0 + a3 * b1

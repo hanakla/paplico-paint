@@ -1,12 +1,7 @@
-import { PPLCAbortError, PPLCInvariantViolationError } from '@/Errors'
-import { AtomicResource } from '@/utils/AtomicResource'
-import { saveAndRestoreCanvas } from '@/utils/canvas'
-import { deepClone } from '@paplico/shared-lib'
-import { OrthographicCamera, WebGLRenderer } from 'three'
 import { BrushRegistry } from './Registry/BrushRegistry'
 import { InkRegistry } from './Registry/InkRegistry'
 import { RenderCycleLogger } from './RenderCycleLogger'
-import { RenderPhase, Viewport } from './types'
+import { RenderPhase } from './types'
 import {
   addPoint2D,
   applyMatrixToBBox,
@@ -25,6 +20,12 @@ import {
   createBBox,
   createEmptyBBox,
 } from './DocumentContext/LayerMetrics'
+import { DocumentContext } from './DocumentContext/DocumentContext'
+import { PPLCAbortError, PPLCInvariantViolationError } from '@/Errors'
+import { AtomicResource } from '@/utils/AtomicResource'
+import { saveAndRestoreCanvas } from '@/utils/canvas'
+import { deepClone, shallowEquals } from '@paplico/shared-lib'
+import { OrthographicCamera, WebGLRenderer } from 'three'
 import { PaplicoRenderWarnAbst } from '@/Errors/Warns/PaplicoRenderWarnAbst'
 import { reduceAsync } from '@/utils/array'
 import { MissingFilterWarn } from '@/Errors/Warns/MissingFilterWarn'
@@ -35,20 +36,18 @@ import {
 } from '@/Document/Visually/factory'
 import { LogChannel } from '@/Debugging/LogChannel'
 import { svgPathToVisuVectorPath } from '@/SVGPathManipul/pathStructConverters'
-import { DocumentContext } from './DocumentContext/DocumentContext'
-import { shallowEquals } from '@paplico/shared-lib'
+import type { Paplico } from '@/Engine/Paplico'
 
-type StrokeMemoEntry<T> = {
+interface StrokeMemoEntry<T> {
   data: T
   prevDeps: any[]
 }
 
 export namespace VectorRenderer {
-  export type VisuTransformOverrides = {
-    [visuUid: string]: {
-      <T extends VisuElement.AnyElement>(base: T): T
-    }
-  }
+  export type VisuTransformOverrides = Record<
+    string,
+    <T extends VisuElement.AnyElement>(base: T) => T
+  >
 }
 
 export class VectorRenderer {
@@ -60,10 +59,10 @@ export class VectorRenderer {
   protected glRendererResource: AtomicResource<WebGLRenderer>
 
   protected camera: OrthographicCamera
-  protected strokeMemo: WeakMap<
+  protected strokeMemo = new WeakMap<
     VisuElement.VectorPath,
     WeakMap<IBrush, StrokeMemoEntry<any>>
-  > = new WeakMap()
+  >()
 
   protected fillRenderLock = new AtomicResource({})
   protected strokeRenderLock = new AtomicResource({})
@@ -105,7 +104,7 @@ export class VectorRenderer {
       transformOverrides,
       parentTransform = DEFAULT_VISU_TRANSFORM(),
     }: {
-      viewport: Viewport
+      viewport: Paplico.Viewport
       pixelRatio: number
       abort?: AbortSignal
       logger?: RenderCycleLogger
@@ -263,8 +262,8 @@ export class VectorRenderer {
       }
     }
 
-    let originalBBox: LayerMetrics.BBox = createEmptyBBox()
-    let postFilterBBox: LayerMetrics.BBox = createEmptyBBox()
+    const originalBBox: LayerMetrics.BBox = createEmptyBBox()
+    const postFilterBBox: LayerMetrics.BBox = createEmptyBBox()
 
     for (const obj of objects) {
       const { original: source, postFilter } = objectsBBox[obj.uid]
@@ -294,8 +293,8 @@ export class VectorRenderer {
     const objects: VisuElement.VectorObjectElement[] = []
 
     let curX = layer.transform.translate.x
-    let curY = layer.transform.translate.y
-    let curBaseline = 0
+    const curY = layer.transform.translate.y
+    const curBaseline = 0
 
     // #region Linebreak nomarlize
     const lineBreakedNodes: VisuElement.TextNode[][] = []
@@ -307,7 +306,7 @@ export class VectorRenderer {
       nodeIdx < nodeLen;
       nodeIdx++
     ) {
-      let node = layer.textNodes[nodeIdx]
+      const node = layer.textNodes[nodeIdx]
       currentNode = {
         fontSize: layer.fontSize,
         fontFamily: layer.fontFamily,
@@ -389,7 +388,7 @@ export class VectorRenderer {
 
         const nodeGlyphs = font.stringToGlyphs(node.text)
 
-        for (let glyph of nodeGlyphs) {
+        for (const glyph of nodeGlyphs) {
           const fontSize = node.fontSize ?? layer.fontSize
           const unitToPxScale = (1 / font.unitsPerEm) * fontSize
           const glyphHeightPx = glyph.yMax! - glyph.yMin! * unitToPxScale
@@ -470,7 +469,7 @@ export class VectorRenderer {
     metrics: LayerMetrics.BBoxSet
     warns: PaplicoRenderWarnAbst[]
   }> {
-    let warns: PaplicoRenderWarnAbst[] = []
+    const warns: PaplicoRenderWarnAbst[] = []
 
     const fillRenderLock = await this.fillRenderLock.ensure()
 

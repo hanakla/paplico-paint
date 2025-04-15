@@ -1,4 +1,5 @@
 import { IExporter } from './IExporter'
+import { createContext2D } from '../../Infra/CanvasFactory'
 import {
   ColorRGB,
   ColorRGBA,
@@ -6,7 +7,6 @@ import {
   VisuElement,
   VisuFilter,
 } from '@/Document'
-import { createContext2D } from '../../Infra/CanvasFactory'
 import { setCanvasSize } from '@/utils/canvas'
 import { vectorPathPointsToSVGPath } from '@/SVGPathManipul'
 import { ulid } from '@/utils/ulid'
@@ -199,7 +199,7 @@ function svgElement(
 }
 
 // FROM: https://stackoverflow.com/questions/7753448/how-do-i-escape-quotes-in-html-attribute-values
-function quoteattr(s: string, preserveCR: boolean = true) {
+function quoteattr(s: string, preserveCR = true) {
   const cr = preserveCR ? '&#13;' : '\n'
   return (
     ('' + s) /* Forces the conversion to string. */
@@ -218,7 +218,7 @@ function quoteattr(s: string, preserveCR: boolean = true) {
   )
 }
 
-type A<T> = {
+interface A<T> {
   find<S extends T>(
     predicate: (value: T, index: number, obj: T[]) => value is S,
     thisArg?: any,

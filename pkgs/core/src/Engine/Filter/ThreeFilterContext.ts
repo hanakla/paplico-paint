@@ -1,4 +1,16 @@
 import {
+  InputSource,
+  RenderTarget,
+  PPLCRenderTarget,
+  PPLCFilterProgram,
+  PPLCUniforms,
+  __papRenderTargetMark,
+  __paplicoFilterProgram,
+  WebGLTypes,
+  TexUniform,
+  IFilterWebGLContext,
+} from './FilterContextAbst'
+import {
   Camera,
   RawShaderMaterial,
   Scene,
@@ -18,18 +30,6 @@ import {
   TextureFilter,
   IUniform,
 } from 'three'
-import {
-  InputSource,
-  RenderTarget,
-  PPLCRenderTarget,
-  PPLCFilterProgram,
-  PPLCUniforms,
-  __papRenderTargetMark,
-  __paplicoFilterProgram,
-  WebGLTypes,
-  TexUniform,
-  IFilterWebGLContext,
-} from './FilterContextAbst'
 
 type PapThreeFilterProgram = PPLCFilterProgram<RawShaderMaterial>
 type PapThreeRenderTarget = PPLCRenderTarget<WebGLRenderTarget>
@@ -212,7 +212,7 @@ const getTextureClampValue = (
       : undefined as never
     )
   } else {
-    let dir = xy === 'x' ? value.x : value.y
+    const dir = xy === 'x' ? value.x : value.y
     return getTextureClampValue(dir, xy)
   }
 }
@@ -229,7 +229,7 @@ const getTextureFilterValue = (
       : undefined
     )
   } else if (value != undefined) {
-    let val = minmag === 'min' ? value.min : value.mag
+    const val = minmag === 'min' ? value.min : value.mag
     return getTextureFilterValue(val, minmag)
   }
 

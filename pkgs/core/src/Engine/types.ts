@@ -1,4 +1,4 @@
-export type Viewport = {
+export interface Viewport {
   left: number
   top: number
   width: number

@@ -3,7 +3,7 @@ import { Canvas2DAllocator } from '@/Infra/Canvas2DAllocator'
 import { freeingCanvas, setCanvasSize } from '@/utils/canvas'
 import { unreachable } from '@/utils/unreachable'
 
-type CropPosition = {
+interface CropPosition {
   x: 'left' | 'center' | 'right'
   y: 'top' | 'bottom' | 'center'
 }
@@ -97,7 +97,7 @@ if (import.meta.vitest) {
       { x: 'right', y: 'top', expected: { x: 90, y: 0 } },
       { x: 'right', y: 'center', expected: { x: 90, y: 45 } },
       { x: 'right', y: 'bottom', expected: { x: 90, y: 90 } },
-    ] satisfies Array<CropPosition & { expected: { x: number; y: number } }>)(
+    ] satisfies (CropPosition & { expected: { x: number; y: number } })[])(
       'crop by %p',
       (positon) => {
         expect(

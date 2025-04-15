@@ -1,10 +1,10 @@
+import { LayerMetrics } from './DocumentContext/LayerMetrics'
 import { pathBounds } from '@/fastsvg/pathBounds'
 import { VisuElement } from '@/Document'
 import { type Point2D } from '@/Document/Structs/Point2D'
 import { vectorPathPointsToSVGPath } from '@/index-ext-brush'
 import { Matrix2D } from '@/Math/matrix2d'
-import { LayerMetrics } from './DocumentContext/LayerMetrics'
-import { Viewport } from './types'
+import { Paplico } from '@/Engine/Paplico'
 
 export const addPoint2D = (a: Point2D, b: Point2D) => ({
   x: a.x + b.x,
@@ -24,28 +24,16 @@ export const multiplyMatrix = (a: Matrix2D, b: Matrix2D) => {
   return a.multiply(b)
 }
 
-// written by ChatGPT
-
 export function applyMatrixToBBox(
   bbox: LayerMetrics.BBox,
   matrix: Matrix2D,
 ): LayerMetrics.BBox {
-  const bboxCenterX = bbox.left + (bbox.right - bbox.left) / 2
-  const bboxCenterY = bbox.top + (bbox.bottom - bbox.top) / 2
-
-  // Matrixに変換前の準備を追加
-  const preMatrix = new Matrix2D().translate(-bboxCenterX, -bboxCenterY)
-  const postMatrix = new Matrix2D().translate(bboxCenterX, bboxCenterY)
-
-  // 変換を適用
-  const appliedMatrix = preMatrix.multiply(matrix).multiply(postMatrix)
-
   const transformPoint = (
     x: number,
     y: number,
     matrix: Matrix2D,
   ): { x: number; y: number } => {
-    const [a, c, e, b, d, f] = matrix.toArray()
+    const [a, b, c, d, e, f] = matrix.toArray()
     return {
       x: a * x + c * y + e,
       y: b * x + d * y + f,
@@ -53,10 +41,10 @@ export function applyMatrixToBBox(
   }
 
   // 各角点の変換
-  const topLeft = transformPoint(bbox.left, bbox.top, appliedMatrix)
-  const topRight = transformPoint(bbox.right, bbox.top, appliedMatrix)
-  const bottomLeft = transformPoint(bbox.left, bbox.bottom, appliedMatrix)
-  const bottomRight = transformPoint(bbox.right, bbox.bottom, appliedMatrix)
+  const topLeft = transformPoint(bbox.left, bbox.top, matrix)
+  const topRight = transformPoint(bbox.right, bbox.top, matrix)
+  const bottomLeft = transformPoint(bbox.left, bbox.bottom, matrix)
+  const bottomRight = transformPoint(bbox.right, bbox.bottom, matrix)
 
   // 新しいバウンディングボックスの計算
   const newLeft = Math.min(topLeft.x, topRight.x, bottomLeft.x, bottomRight.x)
@@ -80,6 +68,7 @@ export function applyMatrixToBBox(
     centerY: newCenterY,
   }
 }
+
 export const composeVisuTransforms = (
   ...transforms: VisuElement.ElementTransform[]
 ): VisuElement.ElementTransform => {
@@ -174,7 +163,7 @@ export const calcVectorBoundingBox = (obj: VisuElement.VectorObjectElement) => {
 
 export const mapPathInViewport = (
   path: VisuElement.VectorPath,
-  viewport: Viewport,
+  viewport: Paplico.Viewport,
 ): VisuElement.VectorPath => {
   return {
     ...path,

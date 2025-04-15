@@ -1,20 +1,20 @@
-import type { VNode } from '@/UI/PaneUI/AbstractComponent'
 import { IFilterWebGLContext } from './FilterContextAbst'
 import { RenderCycleLogger } from '../RenderCycleLogger'
 import { RenderPhase } from '../types'
 import { PaneUIRenderings } from '../PaneUIRenderings'
 import { RenderPipeline } from '../RenderPipeline'
+import type { VNode } from '@/UI/PaneUI/AbstractComponent'
 import { VisuElement } from '@/Document'
 
 export type FilterPaneContext<T> = PaneUIRenderings.PaneUIContext<T>
 
-export type FilterInitContext = {
+export interface FilterInitContext {
   gl: IFilterWebGLContext
 }
 
 export type FilterInputSource = RenderPipeline.CompositionImageSource
 
-export type RasterFilterContext<T extends Record<string, any>> = {
+export interface RasterFilterContext<T extends Record<string, any>> {
   abort: AbortSignal
   throwIfAborted: () => never | void
 
@@ -48,7 +48,7 @@ export interface IFilter<T extends Record<string, any>> {
   ): Promise<void>
 }
 
-export type FilterMetadata = {
+export interface FilterMetadata {
   readonly id: string
   readonly version: string
   readonly name?: string

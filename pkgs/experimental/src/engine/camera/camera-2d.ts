@@ -1,10 +1,5 @@
 import { Vector2 } from '../math/vector2'
 
-export interface CameraConfig {
-  width: number
-  height: number
-}
-
 /**
  * 2Dカメラクラス
  * ビューポート変換とワールド座標系の管理
@@ -14,13 +9,6 @@ export class Camera2D {
   private y: number = 0
   private zoom: number = 1
   private rotation: number = 0
-  private width: number
-  private height: number
-
-  constructor(config: CameraConfig) {
-    this.width = config.width
-    this.height = config.height
-  }
 
   /**
    * カメラ位置を設定
@@ -45,20 +33,12 @@ export class Camera2D {
   }
 
   /**
-   * ビューポートサイズを設定
-   */
-  resize(width: number, height: number): void {
-    this.width = width
-    this.height = height
-  }
-
-  /**
    * 画面座標を世界座標に変換
    */
-  screenToWorld(x: number, y: number): Vector2 {
+  screenToWorld(x: number, y: number, width: number, height: number): Vector2 {
     // スクリーン中心を原点とする座標系に変換
-    const centerX = x - this.width / 2
-    const centerY = y - this.height / 2
+    const centerX = x - width / 2
+    const centerY = y - height / 2
 
     // ズームを適用
     const scaledX = centerX / this.zoom
@@ -80,7 +60,7 @@ export class Camera2D {
   /**
    * 世界座標を画面座標に変換
    */
-  worldToScreen(x: number, y: number): Vector2 {
+  worldToScreen(x: number, y: number, width: number, height: number): Vector2 {
     // カメラ位置を減算
     const relativeX = x - this.x
     const relativeY = y - this.y
@@ -97,46 +77,62 @@ export class Camera2D {
 
     // スクリーン座標系に変換
     return {
-      x: scaledX + this.width / 2,
-      y: scaledY + this.height / 2,
+      x: scaledX + width / 2,
+      y: scaledY + height / 2,
     }
   }
 
   /**
    * ビュー変換行列を取得（WebGPU用）
+   * 4x4行列として返す
    */
-  getViewMatrix(): Float32Array {
+  getViewMatrix(width: number, height: number): Float32Array {
     const cos = Math.cos(-this.rotation)
     const sin = Math.sin(-this.rotation)
 
-    // 平行移動 -> 回転 -> スケーリング -> 中央寄せ の順で変換
+    // 4x4 view matrix (column-major order)
     return new Float32Array([
       cos * this.zoom,
       -sin * this.zoom,
       0,
+      0,
       sin * this.zoom,
       cos * this.zoom,
       0,
-      (-this.x * cos + this.y * sin) * this.zoom + this.width / 2,
-      (-this.x * sin - this.y * cos) * this.zoom + this.height / 2,
+      0,
+      0,
+      0,
+      1,
+      0,
+      (-this.x * cos + this.y * sin) * this.zoom + width / 2,
+      (-this.x * sin - this.y * cos) * this.zoom + height / 2,
+      0,
       1,
     ])
   }
 
   /**
    * プロジェクション行列を取得（WebGPU用）
+   * 4x4行列として返す
    */
-  getProjectionMatrix(): Float32Array {
-    // NDC座標系への変換行列
+  getProjectionMatrix(width: number, height: number): Float32Array {
+    // 4x4 orthographic projection matrix (column-major order)
     return new Float32Array([
-      2 / this.width,
+      2 / width,
       0,
       0,
       0,
-      -2 / this.height,
+      0,
+      -2 / height,
+      0,
+      0,
+      0,
+      0,
+      1,
       0,
       -1,
       1,
+      0,
       1,
     ])
   }
@@ -160,12 +156,5 @@ export class Camera2D {
    */
   getRotation(): number {
     return this.rotation
-  }
-
-  /**
-   * ビューポートサイズを取得
-   */
-  getViewportSize(): { width: number; height: number } {
-    return { width: this.width, height: this.height }
   }
 }

@@ -32,7 +32,7 @@ import {
   Bug,
 } from 'lucide-react'
 
-import { PaplicoEngine } from '@/engine/Paplico'
+import { PaplicoEngine } from '@/engine/paplico'
 import { ScatterBrushRenderer } from '@/engine/scatter-brush'
 import { FilterRenderer } from '@/engine/filter-renderer'
 import {
@@ -58,6 +58,7 @@ import {
 import { debugLogger } from '@/utils/debug-logger'
 import { useUIStore } from '@/stores/ui-store'
 import { createTestDocument, createSimpleTestDocument } from './_example'
+import { LayerPanel } from './fragments/LayerPanel'
 
 const toolIcons = {
   brush: Brush,
@@ -103,17 +104,21 @@ export default function Home() {
   })
 
   const initializeWebGPU = useEventCallback(async () => {
+    console.log('[DEBUG] initializeWebGPU called')
     const canvas = canvasRef.current
     if (!canvas) return
 
     try {
       if (!navigator.gpu) {
+        console.log('[DEBUG] WebGPU not supported')
         setIsWebGPUSupported(false)
         return
       }
 
+      console.log('[DEBUG] Creating PaplicoEngine')
       const paplicoEngine = new PaplicoEngine(canvas)
       const success = await paplicoEngine.initialize()
+      console.log('[DEBUG] PaplicoEngine initialization result:', success)
 
       if (success) {
         engineRef.current = paplicoEngine
@@ -126,16 +131,19 @@ export default function Home() {
 
         // PaplicoEngineは自動的に入力を処理し、レンダーループも実行されます
         // テスト用ドキュメントを作成・設定
+        console.log('[DEBUG] Creating test document')
         const testDoc = createTestDocument()
         setDocument(testDoc)
 
         // 初期キャンバスサイズを設定
         handleCanvasResize()
+        console.log('[DEBUG] WebGPU initialization completed successfully')
       } else {
+        console.log('[DEBUG] PaplicoEngine initialization failed')
         setIsWebGPUSupported(false)
       }
     } catch (error) {
-      debugLogger.logWebGPUError(error, { stage: 'webgpu_initialization' })
+      console.error('[DEBUG] WebGPU initialization error:', error)
       setIsWebGPUSupported(false)
     }
   })
@@ -147,19 +155,6 @@ export default function Home() {
     const rect = canvas.getBoundingClientRect()
     engineRef.current.resize(rect.width, rect.height)
   })
-
-  const getCanvasCoordinates = useEventCallback(
-    (screenX: number, screenY: number): Vector2 => {
-      const canvas = canvasRef.current
-      if (!canvas || !engineRef.current) return { x: 0, y: 0 }
-
-      const rect = canvas.getBoundingClientRect()
-      const x = screenX - rect.left
-      const y = screenY - rect.top
-
-      return engineRef.current.screenToWorld({ x, y })
-    },
-  )
 
   const handleToolSelect = useEventCallback((toolId: string) => {
     setSelectedTool(toolId)
@@ -210,8 +205,8 @@ export default function Home() {
   const handleResize = useEventCallback(() => handleCanvasResize())
 
   useEffect(() => {
-    debugLogger.clear().then(() => {
-      initializeWebGPU()
+    initializeWebGPU().catch((e) => {
+      console.error('WebGPU initialization failed:', e)
     })
 
     window.addEventListener('resize', handleResize)
@@ -317,26 +312,39 @@ export default function Home() {
                 variant="outline"
                 size="sm"
                 onClick={async () => {
-                  await debugLogger.info('Debug test triggered', {
-                    document: {
-                      id: snap.document?.id,
-                      artboardCount: snap.document?.artboards.length,
-                      layerCount: snap.layers.length,
-                      layerNodes: snap.document?.layerNodes.length,
-                    },
-                    canvas: {
-                      width: canvasRef.current?.width,
-                      height: canvasRef.current?.height,
-                    },
-                    webgpu: {
-                      isInitialized,
-                      isWebGPUSupported,
-                    },
-                  })
+                  // Debug functionality placeholder
+                  console.log('Debug button clicked')
                 }}
               >
                 <Bug className="w-4 h-4 mr-1" />
                 デバッグ
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  if (!engineRef.current) return
+
+                  // テスト用のストロークを作成
+                  const testPath = createVectorPath(
+                    [
+                      { x: 100, y: 100 },
+                      { x: 200, y: 150 },
+                      { x: 300, y: 100 },
+                      { x: 400, y: 200 },
+                    ],
+                    hexToColor(selectedColor),
+                    brushSize,
+                  )
+
+                  startDrawing(testPath)
+                  setTimeout(() => {
+                    endDrawing()
+                  }, 100)
+                }}
+              >
+                <Brush className="w-4 h-4 mr-1" />
+                テストストローク
               </Button>
             </div>
 
@@ -392,78 +400,7 @@ export default function Home() {
           <div className="flex-1 overflow-y-auto p-4">
             {/* レイヤーパネル */}
             <TabsContent value="layers" className="space-y-4 mt-0">
-              <div className="flex items-center justify-between">
-                <h3 className="text-lg font-semibold">レイヤー</h3>
-                <Button size="sm" onClick={handleAddLayer}>
-                  <Plus className="w-4 h-4 mr-1" />
-                  追加
-                </Button>
-              </div>
-
-              <div className="space-y-2">
-                {snap.layers.map((layer) => (
-                  <Card
-                    key={layer.id}
-                    className={
-                      layer.id === snap.activeLayerId
-                        ? 'ring-2 ring-primary'
-                        : ''
-                    }
-                  >
-                    <CardContent className="p-3">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center space-x-2">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() =>
-                              handleLayerVisibilityToggle(layer.id)
-                            }
-                          >
-                            {layer.visible ? (
-                              <Eye className="w-4 h-4" />
-                            ) : (
-                              <EyeOff className="w-4 h-4" />
-                            )}
-                          </Button>
-                          <span
-                            className="text-sm font-medium cursor-pointer"
-                            onClick={() => handleSetActiveLayer(layer.id)}
-                          >
-                            {layer.name}
-                          </span>
-                        </div>
-
-                        {snap.layers.length > 1 && (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleRemoveLayer(layer.id)}
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </Button>
-                        )}
-                      </div>
-
-                      <div className="mt-2">
-                        <Label className="text-xs">
-                          不透明度: {Math.round(layer.opacity * 100)}%
-                        </Label>
-                        <Slider
-                          value={[layer.opacity * 100]}
-                          onValueChange={(value) =>
-                            handleSetLayerOpacity(layer.id, value[0] / 100)
-                          }
-                          max={100}
-                          min={0}
-                          step={1}
-                          className="mt-1"
-                        />
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
+              <LayerPanel />
             </TabsContent>
 
             {/* ブラシパネル */}

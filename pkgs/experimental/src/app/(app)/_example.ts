@@ -1,16 +1,14 @@
+import { createDocument, type Document } from '@/engine/document/document'
+import { createArtboard } from '@/engine/document/artboard'
+import { createVectorLayer } from '@/engine/document/layer'
+import { createPathArtObject } from '@/engine/document/art-object'
+import { createVectorPath, type VectorPoint } from '@/engine/document'
 import {
-  createDocument,
-  createArtboard,
-  createVectorLayer,
-  createPathArtObject,
-  createVectorPath,
   createSolidFill,
   createStroke,
   createDropShadow,
-  type Document,
   type RGBAColor,
-  type VectorPoint,
-} from '@/engine/document'
+} from '@/engine/document/appearance'
 
 export function createTestDocument(): Document {
   const colors = {
@@ -43,7 +41,7 @@ export function createTestDocument(): Document {
       createStroke({ width: 3, color: colors.black, opacity: 0.9 }),
     ],
   })
-  document.layers.set(shapesLayer.id, shapesLayer)
+  document.layers[shapesLayer.id] = shapesLayer
 
   // 円形（シンプルなテスト用）
   const circlePath = createVectorPath({
@@ -63,7 +61,7 @@ export function createTestDocument(): Document {
     path: circlePath,
     appearances: [createSolidFill({ color: colors.red, opacity: 1.0 })],
   })
-  document.artObjects.set(circleObject.id, circleObject)
+  document.artObjects[circleObject.id] = circleObject
   shapesLayer.artObjectIds.push(circleObject.id)
 
   // 四角形（大きなテスト用）
@@ -84,8 +82,25 @@ export function createTestDocument(): Document {
     path: rectPath,
     appearances: [createSolidFill({ color: colors.green, opacity: 1.0 })],
   })
-  document.artObjects.set(rectObject.id, rectObject)
+  document.artObjects[rectObject.id] = rectObject
   shapesLayer.artObjectIds.push(rectObject.id)
+
+  const rectObject2 = createPathArtObject({
+    name: 'Rect',
+    layerId: shapesLayer.id,
+    artboardId: mainArtboard.id,
+    path: {
+      ...rectPath,
+      points: rectPath.points.map((p) => ({
+        ...p,
+        x: p.x + 100,
+        y: p.y + 10,
+      })),
+    },
+    appearances: [createSolidFill({ color: colors.orange, opacity: 1.0 })],
+  })
+  document.artObjects[rectObject2.id] = rectObject2
+  shapesLayer.artObjectIds.push(rectObject2.id)
 
   // レイヤー2
   const drawingLayer = createVectorLayer({
@@ -101,7 +116,7 @@ export function createTestDocument(): Document {
       }),
     ],
   })
-  document.layers.set(drawingLayer.id, drawingLayer)
+  document.layers[drawingLayer.id] = drawingLayer
 
   // 波線
   const wavePath = createVectorPath({
@@ -131,7 +146,7 @@ export function createTestDocument(): Document {
       }),
     ],
   })
-  document.artObjects.set(waveObject.id, waveObject)
+  document.artObjects[waveObject.id] = waveObject
   drawingLayer.artObjectIds.push(waveObject.id)
 
   // レイヤー3
@@ -148,7 +163,7 @@ export function createTestDocument(): Document {
       }),
     ],
   })
-  document.layers.set(decorationLayer.id, decorationLayer)
+  document.layers[decorationLayer.id] = decorationLayer
 
   // 点線の枠
   const framePath = createVectorPath({
@@ -176,7 +191,7 @@ export function createTestDocument(): Document {
       }),
     ],
   })
-  document.artObjects.set(frameObject.id, frameObject)
+  document.artObjects[frameObject.id] = frameObject
   decorationLayer.artObjectIds.push(frameObject.id)
 
   // レイヤーノード
@@ -185,6 +200,9 @@ export function createTestDocument(): Document {
     { layerId: drawingLayer.id, parentId: null, order: 1 },
     { layerId: decorationLayer.id, parentId: null, order: 2 },
   ]
+
+  // アクティブレイヤーを設定（描画用レイヤーを選択）
+  document.activeLayerId = drawingLayer.id
 
   return document
 }
@@ -205,7 +223,7 @@ export function createSimpleTestDocument(): Document {
   const artboard = document.artboards[0]
 
   const layer = createVectorLayer({ name: 'テストレイヤー' })
-  document.layers.set(layer.id, layer)
+  document.layers[layer.id] = layer
 
   // シンプルな線
   const simplePath = createVectorPath({
@@ -224,10 +242,13 @@ export function createSimpleTestDocument(): Document {
       createStroke({ width: 5, color: { r: 1, g: 0, b: 0, a: 1 } }),
     ],
   })
-  document.artObjects.set(simpleObject.id, simpleObject)
+  document.artObjects[simpleObject.id] = simpleObject
   layer.artObjectIds.push(simpleObject.id)
 
   document.layerNodes = [{ layerId: layer.id, parentId: null, order: 0 }]
+
+  // アクティブレイヤーを設定
+  document.activeLayerId = layer.id
 
   return document
 }

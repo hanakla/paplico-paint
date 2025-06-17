@@ -9,7 +9,7 @@ export interface Vector2 {
 /**
  * Vector2 ユーティリティ関数
  */
-export class Vector2Utils {
+export class Vector2 {
   /**
    * ベクトルを作成
    */
@@ -70,9 +70,9 @@ export class Vector2Utils {
    * ベクトルを正規化
    */
   static normalize(v: Vector2): Vector2 {
-    const len = Vector2Utils.getLength(v)
-    if (len === 0) return Vector2Utils.zero()
-    return Vector2Utils.divide(v, len)
+    const len = Vector2.getLength(v)
+    if (len === 0) return Vector2.zero()
+    return Vector2.divide(v, len)
   }
 
   /**
@@ -93,14 +93,14 @@ export class Vector2Utils {
    * ベクトル間の距離を計算
    */
   static distance(a: Vector2, b: Vector2): number {
-    return Vector2Utils.getLength(Vector2Utils.subtract(a, b))
+    return Vector2.getLength(Vector2.subtract(a, b))
   }
 
   /**
    * ベクトル間の距離の二乗を計算
    */
   static distanceSquared(a: Vector2, b: Vector2): number {
-    return Vector2Utils.lengthSquared(Vector2Utils.subtract(a, b))
+    return Vector2.lengthSquared(Vector2.subtract(a, b))
   }
 
   /**
@@ -126,7 +126,7 @@ export class Vector2Utils {
    * 2つのベクトル間の角度を計算（ラジアン）
    */
   static angleBetween(a: Vector2, b: Vector2): number {
-    return Math.atan2(Vector2Utils.cross(a, b), Vector2Utils.dot(a, b))
+    return Math.atan2(Vector2.cross(a, b), Vector2.dot(a, b))
   }
 
   /**

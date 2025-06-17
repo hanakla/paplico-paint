@@ -15,12 +15,12 @@ export interface Document {
   updatedAt: Date
   /** アートボードの配列 */
   artboards: Artboard[]
-  /** レイヤーの配列（IDをキーとするマップ） */
-  layers: Map<UUID, Layer>
+  /** レイヤーの配列（IDをキーとするオブジェクト） */
+  layers: Record<UUID, Layer>
   /** レイヤー階層構造 */
   layerNodes: LayerNode[]
-  /** ArtObjectの配列（IDをキーとするマップ） */
-  artObjects: Map<UUID, ArtObject>
+  /** ArtObjectの配列（IDをキーとするオブジェクト） */
+  artObjects: Record<UUID, ArtObject>
   /** アクティブなアートボードのID */
   activeArtboardId?: UUID | null
   /** アクティブなレイヤーのID */
@@ -49,9 +49,9 @@ export function createDocument(params: CreateDocumentParams = {}): Document {
     createdAt: now,
     updatedAt: now,
     artboards: [],
-    layers: new Map(),
+    layers: {},
     layerNodes: [],
-    artObjects: new Map(),
+    artObjects: {},
     selectedArtObjectIds: [],
   }
 
@@ -114,7 +114,7 @@ export function addLayerToDocument(
   layer: Layer,
   parentId: UUID | null = null,
 ): void {
-  document.layers.set(layer.id, layer)
+  document.layers[layer.id] = layer
 
   // レイヤーノードを作成してツリーに追加
   const order = document.layerNodes.filter(
@@ -138,13 +138,13 @@ export function removeLayerFromDocument(
   document: Document,
   layerId: UUID,
 ): boolean {
-  const layer = document.layers.get(layerId)
+  const layer = document.layers[layerId]
   if (!layer) return false
 
   // レイヤーに属するArtObjectも削除
   if (layer.type === 'vector') {
     layer.artObjectIds.forEach((artObjectId) => {
-      document.artObjects.delete(artObjectId)
+      delete document.artObjects[artObjectId]
     })
   }
 
@@ -156,7 +156,7 @@ export function removeLayerFromDocument(
   }
 
   // レイヤーとレイヤーノードを削除
-  document.layers.delete(layerId)
+  delete document.layers[layerId]
   const nodeIndex = document.layerNodes.findIndex(
     (node) => node.layerId === layerId,
   )
@@ -183,10 +183,10 @@ export function addArtObjectToDocument(
   document: Document,
   artObject: ArtObject,
 ): void {
-  document.artObjects.set(artObject.id, artObject)
+  document.artObjects[artObject.id] = artObject
 
   // 所属レイヤーのartObjectIdsにも追加
-  const layer = document.layers.get(artObject.layerId)
+  const layer = document.layers[artObject.layerId]
   if (layer && layer.type === 'vector') {
     layer.artObjectIds.push(artObject.id)
   }
@@ -201,11 +201,11 @@ export function removeArtObjectFromDocument(
   document: Document,
   artObjectId: UUID,
 ): boolean {
-  const artObject = document.artObjects.get(artObjectId)
+  const artObject = document.artObjects[artObjectId]
   if (!artObject) return false
 
   // 所属レイヤーのartObjectIdsからも削除
-  const layer = document.layers.get(artObject.layerId)
+  const layer = document.layers[artObject.layerId]
   if (layer && layer.type === 'vector') {
     const index = layer.artObjectIds.indexOf(artObjectId)
     if (index !== -1) {
@@ -213,7 +213,7 @@ export function removeArtObjectFromDocument(
     }
   }
 
-  document.artObjects.delete(artObjectId)
+  delete document.artObjects[artObjectId]
 
   // 選択状態からも削除
   const selectedIndex = document.selectedArtObjectIds.indexOf(artObjectId)
@@ -242,7 +242,7 @@ export function getLayerById(
   document: Document,
   layerId: UUID,
 ): Layer | undefined {
-  return document.layers.get(layerId)
+  return document.layers[layerId]
 }
 
 /**
@@ -252,7 +252,7 @@ export function getArtObjectById(
   document: Document,
   artObjectId: UUID,
 ): ArtObject | undefined {
-  return document.artObjects.get(artObjectId)
+  return document.artObjects[artObjectId]
 }
 
 /**
@@ -267,7 +267,7 @@ export function getChildLayers(
     .sort((a, b) => a.order - b.order)
 
   return childNodes
-    .map((node) => document.layers.get(node.layerId)!)
+    .map((node) => document.layers[node.layerId]!)
     .filter(Boolean)
 }
 
@@ -278,7 +278,7 @@ export function getArtObjectsOnArtboard(
   document: Document,
   artboardId: UUID | null,
 ): ArtObject[] {
-  return Array.from(document.artObjects.values()).filter(
+  return Object.values(document.artObjects).filter(
     (artObject) =>
       artObject.artboardId === artboardId || artObject.artboardId === null,
   )
@@ -291,7 +291,7 @@ export function getArtObjectsInLayer(
   document: Document,
   layerId: UUID,
 ): ArtObject[] {
-  return Array.from(document.artObjects.values()).filter(
+  return Object.values(document.artObjects).filter(
     (artObject) => artObject.layerId === layerId,
   )
 }
@@ -319,6 +319,6 @@ export function getActiveLayer(document: Document): Layer | undefined {
  */
 export function getSelectedArtObjects(document: Document): ArtObject[] {
   return document.selectedArtObjectIds
-    .map((id) => document.artObjects.get(id)!)
+    .map((id) => document.artObjects[id]!)
     .filter(Boolean)
 }

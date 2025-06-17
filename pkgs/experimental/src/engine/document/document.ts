@@ -15,12 +15,12 @@ export interface Document {
   updatedAt: Date
   /** アートボードの配列 */
   artboards: Artboard[]
-  /** レイヤーの配列（IDをキーとするマップ） */
-  layers: Map<UUID, Layer>
+  /** レイヤーの配列（IDをキーとするオブジェクト） */
+  layers: Record<UUID, Layer>
   /** レイヤー階層構造 */
   layerNodes: LayerNode[]
-  /** ArtObjectの配列（IDをキーとするマップ） */
-  artObjects: Map<UUID, ArtObject>
+  /** ArtObjectの配列（IDをキーとするオブジェクト） */
+  artObjects: Record<UUID, ArtObject>
   /** アクティブなアートボードのID */
   activeArtboardId?: UUID | null
   /** アクティブなレイヤーのID */
@@ -49,9 +49,9 @@ export function createDocument(params: CreateDocumentParams = {}): Document {
     createdAt: now,
     updatedAt: now,
     artboards: [],
-    layers: new Map(),
+    layers: {},
     layerNodes: [],
-    artObjects: new Map(),
+    artObjects: {},
     selectedArtObjectIds: [],
   }
 
@@ -114,7 +114,7 @@ export function addLayerToDocument(
   layer: Layer,
   parentId: UUID | null = null,
 ): void {
-  document.layers.set(layer.id, layer)
+  document.layers[layer.id] = layer
 
   // レイヤーノードを作成してツリーに追加
   const order = document.layerNodes.filter(
@@ -138,13 +138,13 @@ export function removeLayerFromDocument(
   document: Document,
   layerId: UUID,
 ): boolean {
-  const layer = document.layers.get(layerId)
+  const layer = document.layers[layerId]
   if (!layer) return false
 
   // レイヤーに属するArtObjectも削除
   if (layer.type === 'vector') {
     layer.artObjectIds.forEach((artObjectId) => {
-      document.artObjects.delete(artObjectId)
+      delete document.artObjects[artObjectId]
     })
   }
 
@@ -156,7 +156,7 @@ export function removeLayerFromDocument(
   }
 
   // レイヤーとレイヤーノードを削除
-  document.layers.delete(layerId)
+  delete document.layers[layerId]
   const nodeIndex = document.layerNodes.findIndex(
     (node) => node.layerId === layerId,
   )
@@ -168,7 +168,7 @@ export function removeLayerFromDocument(
 
   // アクティブなレイヤーが削除された場合の処理
   if (document.activeLayerId === layerId) {
-    const remainingLayers = Array.from(document.layers.keys())
+    const remainingLayers = Object.keys(document.layers)
     document.activeLayerId =
       remainingLayers.length > 0 ? remainingLayers[0] : null
   }
@@ -183,10 +183,10 @@ export function addArtObjectToDocument(
   document: Document,
   artObject: ArtObject,
 ): void {
-  document.artObjects.set(artObject.id, artObject)
+  document.artObjects[artObject.id] = artObject
 
   // 所属レイヤーのartObjectIdsにも追加
-  const layer = document.layers.get(artObject.layerId)
+  const layer = document.layers[artObject.layerId]
   if (layer && layer.type === 'vector') {
     layer.artObjectIds.push(artObject.id)
   }
@@ -201,11 +201,11 @@ export function removeArtObjectFromDocument(
   document: Document,
   artObjectId: UUID,
 ): boolean {
-  const artObject = document.artObjects.get(artObjectId)
+  const artObject = document.artObjects[artObjectId]
   if (!artObject) return false
 
   // 所属レイヤーのartObjectIdsからも削除
-  const layer = document.layers.get(artObject.layerId)
+  const layer = document.layers[artObject.layerId]
   if (layer && layer.type === 'vector') {
     const index = layer.artObjectIds.indexOf(artObjectId)
     if (index !== -1) {
@@ -213,7 +213,7 @@ export function removeArtObjectFromDocument(
     }
   }
 
-  document.artObjects.delete(artObjectId)
+  delete document.artObjects[artObjectId]
 
   // 選択状態からも削除
   const selectedIndex = document.selectedArtObjectIds.indexOf(artObjectId)
@@ -242,7 +242,7 @@ export function getLayerById(
   document: Document,
   layerId: UUID,
 ): Layer | undefined {
-  return document.layers.get(layerId)
+  return document.layers[layerId]
 }
 
 /**
@@ -252,7 +252,7 @@ export function getArtObjectById(
   document: Document,
   artObjectId: UUID,
 ): ArtObject | undefined {
-  return document.artObjects.get(artObjectId)
+  return document.artObjects[artObjectId]
 }
 
 /**
@@ -267,7 +267,7 @@ export function getChildLayers(
     .sort((a, b) => a.order - b.order)
 
   return childNodes
-    .map((node) => document.layers.get(node.layerId)!)
+    .map((node) => document.layers[node.layerId]!)
     .filter(Boolean)
 }
 
@@ -278,7 +278,7 @@ export function getArtObjectsOnArtboard(
   document: Document,
   artboardId: UUID | null,
 ): ArtObject[] {
-  return Array.from(document.artObjects.values()).filter(
+  return Object.values(document.artObjects).filter(
     (artObject) =>
       artObject.artboardId === artboardId || artObject.artboardId === null,
   )
@@ -291,7 +291,7 @@ export function getArtObjectsInLayer(
   document: Document,
   layerId: UUID,
 ): ArtObject[] {
-  return Array.from(document.artObjects.values()).filter(
+  return Object.values(document.artObjects).filter(
     (artObject) => artObject.layerId === layerId,
   )
 }
@@ -319,6 +319,231 @@ export function getActiveLayer(document: Document): Layer | undefined {
  */
 export function getSelectedArtObjects(document: Document): ArtObject[] {
   return document.selectedArtObjectIds
-    .map((id) => document.artObjects.get(id)!)
+    .map((id) => document.artObjects[id]!)
     .filter(Boolean)
+}
+
+/**
+ * レイヤーの表示/非表示を切り替え
+ */
+export function toggleLayerVisibility(document: Document, layerId: UUID): void {
+  const layer = document.layers[layerId]
+  if (layer) {
+    layer.visible = !layer.visible
+    document.updatedAt = new Date()
+  }
+}
+
+/**
+ * レイヤーの不透明度を設定
+ */
+export function setLayerOpacity(
+  document: Document,
+  layerId: UUID,
+  opacity: number,
+): void {
+  const layer = document.layers[layerId]
+  if (layer) {
+    layer.opacity = Math.max(0, Math.min(1, opacity))
+    document.updatedAt = new Date()
+  }
+}
+
+/**
+ * アクティブレイヤーを設定
+ */
+export function setActiveLayer(document: Document, layerId: UUID): void {
+  if (document.layers[layerId]) {
+    document.activeLayerId = layerId
+    document.updatedAt = new Date()
+  }
+}
+
+/**
+ * グループレイヤーの展開状態を切り替え
+ */
+export function toggleGroupExpanded(document: Document, layerId: UUID): void {
+  const layer = document.layers[layerId]
+  if (layer && layer.type === 'group') {
+    layer.expanded = !layer.expanded
+    document.updatedAt = new Date()
+  }
+}
+
+/**
+ * ベクターレイヤーのartObjects展開状態を切り替え
+ */
+export function toggleLayerArtObjectsExpanded(
+  document: Document,
+  layerId: UUID,
+): void {
+  const layer = document.layers[layerId]
+  if (layer) {
+    ;(layer as any).artObjectsExpanded = !(layer as any).artObjectsExpanded
+    document.updatedAt = new Date()
+  }
+}
+
+/**
+ * レイヤーをグループに移動
+ */
+export function moveLayerToGroup(
+  document: Document,
+  layerId: UUID,
+  targetGroupId: UUID | null,
+): void {
+  const node = document.layerNodes.find((n) => n.layerId === layerId)
+  if (node) {
+    node.parentId = targetGroupId
+
+    const maxOrder = document.layerNodes
+      .filter((n) => n.parentId === targetGroupId)
+      .reduce((max, n) => Math.max(max, n.order), -1)
+
+    node.order = maxOrder + 1
+    document.updatedAt = new Date()
+  }
+}
+
+/**
+ * ArtObjectを別のレイヤーに移動
+ */
+export function moveArtObjectToLayer(
+  document: Document,
+  artObjectId: UUID,
+  targetLayerId: UUID,
+): void {
+  const artObject = document.artObjects[artObjectId]
+  if (artObject) {
+    const oldLayerId = artObject.layerId
+    const oldLayer = document.layers[oldLayerId]
+    const newLayer = document.layers[targetLayerId]
+
+    if (
+      oldLayer &&
+      newLayer &&
+      oldLayer.type === 'vector' &&
+      newLayer.type === 'vector'
+    ) {
+      // 古いレイヤーからartObjectIdを削除
+      const oldIndex = oldLayer.artObjectIds.indexOf(artObjectId)
+      if (oldIndex !== -1) {
+        oldLayer.artObjectIds.splice(oldIndex, 1)
+      }
+
+      // 新しいレイヤーにartObjectIdを追加
+      newLayer.artObjectIds.push(artObjectId)
+
+      // artObjectのlayerIdを更新
+      artObject.layerId = targetLayerId
+      document.updatedAt = new Date()
+    }
+  }
+}
+
+/**
+ * レイヤーの順序を変更
+ */
+export function reorderLayers(document: Document, layerIds: UUID[]): void {
+  layerIds.forEach((layerId, index) => {
+    const node = document.layerNodes.find((n) => n.layerId === layerId)
+    if (node) {
+      node.order = index
+    }
+  })
+  document.updatedAt = new Date()
+}
+
+/**
+ * 拡張ツリーアイテム：レイヤーとartObjectsの統合表示用
+ */
+export interface ExtendedTreeItem {
+  type: 'layer' | 'artObject'
+  id: string
+  name: string
+  depth: number
+  visible: boolean
+  locked?: boolean
+  hasChildren: boolean
+  isExpanded: boolean
+  // artObject情報（type === 'artObject'の場合）
+  parentLayerId?: string
+  // レイヤー情報（type === 'layer'の場合）
+  layer?: Layer
+}
+
+/**
+ * ドキュメント用の拡張ツリー（レイヤー + artObjects）
+ */
+export function getExtendedTree(document: Document): ExtendedTreeItem[] {
+  const result: ExtendedTreeItem[] = []
+
+  const addChildrenToExtendedTree = (
+    parentId: string | null,
+    depth: number,
+  ) => {
+    const childNodes = document.layerNodes
+      .filter((node) => node.parentId === parentId)
+      .sort((a, b) => a.order - b.order)
+
+    childNodes.forEach((node) => {
+      const layer = document.layers[node.layerId]
+      if (layer) {
+        // レイヤーノードを追加
+        const hasChildren =
+          document.layerNodes.some((n) => n.parentId === layer.id) ||
+          (layer.type === 'vector' && layer.artObjectIds.length > 0)
+        const isExpanded =
+          layer.type === 'group'
+            ? layer.expanded !== false
+            : layer.type === 'vector'
+            ? (layer as any).artObjectsExpanded !== false
+            : false
+
+        result.push({
+          type: 'layer',
+          id: layer.id,
+          name: layer.name,
+          depth,
+          visible: layer.visible !== false,
+          locked: layer.locked || false,
+          hasChildren,
+          isExpanded,
+          layer,
+        })
+
+        // グループレイヤーの場合、子レイヤーを追加
+        if (layer.type === 'group' && isExpanded) {
+          addChildrenToExtendedTree(layer.id, depth + 1)
+        }
+
+        // ベクターレイヤーの場合、artObjectsを追加
+        if (
+          layer.type === 'vector' &&
+          isExpanded &&
+          layer.artObjectIds.length > 0
+        ) {
+          layer.artObjectIds.forEach((artObjectId) => {
+            const artObject = document.artObjects[artObjectId]
+            if (artObject) {
+              result.push({
+                type: 'artObject',
+                id: artObject.id,
+                name: artObject.name,
+                depth: depth + 1,
+                visible: artObject.visible !== false,
+                locked: artObject.locked || false,
+                hasChildren: false,
+                isExpanded: false,
+                parentLayerId: layer.id,
+              })
+            }
+          })
+        }
+      }
+    })
+  }
+
+  addChildrenToExtendedTree(null, 0)
+  return result
 }

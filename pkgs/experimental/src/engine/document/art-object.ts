@@ -22,6 +22,8 @@ export interface BaseArtObject {
   locked: boolean
   /** 選択状態（編集用） */
   selected?: boolean
+  /** ランダムシード値（スキャッターなどの決定的なランダム性のため） */
+  seed: number
 }
 
 /**
@@ -65,6 +67,7 @@ export interface CreatePathArtObjectParams {
   appearances?: Appearance[]
   visible?: boolean
   locked?: boolean
+  seed?: number
 }
 
 /**
@@ -83,6 +86,7 @@ export interface CreateGroupArtObjectParams {
   visible?: boolean
   locked?: boolean
   expanded?: boolean
+  seed?: number
 }
 
 /**
@@ -109,6 +113,10 @@ export function createPathArtObject(
     visible: params.visible !== false,
     locked: params.locked || false,
     selected: false,
+    seed:
+      params.seed !== undefined
+        ? params.seed
+        : Math.floor(Math.random() * 1000000),
   }
 }
 
@@ -137,6 +145,10 @@ export function createGroupArtObject(
     locked: params.locked || false,
     expanded: params.expanded !== false,
     selected: false,
+    seed:
+      params.seed !== undefined
+        ? params.seed
+        : Math.floor(Math.random() * 1000000),
   }
 }
 
@@ -208,10 +220,7 @@ export function transformArtObject(
 /**
  * ArtObjectを別のレイヤーに移動
  */
-export function moveArtObjectToLayer(
-  artObject: ArtObject,
-  layerId: UUID,
-): void {
+export function setArtObjectLayer(artObject: ArtObject, layerId: UUID): void {
   artObject.layerId = layerId
 }
 

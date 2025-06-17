@@ -1,9 +1,25 @@
 import { proxy, subscribe } from 'valtio'
 import type { Document } from './document'
+import { createPathArtObject, type PathArtObject } from './document/art-object'
+import { createStroke } from './document/appearance'
+import { VectorPath } from './document/path'
+
+// VectorPathを再エクスポート
+export type { VectorPath }
 
 export interface Vector2 {
   x: number
   y: number
+  /** 筆圧 (0.0-1.0) */
+  pressure?: number
+  /** ペンの傾きX (-1.0 - 1.0) */
+  tiltX?: number
+  /** ペンの傾きY (-1.0 - 1.0) */
+  tiltY?: number
+  /** 描画時の速度 (ピクセル/秒) */
+  velocity?: number
+  /** この点が描画された時刻 (performance.now()) */
+  timestamp?: number
 }
 
 export interface Color {
@@ -11,24 +27,6 @@ export interface Color {
   g: number
   b: number
   a: number
-}
-
-export interface VectorPath {
-  id: string
-  points: Vector2[]
-  color: Color
-  strokeWidth: number
-  closed: boolean
-}
-
-export interface Layer {
-  id: string
-  name: string
-  visible: boolean
-  opacity: number
-  blendMode: string
-  paths: VectorPath[]
-  filters: FilterConfig[]
 }
 
 export interface FilterConfig {
@@ -50,6 +48,32 @@ export interface BrushConfig {
     sizeVariation: number
     opacityVariation: number
   }
+  strokeSettings?: {
+    texture: 'pencil' | 'airbrush'
+    scatterRange: number
+    rotationAdjust: number
+    randomRotation: number
+    randomScale: number
+    inOutInfluence: number
+    inOutLength: number
+    divisions: number
+    pressureInfluence: number
+    noiseInfluence: number
+    /** 筆圧によるサイズへの影響度 (0.0-1.0) */
+    pressureSizeInfluence?: number
+    /** 筆圧による不透明度への影響度 (0.0-1.0) */
+    pressureOpacityInfluence?: number
+    /** ペンの傾きによる形状への影響度 (0.0-1.0) */
+    tiltInfluence?: number
+    /** 描画速度によるサイズへの影響度 (0.0-1.0) */
+    velocitySizeInfluence?: number
+    /** 描画速度による不透明度への影響度 (0.0-1.0) */
+    velocityOpacityInfluence?: number
+    /** 最小サイズ制限 (0.0-1.0, ブラシサイズに対する割合) */
+    minSizeRatio?: number
+    /** 最小不透明度制限 (0.0-1.0) */
+    minOpacity?: number
+  }
 }
 
 export interface Viewport {
@@ -68,15 +92,17 @@ export interface EngineState {
     backgroundColor: Color
   }
   viewport: Viewport
-  layers: Layer[]
-  activeLayerId: string | null
-  /** 新しいドキュメント構造 */
-  document: Document | null
   brushConfig: BrushConfig
   tools: {
     activeTool: 'brush' | 'eraser' | 'select' | 'pan' | 'zoom'
     isDrawing: boolean
     currentStroke: VectorPath | null
+  }
+  selection: {
+    selectedObjectIds: string[]
+    isDragging: boolean
+    dragStartPosition: Vector2 | null
+    dragOffset: Vector2 | null
   }
   ui: {
     showLayers: boolean
@@ -111,20 +137,6 @@ export const engineState = proxy<EngineState>({
     width: 800,
     height: 600,
   },
-  layers: [
-    {
-      id: 'layer-1',
-      name: 'Background',
-      visible: true,
-      opacity: 1,
-      blendMode: 'normal',
-      paths: [],
-      filters: [],
-    },
-  ],
-  activeLayerId: 'layer-1',
-  /** 新しいドキュメント構造 */
-  document: null,
   brushConfig: {
     id: 'default-brush',
     type: 'vector',
@@ -137,11 +149,36 @@ export const engineState = proxy<EngineState>({
       sizeVariation: 0.2,
       opacityVariation: 0.1,
     },
+    strokeSettings: {
+      texture: 'pencil',
+      scatterRange: 0.5,
+      rotationAdjust: 1,
+      randomRotation: 0,
+      randomScale: 0,
+      inOutInfluence: 1,
+      inOutLength: 100,
+      divisions: 1000,
+      pressureInfluence: 0.8,
+      noiseInfluence: 0,
+      pressureSizeInfluence: 0.8,
+      pressureOpacityInfluence: 0.6,
+      tiltInfluence: 0.3,
+      velocitySizeInfluence: 0.4,
+      velocityOpacityInfluence: 0.2,
+      minSizeRatio: 0.1,
+      minOpacity: 0.1,
+    },
   },
   tools: {
     activeTool: 'brush',
     isDrawing: false,
     currentStroke: null,
+  },
+  selection: {
+    selectedObjectIds: [],
+    isDragging: false,
+    dragStartPosition: null,
+    dragOffset: null,
   },
   ui: {
     showLayers: true,
@@ -162,46 +199,6 @@ export const engineState = proxy<EngineState>({
   },
 })
 
-export const createLayer = (name: string): Layer => ({
-  id: `layer-${Date.now()}`,
-  name,
-  visible: true,
-  opacity: 1,
-  blendMode: 'normal',
-  paths: [],
-  filters: [],
-})
-
-export const addLayer = (name: string) => {
-  const layer = createLayer(name)
-  engineState.layers.push(layer)
-  engineState.activeLayerId = layer.id
-  return layer
-}
-
-export const removeLayer = (layerId: string) => {
-  const index = engineState.layers.findIndex((l) => l.id === layerId)
-  if (index !== -1 && engineState.layers.length > 1) {
-    engineState.layers.splice(index, 1)
-    if (engineState.activeLayerId === layerId) {
-      engineState.activeLayerId = engineState.layers[Math.max(0, index - 1)].id
-    }
-  }
-}
-
-export const getActiveLayer = (): Layer | null => {
-  return (
-    engineState.layers.find((l) => l.id === engineState.activeLayerId) || null
-  )
-}
-
-export const addPathToActiveLayer = (path: VectorPath) => {
-  const activeLayer = getActiveLayer()
-  if (activeLayer) {
-    activeLayer.paths.push(path)
-  }
-}
-
 export const setBrushConfig = (config: Partial<BrushConfig>) => {
   Object.assign(engineState.brushConfig, config)
 }
@@ -219,10 +216,17 @@ export const startDrawing = (path: VectorPath) => {
   engineState.tools.currentStroke = path
 }
 
-export const endDrawing = () => {
-  if (engineState.tools.currentStroke) {
-    addPathToActiveLayer(engineState.tools.currentStroke)
-    engineState.tools.currentStroke = null
+export const endDrawing = (document: Document | null) => {
+  if (engineState.tools.currentStroke && document) {
+    // VectorPathを新しいドキュメント構造でPathArtObjectとして追加
+    const defaultColor = { r: 0, g: 0, b: 0, a: 1 } // デフォルト色
+    const defaultStrokeWidth = 2 // デフォルトストローク幅
+    convertVectorPathToArtObject(
+      engineState.tools.currentStroke,
+      document,
+      defaultColor,
+      defaultStrokeWidth,
+    )
   }
   engineState.tools.isDrawing = false
 }
@@ -230,7 +234,6 @@ export const endDrawing = () => {
 export const addPointToCurrentStroke = (point: Vector2) => {
   if (engineState.tools.currentStroke) {
     engineState.tools.currentStroke.points.push(point)
-  } else {
   }
 }
 
@@ -248,140 +251,160 @@ export const subscribeToState = (callback: () => void) => {
   return subscribe(engineState, callback)
 }
 
-export const toggleLayerVisibility = (layerId: string) => {
-  const layer = engineState.layers.find((l) => l.id === layerId)
-  if (layer) {
-    layer.visible = !layer.visible
-  }
-}
-
-export const setLayerOpacity = (layerId: string, opacity: number) => {
-  const layer = engineState.layers.find((l) => l.id === layerId)
-  if (layer) {
-    layer.opacity = Math.max(0, Math.min(1, opacity))
-  }
-}
-
-export const setActiveLayer = (layerId: string) => {
-  if (engineState.layers.find((l) => l.id === layerId)) {
-    engineState.activeLayerId = layerId
-  }
-}
-
-export const addFilterToLayer = (layerId: string, filter: FilterConfig) => {
-  const layer = engineState.layers.find((l) => l.id === layerId)
-  if (layer) {
-    layer.filters.push(filter)
-  }
-}
-
-export const removeFilterFromLayer = (layerId: string, filterId: string) => {
-  const layer = engineState.layers.find((l) => l.id === layerId)
-  if (layer) {
-    const index = layer.filters.findIndex((f) => f.id === filterId)
-    if (index !== -1) {
-      layer.filters.splice(index, 1)
-    }
-  }
-}
-
-export const updateFilterParam = (
-  layerId: string,
-  filterId: string,
-  param: string,
-  value: number,
-) => {
-  const layer = engineState.layers.find((l) => l.id === layerId)
-  if (layer) {
-    const filter = layer.filters.find((f) => f.id === filterId)
-    if (filter) {
-      filter.params[param] = value
-    }
-  }
-}
-
-export const toggleFilter = (layerId: string, filterId: string) => {
-  const layer = engineState.layers.find((l) => l.id === layerId)
-  if (layer) {
-    const filter = layer.filters.find((f) => f.id === filterId)
-    if (filter) {
-      filter.enabled = !filter.enabled
-    }
-  }
-}
-
-export const createVectorPath = (
-  points: Vector2[],
-  color: Color,
-  strokeWidth: number,
-): VectorPath => ({
-  id: `path-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+export const createVectorPath = (points: Vector2[]): VectorPath => ({
   points,
-  color,
-  strokeWidth,
   closed: false,
 })
 
-export const saveStateToHistory = () => {
-  const currentState = {
-    layers: JSON.parse(JSON.stringify(engineState.layers)),
-    timestamp: Date.now(),
+/**
+ * VectorPathをPathArtObjectに変換してドキュメントに追加
+ */
+export const convertVectorPathToArtObject = (
+  vectorPath: VectorPath,
+  document: Document,
+  color: Color,
+  strokeWidth: number,
+  id?: string,
+): PathArtObject | null => {
+  // アクティブレイヤーを取得
+  const activeLayerId = document.activeLayerId
+  if (!activeLayerId) {
+    return null
   }
 
-  engineState.history.undoStack.push(currentState)
+  // 最初のアートボードを取得（デフォルト）
+  const artboardId =
+    document.artboards.length > 0 ? document.artboards[0].id : null
 
-  if (engineState.history.undoStack.length > engineState.history.maxHistory) {
-    engineState.history.undoStack.shift()
+  // 色情報をRGBAColorに変換
+  const strokeColor = {
+    r: color.r,
+    g: color.g,
+    b: color.b,
+    a: color.a,
   }
 
-  engineState.history.redoStack = []
+  // 現在のブラシ設定を使用してストロークアピアランスを作成
+  const strokeAppearance = createStroke({
+    width: strokeWidth,
+    color: strokeColor,
+    opacity: 1.0,
+    style: 'solid',
+    lineCap: 'round',
+    lineJoin: 'round',
+    // UI設定から詳細ブラシ設定を追加
+    brushSettings: engineState.brushConfig.strokeSettings
+      ? {
+          texture: engineState.brushConfig.strokeSettings.texture,
+          scatterRange: engineState.brushConfig.strokeSettings.scatterRange,
+          rotationAdjust: engineState.brushConfig.strokeSettings.rotationAdjust,
+          randomRotation: engineState.brushConfig.strokeSettings.randomRotation,
+          randomScale: engineState.brushConfig.strokeSettings.randomScale,
+          inOutInfluence: engineState.brushConfig.strokeSettings.inOutInfluence,
+          inOutLength: engineState.brushConfig.strokeSettings.inOutLength,
+          divisions: engineState.brushConfig.strokeSettings.divisions,
+          pressureInfluence:
+            engineState.brushConfig.strokeSettings.pressureInfluence,
+          noiseInfluence: engineState.brushConfig.strokeSettings.noiseInfluence,
+        }
+      : undefined,
+  })
+
+  // PathArtObjectを作成
+  const pathArtObject = createPathArtObject({
+    name: `Stroke ${id || 'unnamed'}`,
+    layerId: activeLayerId,
+    artboardId: artboardId,
+    path: {
+      points: vectorPath.points.map((p) => ({
+        x: p.x,
+        y: p.y,
+        pressure: p.pressure,
+        tilt:
+          (p as any).tiltX !== undefined && (p as any).tiltY !== undefined
+            ? { x: (p as any).tiltX, y: (p as any).tiltY }
+            : undefined,
+        // handleIn, handleOutは現在未使用のためundefined
+      })),
+      closed: vectorPath.closed,
+    },
+    appearances: [strokeAppearance],
+  })
+
+  // ドキュメントのartObjectsに追加
+  document.artObjects[pathArtObject.id] = pathArtObject
+
+  // アクティブレイヤーのartObjectIdsに追加
+  const activeLayer = document.layers[activeLayerId]
+  if (activeLayer && activeLayer.type === 'vector') {
+    activeLayer.artObjectIds = [...activeLayer.artObjectIds, pathArtObject.id]
+  }
+
+  return pathArtObject
 }
-
-export const undo = () => {
-  if (engineState.history.undoStack.length === 0) return false
-
-  const currentState = {
-    layers: JSON.parse(JSON.stringify(engineState.layers)),
-    timestamp: Date.now(),
-  }
-
-  engineState.history.redoStack.push(currentState)
-
-  const previousState = engineState.history.undoStack.pop()
-  if (previousState) {
-    engineState.layers = previousState.layers
-  }
-
-  return true
-}
-
-export const redo = () => {
-  if (engineState.history.redoStack.length === 0) return false
-
-  const currentState = {
-    layers: JSON.parse(JSON.stringify(engineState.layers)),
-    timestamp: Date.now(),
-  }
-
-  engineState.history.undoStack.push(currentState)
-
-  const nextState = engineState.history.redoStack.pop()
-  if (nextState) {
-    engineState.layers = nextState.layers
-  }
-
-  return true
-}
-
-export const canUndo = () => engineState.history.undoStack.length > 0
-export const canRedo = () => engineState.history.redoStack.length > 0
 
 /**
  * ドキュメントを設定する
  */
 export const setDocument = (document: Document | null) => {
-  engineState.document = document
+  // この関数は後方互換性のためのスタブ
+  // 実際のドキュメント管理はPaplicoEngineで行う
+}
 
-  if (document) {
+// 選択操作のヘルパー関数
+export const selectObject = (objectId: string) => {
+  if (!engineState.selection.selectedObjectIds.includes(objectId)) {
+    engineState.selection.selectedObjectIds.push(objectId)
   }
+}
+
+export const deselectObject = (objectId: string) => {
+  const index = engineState.selection.selectedObjectIds.indexOf(objectId)
+  if (index > -1) {
+    engineState.selection.selectedObjectIds.splice(index, 1)
+  }
+}
+
+export const toggleObjectSelection = (objectId: string) => {
+  if (engineState.selection.selectedObjectIds.includes(objectId)) {
+    deselectObject(objectId)
+  } else {
+    selectObject(objectId)
+  }
+}
+
+export const clearSelection = () => {
+  engineState.selection.selectedObjectIds = []
+}
+
+export const selectMultipleObjects = (objectIds: string[]) => {
+  engineState.selection.selectedObjectIds = [...objectIds]
+}
+
+export const isObjectSelected = (objectId: string): boolean => {
+  return engineState.selection.selectedObjectIds.includes(objectId)
+}
+
+export const startDragging = (position: Vector2) => {
+  engineState.selection.isDragging = true
+  engineState.selection.dragStartPosition = { ...position }
+  engineState.selection.dragOffset = { x: 0, y: 0 }
+}
+
+export const updateDragOffset = (offset: Vector2) => {
+  if (engineState.selection.isDragging) {
+    engineState.selection.dragOffset = { ...offset }
+  }
+}
+
+export const finishDragging = () => {
+  engineState.selection.isDragging = false
+  engineState.selection.dragStartPosition = null
+  engineState.selection.dragOffset = null
+}
+
+export const cancelDragging = () => {
+  engineState.selection.isDragging = false
+  engineState.selection.dragStartPosition = null
+  engineState.selection.dragOffset = null
 }

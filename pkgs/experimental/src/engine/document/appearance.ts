@@ -53,6 +53,19 @@ export interface StrokeParams {
   opacity: number
   /** ブレンドモード */
   blendMode: BlendMode
+  /** ブラシ設定（詳細なストローク描画用） */
+  brushSettings?: {
+    texture: 'pencil' | 'airbrush'
+    scatterRange: number
+    rotationAdjust: number
+    randomRotation: number
+    randomScale: number
+    inOutInfluence: number
+    inOutLength: number
+    divisions: number
+    pressureInfluence: number
+    noiseInfluence: number
+  }
 }
 
 /**
@@ -162,6 +175,18 @@ export interface CreateStrokeParams {
   opacity?: number
   blendMode?: BlendMode
   enabled?: boolean
+  brushSettings?: {
+    texture: 'pencil' | 'airbrush'
+    scatterRange: number
+    rotationAdjust: number
+    randomRotation: number
+    randomScale: number
+    inOutInfluence: number
+    inOutLength: number
+    divisions: number
+    pressureInfluence: number
+    noiseInfluence: number
+  }
 }
 
 /**
@@ -232,6 +257,7 @@ export function createStroke(params: CreateStrokeParams): StrokeAppearance {
       miterLimit: params.miterLimit || 10,
       opacity: params.opacity ?? 1,
       blendMode: params.blendMode || 'normal',
+      brushSettings: params.brushSettings,
     },
   }
 }

@@ -122,6 +122,11 @@ export class DebugLogger {
     // キューに追加
     this.queue.push(entry)
 
+    console.log(
+      `[${entry.timestamp}] ${level.toUpperCase()}: ${message}`,
+      context,
+    )
+
     // 非同期で送信を試行
     this.procesQueue()
   }

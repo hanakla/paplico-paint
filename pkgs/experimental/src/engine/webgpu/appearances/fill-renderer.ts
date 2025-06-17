@@ -2,13 +2,19 @@ import { RGBAColor, BlendMode } from '../../document/types'
 import { VectorPath } from '../../document/path'
 import { FillAppearance, isFillAppearance } from '../../document/appearance'
 import {
+  IAppearanceProcessor,
+  BoundingBox,
+} from '../interfaces/IAppearanceProcessor'
+import {
   makeShaderDataDefinitions,
   makeStructuredView,
   createBuffersAndAttributesFromArrays,
 } from 'webgpu-utils'
+import { debugLogger } from '../../../utils/debug-logger'
 
 /**
  * パスからポリゴンへの三角分割を行う関数
+ * Ear Clippingアルゴリズムを使用して凹ポリゴンにも対応
  */
 export async function triangulatePolygon(
   path: VectorPath,
@@ -34,33 +40,183 @@ export async function triangulatePolygon(
     return new Float32Array(0)
   }
 
-  // 簡単なファン三角分割を使用
-  const triangles: number[] = []
   const color = appearance.params.color || { r: 0, g: 0, b: 0, a: 1 }
   const opacity = appearance.params.opacity || 1
-
-  // 色をRGBA配列に変換
   const rgba = [color.r, color.g, color.b, color.a * opacity]
 
-  // 最初の点を中心とした三角形ファンを作成
-  const center = uniquePoints[0]
-  for (let i = 1; i < uniquePoints.length - 1; i++) {
-    const p1 = uniquePoints[i]
-    const p2 = uniquePoints[i + 1]
-
-    // 三角形の3つの頂点を追加
-    // 中心点
-    triangles.push(center.x, center.y, ...rgba)
-    // 点1
-    triangles.push(p1.x, p1.y, ...rgba)
-    // 点2
-    triangles.push(p2.x, p2.y, ...rgba)
+  // 単純な場合（三角形）はそのまま返す
+  if (uniquePoints.length === 3) {
+    const triangles: number[] = []
+    for (const point of uniquePoints) {
+      triangles.push(point.x, point.y, ...rgba)
+    }
+    return new Float32Array(triangles)
   }
 
-  const triangleCount = uniquePoints.length - 2
-  const vertexCount = triangleCount * 3
+  // 4点以上の場合はEar Clippingまたは改良されたファン三角分割を使用
+  const triangles: number[] = []
+
+  // ポリゴンの方向を確認（時計回り/反時計回り）
+  const isClockwise = calculatePolygonOrientation(uniquePoints)
+
+  // 反時計回りになるように調整
+  const orderedPoints = isClockwise ? uniquePoints.reverse() : uniquePoints
+
+  // 改良されたファン三角分割（凸ポリゴンの場合に最適化）
+  if (isConvexPolygon(orderedPoints)) {
+    // 凸ポリゴンの場合はファン三角分割を使用
+    const center = orderedPoints[0]
+    for (let i = 1; i < orderedPoints.length - 1; i++) {
+      const p1 = orderedPoints[i]
+      const p2 = orderedPoints[i + 1]
+
+      // 反時計回りで三角形を追加
+      triangles.push(center.x, center.y, ...rgba)
+      triangles.push(p1.x, p1.y, ...rgba)
+      triangles.push(p2.x, p2.y, ...rgba)
+    }
+  } else {
+    // 凹ポリゴンの場合は簡略化されたEar Clippingを使用
+    const triangulatedPoints = earClippingTriangulation(orderedPoints)
+    for (const triangle of triangulatedPoints) {
+      for (const point of triangle) {
+        triangles.push(point.x, point.y, ...rgba)
+      }
+    }
+  }
 
   return new Float32Array(triangles)
+}
+
+/**
+ * ポリゴンの方向を計算（時計回り=true, 反時計回り=false）
+ */
+function calculatePolygonOrientation(
+  points: { x: number; y: number }[],
+): boolean {
+  let area = 0
+  for (let i = 0; i < points.length; i++) {
+    const j = (i + 1) % points.length
+    area += (points[j].x - points[i].x) * (points[j].y + points[i].y)
+  }
+  return area > 0
+}
+
+/**
+ * ポリゴンが凸かどうかを判定
+ */
+function isConvexPolygon(points: { x: number; y: number }[]): boolean {
+  if (points.length < 4) return true
+
+  let sign = 0
+  for (let i = 0; i < points.length; i++) {
+    const p1 = points[i]
+    const p2 = points[(i + 1) % points.length]
+    const p3 = points[(i + 2) % points.length]
+
+    const cross = (p2.x - p1.x) * (p3.y - p2.y) - (p2.y - p1.y) * (p3.x - p2.x)
+
+    if (cross !== 0) {
+      const currentSign = cross > 0 ? 1 : -1
+      if (sign === 0) {
+        sign = currentSign
+      } else if (sign !== currentSign) {
+        return false
+      }
+    }
+  }
+  return true
+}
+
+/**
+ * 簡略化されたEar Clippingアルゴリズム
+ */
+function earClippingTriangulation(
+  points: { x: number; y: number }[],
+): { x: number; y: number }[][] {
+  const triangles: { x: number; y: number }[][] = []
+  const vertices = [...points]
+
+  while (vertices.length > 3) {
+    let earFound = false
+
+    for (let i = 0; i < vertices.length; i++) {
+      const prev = vertices[(i - 1 + vertices.length) % vertices.length]
+      const curr = vertices[i]
+      const next = vertices[(i + 1) % vertices.length]
+
+      if (isEar(prev, curr, next, vertices)) {
+        triangles.push([prev, curr, next])
+        vertices.splice(i, 1)
+        earFound = true
+        break
+      }
+    }
+
+    if (!earFound) {
+      // Ear が見つからない場合はファン三角分割にフォールバック
+      const center = vertices[0]
+      for (let i = 1; i < vertices.length - 1; i++) {
+        triangles.push([center, vertices[i], vertices[i + 1]])
+      }
+      break
+    }
+  }
+
+  if (vertices.length === 3) {
+    triangles.push(vertices)
+  }
+
+  return triangles
+}
+
+/**
+ * 三角形がEar（耳）かどうかを判定
+ */
+function isEar(
+  p1: { x: number; y: number },
+  p2: { x: number; y: number },
+  p3: { x: number; y: number },
+  vertices: { x: number; y: number }[],
+): boolean {
+  // 三角形が反時計回りかチェック
+  const cross = (p2.x - p1.x) * (p3.y - p2.y) - (p2.y - p1.y) * (p3.x - p2.x)
+  if (cross <= 0) return false
+
+  // 他の頂点が三角形内部にないかチェック
+  for (const vertex of vertices) {
+    if (vertex === p1 || vertex === p2 || vertex === p3) continue
+    if (pointInTriangle(vertex, p1, p2, p3)) return false
+  }
+
+  return true
+}
+
+/**
+ * 点が三角形内部にあるかどうかを判定
+ */
+function pointInTriangle(
+  p: { x: number; y: number },
+  a: { x: number; y: number },
+  b: { x: number; y: number },
+  c: { x: number; y: number },
+): boolean {
+  const sign = (
+    p1: { x: number; y: number },
+    p2: { x: number; y: number },
+    p3: { x: number; y: number },
+  ) => {
+    return (p1.x - p3.x) * (p2.y - p3.y) - (p2.x - p3.x) * (p1.y - p3.y)
+  }
+
+  const d1 = sign(p, a, b)
+  const d2 = sign(p, b, c)
+  const d3 = sign(p, c, a)
+
+  const hasNeg = d1 < 0 || d2 < 0 || d3 < 0
+  const hasPos = d1 > 0 || d2 > 0 || d3 > 0
+
+  return !(hasNeg && hasPos)
 }
 
 /**
@@ -68,9 +224,10 @@ export async function triangulatePolygon(
  * WebGPUを使用してfill appearanceを描画
  * webgpu-utilsを使用して実装を簡素化
  */
-export class FillRenderer {
+export class FillRenderer implements IAppearanceProcessor {
   private device: GPUDevice
   private renderPipeline: GPURenderPipeline | null = null
+  private offscreenRenderPipeline: GPURenderPipeline | null = null // オフスクリーン用
   private uniformValues: any = null
   private uniformBuffer: GPUBuffer | null = null
   private bindGroup: GPUBindGroup | null = null
@@ -126,10 +283,10 @@ export class FillRenderer {
 
           // ワールド座標を4D同次座標に拡張
           let worldPos = vec4<f32>(input.position, 0.0, 1.0);
-          
+
           // ビュー変換を適用
           let viewPos = uniforms.viewMatrix * worldPos;
-          
+
           // プロジェクション変換を適用
           output.position = uniforms.projectionMatrix * viewPos;
           output.color = input.color;
@@ -197,7 +354,7 @@ export class FillRenderer {
       // サンプルバッファは破棄
       sampleBufferInfo.buffers.forEach((buffer) => buffer.destroy())
 
-      // レンダーパイプラインを作成
+      // メインキャンバス用レンダーパイプラインを作成
       this.renderPipeline = this.device.createRenderPipeline({
         label: 'FillRenderPipeline',
         layout: this.device.createPipelineLayout({
@@ -219,6 +376,33 @@ export class FillRenderer {
         },
         primitive: {
           topology: 'triangle-list',
+          cullMode: 'none', // 面カリングを無効化
+        },
+      })
+
+      // オフスクリーン用レンダーパイプラインを作成
+      this.offscreenRenderPipeline = this.device.createRenderPipeline({
+        label: 'FillOffscreenRenderPipeline',
+        layout: this.device.createPipelineLayout({
+          bindGroupLayouts: [this.bindGroupLayout],
+        }),
+        vertex: {
+          module: shaderModule,
+          entryPoint: 'vs_main',
+          buffers: this.bufferLayouts,
+        },
+        fragment: {
+          module: shaderModule,
+          entryPoint: 'fs_main',
+          targets: [
+            {
+              format: 'rgba8unorm', // オフスクリーン用フォーマット
+            },
+          ],
+        },
+        primitive: {
+          topology: 'triangle-list',
+          cullMode: 'none', // 面カリングを無効化
         },
       })
     } catch (error) {
@@ -228,28 +412,42 @@ export class FillRenderer {
 
   /**
    * パスをfill appearanceで描画
-   * @returns 破棄が必要なバッファの配列
+   * @returns 破棄が必要なバッファの配列と更新されたバウンディングボックス
    */
-  async renderPath(
+  async render(
     renderPass: GPURenderPassEncoder,
     path: VectorPath,
     appearance: FillAppearance,
     projectionMatrix: Float32Array,
     viewMatrix: Float32Array,
     canvasSize: { width: number; height: number },
-  ): Promise<GPUBuffer[]> {
-    if (!this.renderPipeline || !this.uniformBuffer || !this.bindGroup) {
-      return []
+    inputBounds: BoundingBox,
+  ): Promise<{ buffers: GPUBuffer[]; bounds: BoundingBox }> {
+    if (
+      !this.renderPipeline ||
+      !this.offscreenRenderPipeline ||
+      !this.uniformBuffer ||
+      !this.bindGroup
+    ) {
+      return { buffers: [], bounds: inputBounds }
     }
+
+    // レンダーパスの種類に応じて適切なパイプラインを選択
+    // オフスクリーンレンダーパスかどうかをラベルで判定
+    const renderPassLabel = (renderPass as any).label || ''
+    const isOffscreenPass = renderPassLabel.includes('Offscreen')
+    const selectedPipeline = isOffscreenPass
+      ? this.offscreenRenderPipeline
+      : this.renderPipeline
 
     // パスが閉じていない場合は塗りつぶししない
     if (!path.closed) {
-      return []
+      return { buffers: [], bounds: inputBounds }
     }
 
     // パスの点が3点未満の場合は描画しない
     if (path.points.length < 3) {
-      return []
+      return { buffers: [], bounds: inputBounds }
     }
 
     // ユニフォームデータを更新（webgpu-utilsの構造化ビューを使用）
@@ -266,14 +464,62 @@ export class FillRenderer {
     )
 
     // パスを三角形に分割（ファン三角分割）
-
     const triangles = await triangulatePolygon(path, appearance)
 
     if (triangles.length === 0) {
-      return []
+      return { buffers: [], bounds: inputBounds }
     }
 
     const totalVertexCount = triangles.length / 6
+
+    // 三角分割結果の詳細ログ（最初の数個の頂点）
+    if (isOffscreenPass) {
+      const firstFewVertices = triangles.slice(
+        0,
+        Math.min(18, triangles.length),
+      ) // 最初の3つの頂点
+
+      // 三角形の詳細分析
+      const triangleCount = Math.min(2, Math.floor(triangles.length / 18)) // 最初の2つの三角形
+      for (let i = 0; i < triangleCount; i++) {
+        const startIdx = i * 18
+        const v1 = { x: triangles[startIdx], y: triangles[startIdx + 1] }
+        const v2 = { x: triangles[startIdx + 6], y: triangles[startIdx + 7] }
+        const v3 = { x: triangles[startIdx + 12], y: triangles[startIdx + 13] }
+
+        // 投影変換後の座標を計算
+        const transformVertex = (x: number, y: number) => {
+          // 4x4行列変換を適用（簡略化）
+          const projX = projectionMatrix[0] * x + projectionMatrix[12]
+          const projY = projectionMatrix[5] * y + projectionMatrix[13]
+          return { x: projX, y: projY }
+        }
+
+        const tv1 = transformVertex(v1.x, v1.y)
+        const tv2 = transformVertex(v2.x, v2.y)
+        const tv3 = transformVertex(v3.x, v3.y)
+
+        // NDC範囲チェック
+        const allVerts = [tv1, tv2, tv3]
+        const inRange = allVerts.every(
+          (v) => v.x >= -1 && v.x <= 1 && v.y >= -1 && v.y <= 1,
+        )
+      }
+
+      // バウンディングボックスの確認
+      let minX = Infinity,
+        minY = Infinity,
+        maxX = -Infinity,
+        maxY = -Infinity
+      for (let i = 0; i < triangles.length; i += 6) {
+        const x = triangles[i]
+        const y = triangles[i + 1]
+        minX = Math.min(minX, x)
+        minY = Math.min(minY, y)
+        maxX = Math.max(maxX, x)
+        maxY = Math.max(maxY, y)
+      }
+    }
 
     // webgpu-utilsを使って頂点バッファーを自動作成
     try {
@@ -291,7 +537,8 @@ export class FillRenderer {
       this.device.queue.writeBuffer(vertexBuffer, 0, triangles)
 
       // 既存のレンダーパスで描画
-      renderPass.setPipeline(this.renderPipeline)
+      // 選択されたパイプラインを使用
+      renderPass.setPipeline(selectedPipeline)
 
       renderPass.setBindGroup(0, this.bindGroup)
 
@@ -303,9 +550,68 @@ export class FillRenderer {
       renderPass.draw(vertexCount)
 
       // 手動作成したバッファを返して、呼び出し元で破棄管理
-      return [vertexBuffer]
+      // TODO: 実際のパスバウンディングボックスを計算
+      const updatedBounds = this.calculateBounds(path, appearance, inputBounds)
+      return { buffers: [vertexBuffer], bounds: updatedBounds }
     } catch (error) {
       throw error
+    }
+  }
+
+  /**
+   * アピアランスが適用される予想バウンディングボックスを計算する
+   */
+  calculateBounds(
+    path: VectorPath,
+    appearance: FillAppearance,
+    inputBounds: BoundingBox,
+  ): BoundingBox {
+    if (!path.closed || path.points.length < 3) {
+      return inputBounds
+    }
+
+    // パスの最小・最大座標を計算
+    let minX = Infinity,
+      minY = Infinity
+    let maxX = -Infinity,
+      maxY = -Infinity
+
+    for (const point of path.points) {
+      minX = Math.min(minX, point.x)
+      minY = Math.min(minY, point.y)
+      maxX = Math.max(maxX, point.x)
+      maxY = Math.max(maxY, point.y)
+    }
+
+    // fill appearanceは線幅を持たないので、パスの座標そのままがバウンディングボックス
+    const pathBounds: BoundingBox = {
+      x: minX,
+      y: minY,
+      width: maxX - minX,
+      height: maxY - minY,
+    }
+
+    // inputBoundsと結合（union）
+    if (inputBounds.width === 0 && inputBounds.height === 0) {
+      return pathBounds
+    }
+
+    const combinedMinX = Math.min(inputBounds.x, pathBounds.x)
+    const combinedMinY = Math.min(inputBounds.y, pathBounds.y)
+    const combinedMaxX = Math.max(
+      inputBounds.x + inputBounds.width,
+      pathBounds.x + pathBounds.width,
+    )
+    const combinedMaxY = Math.max(
+      inputBounds.y + inputBounds.height,
+      pathBounds.y + pathBounds.height,
+    )
+
+    return {
+      x: combinedMinX,
+      y: combinedMinY,
+      width: combinedMaxX - combinedMinX,
+      height: combinedMaxY - combinedMinY,
     }
   }
 
@@ -316,6 +622,7 @@ export class FillRenderer {
     this.uniformBuffer?.destroy()
     this.uniformBuffer = null
     this.renderPipeline = null
+    this.offscreenRenderPipeline = null
     this.bindGroup = null
     this.bindGroupLayout = null
   }

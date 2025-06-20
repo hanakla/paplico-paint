@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState, useCallback } from 'react'
-import { useSnapshot } from 'valtio'
+import { proxy, ref, snapshot, useSnapshot } from 'valtio'
 import { useEventCallback } from '@paplico/shared-lib/react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -11,6 +11,17 @@ import { Separator } from '@/components/ui/separator'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '@/components/ui/tooltip'
+import { ColorSlider } from '@/components/color-slider'
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover'
 import {
   Brush,
   Eraser,
@@ -25,17 +36,13 @@ import {
   Redo,
   Move,
   Target,
+  Bug,
+  Download,
+  Keyboard,
 } from 'lucide-react'
 
 import { PaplicoEngine } from '@/engine/paplico'
-import {
-  engineState,
-  setActiveTool,
-  setBrushConfig,
-  startDrawing,
-  endDrawing,
-  createVectorPath,
-} from '@/engine/state'
+import { createVectorPath, EngineState } from '@/engine/state'
 import {
   editorState,
   setEngine,
@@ -52,12 +59,21 @@ import {
   clearSelection,
   setSelectionMode,
   updateSelectionTool,
-  addTestObjects,
+  deleteSelected,
+  setExternalDeleteFunctions,
 } from '@/engine/selection-state'
-import { UIBuilder } from '@/engine/webgpu/ui/ui-renderer'
+import { UIBuilder } from '@/engine/webgpu/ui/ui-elements'
 import { useUIStore } from '@/stores/ui-store'
 import { createTestDocument } from './_example'
 import { LayerPanel } from './fragments/LayerPanel'
+import { DebugPane } from './fragments/DebugPane'
+import { deepClone } from '@paplico/shared-lib'
+import { useNullishSnapshot } from '@/lib/hooks'
+import { debugLogger } from '@/utils/debug-logger'
+import { ExportDialog } from '@/dialogs/ExportDialog'
+import { KeyboardShortcutsDialog } from '@/dialogs/KeyboardShortcutsDialog'
+import { DeleteArtObjectsCommand } from '@/engine/commands/DeleteArtObjectsCommand'
+import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts'
 
 const toolIcons = {
   brush: Brush,
@@ -70,6 +86,17 @@ const toolIcons = {
   eyedropper: Pipette,
 }
 
+const toolNames = {
+  brush: 'ブラシ',
+  eraser: '消しゴム',
+  select: '選択・移動',
+  move: '移動',
+  vertexSelect: '頂点選択',
+  pan: 'パン',
+  zoom: 'ズーム',
+  eyedropper: 'スポイト',
+}
+
 export default function Home() {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const engineRef = useRef<PaplicoEngine | null>(null)
@@ -78,32 +105,38 @@ export default function Home() {
   const [isWebGPUSupported, setIsWebGPUSupported] = useState(false)
   const [isInitialized, setIsInitialized] = useState(false)
   const [isDrawing, setIsDrawing] = useState(false)
+  const [shortcutsDialogOpen, setShortcutsDialogOpen] = useState(false)
 
-  const snap = useSnapshot(engineState)
+  const engineStateSnap = useNullishSnapshot(
+    engineRef.current?.getEngineState(),
+  )
   const editorSnap = useSnapshot(editorState)
   const {
     selectedTool,
     layersPanelOpen,
     brushPanelOpen,
     filtersPanelOpen,
+    debugPanelOpen,
     selectedColor,
     brushSize,
     brushOpacity,
+    shortcuts,
     setSelectedTool,
     toggleLayersPanel,
     toggleBrushPanel,
     toggleFiltersPanel,
+    toggleDebugPanel,
     setSelectedColor,
     setBrushSize,
     setBrushOpacity,
   } = useUIStore()
 
-  const hexToColor = useEventCallback((hex: string) => {
+  const hexToColor = (hex: string) => {
     const r = parseInt(hex.slice(1, 3), 16) / 255
     const g = parseInt(hex.slice(3, 5), 16) / 255
     const b = parseInt(hex.slice(5, 7), 16) / 255
     return { r, g, b, a: brushOpacity / 100 }
-  })
+  }
 
   const initializeWebGPU = useEventCallback(async () => {
     console.log('[DEBUG] initializeWebGPU called')
@@ -123,22 +156,23 @@ export default function Home() {
       console.log('[DEBUG] PaplicoEngine initialization result:', success)
 
       if (success) {
-        // engineRef.current = paplicoEngine
-        // setEngine(paplicoEngine)
-        // setWebGPUSupported(true)
-        // setIsWebGPUSupported(true)
-        // setIsInitialized(true)
-        // // 初期キャンバスサイズを設定
-        // const rect = canvas.getBoundingClientRect()
-        // paplicoEngine.resize(rect.width, rect.height)
-        // // PaplicoEngineは自動的に入力を処理し、レンダーループも実行されます
-        // // テスト用ドキュメントを作成・設定
-        // console.log('[DEBUG] Creating test document')
-        // const documentId = paplicoEngine.documents.createDocument({ name: 'テストドキュメント' })
+        engineRef.current = paplicoEngine
+        setEngine(ref(paplicoEngine))
+        setWebGPUSupported(true)
+        setIsWebGPUSupported(true)
+        setIsInitialized(true)
+        // 初期キャンバスサイズを設定
+        const rect = canvas.getBoundingClientRect()
+        paplicoEngine.resize(rect.width, rect.height)
+        // PaplicoEngineは自動的に入力を処理し、レンダーループも実行されます
+        // テスト用ドキュメントを作成・設定
+        console.log('[DEBUG] Creating test document')
+        paplicoEngine.documentManager.loadDocument(createTestDocument())
+        // const documentId = paplicoEngine.documentManager.createDocument({ name: 'テストドキュメント' })
         // console.log('[DEBUG] Test document created with ID:', documentId)
-        // // 初期キャンバスサイズを設定
-        // handleCanvasResize()
-        // console.log('[DEBUG] WebGPU initialization completed successfully')
+        // 初期キャンバスサイズを設定
+        handleCanvasResize()
+        console.log('[DEBUG] WebGPU initialization completed successfully')
       } else {
         console.log('[DEBUG] PaplicoEngine initialization failed')
         setWebGPUSupported(false)
@@ -161,27 +195,46 @@ export default function Home() {
 
   const handleToolSelect = useEventCallback((toolId: string) => {
     setSelectedTool(toolId)
-    setActiveTool(toolId as any)
+    engineRef.current?.setActiveTool(toolId as any)
   })
 
   const handleBrushSizeChange = useEventCallback((value: number[]) => {
     setBrushSize(value[0])
-    setBrushConfig({ size: value[0] })
+    engineRef.current?.setBrushConfig({ size: value[0] })
   })
 
   const handleBrushOpacityChange = useEventCallback((value: number[]) => {
     setBrushOpacity(value[0])
-    setBrushConfig({
+    engineRef.current?.setBrushConfig({
       color: hexToColor(selectedColor),
     })
   })
 
   const handleColorChange = useEventCallback((color: string) => {
     setSelectedColor(color)
-    setBrushConfig({
+    engineRef.current?.setBrushConfig({
       color: hexToColor(color),
     })
   })
+
+  const rgbaToHex = (rgba: { r: number; g: number; b: number; a: number }) => {
+    const r = Math.round(rgba.r * 255)
+      .toString(16)
+      .padStart(2, '0')
+    const g = Math.round(rgba.g * 255)
+      .toString(16)
+      .padStart(2, '0')
+    const b = Math.round(rgba.b * 255)
+      .toString(16)
+      .padStart(2, '0')
+    return `#${r}${g}${b}`
+  }
+
+  const handleColorSliderChange = useEventCallback(
+    (color: { r: number; g: number; b: number; a: number }) => {
+      handleColorChange(rgbaToHex(color))
+    },
+  )
 
   const handleResize = useEventCallback(() => handleCanvasResize())
 
@@ -195,15 +248,28 @@ export default function Home() {
 
     const uiBuilder = new UIBuilder()
 
-    // グリッド表示
+    // グリッド表示（簡易版）
     if (selectionToolSnap.snapToGrid) {
-      uiBuilder.grid(20, { width: 800, height: 600 })
+      // TODO: グリッド表示は今後実装
     }
 
     // 選択されたオブジェクトのバウンディングボックス
     if (selectionSnap.boundingBox && selectionSnap.selectedObjects.size > 0) {
-      uiBuilder.selectionBox(selectionSnap.boundingBox, {
-        showHandles: selectionToolSnap.showHandles,
+      uiBuilder.surface({
+        id: 'selection-box',
+        position: 'local',
+        location: {
+          x: selectionSnap.boundingBox.x,
+          y: selectionSnap.boundingBox.y,
+        },
+        size: {
+          width: selectionSnap.boundingBox.width,
+          height: selectionSnap.boundingBox.height,
+        },
+        borderColor: { r: 0.2, g: 0.6, b: 1.0, a: 1.0 },
+        borderWidth: 2,
+        fillMode: 'stroke',
+        zIndex: 1000,
       })
     }
 
@@ -247,15 +313,58 @@ export default function Home() {
     updateSelectionTool({ showHandles: enabled })
   })
 
+  // キーボードショートカットの設定
+  useKeyboardShortcuts({
+    onToolChange: (toolId) => {
+      engineRef.current?.setActiveTool(toolId as any)
+    },
+    onDelete: () => {
+      deleteSelected()
+    },
+    onUndo: () => {
+      undo()
+    },
+    onRedo: () => {
+      redo()
+    },
+  })
+
   useEffect(() => {
     // デバッグ用
-    ;(window as any)._es = engineState
-    initializeWebGPU().catch((e) => {
-      console.error('WebGPU initialization failed:', e)
+    Object.defineProperty(window, '_es', {
+      configurable: true,
+      get: () => snapshot(editorState),
     })
 
-    // テスト用のオブジェクトを追加
-    addTestObjects()
+    debugLogger.clear().then(() => {
+      initializeWebGPU()
+        .then(() => {
+          // エンジン初期化後に削除関数を設定
+          if (engineRef.current) {
+            setExternalDeleteFunctions(
+              (objectIds: string[]) => {
+                console.log('削除実行:', objectIds)
+                // DeleteArtObjectsCommandを使用
+                const params = { artObjectIds: objectIds }
+                const documentManager = (engineRef.current as any)
+                  .documentManager
+                const command = new DeleteArtObjectsCommand(
+                  params,
+                  documentManager,
+                )
+                engineRef.current?.executeCommand(command)
+              },
+              (vertexIds: string[]) => {
+                console.log('頂点削除実行:', vertexIds)
+                // 頂点削除の実装（将来）
+              },
+            )
+          }
+        })
+        .catch((e) => {
+          console.error('WebGPU initialization failed:', e)
+        })
+    })
 
     window.addEventListener('resize', handleResize)
 
@@ -275,71 +384,98 @@ export default function Home() {
   }, [])
 
   return (
-    <div className="flex h-screen bg-background">
+    <div className="flex h-screen w-screen bg-background overflow-hidden">
       {/* ツールバー */}
       <div className="w-16 bg-card border-r flex flex-col items-center py-4 space-y-2">
-        {Object.entries(toolIcons).map(([toolId, Icon]) => (
-          <Button
-            key={toolId}
-            variant={selectedTool === toolId ? 'default' : 'outline'}
-            size="icon"
-            onClick={() => handleToolSelect(toolId)}
-            className="w-10 h-10"
-          >
-            <Icon className="w-4 h-4" />
-          </Button>
-        ))}
+        {Object.entries(toolIcons).map(([toolId, Icon]) => {
+          const shortcutKey = shortcuts[toolId as keyof typeof shortcuts]
+          const toolName = toolNames[toolId as keyof typeof toolNames]
+
+          return (
+            <Tooltip key={toolId}>
+              <TooltipTrigger asChild>
+                <Button
+                  variant={selectedTool === toolId ? 'default' : 'outline'}
+                  size="icon"
+                  onClick={() => handleToolSelect(toolId)}
+                  className="w-10 h-10"
+                >
+                  <Icon className="w-4 h-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="right">
+                <div className="text-center">
+                  <div className="font-medium">{toolName}</div>
+                  {shortcutKey && (
+                    <div className="text-xs opacity-75 mt-1">
+                      {shortcutKey.toUpperCase()}
+                    </div>
+                  )}
+                </div>
+              </TooltipContent>
+            </Tooltip>
+          )
+        })}
 
         <Separator className="my-2" />
 
-        <Button
-          variant={layersPanelOpen ? 'default' : 'outline'}
-          size="icon"
-          onClick={toggleLayersPanel}
-          className="w-10 h-10"
-        >
-          <Layers className="w-4 h-4" />
-        </Button>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant={layersPanelOpen ? 'default' : 'outline'}
+              size="icon"
+              onClick={toggleLayersPanel}
+              className="w-10 h-10"
+            >
+              <Layers className="w-4 h-4" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent side="right">レイヤーパネル</TooltipContent>
+        </Tooltip>
 
-        <Button
-          variant={brushPanelOpen ? 'default' : 'outline'}
-          size="icon"
-          onClick={toggleBrushPanel}
-          className="w-10 h-10"
-        >
-          <Settings className="w-4 h-4" />
-        </Button>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant={brushPanelOpen ? 'default' : 'outline'}
+              size="icon"
+              onClick={toggleBrushPanel}
+              className="w-10 h-10"
+            >
+              <Settings className="w-4 h-4" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent side="right">ブラシ設定</TooltipContent>
+        </Tooltip>
 
-        <Button
-          variant={filtersPanelOpen ? 'default' : 'outline'}
-          size="icon"
-          onClick={toggleFiltersPanel}
-          className="w-10 h-10"
-        >
-          <Filter className="w-4 h-4" />
-        </Button>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant={filtersPanelOpen ? 'default' : 'outline'}
+              size="icon"
+              onClick={toggleFiltersPanel}
+              className="w-10 h-10"
+            >
+              <Filter className="w-4 h-4" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent side="right">フィルター</TooltipContent>
+        </Tooltip>
       </div>
 
       {/* メインキャンバス */}
-      <div className="flex-1 flex flex-col">
+      <div className="flex-1 flex flex-col min-w-0">
         {/* トップバー */}
-        <div className="bg-card border-b px-4 py-2 flex items-center justify-between">
-          <div className="flex items-center space-x-4">
-            <Badge
-              variant={editorSnap.isWebGPUSupported ? 'default' : 'destructive'}
-            >
-              WebGPU:{' '}
-              {editorSnap.isWebGPUSupported ? 'サポート済み' : '未サポート'}
-            </Badge>
+        <div className="bg-card border-b px-4 py-2 overflow-x-auto flex-shrink-0">
+          <div className="flex items-center space-x-4 min-w-max">
+            {!editorSnap.isWebGPUSupported && (
+              <Badge variant="destructive">WebGPU: 未サポート</Badge>
+            )}
             <Badge variant={editorSnap.isInitialized ? 'default' : 'secondary'}>
               エンジン: {editorSnap.isInitialized ? '初期化完了' : '初期化中'}
             </Badge>
             <Badge variant="outline">
-              FPS: {Math.round(snap.performance.fps)}
+              FPS: {Math.round(engineStateSnap?.performance?.fps || 0)}
             </Badge>
-          </div>
-
-          <div className="flex items-center space-x-4">
             <div className="flex items-center space-x-2">
               <Button
                 variant="outline"
@@ -358,7 +494,27 @@ export default function Home() {
               >
                 <Redo className="w-4 h-4 mr-1" />
                 リドゥ
-              </Button>{' '}
+              </Button>
+              {engineStateSnap?.document?.artboards &&
+                engineRef.current &&
+                (() => {
+                  const documentContext =
+                    engineRef.current.getActiveDocumentContext()
+                  return (
+                    documentContext && (
+                      <ExportDialog
+                        artboards={engineStateSnap.document.artboards}
+                        documentContext={documentContext}
+                        webgpuEngine={engineRef.current.getEngine()}
+                      >
+                        <Button variant="outline" size="sm">
+                          <Download className="w-4 h-4 mr-1" />
+                          エクスポート
+                        </Button>
+                      </ExportDialog>
+                    )
+                  )
+                })()}{' '}
               <Button
                 variant="outline"
                 size="sm"
@@ -383,45 +539,27 @@ export default function Home() {
               >
                 選択解除
               </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => {
-                  if (!engineRef.current) return
-
-                  // テスト用のストロークを作成
-                  const testPath = createVectorPath([
-                    { x: 100, y: 100 },
-                    { x: 200, y: 150 },
-                    { x: 300, y: 100 },
-                    { x: 400, y: 200 },
-                  ])
-
-                  startDrawing(testPath)
-                  setTimeout(() => {
-                    const document = getActiveDocument()
-                    endDrawing(document)
-                  }, 100)
-                }}
-              >
-                <Brush className="w-4 h-4 mr-1" />
-                テストストローク
-              </Button>
             </div>
 
             <Separator orientation="vertical" className="h-6" />
 
             <div className="flex items-center space-x-2">
-              <Label htmlFor="color-picker" className="text-sm">
-                色:
-              </Label>
-              <input
-                id="color-picker"
-                type="color"
-                value={selectedColor}
-                onChange={(e) => handleColorChange(e.target.value)}
-                className="w-8 h-8 border border-border rounded cursor-pointer"
-              />
+              <Label className="text-sm">色:</Label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className="w-8 h-8 p-0 border border-border rounded cursor-pointer"
+                    style={{ backgroundColor: selectedColor }}
+                  />
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-3">
+                  <ColorSlider
+                    value={hexToColor(selectedColor)}
+                    onChange={handleColorSliderChange}
+                  />
+                </PopoverContent>
+              </Popover>
             </div>
 
             <Separator orientation="vertical" className="h-6" />
@@ -437,6 +575,25 @@ export default function Home() {
                 className="w-24"
               />
             </div>
+
+            <Button
+              variant={debugPanelOpen ? 'default' : 'outline'}
+              size="sm"
+              onClick={toggleDebugPanel}
+              className="flex items-center space-x-2"
+            >
+              <Bug className="w-4 h-4" />
+            </Button>
+
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShortcutsDialogOpen(true)}
+              className="flex items-center gap-2"
+            >
+              <Keyboard className="w-4 h-4" />
+              ショートカット
+            </Button>
           </div>
         </div>
 
@@ -450,7 +607,7 @@ export default function Home() {
       </div>
 
       {/* サイドパネル */}
-      <div className="w-80 p-2 bg-card border-l">
+      <div className="w-72 p-2 bg-card border-l flex-none">
         <Tabs defaultValue="layers" className="h-full flex flex-col">
           <TabsList className="grid w-full grid-cols-4">
             <TabsTrigger value="layers">レイヤー</TabsTrigger>
@@ -459,7 +616,7 @@ export default function Home() {
             <TabsTrigger value="filters">フィルター</TabsTrigger>
           </TabsList>
 
-          <div className="flex-1 overflow-y-auto p-4">
+          <div className="flex-1 overflow-y-auto p-3">
             {/* レイヤーパネル */}
             <TabsContent value="layers" className="space-y-4 mt-0">
               <LayerPanel />
@@ -474,34 +631,6 @@ export default function Home() {
                   <CardTitle className="text-base">基本設定</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  <div>
-                    <Label>ブラシタイプ</Label>
-                    <div className="grid grid-cols-2 gap-2 mt-2">
-                      <Button
-                        variant={
-                          snap.brushConfig.type === 'vector'
-                            ? 'default'
-                            : 'outline'
-                        }
-                        size="sm"
-                        onClick={() => setBrushConfig({ type: 'vector' })}
-                      >
-                        ベクター
-                      </Button>
-                      <Button
-                        variant={
-                          snap.brushConfig.type === 'scatter'
-                            ? 'default'
-                            : 'outline'
-                        }
-                        size="sm"
-                        onClick={() => setBrushConfig({ type: 'scatter' })}
-                      >
-                        散布
-                      </Button>
-                    </div>
-                  </div>
-
                   <div>
                     <Label>サイズ: {brushSize}px</Label>
                     <Slider
@@ -528,65 +657,72 @@ export default function Home() {
                 </CardContent>
               </Card>
 
-              {snap.brushConfig.type === 'scatter' && (
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="text-base">散布設定</CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    <div>
-                      <Label>個数</Label>
-                      <Slider
-                        value={[snap.brushConfig.scatterConfig?.count || 5]}
-                        onValueChange={(value) =>
-                          setBrushConfig({
-                            scatterConfig: {
-                              count: value[0],
-                              spread:
-                                snap.brushConfig.scatterConfig?.spread || 10,
-                              sizeVariation:
-                                snap.brushConfig.scatterConfig?.sizeVariation ||
-                                0.2,
-                              opacityVariation:
-                                snap.brushConfig.scatterConfig
-                                  ?.opacityVariation || 0.1,
-                            },
-                          })
-                        }
-                        max={20}
-                        min={1}
-                        step={1}
-                        className="mt-2"
-                      />
-                    </div>
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-base">散布設定</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div>
+                    <Label>個数</Label>
+                    <Slider
+                      value={[
+                        engineStateSnap?.strokeSettings.brushSettings
+                          ?.scatterConfig?.count || 5,
+                      ]}
+                      onValueChange={(value) =>
+                        engineRef.current?.setBrushConfig({
+                          scatterConfig: {
+                            count: value[0],
+                            spread:
+                              engineStateSnap?.strokeSettings.brushSettings
+                                ?.scatterConfig?.spread || 10,
+                            sizeVariation:
+                              engineStateSnap?.strokeSettings.brushSettings
+                                ?.scatterConfig?.sizeVariation || 0.2,
+                            opacityVariation:
+                              engineStateSnap?.strokeSettings.brushSettings
+                                ?.scatterConfig?.opacityVariation || 0.1,
+                          },
+                        })
+                      }
+                      max={20}
+                      min={1}
+                      step={1}
+                      className="mt-2"
+                    />
+                  </div>
 
-                    <div>
-                      <Label>散布範囲</Label>
-                      <Slider
-                        value={[snap.brushConfig.scatterConfig?.spread || 10]}
-                        onValueChange={(value) =>
-                          setBrushConfig({
-                            scatterConfig: {
-                              count: snap.brushConfig.scatterConfig?.count || 5,
-                              spread: value[0],
-                              sizeVariation:
-                                snap.brushConfig.scatterConfig?.sizeVariation ||
-                                0.2,
-                              opacityVariation:
-                                snap.brushConfig.scatterConfig
-                                  ?.opacityVariation || 0.1,
-                            },
-                          })
-                        }
-                        max={50}
-                        min={1}
-                        step={1}
-                        className="mt-2"
-                      />
-                    </div>
-                  </CardContent>
-                </Card>
-              )}
+                  <div>
+                    <Label>散布範囲</Label>
+                    <Slider
+                      value={[
+                        engineStateSnap?.strokeSettings.brushSettings
+                          ?.scatterConfig?.spread || 10,
+                      ]}
+                      onValueChange={(value) =>
+                        engineRef.current?.setBrushConfig({
+                          scatterConfig: {
+                            count:
+                              engineStateSnap?.strokeSettings.brushSettings
+                                ?.scatterConfig?.count || 5,
+                            spread: value[0],
+                            sizeVariation:
+                              engineStateSnap?.strokeSettings.brushSettings
+                                ?.scatterConfig?.sizeVariation || 0.2,
+                            opacityVariation:
+                              engineStateSnap?.strokeSettings.brushSettings
+                                ?.scatterConfig?.opacityVariation || 0.1,
+                          },
+                        })
+                      }
+                      max={50}
+                      min={1}
+                      step={1}
+                      className="mt-2"
+                    />
+                  </div>
+                </CardContent>
+              </Card>
 
               <Card>
                 <CardHeader>
@@ -598,41 +734,42 @@ export default function Home() {
                     <div className="grid grid-cols-2 gap-2 mt-2">
                       <Button
                         variant={
-                          snap.brushConfig.strokeSettings?.texture === 'pencil'
+                          engineStateSnap?.strokeSettings.brushSettings
+                            ?.texture === 'pencil'
                             ? 'default'
                             : 'outline'
                         }
                         size="sm"
                         onClick={() =>
-                          setBrushConfig({
+                          engineRef.current?.setBrushConfig({
                             strokeSettings: {
                               texture: 'pencil',
                               scatterRange:
-                                snap.brushConfig.strokeSettings?.scatterRange ||
-                                0.5,
+                                engineStateSnap?.strokeSettings.brushSettings
+                                  ?.scatterConfig?.spread || 0.5,
                               rotationAdjust:
-                                snap.brushConfig.strokeSettings
+                                engineStateSnap?.strokeSettings.brushSettings
                                   ?.rotationAdjust || 1,
                               randomRotation:
-                                snap.brushConfig.strokeSettings
+                                engineStateSnap?.strokeSettings.brushSettings
                                   ?.randomRotation || 0,
                               randomScale:
-                                snap.brushConfig.strokeSettings?.randomScale ||
-                                0,
+                                engineStateSnap?.strokeSettings.brushSettings
+                                  ?.randomScale || 0,
                               inOutInfluence:
-                                snap.brushConfig.strokeSettings
+                                engineStateSnap?.strokeSettings.brushSettings
                                   ?.inOutInfluence || 1,
                               inOutLength:
-                                snap.brushConfig.strokeSettings?.inOutLength ||
-                                100,
+                                engineStateSnap?.strokeSettings.brushSettings
+                                  ?.inOutLength || 100,
                               divisions:
-                                snap.brushConfig.strokeSettings?.divisions ||
-                                1000,
+                                engineStateSnap?.strokeSettings.brushSettings
+                                  ?.divisions || 1000,
                               pressureInfluence:
-                                snap.brushConfig.strokeSettings
+                                engineStateSnap?.strokeSettings.brushSettings
                                   ?.pressureInfluence || 0.8,
                               noiseInfluence:
-                                snap.brushConfig.strokeSettings
+                                engineStateSnap?.strokeSettings.brushSettings
                                   ?.noiseInfluence || 0,
                             },
                           })
@@ -642,42 +779,42 @@ export default function Home() {
                       </Button>
                       <Button
                         variant={
-                          snap.brushConfig.strokeSettings?.texture ===
-                          'airbrush'
+                          engineStateSnap?.strokeSettings.strokeSettings
+                            ?.texture === 'airbrush'
                             ? 'default'
                             : 'outline'
                         }
                         size="sm"
                         onClick={() =>
-                          setBrushConfig({
+                          engineRef.current?.setBrushConfig({
                             strokeSettings: {
                               texture: 'airbrush',
                               scatterRange:
-                                snap.brushConfig.strokeSettings?.scatterRange ||
-                                0.5,
+                                engineStateSnap?.strokeSettings.strokeSettings
+                                  ?.scatterRange || 0.5,
                               rotationAdjust:
-                                snap.brushConfig.strokeSettings
+                                engineStateSnap?.strokeSettings.strokeSettings
                                   ?.rotationAdjust || 1,
                               randomRotation:
-                                snap.brushConfig.strokeSettings
+                                engineStateSnap?.strokeSettings.strokeSettings
                                   ?.randomRotation || 0,
                               randomScale:
-                                snap.brushConfig.strokeSettings?.randomScale ||
-                                0,
+                                engineStateSnap?.strokeSettings.strokeSettings
+                                  ?.randomScale || 0,
                               inOutInfluence:
-                                snap.brushConfig.strokeSettings
+                                engineStateSnap?.strokeSettings.strokeSettings
                                   ?.inOutInfluence || 1,
                               inOutLength:
-                                snap.brushConfig.strokeSettings?.inOutLength ||
-                                100,
+                                engineStateSnap?.strokeSettings.strokeSettings
+                                  ?.inOutLength || 100,
                               divisions:
-                                snap.brushConfig.strokeSettings?.divisions ||
-                                1000,
+                                engineStateSnap?.strokeSettings.strokeSettings
+                                  ?.divisions || 1000,
                               pressureInfluence:
-                                snap.brushConfig.strokeSettings
+                                engineStateSnap?.strokeSettings.strokeSettings
                                   ?.pressureInfluence || 0.8,
                               noiseInfluence:
-                                snap.brushConfig.strokeSettings
+                                engineStateSnap?.strokeSettings.strokeSettings
                                   ?.noiseInfluence || 0,
                             },
                           })
@@ -691,42 +828,45 @@ export default function Home() {
                   <div>
                     <Label>
                       スキャッター範囲:{' '}
-                      {snap.brushConfig.strokeSettings?.scatterRange || 0.5}
+                      {engineStateSnap?.strokeSettings.brushSettings
+                        ?.scatterConfig?.spread || 0.5}
                     </Label>
                     <Slider
                       value={[
-                        snap.brushConfig.strokeSettings?.scatterRange || 0.5,
+                        engineStateSnap?.strokeSettings.brushSettings
+                          ?.scatterConfig?.spread || 0.5,
                       ]}
                       onValueChange={(value) =>
-                        setBrushConfig({
+                        engineRef.current?.setBrushConfig({
                           strokeSettings: {
                             texture:
-                              snap.brushConfig.strokeSettings?.texture ||
-                              'pencil',
+                              engineStateSnap?.strokeSettings.brushSettings
+                                ?.texture || 'pencil',
                             scatterRange: value[0],
                             rotationAdjust:
-                              snap.brushConfig.strokeSettings?.rotationAdjust ||
-                              1,
+                              engineStateSnap?.strokeSettings.brushSettings
+                                ?.rotationAdjust || 1,
                             randomRotation:
-                              snap.brushConfig.strokeSettings?.randomRotation ||
-                              0,
+                              engineStateSnap?.strokeSettings.brushSettings
+                                ?.randomRotation || 0,
                             randomScale:
-                              snap.brushConfig.strokeSettings?.randomScale || 0,
+                              engineStateSnap?.strokeSettings.brushSettings
+                                ?.randomScale || 0,
                             inOutInfluence:
-                              snap.brushConfig.strokeSettings?.inOutInfluence ||
-                              1,
+                              engineStateSnap?.strokeSettings.brushSettings
+                                ?.inOutInfluence || 1,
                             inOutLength:
-                              snap.brushConfig.strokeSettings?.inOutLength ||
-                              100,
+                              engineStateSnap?.strokeSettings.brushSettings
+                                ?.inOutLength || 100,
                             divisions:
-                              snap.brushConfig.strokeSettings?.divisions ||
-                              1000,
+                              engineStateSnap?.strokeSettings.brushSettings
+                                ?.divisions || 1000,
                             pressureInfluence:
-                              snap.brushConfig.strokeSettings
+                              engineStateSnap?.strokeSettings.brushSettings
                                 ?.pressureInfluence || 0.8,
                             noiseInfluence:
-                              snap.brushConfig.strokeSettings?.noiseInfluence ||
-                              0,
+                              engineStateSnap?.strokeSettings.brushSettings
+                                ?.noiseInfluence || 0,
                           },
                         })
                       }
@@ -740,42 +880,45 @@ export default function Home() {
                   <div>
                     <Label>
                       ランダム回転:{' '}
-                      {snap.brushConfig.strokeSettings?.randomRotation || 0}
+                      {engineStateSnap?.strokeSettings.brushSettings
+                        ?.randomRotation || 0}
                     </Label>
                     <Slider
                       value={[
-                        snap.brushConfig.strokeSettings?.randomRotation || 0,
+                        engineStateSnap?.strokeSettings.brushSettings
+                          ?.randomRotation || 0,
                       ]}
                       onValueChange={(value) =>
-                        setBrushConfig({
+                        engineRef.current?.setBrushConfig({
                           strokeSettings: {
                             texture:
-                              snap.brushConfig.strokeSettings?.texture ||
-                              'pencil',
+                              engineStateSnap?.strokeSettings.brushSettings
+                                ?.texture || 'pencil',
                             scatterRange:
-                              snap.brushConfig.strokeSettings?.scatterRange ||
-                              0.5,
+                              engineStateSnap?.strokeSettings.brushSettings
+                                ?.scatterConfig?.spread || 0.5,
                             rotationAdjust:
-                              snap.brushConfig.strokeSettings?.rotationAdjust ||
-                              1,
+                              engineStateSnap?.strokeSettings.brushSettings
+                                ?.rotationAdjust || 1,
                             randomRotation: value[0],
                             randomScale:
-                              snap.brushConfig.strokeSettings?.randomScale || 0,
+                              engineStateSnap?.strokeSettings.brushSettings
+                                ?.randomScale || 0,
                             inOutInfluence:
-                              snap.brushConfig.strokeSettings?.inOutInfluence ||
-                              1,
+                              engineStateSnap?.strokeSettings.brushSettings
+                                ?.inOutInfluence || 1,
                             inOutLength:
-                              snap.brushConfig.strokeSettings?.inOutLength ||
-                              100,
+                              engineStateSnap?.strokeSettings.brushSettings
+                                ?.inOutLength || 100,
                             divisions:
-                              snap.brushConfig.strokeSettings?.divisions ||
-                              1000,
+                              engineStateSnap?.strokeSettings.brushSettings
+                                ?.divisions || 1000,
                             pressureInfluence:
-                              snap.brushConfig.strokeSettings
+                              engineStateSnap?.strokeSettings.brushSettings
                                 ?.pressureInfluence || 0.8,
                             noiseInfluence:
-                              snap.brushConfig.strokeSettings?.noiseInfluence ||
-                              0,
+                              engineStateSnap?.strokeSettings.brushSettings
+                                ?.noiseInfluence || 0,
                           },
                         })
                       }
@@ -789,43 +932,45 @@ export default function Home() {
                   <div>
                     <Label>
                       ランダムスケール:{' '}
-                      {snap.brushConfig.strokeSettings?.randomScale || 0}
+                      {engineStateSnap?.strokeSettings.brushSettings
+                        ?.randomScale || 0}
                     </Label>
                     <Slider
                       value={[
-                        snap.brushConfig.strokeSettings?.randomScale || 0,
+                        engineStateSnap?.strokeSettings.brushSettings
+                          ?.randomScale || 0,
                       ]}
                       onValueChange={(value) =>
-                        setBrushConfig({
+                        engineRef.current?.setBrushConfig({
                           strokeSettings: {
                             texture:
-                              snap.brushConfig.strokeSettings?.texture ||
-                              'pencil',
+                              engineStateSnap?.strokeSettings.brushSettings
+                                ?.texture || 'pencil',
                             scatterRange:
-                              snap.brushConfig.strokeSettings?.scatterRange ||
-                              0.5,
+                              engineStateSnap?.strokeSettings.brushSettings
+                                ?.scatterRange || 0.5,
                             rotationAdjust:
-                              snap.brushConfig.strokeSettings?.rotationAdjust ||
-                              1,
+                              engineStateSnap?.strokeSettings.brushSettings
+                                ?.rotationAdjust || 1,
                             randomRotation:
-                              snap.brushConfig.strokeSettings?.randomRotation ||
-                              0,
+                              engineStateSnap?.strokeSettings.brushSettings
+                                ?.randomRotation || 0,
                             randomScale: value[0],
                             inOutInfluence:
-                              snap.brushConfig.strokeSettings?.inOutInfluence ||
-                              1,
+                              engineStateSnap?.strokeSettings.brushSettings
+                                ?.inOutInfluence || 1,
                             inOutLength:
-                              snap.brushConfig.strokeSettings?.inOutLength ||
-                              100,
+                              engineStateSnap?.strokeSettings.brushSettings
+                                ?.inOutLength || 100,
                             divisions:
-                              snap.brushConfig.strokeSettings?.divisions ||
-                              1000,
+                              engineStateSnap?.strokeSettings.brushSettings
+                                ?.divisions || 1000,
                             pressureInfluence:
-                              snap.brushConfig.strokeSettings
+                              engineStateSnap?.strokeSettings.brushSettings
                                 ?.pressureInfluence || 0.8,
                             noiseInfluence:
-                              snap.brushConfig.strokeSettings?.noiseInfluence ||
-                              0,
+                              engineStateSnap?.strokeSettings.brushSettings
+                                ?.noiseInfluence || 0,
                           },
                         })
                       }
@@ -839,42 +984,45 @@ export default function Home() {
                   <div>
                     <Label>
                       インアウト効果:{' '}
-                      {snap.brushConfig.strokeSettings?.inOutInfluence || 1}
+                      {engineStateSnap?.strokeSettings.strokeSettings
+                        ?.inOutInfluence || 1}
                     </Label>
                     <Slider
                       value={[
-                        snap.brushConfig.strokeSettings?.inOutInfluence || 1,
+                        engineStateSnap?.strokeSettings.strokeSettings
+                          ?.inOutInfluence || 1,
                       ]}
                       onValueChange={(value) =>
-                        setBrushConfig({
+                        engineRef.current?.setBrushConfig({
                           strokeSettings: {
                             texture:
-                              snap.brushConfig.strokeSettings?.texture ||
-                              'pencil',
+                              engineStateSnap?.strokeSettings.brushSettings
+                                ?.texture || 'pencil',
                             scatterRange:
-                              snap.brushConfig.strokeSettings?.scatterRange ||
-                              0.5,
+                              engineStateSnap?.strokeSettings.brushSettings
+                                ?.scatterRange || 0.5,
                             rotationAdjust:
-                              snap.brushConfig.strokeSettings?.rotationAdjust ||
-                              1,
+                              engineStateSnap?.strokeSettings.brushSettings
+                                ?.rotationAdjust || 1,
                             randomRotation:
-                              snap.brushConfig.strokeSettings?.randomRotation ||
-                              0,
+                              engineStateSnap?.strokeSettings.brushSettings
+                                ?.randomRotation || 0,
                             randomScale:
-                              snap.brushConfig.strokeSettings?.randomScale || 0,
+                              engineStateSnap?.strokeSettings.brushSettings
+                                ?.randomScale || 0,
                             inOutInfluence: value[0],
                             inOutLength:
-                              snap.brushConfig.strokeSettings?.inOutLength ||
-                              100,
+                              engineStateSnap?.strokeSettings.brushSettings
+                                ?.inOutLength || 100,
                             divisions:
-                              snap.brushConfig.strokeSettings?.divisions ||
-                              1000,
+                              engineStateSnap?.strokeSettings.brushSettings
+                                ?.divisions || 1000,
                             pressureInfluence:
-                              snap.brushConfig.strokeSettings
+                              engineStateSnap?.strokeSettings.brushSettings
                                 ?.pressureInfluence || 0.8,
                             noiseInfluence:
-                              snap.brushConfig.strokeSettings?.noiseInfluence ||
-                              0,
+                              engineStateSnap?.strokeSettings.brushSettings
+                                ?.noiseInfluence || 0,
                           },
                         })
                       }
@@ -1045,8 +1193,7 @@ export default function Home() {
                       size="sm"
                       className="w-full"
                       onClick={() => {
-                        // TODO: 削除機能
-                        console.log('削除')
+                        deleteSelected()
                       }}
                     >
                       削除
@@ -1058,6 +1205,19 @@ export default function Home() {
           </div>
         </Tabs>
       </div>
+
+      {/* デバッグペイン（一番右） */}
+      {debugPanelOpen && (
+        <div className="w-96 min-w-96 bg-card border-l flex-none">
+          <DebugPane engine={engineRef.current} isOpen={debugPanelOpen} />
+        </div>
+      )}
+
+      {/* キーボードショートカット設定ダイアログ */}
+      <KeyboardShortcutsDialog
+        open={shortcutsDialogOpen}
+        onOpenChange={setShortcutsDialogOpen}
+      />
     </div>
   )
 }

@@ -4,66 +4,133 @@
  * メインWebGPUエンジンとUIレンダリングシステムの統合
  */
 
-import type { UIRenderer, TextStyle } from './ui-renderer'
+import type {
+  TextStyle,
+  UIElement,
+  TextUIElement,
+  SurfaceUIElement,
+  ButtonUIElement,
+  PathUIElement,
+} from './ui-elements'
+import { UIBuilder } from './ui-elements'
+import { selectionState } from '../../selection-state'
+import { IWebGPUUIComponent } from './IWebGPUUIComponent'
+import { ArtboardRenderer } from './artboard-renderer'
+import { SelectionRenderer } from './selection-renderer'
+import { ScreenUIRenderer } from './screen-ui-renderer'
 
-export { UIRenderer } from './ui-renderer'
-export type { TextStyle, UIRenderOptions } from './ui-renderer'
-export { UITestComponents } from './test-components'
+export { UIBuilder } from './ui-elements'
+export type {
+  TextStyle,
+  UIRenderOptions,
+  UIElement,
+  TextUIElement,
+  SurfaceUIElement,
+  ButtonUIElement,
+  PathUIElement,
+  AnyUIElement,
+} from './ui-elements'
 
-// UI要素の型定義
-export interface UIElement {
-  id: string
-  type: 'text' | 'icon' | 'panel' | 'button'
-  position: { x: number; y: number }
-  size?: { width: number; height: number }
-  visible: boolean
-  zIndex: number
-  interactive?: boolean
-  onClick?: () => void
-  onHover?: (isHovering: boolean) => void
+// WebGPU宣言的UI設定
+export interface WebGPUIDeclaration {
+  artboards?: {
+    background?: boolean
+    foreground?: boolean
+    showLabels?: boolean
+    showBounds?: boolean
+  }
+  selection?: {
+    enabled?: boolean
+    showHandles?: boolean
+  }
+  screenUI?: {
+    coordinateGrid?: boolean
+    rulers?: boolean
+  }
 }
 
-export interface TextUIElement extends UIElement {
-  type: 'text'
-  text: string
-  style: TextStyle
-}
-
-export interface IconUIElement extends UIElement {
-  type: 'icon'
-  iconName: string
-  size: { width: number; height: number }
-}
-
-export interface PanelUIElement extends UIElement {
-  type: 'panel'
-  size: { width: number; height: number }
-  backgroundColor?: { r: number; g: number; b: number; a: number }
-  borderRadius?: number
-  borderWidth?: number
-  borderColor?: { r: number; g: number; b: number; a: number }
-  fillMode?: 'fill' | 'stroke' | 'both'
-}
-
-export interface ButtonUIElement extends UIElement {
-  type: 'button'
-  text: string
-  size: { width: number; height: number }
-  backgroundColor: { r: number; g: number; b: number; a: number }
-  textColor: { r: number; g: number; b: number; a: number }
-  borderRadius?: number
-  fontSize?: number
-  interactive: true
+export interface WebGPUComponentContext {
+  device: GPUDevice
+  pipelines: {
+    line: GPURenderPipeline
+    fill: GPURenderPipeline
+    text: GPURenderPipeline
+  }
+  state: any
 }
 
 // UI管理クラス
 export class UIManager {
   private elements: Map<string, UIElement> = new Map()
-  private uiRenderer: UIRenderer | null = null
   private hoveredElement: string | null = null
+  private selectedObjectIds: Set<string> = new Set()
+  private lastHitResults: any[] = [] // HitTestResult[]
 
-  setRenderer(renderer: UIRenderer): void {
-    this.uiRenderer = renderer
+  /**
+   * 選択状態を更新（ヒットテスト結果から）
+   */
+  updateSelectionFromHitTest(hitResults: any[]): void {
+    this.lastHitResults = hitResults
+    this.selectedObjectIds = new Set(hitResults.map((hit) => hit.artObject.id))
+  }
+
+  /**
+   * 選択状態をクリア
+   */
+  clearSelection(): void {
+    this.selectedObjectIds.clear()
+    this.lastHitResults = []
+  }
+
+  /**
+   * 選択されたオブジェクトIDsを取得
+   */
+  getSelectedObjectIds(): Set<string> {
+    return new Set(this.selectedObjectIds)
+  }
+
+  /**
+   * オブジェクトが選択されているかチェック
+   */
+  isObjectSelected(objectId: string): boolean {
+    return this.selectedObjectIds.has(objectId)
+  }
+
+  /**
+   * 宣言的設定からWebGPUコンポーネントを生成
+   */
+  createWebGPUComponents(
+    declaration: WebGPUIDeclaration,
+    context: WebGPUComponentContext,
+  ): IWebGPUUIComponent[] {
+    const components: IWebGPUUIComponent[] = []
+
+    // アートボードレンダラー
+    if (declaration.artboards?.background) {
+      components.push(
+        new ArtboardRenderer({ showBounds: true, showBackground: true }),
+      )
+    }
+
+    if (declaration.artboards?.foreground) {
+      components.push(
+        new ArtboardRenderer({ showBounds: true, showBackground: false }),
+      )
+    }
+
+    // 選択コンポーネント
+    if (declaration.selection?.enabled) {
+      components.push(new SelectionRenderer(context.state))
+    }
+
+    // スクリーンUIコンポーネント
+    if (declaration.screenUI?.coordinateGrid || declaration.screenUI?.rulers) {
+      components.push(
+        new ScreenUIRenderer({ showCrosshair: true, showDebugInfo: true }),
+      )
+    }
+
+    return components
   }
 
   addElement(element: UIElement): void {
@@ -91,20 +158,16 @@ export class UIManager {
         // 前の要素のホバーを解除
         if (this.hoveredElement) {
           const prevElement = this.elements.get(this.hoveredElement)
-          if (prevElement?.onHover) {
-            prevElement.onHover(false)
-          }
+          // onHoverプロパティは現在のUIElementには存在しないためスキップ
         }
 
         // 新しい要素のホバーを設定
         this.hoveredElement = hitElement?.id || null
-        if (hitElement?.onHover) {
-          hitElement.onHover(true)
-        }
+        // onHoverプロパティは現在のUIElementには存在しないためスキップ
       }
-    } else if (eventType === 'click' && hitElement?.onClick) {
-      hitElement.onClick()
-      return true // イベントを処理した
+    } else if (eventType === 'click') {
+      // onClickプロパティは現在のUIElementには存在しないためスキップ
+      return hitElement !== null // イベントがヒットしたかどうかを返す
     }
 
     return false
@@ -113,8 +176,8 @@ export class UIManager {
   /** 指定位置にあるUI要素を取得（最前面から検索） */
   private getElementAtPosition(x: number, y: number): UIElement | null {
     const sortedElements = Array.from(this.elements.values())
-      .filter((el) => el.visible && el.interactive)
-      .sort((a, b) => b.zIndex - a.zIndex) // 最前面から検索
+      .filter((el) => el.visible)
+      .sort((a, b) => (b.zIndex || 0) - (a.zIndex || 0)) // 最前面から検索
 
     for (const element of sortedElements) {
       if (this.isPointInElement(x, y, element)) {
@@ -128,12 +191,13 @@ export class UIManager {
   /** 点がUI要素内にあるかチェック */
   private isPointInElement(x: number, y: number, element: UIElement): boolean {
     const size = element.size || this.getElementDefaultSize(element)
+    const location = element.location || { x: 0, y: 0 }
 
     return (
-      x >= element.position.x &&
-      x <= element.position.x + size.width &&
-      y >= element.position.y &&
-      y <= element.position.y + size.height
+      x >= location.x &&
+      x <= location.x + size.width &&
+      y >= location.y &&
+      y <= location.y + size.height
     )
   }
 
@@ -147,8 +211,11 @@ export class UIManager {
         const textEl = element as TextUIElement
         // テキストサイズを概算（実際の実装では正確な測定が必要）
         return {
-          width: textEl.text.length * (textEl.style.fontSize || 16) * 0.6,
-          height: textEl.style.fontSize || 16,
+          width:
+            textEl.text.length *
+            (textEl.style?.fontSize || textEl.fontSize || 16) *
+            0.6,
+          height: textEl.style?.fontSize || textEl.fontSize || 16,
         }
       case 'icon':
         return { width: 24, height: 24 }
@@ -157,230 +224,179 @@ export class UIManager {
     }
   }
 
-  async renderUI(renderPass: GPURenderPassEncoder): Promise<GPUBuffer[]> {
-    if (!this.uiRenderer) return []
+  /**
+   * ドキュメントからアートボードUIを構築
+   */
+  buildArtboardUI(
+    documentContext: any,
+    uiBuilder: UIBuilder,
+    options: {
+      showBackground?: boolean
+      showLabel?: boolean
+      showBounds?: boolean
+    } = {},
+  ): void {
+    const document = documentContext.document
+    if (!document.artboards || document.artboards.length === 0) return
 
-    this.uiRenderer.beginFrame()
+    for (const artboard of document.artboards) {
+      if (!artboard.visible) continue
 
-    // zIndexでソートして描画順序を制御
-    const sortedElements = Array.from(this.elements.values())
-      .filter((el) => el.visible)
-      .sort((a, b) => a.zIndex - b.zIndex)
+      // Artboard rendering temporarily disabled - replaced with surface
+      uiBuilder.surface({
+        id: `artboard-${artboard.id}`,
+        location: { x: artboard.bounds.x, y: artboard.bounds.y },
+        size: { width: artboard.bounds.width, height: artboard.bounds.height },
+        position: 'local',
+        borderColor: { r: 0.8, g: 0.8, b: 0.8, a: 1.0 },
+        borderWidth: 1,
+        zIndex: -500,
+      })
+    }
+  }
 
-    for (const element of sortedElements) {
-      switch (element.type) {
-        case 'text':
-          const textEl = element as TextUIElement
-          this.uiRenderer.renderText(
-            textEl.text,
-            {
-              position: textEl.position,
-              zIndex: textEl.zIndex,
+  async renderUI(
+    renderPass: GPURenderPassEncoder,
+    documentContext?: any,
+    camera?: any,
+    canvasSize?: { width: number; height: number },
+    webgpuEngine?: any,
+  ): Promise<GPUBuffer[]> {
+    // UI要素の生成のみ（実際のレンダリングはui-component-managerで行われる）
+
+    // 宣言的UIビルダーを使用してシステムUIを構築
+    const uiBuilder = new UIBuilder()
+
+    // アートボードを描画（ドキュメントが提供された場合）
+    if (documentContext) {
+      this.buildArtboardUI(documentContext, uiBuilder, {
+        showBackground: true,
+        showLabel: true,
+        showBounds: true,
+      })
+    }
+
+    // 矩形選択ドラッグボックスの描画（点線枠のみ、塗りなし）
+    if (selectionState.isDragSelecting && selectionState.dragSelectionBox) {
+      const bbox = selectionState.dragSelectionBox
+
+      // Drag selection box rendering - replaced with surface
+      uiBuilder.surface({
+        id: 'drag-selection-box',
+        location: { x: bbox.x, y: bbox.y },
+        size: { width: bbox.width, height: bbox.height },
+        position: 'local',
+        borderColor: { r: 0.2, g: 0.6, b: 1.0, a: 0.8 },
+        borderWidth: 2,
+        fillMode: 'stroke', // ストロークのみ
+        zIndex: 9999, // オブジェクトより前面に表示
+      })
+    }
+
+    // UIComponentManagerから選択範囲UIを生成
+    if (this.lastHitResults.length > 0) {
+      // レイキャスト結果を使用してUIBuilderで選択範囲を構築
+      const raycastHits = this.lastHitResults
+
+      if (raycastHits.length > 0) {
+        // 選択されたパスの青いアウトライン表示
+        for (const hit of raycastHits) {
+          const artObject = hit.artObject
+          if (artObject.type === 'path' && artObject.path?.points) {
+            // Path outline rendering using path element
+            uiBuilder.path(artObject.path, {
+              id: `path-outline-${artObject.id}`,
+              position: 'local',
+              strokeColor: { r: 0.2, g: 0.6, b: 1.0, a: 0.8 },
+              strokeWidth: 3,
+              zIndex: 9998, // オブジェクトより前面に表示
+            })
+          }
+        }
+
+        // 選択範囲のバウンディングボックスを計算
+        let minX = Infinity,
+          minY = Infinity,
+          maxX = -Infinity,
+          maxY = -Infinity
+
+        for (const hit of raycastHits) {
+          const bbox = hit.boundingBox || {
+            x: 0,
+            y: 0,
+            width: 100,
+            height: 100,
+          }
+          minX = Math.min(minX, bbox.x)
+          minY = Math.min(minY, bbox.y)
+          maxX = Math.max(maxX, bbox.x + bbox.width)
+          maxY = Math.max(maxY, bbox.y + bbox.height)
+        }
+
+        if (
+          isFinite(minX) &&
+          isFinite(minY) &&
+          isFinite(maxX) &&
+          isFinite(maxY)
+        ) {
+          const selectionBounds = {
+            x: minX,
+            y: minY,
+            width: maxX - minX,
+            height: maxY - minY,
+          }
+
+          // Raycast selection box rendering - replaced with surface
+          uiBuilder.surface({
+            id: 'raycast-selection',
+            location: { x: selectionBounds.x, y: selectionBounds.y },
+            size: {
+              width: selectionBounds.width,
+              height: selectionBounds.height,
             },
-            textEl.style,
-          )
-          break
-
-        case 'icon':
-          const iconEl = element as IconUIElement
-          this.uiRenderer.renderIcon(iconEl.iconName, {
-            position: iconEl.position,
-            size: iconEl.size,
-            zIndex: iconEl.zIndex,
-          })
-          break
-
-        case 'panel':
-          const panelEl = element as PanelUIElement
-          this.uiRenderer.renderPanel({
-            position: panelEl.position,
-            size: panelEl.size,
-            backgroundColor: panelEl.backgroundColor,
-            borderRadius: panelEl.borderRadius,
-            borderWidth: panelEl.borderWidth,
-            borderColor: panelEl.borderColor,
-            fillMode: panelEl.fillMode,
-            zIndex: panelEl.zIndex,
-          })
-          break
-
-        case 'button':
-          const buttonEl = element as ButtonUIElement
-          // ボタンは背景パネル+テキストの組み合わせで描画
-          this.uiRenderer.renderPanel({
-            position: buttonEl.position,
-            size: buttonEl.size,
-            backgroundColor: buttonEl.backgroundColor,
-            zIndex: buttonEl.zIndex,
+            position: 'local',
+            borderColor: { r: 0.2, g: 0.6, b: 1.0, a: 1.0 },
+            borderWidth: 2,
+            fillMode: 'stroke',
+            zIndex: 10000, // オブジェクトより前面に表示
           })
 
-          this.uiRenderer.renderText(
-            buttonEl.text,
-            {
-              position: {
-                x: buttonEl.position.x + buttonEl.size.width / 2,
-                y: buttonEl.position.y + buttonEl.size.height / 2,
-              },
-              zIndex: buttonEl.zIndex + 1,
-            },
-            {
-              fontSize: buttonEl.fontSize || 16,
-              fontFamily: 'Arial',
-              color: buttonEl.textColor,
-            },
-          )
-          break
+          // Handle drag temporarily disabled
+          const onHandleDrag = (
+            handleType: string,
+            deltaX: number,
+            deltaY: number,
+          ) => {
+            // Handle drag logic would go here
+          }
+          const onSelectionMove = (deltaX: number, deltaY: number) => {
+            // Selection move logic would go here
+          }
+        }
       }
     }
 
-    return await this.uiRenderer.renderUILayer(renderPass)
-  }
-}
+    // レガシー選択状態との互換性（既存システムが使用している場合）
+    if (
+      selectionState.boundingBox &&
+      selectionState.selectedObjects.size > 0 &&
+      this.lastHitResults.length === 0
+    ) {
+      const bbox = selectionState.boundingBox
+      // Legacy selection box rendering - replaced with surface
+      uiBuilder.surface({
+        id: 'legacy-selection-bounding-box',
+        location: { x: bbox.x, y: bbox.y },
+        size: { width: bbox.width, height: bbox.height },
+        position: 'local',
+        borderColor: { r: 0.2, g: 0.6, b: 1.0, a: 1.0 },
+        borderWidth: 2,
+        fillMode: 'stroke',
+        zIndex: 10000, // オブジェクトより前面に表示
+      })
+    }
 
-// UIヘルパー関数
-export const createTextElement = (
-  id: string,
-  text: string,
-  position: { x: number; y: number },
-  style: Partial<TextStyle> = {},
-): TextUIElement => ({
-  id,
-  type: 'text',
-  text,
-  position,
-  visible: true,
-  zIndex: 0,
-  style: {
-    fontSize: 16,
-    fontFamily: 'Arial',
-    color: { r: 0, g: 0, b: 0, a: 1 },
-    ...style,
-  },
-})
-
-export const createIconElement = (
-  id: string,
-  iconName: string,
-  position: { x: number; y: number },
-  size: { width: number; height: number } = { width: 24, height: 24 },
-): IconUIElement => ({
-  id,
-  type: 'icon',
-  iconName,
-  position,
-  size,
-  visible: true,
-  zIndex: 0,
-})
-
-export const createPanelElement = (
-  id: string,
-  position: { x: number; y: number },
-  size: { width: number; height: number },
-  options: {
-    backgroundColor?: { r: number; g: number; b: number; a: number }
-    borderRadius?: number
-    borderWidth?: number
-    borderColor?: { r: number; g: number; b: number; a: number }
-    fillMode?: 'fill' | 'stroke' | 'both'
-    zIndex?: number
-  } = {},
-): PanelUIElement => ({
-  id,
-  type: 'panel',
-  position,
-  size,
-  backgroundColor: options.backgroundColor || { r: 1, g: 1, b: 1, a: 0.8 },
-  borderRadius: options.borderRadius,
-  borderWidth: options.borderWidth,
-  borderColor: options.borderColor,
-  fillMode: options.fillMode || 'fill',
-  visible: true,
-  zIndex: options.zIndex ?? -1, // パネルは背景なので低いzIndex
-})
-
-export const createButtonElement = (
-  id: string,
-  text: string,
-  position: { x: number; y: number },
-  size: { width: number; height: number } = { width: 120, height: 40 },
-  onClick?: () => void,
-  options: {
-    backgroundColor?: { r: number; g: number; b: number; a: number }
-    textColor?: { r: number; g: number; b: number; a: number }
-    fontSize?: number
-    zIndex?: number
-  } = {},
-): ButtonUIElement => ({
-  id,
-  type: 'button',
-  text,
-  position,
-  size,
-  backgroundColor: options.backgroundColor || { r: 0.2, g: 0.5, b: 0.8, a: 1 },
-  textColor: options.textColor || { r: 1, g: 1, b: 1, a: 1 },
-  fontSize: options.fontSize || 16,
-  visible: true,
-  zIndex: options.zIndex || 10,
-  interactive: true,
-  onClick,
-  onHover: (isHovering) => {
-    // ホバー時の視覚フィードバック（今後実装）
-    console.log(`Button ${id} hover: ${isHovering}`)
-  },
-})
-
-/** 宣言的UIコンポーネント作成ヘルパー */
-export class UIBuilder {
-  private elements: UIElement[] = []
-
-  text(
-    id: string,
-    text: string,
-    x: number,
-    y: number,
-    style?: Partial<TextStyle>,
-  ): UIBuilder {
-    this.elements.push(createTextElement(id, text, { x, y }, style))
-    return this
-  }
-
-  button(
-    id: string,
-    text: string,
-    x: number,
-    y: number,
-    onClick?: () => void,
-    options?: Parameters<typeof createButtonElement>[5],
-  ): UIBuilder {
-    this.elements.push(
-      createButtonElement(id, text, { x, y }, undefined, onClick, options),
-    )
-    return this
-  }
-
-  panel(
-    id: string,
-    x: number,
-    y: number,
-    width: number,
-    height: number,
-    options?: {
-      backgroundColor?: { r: number; g: number; b: number; a: number }
-      borderRadius?: number
-      borderWidth?: number
-      borderColor?: { r: number; g: number; b: number; a: number }
-      fillMode?: 'fill' | 'stroke' | 'both'
-      zIndex?: number
-    },
-  ): UIBuilder {
-    this.elements.push(
-      createPanelElement(id, { x, y }, { width, height }, options),
-    )
-    return this
-  }
-
-  build(): UIElement[] {
-    return [...this.elements]
+    // UI要素の生成は完了（実際のレンダリングはui-component-managerが担当）
+    return []
   }
 }

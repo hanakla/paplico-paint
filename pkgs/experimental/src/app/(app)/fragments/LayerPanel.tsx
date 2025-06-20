@@ -1,5 +1,6 @@
 'use client'
 
+import React from 'react'
 import { useEventCallback } from '@paplico/shared-lib/react'
 import { useContext, useRef } from 'react'
 import { useSnapshot } from 'valtio'
@@ -47,7 +48,7 @@ import {
 } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import { useEffect, useState, memo } from 'react'
-import { engineState } from '@/engine/state'
+// engineStateはPaplicoEngine経由でアクセス
 import {
   addLayerToDocument,
   removeLayerFromDocument,
@@ -57,6 +58,7 @@ import {
   getExtendedTree,
   moveLayerToGroup,
   moveArtObjectToLayer,
+  reorderLayers,
   type ExtendedTreeItem,
 } from '@/engine/document/document'
 import { createVectorLayer, createGroupLayer } from '@/engine/document/layer'
@@ -68,6 +70,8 @@ import {
   setActiveLayer,
 } from '@/stores/editor'
 import type { Layer, GroupLayer, LayerNode } from '@/engine/document/layer'
+import { EngineState } from '@/engine/state'
+import { useNullishSnapshot } from '@/lib/hooks'
 
 interface ExtendedTreeItemProps {
   treeItem: ExtendedTreeItem
@@ -336,8 +340,6 @@ const DragOverlayItem = memo(({ layer }: { layer: Layer }) => (
 ))
 
 export const LayerPanel = memo(() => {
-  const snap = useSnapshot(engineState)
-  const editorSnap = useSnapshot(editorState)
   const [activeId, setActiveId] = useState<UniqueIdentifier | null>(null)
   const [overId, setOverId] = useState<UniqueIdentifier | null>(null)
 
@@ -413,6 +415,9 @@ export const LayerPanel = memo(() => {
     const activeItem = extendedTree.find((item) => item.id === activeId)
     const overItem = extendedTree.find((item) => item.id === overId)
 
+    const document = getActiveDocument()
+    if (!document) return
+
     // Handle drop zones (with position prefixes)
     if (overId.includes('-')) {
       const [position, targetId] = overId.split('-')
@@ -422,67 +427,99 @@ export const LayerPanel = memo(() => {
         if (activeItem?.type === 'layer') {
           // Layer to group/layer
           if (targetItem.layer?.type === 'group') {
-            const document = getActiveDocument()
-            if (document) {
-              moveLayerToGroup(document, activeId, targetId)
-            }
+            moveLayerToGroup(document, activeId, targetId)
           }
         } else if (activeItem?.type === 'artObject') {
           // ArtObject to layer
-          const document = getActiveDocument()
-          if (document) {
-            moveArtObjectToLayer(document, activeId, targetId)
-          }
+          moveArtObjectToLayer(document, activeId, targetId)
         }
-      } else {
+      } else if (position === 'before' || position === 'after') {
+        // Handle reordering
         if (activeItem?.type === 'layer' && targetItem?.type === 'layer') {
-          // Get parent ID from document structure
-          const document = getActiveDocument()
-          if (document) {
-            const targetNode = document.layerNodes.find(
-              (n) => n.layerId === targetId,
+          // Get only layer items for reordering
+          const layerItems = extendedTree.filter(
+            (item) => item.type === 'layer',
+          )
+          const activeIndex = layerItems.findIndex(
+            (item) => item.id === activeId,
+          )
+          const targetIndex = layerItems.findIndex(
+            (item) => item.id === targetId,
+          )
+
+          if (activeIndex !== -1 && targetIndex !== -1) {
+            const newIndex =
+              position === 'before' ? targetIndex : targetIndex + 1
+
+            // Create new order array
+            const reorderedItems = [...layerItems]
+            const [movedItem] = reorderedItems.splice(activeIndex, 1)
+            reorderedItems.splice(
+              newIndex > activeIndex ? newIndex - 1 : newIndex,
+              0,
+              movedItem,
             )
-            moveLayerToGroup(document, activeId, targetNode?.parentId || null)
+
+            // Update layer order in document
+            reorderedItems.forEach((item, index) => {
+              const node = document.layerNodes.find(
+                (n) => n.layerId === item.id,
+              )
+              if (node) {
+                node.order = index
+              }
+            })
+
+            document.updatedAt = new Date()
           }
         }
       }
     } else {
-      // Handle direct item drops
-      if (activeItem && overItem) {
-        if (activeItem.type === 'layer' && overItem.type === 'layer') {
-          // Layer to layer movement
-          const document = getActiveDocument()
-          if (document) {
-            if (overItem.layer?.type === 'group' && overItem.isExpanded) {
-              moveLayerToGroup(document, activeId, overItem.id)
-            } else {
-              // Get parent from document structure
-              const overNode = document.layerNodes.find(
-                (n) => n.layerId === overItem.id,
-              )
-              moveLayerToGroup(document, activeId, overNode?.parentId || null)
-            }
-          }
-        } else if (
-          activeItem.type === 'artObject' &&
-          overItem.type === 'layer'
+      // Handle direct item drops (simple reordering)
+      if (
+        activeItem &&
+        overItem &&
+        activeItem.type === 'layer' &&
+        overItem.type === 'layer'
+      ) {
+        // Get only layer items for reordering
+        const layerItems = extendedTree.filter((item) => item.type === 'layer')
+        const activeIndex = layerItems.findIndex((item) => item.id === activeId)
+        const overIndex = layerItems.findIndex((item) => item.id === overId)
+
+        if (
+          activeIndex !== -1 &&
+          overIndex !== -1 &&
+          activeIndex !== overIndex
         ) {
-          // ArtObject to layer movement
-          const document = getActiveDocument()
-          if (document) {
-            moveArtObjectToLayer(document, activeId, overItem.id)
-          }
-        } else if (
-          activeItem.type === 'artObject' &&
-          overItem.type === 'artObject'
-        ) {
-          // ArtObject to same layer as another artObject
-          if (overItem.parentLayerId) {
-            const document = getActiveDocument()
-            if (document) {
-              moveArtObjectToLayer(document, activeId, overItem.parentLayerId)
+          const reorderedItems = arrayMove(layerItems, activeIndex, overIndex)
+
+          // Update layer order in document
+          reorderedItems.forEach((item, index) => {
+            const node = document.layerNodes.find((n) => n.layerId === item.id)
+            if (node) {
+              node.order = index
             }
-          }
+          })
+
+          document.updatedAt = new Date()
+        } else if (overItem.layer?.type === 'group' && overItem.isExpanded) {
+          // Move to group
+          moveLayerToGroup(document, activeId, overItem.id)
+        }
+      } else if (
+        activeItem?.type === 'artObject' &&
+        overItem?.type === 'layer'
+      ) {
+        // ArtObject to layer movement
+        moveArtObjectToLayer(document, activeId, overItem.id)
+      } else if (
+        activeItem?.type === 'artObject' &&
+        overItem?.type === 'artObject'
+      ) {
+        // ArtObject to same layer as another artObject
+        if (overItem.parentLayerId) {
+          moveArtObjectToLayer(document, activeId, overItem.parentLayerId)
         }
       }
     }
@@ -610,15 +647,15 @@ export const LayerPanel = memo(() => {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <h3 className="text-lg font-semibold">レイヤー</h3>
+      <div className="flex gap-2 items-center justify-between">
+        <h3 className="text-xs font-semibold">レイヤー</h3>
         <div className="flex space-x-2">
-          <Button size="sm" onClick={handleAddLayer}>
-            <Plus className="w-4 h-4 mr-1" />
+          <Button size="xs" onClick={handleAddLayer}>
+            <Plus className="w-4 h-4" />
             レイヤー
           </Button>
-          <Button size="sm" variant="outline" onClick={handleAddGroupLayer}>
-            <Folder className="w-4 h-4 mr-1" />
+          <Button size="xs" variant="outline" onClick={handleAddGroupLayer}>
+            <Folder className="w-4 h-4" />
             グループ
           </Button>
         </div>

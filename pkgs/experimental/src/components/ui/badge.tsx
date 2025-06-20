@@ -1,4 +1,4 @@
-import * as React from 'react'
+import { memo } from 'react'
 import { Slot } from '@radix-ui/react-slot'
 import { cva, type VariantProps } from 'class-variance-authority'
 
@@ -25,7 +25,7 @@ const badgeVariants = cva(
   },
 )
 
-function Badge({
+const Badge = memo(function Badge({
   className,
   variant,
   asChild = false,
@@ -41,6 +41,6 @@ function Badge({
       {...props}
     />
   )
-}
+})
 
 export { Badge, badgeVariants }

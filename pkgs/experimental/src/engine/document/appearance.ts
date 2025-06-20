@@ -54,18 +54,91 @@ export interface StrokeParams {
   /** ブレンドモード */
   blendMode: BlendMode
   /** ブラシ設定（詳細なストローク描画用） */
-  brushSettings?: {
-    texture: 'pencil' | 'airbrush'
-    scatterRange: number
-    rotationAdjust: number
-    randomRotation: number
-    randomScale: number
-    inOutInfluence: number
-    inOutLength: number
-    divisions: number
-    pressureInfluence: number
-    noiseInfluence: number
+  brushSettings?: BrushSettings
+}
+
+/**
+ * ブラシ設定インターフェース
+ * WebGPU ベースのストローク描画システムで使用される詳細なブラシパラメータを定義
+ *
+ * @description
+ * このインターフェースは高度なストローク描画機能を提供し、以下の機能をサポート:
+ * - 筆圧感知による動的なサイズ・不透明度制御
+ * - ペンの傾き（Tilt）による形状変化
+ * - 描画速度による表現の変化
+ * - ランダム要素による自然な描画効果
+ * - 各種テクスチャとスキャッター効果
+ *
+ * @example
+ * ```typescript
+ * const pencilBrush: BrushSettings = {
+ *   texture: 'pencil',
+ *   scatterRange: 0.5,
+ *   pressureSizeInfluence: 0.8,
+ *   pressureOpacityInfluence: 0.6,
+ *   tiltInfluence: 0.3,
+ *   velocitySizeInfluence: 0.2
+ * }
+ * ```
+ *
+ * @see {@link StrokeParams} - このブラシ設定を含むストロークアピアランス
+ * @see {@link createStrokeAppearance} - ブラシ設定を含むストローク作成関数
+ */
+export interface BrushSettings {
+  /** ブラシテクスチャタイプ - 描画の基本的な見た目を決定 */
+  texture: 'pencil' | 'airbrush'
+
+  scatterConfig?: {
+    count: number
+    spread: number
+    sizeVariation: number
+    opacityVariation: number
   }
+
+  /** 回転調整係数 (0.0-2.0) - ブラシの回転に対する感度 */
+  rotationAdjust: number
+
+  /** ランダム回転 (0.0-1.0) - ブラシポイントのランダム回転量 */
+  randomRotation: number
+
+  /** ランダムスケール (0.0-1.0) - ブラシポイントのランダムサイズ変化 */
+  randomScale: number
+
+  /** インアウト効果の影響度 (0.0-1.0) - ストローク始端・終端でのフェード効果 */
+  inOutInfluence: number
+
+  /** インアウト効果の長さ (px) - フェード効果が適用される距離 */
+  inOutLength: number
+
+  /** ストローク分割数 - より高い値でより滑らかな描画（パフォーマンスとのトレードオフ） */
+  divisions: number
+
+  /** 筆圧の全体的な影響度 (0.0-1.0) - レガシー設定、新しい個別設定を推奨 */
+  pressureInfluence: number
+
+  /** ノイズの影響度 (0.0-1.0) - ブラシポイントへのランダムノイズ適用 */
+  noiseInfluence: number
+
+  /** 筆圧によるサイズへの影響度 (0.0-1.0) */
+  pressureSizeInfluence?: number
+
+  /** 筆圧による不透明度への影響度 (0.0-1.0) */
+  pressureOpacityInfluence?: number
+
+  /** ペンの傾きによる形状への影響度 (0.0-1.0) */
+  tiltInfluence?: number
+
+  /** 描画速度によるサイズへの影響度 (0.0-1.0) */
+  velocitySizeInfluence?: number
+
+  /** 描画速度による不透明度への影響度 (0.0-1.0) */
+  velocityOpacityInfluence?: number
+
+  /** 最小サイズ制限 (0.0-1.0, ブラシサイズに対する割合) */
+  minSizeRatio?: number
+
+  /** 最小不透明度制限 (0.0-1.0) */
+  minOpacity?: number
 }
 
 /**
@@ -162,34 +235,6 @@ export interface CreateGradientFillParams {
 }
 
 /**
- * 線アピアランス作成用パラメータ
- */
-export interface CreateStrokeParams {
-  width: number
-  color: RGBAColor
-  style?: 'solid' | 'dashed' | 'dotted'
-  dashPattern?: number[]
-  lineCap?: 'butt' | 'round' | 'square'
-  lineJoin?: 'miter' | 'round' | 'bevel'
-  miterLimit?: number
-  opacity?: number
-  blendMode?: BlendMode
-  enabled?: boolean
-  brushSettings?: {
-    texture: 'pencil' | 'airbrush'
-    scatterRange: number
-    rotationAdjust: number
-    randomRotation: number
-    randomScale: number
-    inOutInfluence: number
-    inOutLength: number
-    divisions: number
-    pressureInfluence: number
-    noiseInfluence: number
-  }
-}
-
-/**
  * ドロップシャドウアピアランス作成用パラメータ
  */
 export interface CreateDropShadowParams {
@@ -223,7 +268,7 @@ export function createSolidFill(params: CreateSolidFillParams): FillAppearance {
 /**
  * グラデーション塗りアピアランス作成ファクトリー関数
  */
-export function createGradientFill(
+export function createGradientFillAppearance(
   params: CreateGradientFillParams,
 ): FillAppearance {
   return {
@@ -242,7 +287,9 @@ export function createGradientFill(
 /**
  * 線アピアランス作成ファクトリー関数
  */
-export function createStroke(params: CreateStrokeParams): StrokeAppearance {
+export function createStrokeAppearance(
+  params: StrokeParams & { enabled?: boolean },
+): StrokeAppearance {
   return {
     uid: generateUid() as UUID,
     enabled: params.enabled !== false,
@@ -288,9 +335,14 @@ export function createDropShadow(
  * デフォルトの黒い線アピアランスを作成
  */
 export function createDefaultStroke(): StrokeAppearance {
-  return createStroke({
+  return createStrokeAppearance({
     width: 2,
     color: { r: 0, g: 0, b: 0, a: 1 },
+    style: 'solid',
+    lineCap: 'round',
+    lineJoin: 'round',
+    opacity: 1,
+    blendMode: 'normal',
   })
 }
 

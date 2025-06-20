@@ -1,4 +1,4 @@
-import { FilterConfig, engineState } from './state'
+import { FilterConfig } from './state'
 
 export class FilterRenderer {
   private device: any

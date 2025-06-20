@@ -1,11 +1,11 @@
 'use client'
 
-import * as React from 'react'
+import { memo } from 'react'
 import * as SeparatorPrimitive from '@radix-ui/react-separator'
 
 import { cn } from '@/lib/utils'
 
-function Separator({
+const Separator = memo(function Separator({
   className,
   orientation = 'horizontal',
   decorative = true,
@@ -23,6 +23,6 @@ function Separator({
       {...props}
     />
   )
-}
+})
 
 export { Separator }

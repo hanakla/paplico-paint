@@ -5,7 +5,7 @@ import { createPathArtObject } from '../../engine/document/art-object'
 import { createVectorPath, type VectorPoint } from '../../engine/document'
 import {
   createSolidFill,
-  createStroke,
+  createStrokeAppearance,
   createDropShadow,
 } from '../../engine/document/appearance'
 import { type RGBAColor } from '../../engine/document/types'
@@ -31,14 +31,36 @@ export function createTestDocument(): Document {
       backgroundColor: { r: 0.95, g: 0.95, b: 0.95, a: 1 },
     },
   })
+
   const mainArtboard = document.artboards[0]
+
+  document.artboards.push(
+    createArtboard({
+      name: 'サブキャンバス',
+      width: 400,
+      height: 300,
+      backgroundColor: { r: 1, g: 1, b: 1, a: 1 },
+      x: -420,
+      y: 0,
+      locked: false,
+      visible: true,
+    }),
+  )
 
   // レイヤー1
   const shapesLayer = createVectorLayer({
     name: '基本図形',
     appearances: [
       createSolidFill({ color: colors.blue, opacity: 0.8 }),
-      createStroke({ width: 3, color: colors.black, opacity: 0.9 }),
+      createStrokeAppearance({
+        width: 3,
+        color: colors.black,
+        style: 'solid',
+        lineCap: 'round',
+        lineJoin: 'round',
+        opacity: 0.9,
+        blendMode: 'normal',
+      }),
     ],
   })
   document.layers[shapesLayer.id] = shapesLayer
@@ -106,13 +128,14 @@ export function createTestDocument(): Document {
   const drawingLayer = createVectorLayer({
     name: '自由描画',
     appearances: [
-      createStroke({
+      createStrokeAppearance({
         width: 4,
         color: colors.purple,
         style: 'solid',
         lineCap: 'round',
         lineJoin: 'round',
         opacity: 0.9,
+        blendMode: 'normal',
       }),
     ],
   })
@@ -136,13 +159,14 @@ export function createTestDocument(): Document {
     artboardId: mainArtboard.id,
     path: wavePath,
     appearances: [
-      createStroke({
+      createStrokeAppearance({
         width: 6,
         color: colors.orange,
         style: 'solid',
         lineCap: 'round',
         lineJoin: 'round',
         opacity: 0.8,
+        blendMode: 'normal',
       }),
     ],
   })
@@ -154,12 +178,15 @@ export function createTestDocument(): Document {
     name: '装飾',
     opacity: 0.6,
     appearances: [
-      createStroke({
+      createStrokeAppearance({
         width: 2,
         color: colors.gray,
         style: 'dashed',
         dashPattern: [5, 3],
+        lineCap: 'round',
+        lineJoin: 'round',
         opacity: 0.8,
+        blendMode: 'normal',
       }),
     ],
   })
@@ -182,12 +209,15 @@ export function createTestDocument(): Document {
     artboardId: mainArtboard.id,
     path: framePath,
     appearances: [
-      createStroke({
+      createStrokeAppearance({
         width: 1,
         color: colors.black,
         style: 'dashed',
         dashPattern: [10, 5],
+        lineCap: 'round',
+        lineJoin: 'round',
         opacity: 0.3,
+        blendMode: 'normal',
       }),
     ],
   })
@@ -239,7 +269,15 @@ export function createSimpleTestDocument(): Document {
     artboardId: artboard.id,
     path: simplePath,
     appearances: [
-      createStroke({ width: 5, color: { r: 1, g: 0, b: 0, a: 1 } }),
+      createStrokeAppearance({
+        width: 5,
+        color: { r: 1, g: 0, b: 0, a: 1 },
+        style: 'solid',
+        lineCap: 'round',
+        lineJoin: 'round',
+        opacity: 1,
+        blendMode: 'normal',
+      }),
     ],
   })
   document.artObjects[simpleObject.id] = simpleObject

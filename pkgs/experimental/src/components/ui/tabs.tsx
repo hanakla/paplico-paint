@@ -1,11 +1,11 @@
 'use client'
 
-import * as React from 'react'
+import { memo } from 'react'
 import * as TabsPrimitive from '@radix-ui/react-tabs'
 
 import { cn } from '@/lib/utils'
 
-function Tabs({
+const Tabs = memo(function Tabs({
   className,
   ...props
 }: React.ComponentProps<typeof TabsPrimitive.Root>) {
@@ -16,9 +16,9 @@ function Tabs({
       {...props}
     />
   )
-}
+})
 
-function TabsList({
+const TabsList = memo(function TabsList({
   className,
   ...props
 }: React.ComponentProps<typeof TabsPrimitive.List>) {
@@ -32,9 +32,9 @@ function TabsList({
       {...props}
     />
   )
-}
+})
 
-function TabsTrigger({
+const TabsTrigger = memo(function TabsTrigger({
   className,
   ...props
 }: React.ComponentProps<typeof TabsPrimitive.Trigger>) {
@@ -48,9 +48,9 @@ function TabsTrigger({
       {...props}
     />
   )
-}
+})
 
-function TabsContent({
+const TabsContent = memo(function TabsContent({
   className,
   ...props
 }: React.ComponentProps<typeof TabsPrimitive.Content>) {
@@ -61,6 +61,6 @@ function TabsContent({
       {...props}
     />
   )
-}
+})
 
 export { Tabs, TabsList, TabsTrigger, TabsContent }

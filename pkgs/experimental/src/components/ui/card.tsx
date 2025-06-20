@@ -1,8 +1,11 @@
-import * as React from 'react'
+import { memo } from 'react'
 
 import { cn } from '@/lib/utils'
 
-function Card({ className, ...props }: React.ComponentProps<'div'>) {
+const Card = memo(function Card({
+  className,
+  ...props
+}: React.ComponentProps<'div'>) {
   return (
     <div
       data-slot="card"
@@ -13,9 +16,12 @@ function Card({ className, ...props }: React.ComponentProps<'div'>) {
       {...props}
     />
   )
-}
+})
 
-function CardHeader({ className, ...props }: React.ComponentProps<'div'>) {
+const CardHeader = memo(function CardHeader({
+  className,
+  ...props
+}: React.ComponentProps<'div'>) {
   return (
     <div
       data-slot="card-header"
@@ -26,9 +32,12 @@ function CardHeader({ className, ...props }: React.ComponentProps<'div'>) {
       {...props}
     />
   )
-}
+})
 
-function CardTitle({ className, ...props }: React.ComponentProps<'div'>) {
+const CardTitle = memo(function CardTitle({
+  className,
+  ...props
+}: React.ComponentProps<'div'>) {
   return (
     <div
       data-slot="card-title"
@@ -36,9 +45,12 @@ function CardTitle({ className, ...props }: React.ComponentProps<'div'>) {
       {...props}
     />
   )
-}
+})
 
-function CardDescription({ className, ...props }: React.ComponentProps<'div'>) {
+const CardDescription = memo(function CardDescription({
+  className,
+  ...props
+}: React.ComponentProps<'div'>) {
   return (
     <div
       data-slot="card-description"
@@ -46,9 +58,12 @@ function CardDescription({ className, ...props }: React.ComponentProps<'div'>) {
       {...props}
     />
   )
-}
+})
 
-function CardAction({ className, ...props }: React.ComponentProps<'div'>) {
+const CardAction = memo(function CardAction({
+  className,
+  ...props
+}: React.ComponentProps<'div'>) {
   return (
     <div
       data-slot="card-action"
@@ -59,9 +74,12 @@ function CardAction({ className, ...props }: React.ComponentProps<'div'>) {
       {...props}
     />
   )
-}
+})
 
-function CardContent({ className, ...props }: React.ComponentProps<'div'>) {
+const CardContent = memo(function CardContent({
+  className,
+  ...props
+}: React.ComponentProps<'div'>) {
   return (
     <div
       data-slot="card-content"
@@ -69,9 +87,12 @@ function CardContent({ className, ...props }: React.ComponentProps<'div'>) {
       {...props}
     />
   )
-}
+})
 
-function CardFooter({ className, ...props }: React.ComponentProps<'div'>) {
+const CardFooter = memo(function CardFooter({
+  className,
+  ...props
+}: React.ComponentProps<'div'>) {
   return (
     <div
       data-slot="card-footer"
@@ -79,7 +100,7 @@ function CardFooter({ className, ...props }: React.ComponentProps<'div'>) {
       {...props}
     />
   )
-}
+})
 
 export {
   Card,

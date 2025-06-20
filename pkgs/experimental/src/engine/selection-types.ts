@@ -30,6 +30,28 @@ export interface PathVertex {
   position: Vector2
   type: 'anchor' | 'control1' | 'control2'
   parentPathId: string
+  segmentIndex?: number
+}
+
+export interface BezierHandle {
+  id: string
+  position: Vector2
+  type: 'in' | 'out'
+  parentVertexId: string
+  visible: boolean
+}
+
+export interface VertexEditState {
+  selectedVertices: Set<string>
+  selectedHandles: Set<string>
+  isDraggingVertex: boolean
+  isDraggingHandle: boolean
+  dragStartPosition: Vector2 | null
+  dragTargetType: 'vertex' | 'handle' | null
+  dragTargetId: string | null
+  showHandles: boolean
+  hoveredVertex: string | null
+  hoveredHandle: string | null
 }
 
 export interface SelectionState {
@@ -40,6 +62,11 @@ export interface SelectionState {
   dragStartPosition: Vector2 | null
   dragOffset: Vector2
   boundingBox: BoundingBox | null
+  // 矩形選択ドラッグボックス
+  isDragSelecting: boolean
+  dragSelectionStart: Vector2 | null
+  dragSelectionEnd: Vector2 | null
+  dragSelectionBox: BoundingBox | null
 }
 
 export interface SelectionTool {
@@ -120,12 +147,71 @@ export function hitTestVertex(
 }
 
 /**
+ * ベジエハンドルのヒットテスト（半径4px）
+ */
+export function hitTestHandle(
+  point: Vector2,
+  handle: BezierHandle,
+  scale: number = 1,
+): boolean {
+  const hitRadius = 4 / scale
+  const dx = point.x - handle.position.x
+  const dy = point.y - handle.position.y
+  return Math.sqrt(dx * dx + dy * dy) <= hitRadius
+}
+
+/**
  * 距離計算
  */
 export function distance(a: Vector2, b: Vector2): number {
   const dx = a.x - b.x
   const dy = a.y - b.y
   return Math.sqrt(dx * dx + dy * dy)
+}
+
+/**
+ * 2つの点から矩形を作成
+ */
+export function createRectFromPoints(
+  start: Vector2,
+  end: Vector2,
+): BoundingBox {
+  const minX = Math.min(start.x, end.x)
+  const minY = Math.min(start.y, end.y)
+  const maxX = Math.max(start.x, end.x)
+  const maxY = Math.max(start.y, end.y)
+
+  return {
+    x: minX,
+    y: minY,
+    width: maxX - minX,
+    height: maxY - minY,
+  }
+}
+
+/**
+ * 矩形と矩形の交差判定
+ */
+export function intersectsBoundingBox(
+  rect1: BoundingBox,
+  rect2: BoundingBox,
+): boolean {
+  return !(
+    rect1.x + rect1.width < rect2.x ||
+    rect2.x + rect2.width < rect1.x ||
+    rect1.y + rect1.height < rect2.y ||
+    rect2.y + rect2.height < rect1.y
+  )
+}
+
+/**
+ * オブジェクトが矩形選択範囲内にあるかチェック
+ */
+export function isObjectInSelectionBox(
+  object: SelectableObject,
+  selectionBox: BoundingBox,
+): boolean {
+  return intersectsBoundingBox(object.boundingBox, selectionBox)
 }
 
 /**

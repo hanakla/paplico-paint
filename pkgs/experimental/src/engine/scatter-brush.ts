@@ -1,4 +1,4 @@
-import { engineState, VectorPath, Vector2, Color } from './state'
+import { VectorPath, Vector2, Color, EngineState } from './state'
 
 export class ScatterBrushRenderer {
   private device: any
@@ -178,8 +178,11 @@ export class ScatterBrushRenderer {
     return vertexBuffer
   }
 
-  generateScatterInstances(path: VectorPath): Float32Array {
-    const { scatterConfig } = engineState.brushConfig
+  generateScatterInstances(
+    path: VectorPath,
+    engineState: EngineState,
+  ): Float32Array {
+    const { scatterConfig } = engineState.strokeSettings
     if (!scatterConfig) return new Float32Array()
 
     const instances: number[] = []
@@ -213,7 +216,7 @@ export class ScatterBrushRenderer {
 
           const sizeVariation =
             1 + (Math.random() - 0.5) * (scatterConfig.sizeVariation || 0)
-          const size = path.strokeWidth * sizeVariation
+          const size = engineState.strokeSettings.size * sizeVariation
 
           const rotation = Math.random() * Math.PI * 2
 
@@ -221,7 +224,7 @@ export class ScatterBrushRenderer {
             1 + (Math.random() - 0.5) * (scatterConfig.opacityVariation || 0)
           const opacity = Math.max(
             0,
-            Math.min(1, path.color.a * opacityVariation),
+            Math.min(1, engineState.strokeSettings.color.a * opacityVariation),
           )
 
           instances.push(
@@ -229,9 +232,9 @@ export class ScatterBrushRenderer {
             y,
             size,
             rotation,
-            path.color.r,
-            path.color.g,
-            path.color.b,
+            engineState.strokeSettings.color.r,
+            engineState.strokeSettings.color.g,
+            engineState.strokeSettings.color.b,
             opacity,
           )
         }
@@ -241,10 +244,10 @@ export class ScatterBrushRenderer {
     return new Float32Array(instances)
   }
 
-  render(renderPass: any, path: VectorPath) {
+  render(renderPass: any, path: VectorPath, engineState: EngineState) {
     if (!this.renderPipeline || !this.bindGroup) return
 
-    const instanceData = this.generateScatterInstances(path)
+    const instanceData = this.generateScatterInstances(path, engineState)
     if (instanceData.length === 0) return
 
     const instanceBuffer = this.device.createBuffer({

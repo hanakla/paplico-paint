@@ -255,25 +255,6 @@ describe('FileIOHelper', () => {
       },
     } as any
 
-    global.FileReader = class {
-      onload: ((event: any) => void) | null = null
-      onerror: (() => void) | null = null
-
-      readAsArrayBuffer(file: File) {
-        setTimeout(() => {
-          // Use the actual file data if available
-          const serialized = DocumentSerializer.serialize(testDocument)
-          const arrayBuffer = serialized.buffer.slice(
-            serialized.byteOffset,
-            serialized.byteOffset + serialized.byteLength,
-          )
-          if (this.onload) {
-            this.onload({ target: { result: arrayBuffer } })
-          }
-        }, 0)
-      }
-    } as any
-
     global.Blob = class MockBlob {
       constructor(
         public parts: any[],
@@ -334,6 +315,8 @@ describe('FileIOHelper', () => {
     })
 
     it('should handle file read errors', async () => {
+      // Create a custom FileReader that will error for this test
+      const OriginalFileReader = global.FileReader
       global.FileReader = class {
         onload: ((event: any) => void) | null = null
         onerror: (() => void) | null = null
@@ -347,25 +330,32 @@ describe('FileIOHelper', () => {
         }
       } as any
 
-      await expect(FileIOHelper.loadDocumentFromFile(mockFile)).rejects.toThrow(
-        'Failed to read file',
-      )
+      try {
+        await expect(
+          FileIOHelper.loadDocumentFromFile(mockFile),
+        ).rejects.toThrow('Failed to read file')
+      } finally {
+        // Restore original FileReader
+        global.FileReader = OriginalFileReader
+      }
     })
   })
 
   describe('openFileDialog', () => {
     it('should reject in non-browser environment', async () => {
-      // Since window is undefined in test environment, should reject immediately
+      // Temporarily remove window to simulate non-browser environment
+      const originalWindow = (global as any).window
+      delete (global as any).window
+
       try {
-        await FileIOHelper.openFileDialog()
-        expect(true).toBe(false) // Should not reach here
-      } catch (error) {
-        expect(error).toBeInstanceOf(Error)
-        expect((error as Error).message).toContain(
+        await expect(FileIOHelper.openFileDialog()).rejects.toThrow(
           'File opening is only available in browser environment',
         )
+      } finally {
+        // Restore window mock
+        ;(global as any).window = originalWindow
       }
-    })
+    }, 1000)
   })
 })
 

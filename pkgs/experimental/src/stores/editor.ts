@@ -7,6 +7,7 @@ import { UUID } from '@/engine/document/types'
  * エディター状態管理
  */
 export interface EditorState {
+  activeDocumentId: UUID | null
   /** PaplicoEngineの参照 */
   engine: PaplicoEngine | null
   /** エンジンの初期化状態 */
@@ -16,6 +17,7 @@ export interface EditorState {
 }
 
 export const editorState = proxy<EditorState>({
+  activeDocumentId: null,
   engine: null,
   isInitialized: false,
   isWebGPUSupported: false,
@@ -34,6 +36,11 @@ export const setEngine = (engine: PaplicoEngine | null) => {
  */
 export const setWebGPUSupported = (supported: boolean) => {
   editorState.isWebGPUSupported = supported
+}
+
+export const setActiveDocument = (id: UUID | null) => {
+  editorState.activeDocumentId = id
+  editorState.engine?.documentManager.setActiveDocument(id)
 }
 
 /**
@@ -73,8 +80,8 @@ export const redo = (): boolean => {
  */
 export const canUndo = (): boolean => {
   if (!editorState.engine) return false
-  const historyState = editorState.engine.documentManager.getHistoryState()
-  return historyState ? historyState.undoStack.length > 0 : false
+  const historyState = editorState.engine.getHistoryState()
+  return historyState ? historyState.canUndo : false
 }
 
 /**
@@ -82,8 +89,8 @@ export const canUndo = (): boolean => {
  */
 export const canRedo = (): boolean => {
   if (!editorState.engine) return false
-  const historyState = editorState.engine.documentManager.getHistoryState()
-  return historyState ? historyState.redoStack.length > 0 : false
+  const historyState = editorState.engine.getHistoryState()
+  return historyState ? historyState.canRedo : false
 }
 
 /**
@@ -122,9 +129,7 @@ export const setLayerOpacity = (layerId: UUID, opacity: number): void => {
  * アクティブレイヤーを設定
  */
 export const setActiveLayer = (layerId: UUID): void => {
-  const document = getActiveDocument()
-  if (document && document.layers[layerId]) {
-    document.activeLayerId = layerId
-    document.updatedAt = new Date()
+  if (editorState.engine) {
+    editorState.engine.setActiveLayer(layerId)
   }
 }

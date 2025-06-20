@@ -11,6 +11,7 @@ import {
   createBuffersAndAttributesFromArrays,
 } from 'webgpu-utils'
 import { debugLogger } from '../../../utils/debug-logger'
+import { debugState } from '../core-engine'
 
 /**
  * パスからポリゴンへの三角分割を行う関数
@@ -371,6 +372,18 @@ export class FillRenderer implements IAppearanceProcessor {
           targets: [
             {
               format: navigator.gpu.getPreferredCanvasFormat(),
+              blend: {
+                color: {
+                  srcFactor: 'src-alpha',
+                  dstFactor: 'one-minus-src-alpha',
+                  operation: 'add',
+                },
+                alpha: {
+                  srcFactor: 'one',
+                  dstFactor: 'one-minus-src-alpha',
+                  operation: 'add',
+                },
+              },
             },
           ],
         },
@@ -396,7 +409,19 @@ export class FillRenderer implements IAppearanceProcessor {
           entryPoint: 'fs_main',
           targets: [
             {
-              format: 'rgba8unorm', // オフスクリーン用フォーマット
+              format: navigator.gpu.getPreferredCanvasFormat(), // キャンバスと同じフォーマット
+              blend: {
+                color: {
+                  srcFactor: 'src-alpha',
+                  dstFactor: 'one-minus-src-alpha',
+                  operation: 'add',
+                },
+                alpha: {
+                  srcFactor: 'one',
+                  dstFactor: 'one-minus-src-alpha',
+                  operation: 'add',
+                },
+              },
             },
           ],
         },
@@ -439,6 +464,16 @@ export class FillRenderer implements IAppearanceProcessor {
     const selectedPipeline = isOffscreenPass
       ? this.offscreenRenderPipeline
       : this.renderPipeline
+
+    // デバッグ情報を記録（シェーダー段階テスト用）
+    debugState.export.errors.push(
+      `DEBUG-TOKEN-DEF789: FillRenderer called - isOffscreen: ${isOffscreenPass}, label: "${renderPassLabel}"`,
+    )
+    debugState.export.errors.push(
+      `DEBUG-TOKEN-DEF789: Pipeline selected: ${
+        selectedPipeline ? (isOffscreenPass ? 'offscreen' : 'main') : 'null'
+      }`,
+    )
 
     // パスが閉じていない場合は塗りつぶししない
     if (!path.closed) {
@@ -547,7 +582,130 @@ export class FillRenderer implements IAppearanceProcessor {
 
       // 頂点数で描画
 
+      // デバッグ: レンダーパス情報を確認
+      if (isOffscreenPass) {
+        debugState.export.errors.push(
+          `DEBUG-TOKEN-YZA456: FillRenderer about to draw ${vertexCount} vertices`,
+        )
+        debugState.export.errors.push(
+          `DEBUG-TOKEN-YZA456: RenderPass exists: ${renderPass ? 'YES' : 'NO'}`,
+        )
+        debugState.export.errors.push(
+          `DEBUG-TOKEN-YZA456: VertexBuffer created: ${
+            vertexBuffer ? 'YES' : 'NO'
+          }`,
+        )
+        debugState.export.errors.push(
+          `DEBUG-TOKEN-YZA456: Pipeline exists: ${
+            selectedPipeline ? 'YES' : 'NO'
+          }`,
+        )
+        debugState.export.errors.push(
+          `DEBUG-TOKEN-YZA456: BindGroup exists: ${
+            this.bindGroup ? 'YES' : 'NO'
+          }`,
+        )
+
+        // 頂点データのサンプル（最初の数値だけ）
+        const sampleData = Array.from(triangles.slice(0, 12))
+          .map((v) => v.toFixed(2))
+          .join(',')
+        debugState.export.errors.push(
+          `DEBUG-TOKEN-YZA456: Vertex data sample: [${sampleData}]`,
+        )
+
+        // 色データの確認
+        const color = appearance.params.color || { r: 0, g: 0, b: 0, a: 1 }
+        const opacity = appearance.params.opacity || 1
+        debugState.export.errors.push(
+          `DEBUG-TOKEN-YZA456: Color: RGBA(${color.r},${color.g},${color.b},${color.a}) opacity: ${opacity}`,
+        )
+
+        // カメラ行列の確認
+        debugState.export.errors.push(
+          `DEBUG-TOKEN-YZA456: Canvas size: ${canvasSize.width}x${canvasSize.height}`,
+        )
+        debugState.export.errors.push(
+          `DEBUG-TOKEN-YZA456: ProjectionMatrix sample: [${Array.from(
+            projectionMatrix.slice(0, 4),
+          )
+            .map((v) => v.toFixed(3))
+            .join(',')}]`,
+        )
+        debugState.export.errors.push(
+          `DEBUG-TOKEN-YZA456: ViewMatrix sample: [${Array.from(
+            viewMatrix.slice(0, 4),
+          )
+            .map((v) => v.toFixed(3))
+            .join(',')}]`,
+        )
+
+        // 最初の頂点のNDC変換を手動計算
+        const firstVertX = triangles[0]
+        const firstVertY = triangles[1]
+
+        // 4x4行列変換（簡略化）
+        const worldPos = [firstVertX, firstVertY, 0, 1]
+        const viewPos = [
+          viewMatrix[0] * worldPos[0] +
+            viewMatrix[4] * worldPos[1] +
+            viewMatrix[8] * worldPos[2] +
+            viewMatrix[12] * worldPos[3],
+          viewMatrix[1] * worldPos[0] +
+            viewMatrix[5] * worldPos[1] +
+            viewMatrix[9] * worldPos[2] +
+            viewMatrix[13] * worldPos[3],
+          viewMatrix[2] * worldPos[0] +
+            viewMatrix[6] * worldPos[1] +
+            viewMatrix[10] * worldPos[2] +
+            viewMatrix[14] * worldPos[3],
+          viewMatrix[3] * worldPos[0] +
+            viewMatrix[7] * worldPos[1] +
+            viewMatrix[11] * worldPos[2] +
+            viewMatrix[15] * worldPos[3],
+        ]
+
+        const projPos = [
+          projectionMatrix[0] * viewPos[0] +
+            projectionMatrix[4] * viewPos[1] +
+            projectionMatrix[8] * viewPos[2] +
+            projectionMatrix[12] * viewPos[3],
+          projectionMatrix[1] * viewPos[0] +
+            projectionMatrix[5] * viewPos[1] +
+            projectionMatrix[9] * viewPos[2] +
+            projectionMatrix[13] * viewPos[3],
+          projectionMatrix[2] * viewPos[0] +
+            projectionMatrix[6] * viewPos[1] +
+            projectionMatrix[10] * viewPos[2] +
+            projectionMatrix[14] * viewPos[3],
+          projectionMatrix[3] * viewPos[0] +
+            projectionMatrix[7] * viewPos[1] +
+            projectionMatrix[11] * viewPos[2] +
+            projectionMatrix[15] * viewPos[3],
+        ]
+
+        const ndcX = projPos[0] / projPos[3]
+        const ndcY = projPos[1] / projPos[3]
+
+        debugState.export.errors.push(
+          `DEBUG-TOKEN-YZA456: Manual NDC calc for (${firstVertX},${firstVertY}): NDC(${ndcX.toFixed(
+            3,
+          )},${ndcY.toFixed(3)})`,
+        )
+        debugState.export.errors.push(
+          `DEBUG-TOKEN-YZA456: NDC in range: ${
+            ndcX >= -1 && ndcX <= 1 && ndcY >= -1 && ndcY <= 1 ? 'YES' : 'NO'
+          }`,
+        )
+      }
+
       renderPass.draw(vertexCount)
+
+      if (isOffscreenPass) {
+        debugState.export.errors.push(
+          `DEBUG-TOKEN-YZA456: FillRenderer draw call completed for ${vertexCount} vertices`,
+        )
+      }
 
       // 手動作成したバッファを返して、呼び出し元で破棄管理
       // TODO: 実際のパスバウンディングボックスを計算

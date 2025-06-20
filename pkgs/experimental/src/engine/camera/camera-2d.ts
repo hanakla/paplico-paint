@@ -26,6 +26,31 @@ export class Camera2D {
   }
 
   /**
+   * カメラ位置を取得
+   */
+  getPosition(): Vector2 {
+    return { x: this.x, y: this.y }
+  }
+
+  /**
+   * ズームレベルを取得
+   */
+  getZoom(): number {
+    return this.zoom
+  }
+
+  /**
+   * カメラのクローンを作成
+   */
+  clone(): Camera2D {
+    const cloned = new Camera2D()
+    cloned.setPosition(this.x, this.y)
+    cloned.setZoom(this.zoom)
+    cloned.setRotation(this.rotation)
+    return cloned
+  }
+
+  /**
    * 回転角度を設定（ラジアン）
    */
   setRotation(rotation: number): void {

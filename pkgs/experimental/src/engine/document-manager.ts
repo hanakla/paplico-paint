@@ -2,6 +2,7 @@ import { Document, createDocument, CreateDocumentParams } from './document'
 import { DocumentHistory, HistoryChangeEvent } from './history/history'
 import { ICommand } from './history/command'
 import { UUID } from './document/types'
+import { Emitter } from '@paplico/shared-lib'
 
 /**
  * ドキュメントごのキャッシュデータ
@@ -10,7 +11,7 @@ export interface DocumentCache {
   /** レンダリング用キャッシュテクスチャ */
   renderCache: Map<string, any>
   /** WebGPUバッファキャッシュ */
-  bufferCache: Map<string, GPUBuffer>
+  bufferCache: Map<string, GPUBuffer> // GPUBuffer型エラーを回避
   /** ジオメトリキャッシュ */
   geometryCache: Map<string, any>
   /** フィルター結果キャッシュ */
@@ -41,10 +42,47 @@ export class DocumentContext {
 /**
  * ドキュメント管理システム
  */
-export class DocumentManager {
+export class DocumentManager extends Emitter<DocumentManagerEvents> {
   private documents: Map<UUID, DocumentContext> = new Map()
   private activeDocumentId: UUID | null = null
-  private changeListeners: ((event: DocumentManagerChangeEvent) => void)[] = []
+
+  /**
+   * ドキュメントを読み込む
+   */
+  loadDocument(document: Document) {
+    const history = new DocumentHistory(document)
+    const context: DocumentContext = new DocumentContext(
+      document,
+      history,
+      this.createEmptyCache(),
+    )
+
+    this.documents.set(document.id, context)
+    this.emit('documentCreated', {
+      type: 'document-created',
+      documentId: document.id,
+    })
+
+    history.addChangeListener((event: HistoryChangeEvent) => {
+      context.isDirty = true
+      this.emit('historyChanged', {
+        type: 'history-changed',
+        documentId: document.id,
+        historyEvent: event,
+      })
+    })
+
+    if (!this.activeDocumentId) {
+      this.setActiveDocument(document.id)
+    }
+
+    this.emit('documentLoaded', {
+      type: 'document-loaded',
+      documentId: document.id,
+    })
+
+    return document.id
+  }
 
   /**
    * 新しいドキュメントを作成
@@ -65,7 +103,7 @@ export class DocumentManager {
     // ヒストリー変更リスナーを設定
     history.addChangeListener((event) => {
       context.isDirty = true
-      this.notifyChange({
+      this.emit('historyChanged', {
         type: 'history-changed',
         documentId: document.id,
         historyEvent: event,
@@ -77,7 +115,7 @@ export class DocumentManager {
       this.setActiveDocument(document.id)
     }
 
-    this.notifyChange({
+    this.emit('documentCreated', {
       type: 'document-created',
       documentId: document.id,
     })
@@ -104,14 +142,14 @@ export class DocumentManager {
         remainingDocuments.length > 0 ? remainingDocuments[0] : null
 
       if (this.activeDocumentId) {
-        this.notifyChange({
+        this.emit('activeDocumentChanged', {
           type: 'active-document-changed',
           documentId: this.activeDocumentId,
         })
       }
     }
 
-    this.notifyChange({
+    this.emit('documentClosed', {
       type: 'document-closed',
       documentId,
     })
@@ -137,7 +175,7 @@ export class DocumentManager {
     }
 
     if (previousId !== documentId) {
-      this.notifyChange({
+      this.emit('activeDocumentChanged', {
         type: 'active-document-changed',
         documentId,
       })
@@ -258,7 +296,7 @@ export class DocumentManager {
   /**
    * 全ドキュメントのキャッシュをクリア
    */
-  clearAllCaches(): void {
+  clearAllDocumentCaches(): void {
     this.documents.forEach((_, documentId) => {
       this.clearDocumentCache(documentId)
     })
@@ -274,31 +312,10 @@ export class DocumentManager {
     context.isDirty = false
     context.lastSaved = new Date()
 
-    this.notifyChange({
+    this.emit('documentSaved', {
       type: 'document-saved',
       documentId,
     })
-  }
-
-  /**
-   * 変更リスナーを追加
-   */
-  addChangeListener(
-    listener: (event: DocumentManagerChangeEvent) => void,
-  ): void {
-    this.changeListeners.push(listener)
-  }
-
-  /**
-   * 変更リスナーを削除
-   */
-  removeChangeListener(
-    listener: (event: DocumentManagerChangeEvent) => void,
-  ): void {
-    const index = this.changeListeners.indexOf(listener)
-    if (index !== -1) {
-      this.changeListeners.splice(index, 1)
-    }
   }
 
   /**
@@ -315,25 +332,17 @@ export class DocumentManager {
   }
 
   /**
-   * 変更通知
-   */
-  private notifyChange(event: DocumentManagerChangeEvent): void {
-    this.changeListeners.forEach((listener) => {
-      try {
-        listener(event)
-      } catch (error) {
-        console.error('Error in document manager change listener:', error)
-      }
-    })
-  }
-
-  /**
    * リソースをクリーンアップ
    */
   dispose(): void {
-    this.clearAllCaches()
+    this.clearAllDocumentCaches()
     this.documents.clear()
-    this.changeListeners = []
+    // 各イベントタイプのリスナーを削除
+    this.off('documentCreated')
+    this.off('documentClosed')
+    this.off('activeDocumentChanged')
+    this.off('documentSaved')
+    this.off('historyChanged')
     this.activeDocumentId = null
   }
 }
@@ -350,4 +359,16 @@ export interface DocumentManagerChangeEvent {
     | 'history-changed'
   documentId: UUID | null
   historyEvent?: HistoryChangeEvent
+}
+
+/**
+ * DocumentManagerのイベント型定義
+ */
+export interface DocumentManagerEvents
+  extends Record<string | symbol, unknown> {
+  documentCreated: DocumentManagerChangeEvent
+  documentClosed: DocumentManagerChangeEvent
+  activeDocumentChanged: DocumentManagerChangeEvent
+  documentSaved: DocumentManagerChangeEvent
+  historyChanged: DocumentManagerChangeEvent
 }

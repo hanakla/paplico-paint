@@ -14,6 +14,7 @@ interface UIState {
   layersPanelOpen: boolean
   brushPanelOpen: boolean
   filtersPanelOpen: boolean
+  debugPanelOpen: boolean
   colorPickerOpen: boolean
   sidebarWidth: number
   selectedColor: string
@@ -32,6 +33,7 @@ interface UIActions {
   toggleLayersPanel: () => void
   toggleBrushPanel: () => void
   toggleFiltersPanel: () => void
+  toggleDebugPanel: () => void
   toggleColorPicker: () => void
   setSidebarWidth: (width: number) => void
   setSelectedColor: (color: string) => void
@@ -61,6 +63,7 @@ export const useUIStore = create<UIState & UIActions>()(
     layersPanelOpen: true,
     brushPanelOpen: false,
     filtersPanelOpen: false,
+    debugPanelOpen: true,
     colorPickerOpen: false,
     sidebarWidth: 300,
     selectedColor: '#000000',
@@ -74,12 +77,13 @@ export const useUIStore = create<UIState & UIActions>()(
     shortcuts: {
       brush: 'b',
       eraser: 'e',
-      select: 'v',
+      select: 'm',
       pan: 'h',
       zoom: 'z',
-      undo: 'ctrl+z',
-      redo: 'ctrl+shift+z',
+      undo: 'meta+z',
+      redo: 'meta+shift+z',
       save: 'ctrl+s',
+      delete: 'delete',
     },
 
     setSelectedTool: (toolId) =>
@@ -104,6 +108,11 @@ export const useUIStore = create<UIState & UIActions>()(
     toggleFiltersPanel: () =>
       set((state) => {
         state.filtersPanelOpen = !state.filtersPanelOpen
+      }),
+
+    toggleDebugPanel: () =>
+      set((state) => {
+        state.debugPanelOpen = !state.debugPanelOpen
       }),
 
     toggleColorPicker: () =>

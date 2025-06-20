@@ -1,11 +1,11 @@
 'use client'
 
-import * as React from 'react'
+import { memo } from 'react'
 import * as SwitchPrimitive from '@radix-ui/react-switch'
 
 import { cn } from '@/lib/utils'
 
-function Switch({
+const Switch = memo(function Switch({
   className,
   ...props
 }: React.ComponentProps<typeof SwitchPrimitive.Root>) {
@@ -26,6 +26,6 @@ function Switch({
       />
     </SwitchPrimitive.Root>
   )
-}
+})
 
 export { Switch }

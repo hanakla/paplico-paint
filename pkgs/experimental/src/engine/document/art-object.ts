@@ -1,6 +1,7 @@
 import { UUID, Transform } from './types'
 import { VectorPath } from './path'
 import { Appearance } from './appearance'
+import { generateUid } from './utils'
 
 /**
  * 基本ArtObjectインターフェース
@@ -9,7 +10,7 @@ export interface BaseArtObject {
   id: UUID
   name: string
   /** 所属レイヤーのID */
-  layerId: UUID
+  layerId: UUID | null
   /** 配置されるアートボードのID（nullの場合は全アートボードに表示） */
   artboardId: UUID | null
   /** オブジェクトの変形情報 */
@@ -47,9 +48,30 @@ export interface GroupArtObject extends BaseArtObject {
 }
 
 /**
+ * キャンバスArtObject：書き込み可能な画像データを埋め込むオブジェクト
+ */
+export interface CanvasArtObject extends BaseArtObject {
+  type: 'canvas'
+  /** キャンバスの幅（ピクセル） */
+  width: number
+  /** キャンバスの高さ（ピクセル） */
+  height: number
+  /** ビットマップデータ（ImageData、Uint8Array、またはHTMLCanvasElement） */
+  bitmap: ImageData | Uint8Array | HTMLCanvasElement | null
+  /** ピクセル密度（DPI的な値、デフォルト1.0） */
+  pixelDensity?: number
+  /** 編集履歴の保持数（undoのため） */
+  maxHistory?: number
+  /** 現在の編集履歴 */
+  history?: ImageData[]
+  /** 現在の履歴インデックス */
+  historyIndex?: number
+}
+
+/**
  * すべてのArtObjectタイプの統合型
  */
-export type ArtObject = PathArtObject | GroupArtObject
+export type ArtObject = PathArtObject | GroupArtObject | CanvasArtObject
 
 /**
  * パスArtObject作成用パラメータ
@@ -90,13 +112,27 @@ export interface CreateGroupArtObjectParams {
 }
 
 /**
+ * キャンバスArtObject作成用パラメータ
+ */
+export type CreateCanvasArtObjectParams = Omit<
+  CanvasArtObject,
+  'id' | 'transform' | 'type'
+> & {
+  x?: number
+  y?: number
+  rotation?: number
+  scaleX?: number
+  scaleY?: number
+}
+
+/**
  * パスArtObject作成ファクトリー関数
  */
 export function createPathArtObject(
   params: CreatePathArtObjectParams,
 ): PathArtObject {
   return {
-    id: crypto.randomUUID(),
+    id: generateUid(),
     type: 'path',
     name: params.name || 'Path Object',
     layerId: params.layerId,
@@ -150,6 +186,64 @@ export function createGroupArtObject(
         ? params.seed
         : Math.floor(Math.random() * 1000000),
   }
+}
+
+/**
+ * キャンバスArtObject作成ファクトリー関数
+ */
+export function createCanvasArtObject(
+  params: CreateCanvasArtObjectParams,
+): CanvasArtObject {
+  return {
+    id: generateUid() as UUID,
+    type: 'canvas',
+    name: params.name || 'Canvas',
+    layerId: params.layerId,
+    artboardId: params.artboardId || null,
+    transform: {
+      x: params.x || 0,
+      y: params.y || 0,
+      rotation: params.rotation || 0,
+      scaleX: params.scaleX || 1,
+      scaleY: params.scaleY || 1,
+    },
+    width: params.width,
+    height: params.height,
+    bitmap: params.bitmap || null,
+    pixelDensity: params.pixelDensity || 1.0,
+    maxHistory: params.maxHistory || 10,
+    history: [],
+    historyIndex: -1,
+    appearances: params.appearances || [],
+    visible: params.visible !== false,
+    locked: params.locked || false,
+    selected: false,
+    seed:
+      params.seed !== undefined
+        ? params.seed
+        : Math.floor(Math.random() * 1000000),
+  }
+}
+
+/**
+ * 型ガード関数群
+ */
+export function isPathArtObject(
+  artObject: ArtObject,
+): artObject is PathArtObject {
+  return artObject.type === 'path'
+}
+
+export function isGroupArtObject(
+  artObject: ArtObject,
+): artObject is GroupArtObject {
+  return artObject.type === 'group'
+}
+
+export function isCanvasArtObject(
+  artObject: ArtObject,
+): artObject is CanvasArtObject {
+  return artObject.type === 'canvas'
 }
 
 /**
@@ -329,22 +423,4 @@ export function isPointInArtObject(
     y >= bounds.y &&
     y <= bounds.y + bounds.height
   )
-}
-
-/**
- * ArtObjectがPathArtObjectかどうかを判定
- */
-export function isPathArtObject(
-  artObject: ArtObject,
-): artObject is PathArtObject {
-  return artObject.type === 'path'
-}
-
-/**
- * ArtObjectがGroupArtObjectかどうかを判定
- */
-export function isGroupArtObject(
-  artObject: ArtObject,
-): artObject is GroupArtObject {
-  return artObject.type === 'group'
 }

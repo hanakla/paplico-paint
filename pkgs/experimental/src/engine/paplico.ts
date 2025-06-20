@@ -1,13 +1,6 @@
 import { WebGPUEngine } from './webgpu/core-engine'
 import { InputManager, EnhancedPointerEvent } from './input/input-manager'
-import {
-  engineState,
-  Vector2,
-  startDrawing,
-  endDrawing,
-  addPointToCurrentStroke,
-  createVectorPath,
-} from './state'
+import { Vector2, createVectorPath, getStrokeParams } from './state'
 import {
   selectionState,
   selectionTool,
@@ -20,20 +13,32 @@ import {
   updateDrag,
   endDrag,
   setSelectionMode,
+  startDragSelection,
+  updateDragSelection,
+  endDragSelection,
+  clearDragSelection,
+  setExternalMoveObjectsFunction,
 } from './selection-state'
 import { Camera2D } from './camera/camera-2d'
 import { proxy } from 'valtio'
-import { debugLogger } from '../utils/debug-logger'
 import { DocumentManager, DocumentManagerChangeEvent } from './document-manager'
+import { AddArtObjectCommand, MoveArtObjectsCommand } from './commands'
+import { DeleteArtObjectsCommand } from './commands/DeleteArtObjectsCommand'
+import { debugState } from './webgpu/core-engine'
 import { CreateDocumentParams } from './document/document'
 import { ICommand } from './history/command'
 import { UUID } from './document/types'
+import { createStrokeAppearance } from './document/appearance'
+import { IExporterStrategy } from './exporters/IExporterStrategy'
 import {
   DocumentSerializer,
   FileIOHelper,
   SerializationOptions,
   ProjectFileMetadata,
 } from './document/serialization'
+import { deepClone } from 'valtio/utils'
+import { createPathArtObject, PathArtObject } from './document'
+import { generateRandomNumber, generateUid } from './document/utils'
 
 /**
  * オブジェクト配置情報
@@ -79,15 +84,18 @@ export interface PaplicoState {
     width: number
     height: number
   }
+  alignment: AlignmentGuides
+  activeDocumentId: UUID | null
+}
+
+interface InternalState {
   input: {
     isMouseDown: boolean
     isPanning: boolean
     isZooming: boolean
-    lastPointerPosition: Vector2 | null
+    lastPointerPosition: { x: number; y: number } | null
     pointerCount: number
   }
-  alignment: AlignmentGuides
-  activeDocumentId: UUID | null
 }
 
 /**
@@ -100,7 +108,8 @@ export class PaplicoEngine {
   protected inputManager: InputManager
   protected camera: Camera2D
   protected animationId: number | null = null
-  protected state: PaplicoState
+  protected internalState: InternalState
+  public state: PaplicoState
   public readonly documentManager: DocumentManager
 
   constructor(canvas: HTMLCanvasElement) {
@@ -122,13 +131,7 @@ export class PaplicoEngine {
         width: canvas.width,
         height: canvas.height,
       },
-      input: {
-        isMouseDown: false,
-        isPanning: false,
-        isZooming: false,
-        lastPointerPosition: null,
-        pointerCount: 0,
-      },
+
       alignment: {
         vertical: [],
         horizontal: [],
@@ -137,8 +140,19 @@ export class PaplicoEngine {
       activeDocumentId: null,
     })
 
+    this.internalState = {
+      input: {
+        isMouseDown: false,
+        isPanning: false,
+        isZooming: false,
+        lastPointerPosition: null,
+        pointerCount: 0,
+      },
+    }
+
     this.setupInputHandlers()
     this.setupDocumentManagerHandlers()
+    this.setupSelectionMoveHandlers()
     this.updateAlignmentGuides()
   }
 
@@ -150,6 +164,8 @@ export class PaplicoEngine {
     if (success) {
       this.startRenderLoop()
       this.syncCameraWithState()
+      // 初期化完了後にドキュメントを同期
+      this.syncDocumentToWebGPUState()
     }
     return success
   }
@@ -160,20 +176,8 @@ export class PaplicoEngine {
   private setupInputHandlers(): void {
     // マウス/タッチ開始
     this.inputManager.on('pointerDown', (event) => {
-      debugLogger.debug('🖱️ pointerDown event received', {
-        activeTool: engineState.tools.activeTool,
-        button: event.originalEvent.button,
-        x: event.x,
-        y: event.y,
-        pressure: event.pressure,
-        tiltX: event.tiltX,
-        tiltY: event.tiltY,
-        velocity: event.velocity,
-        pointerType: event.pointerType,
-      })
-
-      this.state.input.isMouseDown = true
-      this.state.input.lastPointerPosition = {
+      this.internalState.input.isMouseDown = true
+      this.internalState.input.lastPointerPosition = {
         x: event.x,
         y: event.y,
       }
@@ -183,26 +187,39 @@ export class PaplicoEngine {
         event.originalEvent.button === 1 ||
         event.originalEvent.button === 2
       ) {
-        this.state.input.isPanning = true
+        this.internalState.input.isPanning = true
         this.canvas.style.cursor = 'grab'
         return
       }
 
       // ツール別の処理
-      switch (engineState.tools.activeTool) {
+
+      switch (this.webgpuEngine.state.tools.activeTool) {
         case 'brush':
           if (event.originalEvent.button === 0) {
+            // 既存のストロークが残っている場合は強制終了
+            if (this.webgpuEngine.state.tools.isDrawing) {
+              this.webgpuEngine.endDrawing(this.documentManager.activeDocument)
+            }
             this.handleDrawingStart(event)
+          } else {
           }
           break
         case 'select':
         case 'move':
-        case 'vertexSelect':
           this.handleSelectionStart(event)
+          // ヒットテストも実行
+          this.performHitTest(event)
+          break
+        case 'vertexSelect':
+        case 'vertexEdit':
+          this.handleVertexEditStart(event)
           break
         case 'pan':
-          this.state.input.isPanning = true
+          this.internalState.input.isPanning = true
           this.canvas.style.cursor = 'grab'
+          break
+        default:
           break
       }
     })
@@ -211,38 +228,63 @@ export class PaplicoEngine {
     this.inputManager.on('pointerMove', (event) => {
       const currentPos = { x: event.x, y: event.y }
 
-      if (this.state.input.isPanning && this.state.input.lastPointerPosition) {
+      if (
+        this.internalState.input.isPanning &&
+        this.internalState.input.lastPointerPosition
+      ) {
         // パン操作
-        const deltaX = currentPos.x - this.state.input.lastPointerPosition.x
-        const deltaY = currentPos.y - this.state.input.lastPointerPosition.y
+        const deltaX =
+          currentPos.x - this.internalState.input.lastPointerPosition.x
+        const deltaY =
+          currentPos.y - this.internalState.input.lastPointerPosition.y
 
         this.pan(deltaX, deltaY)
       } else {
         // ツール別の移動処理
-        switch (engineState.tools.activeTool) {
+        switch (this.webgpuEngine.state.tools.activeTool) {
           case 'brush':
-            if (engineState.tools.isDrawing) {
+            if (this.webgpuEngine.state.tools.isDrawing) {
               this.handleDrawingMove(event)
+            }
+            break
+          case 'select':
+            if (selectionState.isDragSelecting || selectionState.isDragging) {
+              this.handleSelectionMove(event)
+            } else {
+              // ホバー時のヒットテスト（選択ツール時のみ）
+              this.performHoverHitTest(event)
             }
             break
           case 'move':
             if (selectionState.isDragging) {
               this.handleSelectionMove(event)
+            } else {
+              // ホバー時のヒットテスト（移動ツール時のみ）
+              this.performHoverHitTest(event)
             }
+            break
+          case 'vertexSelect':
+          case 'vertexEdit':
+            this.handleVertexEditMove(event)
             break
         }
       }
 
-      this.state.input.lastPointerPosition = currentPos
+      this.internalState.input.lastPointerPosition = currentPos
     })
 
     // マウス/タッチ終了
     this.inputManager.on('pointerUp', (event) => {
       // ツール別の終了処理
-      switch (engineState.tools.activeTool) {
+      switch (this.webgpuEngine.state.tools.activeTool) {
         case 'brush':
-          if (engineState.tools.isDrawing) {
+          if (this.webgpuEngine.state.tools.isDrawing) {
             this.handleDrawingEnd(event)
+          }
+          break
+        case 'select':
+          if (selectionState.isDragSelecting || selectionState.isDragging) {
+            this.handleSelectionEnd(event)
           }
           break
         case 'move':
@@ -250,11 +292,15 @@ export class PaplicoEngine {
             this.handleSelectionEnd(event)
           }
           break
+        case 'vertexSelect':
+        case 'vertexEdit':
+          this.handleVertexEditEnd(event)
+          break
       }
 
-      this.state.input.isMouseDown = false
-      this.state.input.isPanning = false
-      this.state.input.lastPointerPosition = null
+      this.internalState.input.isMouseDown = false
+      this.internalState.input.isPanning = false
+      this.internalState.input.lastPointerPosition = null
       this.canvas.style.cursor = 'default'
     })
 
@@ -304,10 +350,10 @@ export class PaplicoEngine {
 
     // タッチイベント（ピンチズーム）
     this.canvas.addEventListener('touchstart', (event) => {
-      this.state.input.pointerCount = event.touches.length
+      this.internalState.input.pointerCount = event.touches.length
 
       if (event.touches.length === 2) {
-        this.state.input.isZooming = true
+        this.internalState.input.isZooming = true
         this.handlePinchStart(event)
       }
     })
@@ -315,16 +361,16 @@ export class PaplicoEngine {
     this.canvas.addEventListener('touchmove', (event) => {
       event.preventDefault()
 
-      if (this.state.input.isZooming && event.touches.length === 2) {
+      if (this.internalState.input.isZooming && event.touches.length === 2) {
         this.handlePinchZoom(event)
       }
     })
 
     this.canvas.addEventListener('touchend', (event) => {
-      this.state.input.pointerCount = event.touches.length
+      this.internalState.input.pointerCount = event.touches.length
 
       if (event.touches.length < 2) {
-        this.state.input.isZooming = false
+        this.internalState.input.isZooming = false
       }
     })
 
@@ -333,7 +379,7 @@ export class PaplicoEngine {
       switch (event.code) {
         case 'Space':
           if (!event.repeat) {
-            this.state.input.isPanning = true
+            this.internalState.input.isPanning = true
             this.canvas.style.cursor = 'grab'
           }
           event.preventDefault()
@@ -358,13 +404,18 @@ export class PaplicoEngine {
             event.preventDefault()
           }
           break
+        case 'Delete':
+        case 'Backspace':
+          this.handleDeleteKey()
+          event.preventDefault()
+          break
       }
     })
 
     window.addEventListener('keyup', (event) => {
       switch (event.code) {
         case 'Space':
-          this.state.input.isPanning = false
+          this.internalState.input.isPanning = false
           this.canvas.style.cursor = 'default'
           break
       }
@@ -571,10 +622,10 @@ export class PaplicoEngine {
     )
 
     // エンジンステートも更新
-    engineState.viewport.x = this.state.camera.x
-    engineState.viewport.y = this.state.camera.y
-    engineState.viewport.zoom = this.state.camera.zoom
-    engineState.viewport.rotation = this.state.camera.rotation
+    this.webgpuEngine.state.viewport.x = this.state.camera.x
+    this.webgpuEngine.state.viewport.y = this.state.camera.y
+    this.webgpuEngine.state.viewport.zoom = this.state.camera.zoom
+    this.webgpuEngine.state.viewport.rotation = this.state.camera.rotation
   }
 
   /**
@@ -704,6 +755,257 @@ export class PaplicoEngine {
   }
 
   /**
+   * 特定の領域をレンダリング（従来方式 - 非推奨）
+   * @deprecated renderRegionToTexture()の使用を推奨
+   * @param region レンダリング領域（ワールド座標）
+   * @param targetTexture 出力先テクスチャ（未指定の場合はキャンバス）
+   * @returns レンダリング結果
+   */
+  async renderRegion(
+    region: { x: number; y: number; width: number; height: number },
+    targetTexture?: GPUTexture,
+  ): Promise<void> {
+    // ワールド座標をスクリーン座標に変換
+    const topLeft = this.worldToScreen({ x: region.x, y: region.y })
+    const bottomRight = this.worldToScreen({
+      x: region.x + region.width,
+      y: region.y + region.height,
+    })
+
+    const screenRegion = {
+      x: Math.min(topLeft.x, bottomRight.x),
+      y: Math.min(topLeft.y, bottomRight.y),
+      width: Math.abs(bottomRight.x - topLeft.x),
+      height: Math.abs(bottomRight.y - topLeft.y),
+    }
+
+    const activeDocumentContext = this.getActiveDocumentContext()
+    if (!activeDocumentContext) {
+      console.warn('No active document available for region rendering')
+      return
+    }
+
+    return this.webgpuEngine.renderRegion(
+      activeDocumentContext,
+      screenRegion,
+      targetTexture,
+    )
+  }
+
+  /**
+   * 効率的な部分レンダリング（オフスクリーンテクスチャ使用）
+   * @param region ワールド座標での領域
+   * @param outputWidth 出力テクスチャの幅（デフォルト：region.width）
+   * @param outputHeight 出力テクスチャの高さ（デフォルト：region.height）
+   * @returns レンダリング結果テクスチャ
+   */
+  async renderRegionToTexture(
+    region: { x: number; y: number; width: number; height: number },
+    outputWidth?: number,
+    outputHeight?: number,
+  ): Promise<GPUTexture | null> {
+    return this.webgpuEngine.renderRegionToTexture(
+      region,
+      outputWidth,
+      outputHeight,
+    )
+  }
+
+  /**
+   * 領域レンダリング結果をImageDataとして取得
+   * @param region ワールド座標での領域
+   * @param outputWidth 出力幅（デフォルト：region.width）
+   * @param outputHeight 出力高さ（デフォルト：region.height）
+   * @returns ImageDataまたはnull
+   */
+  async renderRegionToImageData(
+    region: { x: number; y: number; width: number; height: number },
+    outputWidth?: number,
+    outputHeight?: number,
+  ): Promise<ImageData | null> {
+    const texture = await this.renderRegionToTexture(
+      region,
+      outputWidth,
+      outputHeight,
+    )
+    if (!texture) {
+      return null
+    }
+
+    try {
+      const imageData = await this.webgpuEngine.readTextureAsImageData(texture)
+      return imageData
+    } finally {
+      // テクスチャリソースをクリーンアップ
+      texture.destroy()
+    }
+  }
+
+  /**
+   * 指定されたスクリーン領域をレンダリング（高度な制御用）
+   * @param screenRegion スクリーン座標での領域
+   * @param targetTexture 出力先テクスチャ（未指定の場合はキャンバス）
+   * @returns レンダリング結果
+   */
+  async renderScreenRegion(
+    screenRegion: { x: number; y: number; width: number; height: number },
+    targetTexture?: GPUTexture,
+  ): Promise<void> {
+    const activeDocumentContext = this.getActiveDocumentContext()
+    if (!activeDocumentContext) {
+      console.warn('No active document available for screen region rendering')
+      return
+    }
+
+    return this.webgpuEngine.renderRegion(
+      activeDocumentContext,
+      screenRegion,
+      targetTexture,
+    )
+  }
+
+  /**
+   * 指定されたアートオブジェクトの境界領域をレンダリング
+   * @param artObjectId アートオブジェクトID
+   * @param padding 境界からの余白（ワールド座標）
+   * @param targetTexture 出力先テクスチャ（未指定の場合はキャンバス）
+   * @returns レンダリング結果
+   */
+  async renderArtObjectRegion(
+    artObjectId: string,
+    padding: number = 10,
+    targetTexture?: GPUTexture,
+  ): Promise<void> {
+    const activeDocument = this.getActiveDocument()
+    if (!activeDocument) {
+      console.warn(
+        'No active document available for art object region rendering',
+      )
+      return
+    }
+
+    const artObject = activeDocument.artObjects[artObjectId]
+    if (!artObject) {
+      console.warn(`Art object ${artObjectId} not found`)
+      return
+    }
+
+    // アートオブジェクトの境界を計算
+    let bounds: { x: number; y: number; width: number; height: number } | null =
+      null
+
+    if (artObject.type === 'path' && artObject.path?.points) {
+      const pathBounds = this.calculatePathBounds(artObject.path.points)
+      if (pathBounds) {
+        bounds = {
+          x: pathBounds.minX - padding,
+          y: pathBounds.minY - padding,
+          width: pathBounds.maxX - pathBounds.minX + 2 * padding,
+          height: pathBounds.maxY - pathBounds.minY + 2 * padding,
+        }
+      }
+    } else if (artObject.type === 'canvas') {
+      const transform = artObject.transform
+      bounds = {
+        x: transform.x - padding,
+        y: transform.y - padding,
+        width: artObject.width * (transform.scaleX || 1) + 2 * padding,
+        height: artObject.height * (transform.scaleY || 1) + 2 * padding,
+      }
+    }
+
+    if (!bounds) {
+      console.warn(`Could not calculate bounds for art object ${artObjectId}`)
+      return
+    }
+
+    return this.renderRegion(bounds, targetTexture)
+  }
+
+  /**
+   * 選択されたオブジェクトの領域をレンダリング
+   * @param padding 境界からの余白（ワールド座標）
+   * @param targetTexture 出力先テクスチャ（未指定の場合はキャンバス）
+   * @returns レンダリング結果
+   */
+  async renderSelectedObjectsRegion(
+    padding: number = 10,
+    targetTexture?: GPUTexture,
+  ): Promise<void> {
+    const { selectionState } = await import('./selection-state')
+    const selectedIds = Array.from(selectionState.selectedObjects)
+
+    if (selectedIds.length === 0) {
+      console.warn('No objects selected for region rendering')
+      return
+    }
+
+    const activeDocument = this.getActiveDocument()
+    if (!activeDocument) {
+      console.warn(
+        'No active document available for selected objects region rendering',
+      )
+      return
+    }
+
+    // 選択された全オブジェクトの統合境界を計算
+    let minX = Infinity,
+      minY = Infinity,
+      maxX = -Infinity,
+      maxY = -Infinity
+
+    for (const objectId of selectedIds) {
+      const artObject = activeDocument.artObjects[objectId]
+      if (!artObject) continue
+
+      let objectBounds: {
+        minX: number
+        minY: number
+        maxX: number
+        maxY: number
+      } | null = null
+
+      if (artObject.type === 'path' && artObject.path?.points) {
+        objectBounds = this.calculatePathBounds(artObject.path.points)
+      } else if (artObject.type === 'canvas') {
+        const transform = artObject.transform
+        objectBounds = {
+          minX: transform.x,
+          minY: transform.y,
+          maxX: transform.x + artObject.width * (transform.scaleX || 1),
+          maxY: transform.y + artObject.height * (transform.scaleY || 1),
+        }
+      }
+
+      if (objectBounds) {
+        minX = Math.min(minX, objectBounds.minX)
+        minY = Math.min(minY, objectBounds.minY)
+        maxX = Math.max(maxX, objectBounds.maxX)
+        maxY = Math.max(maxY, objectBounds.maxY)
+      }
+    }
+
+    if (
+      !isFinite(minX) ||
+      !isFinite(minY) ||
+      !isFinite(maxX) ||
+      !isFinite(maxY)
+    ) {
+      console.warn('Could not calculate bounds for selected objects')
+      return
+    }
+
+    const bounds = {
+      x: minX - padding,
+      y: minY - padding,
+      width: maxX - minX + 2 * padding,
+      height: maxY - minY + 2 * padding,
+    }
+
+    return this.renderRegion(bounds, targetTexture)
+  }
+
+  /**
    * 統合ステートを取得
    */
   getState(): PaplicoState {
@@ -711,20 +1013,193 @@ export class PaplicoEngine {
   }
 
   /**
+   * WebGPUEngineのステートを取得（UI層からのアクセス用）
+   */
+  getEngineState() {
+    return this.webgpuEngine.state
+  }
+
+  /**
+   * ブラシ設定を更新
+   */
+  setBrushConfig(config: any): void {
+    this.webgpuEngine.setBrushConfig(config)
+  }
+
+  /**
+   * アクティブツールを設定
+   */
+  setActiveTool(tool: any): void {
+    this.webgpuEngine.setActiveTool(tool)
+  }
+
+  /**
+   * アクティブレイヤーを設定
+   */
+  setActiveLayer(layerId: UUID): boolean {
+    const activeDocument = this.documentManager.activeDocument
+    if (!activeDocument || !activeDocument.layers[layerId]) {
+      return false
+    }
+
+    activeDocument.activeLayerId = layerId
+    activeDocument.updatedAt = new Date()
+    return true
+  }
+
+  /**
+   * アクティブレイヤーを取得
+   */
+  getActiveLayer() {
+    const activeDocument = this.documentManager.activeDocument
+    if (!activeDocument || !activeDocument.activeLayerId) {
+      return null
+    }
+
+    return activeDocument.layers[activeDocument.activeLayerId] || null
+  }
+
+  /**
+   * 描画開始
+   */
+  startDrawing(path: any): void {
+    this.webgpuEngine.startDrawing(path)
+  }
+
+  /**
+   * 描画終了
+   */
+  endDrawing(document: any): void {
+    this.webgpuEngine.endDrawing(document)
+  }
+
+  /**
+   * 現在のストロークにポイントを追加
+   */
+  addPointToCurrentStroke(point: any): void {
+    this.webgpuEngine.addPointToCurrentStroke(point)
+  }
+
+  /**
+   * 選択・移動機能のハンドラーを設定
+   */
+  private setupSelectionMoveHandlers(): void {
+    // 選択状態システムに実際のオブジェクト移動機能を統合
+    setExternalMoveObjectsFunction((objectIds: string[], offset: Vector2) => {
+      this.moveObjectsCommand(objectIds, offset)
+    })
+  }
+
+  /**
+   * オブジェクト移動コマンドを実行
+   */
+  private moveObjectsCommand(objectIds: string[], offset: Vector2): void {
+    if (objectIds.length === 0) return
+
+    // debugStateに移動コマンド実行を記録
+    debugState.movement.executionLog.push({
+      timestamp: Date.now(),
+      action: 'execute_command',
+      data: {
+        source: 'PaplicoEngine.moveObjectsCommand',
+        objectIds: [...objectIds],
+        offset: { ...offset },
+      },
+    })
+
+    const moveCommand = new MoveArtObjectsCommand(
+      {
+        artObjectIds: objectIds,
+        offset,
+      },
+      this.documentManager,
+    )
+
+    // コマンドを実行してヒストリーに記録
+    const success = this.documentManager.executeCommand(moveCommand)
+
+    // debugStateに実行結果を記録
+    debugState.movement.executionLog.push({
+      timestamp: Date.now(),
+      action: 'execute_command',
+      data: {
+        source: 'DocumentManager.executeCommand',
+        success: success,
+        commandId: moveCommand.id,
+      },
+    })
+  }
+
+  /**
+   * Deleteキーによるオブジェクト削除処理
+   */
+  private handleDeleteKey(): void {
+    // 選択されたオブジェクトのIDを取得
+    const selectedObjectIds = Array.from(selectionState.selectedObjects)
+
+    if (selectedObjectIds.length === 0) {
+      return // 何も選択されていない場合は何もしない
+    }
+
+    // 削除コマンドを作成して実行
+    const deleteCommand = new DeleteArtObjectsCommand(
+      {
+        artObjectIds: selectedObjectIds,
+      },
+      this.documentManager,
+    )
+
+    // コマンドを実行してヒストリーに記録
+    this.documentManager.executeCommand(deleteCommand)
+
+    // 選択状態をクリア
+    clearSelection()
+
+    // UIComponentManagerの選択状態もクリア
+    this.webgpuEngine.getUIManager()?.clearSelection()
+  }
+
+  /**
    * ドキュメントマネージャーのイベントハンドラーを設定
    */
   private setupDocumentManagerHandlers(): void {
-    this.documentManager.addChangeListener(
+    this.documentManager.on(
+      'activeDocumentChanged',
       (event: DocumentManagerChangeEvent) => {
         if (event.type === 'active-document-changed') {
           // アクティブドキュメントが変更された時にPaplicoStateを更新
           this.state.activeDocumentId = event.documentId
+
+          // WebGPUEngineのstateにもドキュメントを同期
+          this.syncDocumentToWebGPUState()
 
           // アライメントガイドを更新
           this.updateAlignmentGuides()
         }
       },
     )
+
+    // ドキュメントが作成された時の処理
+    this.documentManager.on(
+      'documentCreated',
+      (event: DocumentManagerChangeEvent) => {
+        if (event.type === 'document-created') {
+          // WebGPUEngineのstateにドキュメントを同期
+          this.syncDocumentToWebGPUState()
+        }
+      },
+    )
+  }
+
+  /**
+   * DocumentManagerのアクティブドキュメントをWebGPUEngineのstateに同期
+   */
+  private syncDocumentToWebGPUState(): void {
+    const activeDocument = this.documentManager.activeDocument
+    if (activeDocument) {
+      // WebGPUEngineのstateにドキュメントを設定
+      this.webgpuEngine.state.document = activeDocument
+    }
   }
 
   // === ドキュメント管理API ===
@@ -738,6 +1213,13 @@ export class PaplicoEngine {
    */
   getActiveDocument() {
     return this.documentManager.activeDocument
+  }
+
+  /**
+   * アクティブドキュメントのコンテキストを取得
+   */
+  getActiveDocumentContext() {
+    return this.documentManager.getDocumentContext(this.state.activeDocumentId)
   }
 
   /**
@@ -774,14 +1256,18 @@ export class PaplicoEngine {
    * ヒストリー状態を取得
    */
   getHistoryState(documentId?: UUID) {
-    return this.documentManager.getHistoryState(documentId)
+    const targetId = documentId || this.state.activeDocumentId
+    if (!targetId) return null
+    return this.documentManager.getHistoryState(targetId)
   }
 
   /**
    * アクティブドキュメントのヒストリー変更リスナーを追加
    */
   addHistoryChangeListener(listener: (event: any) => void): void {
-    const context = this.documentManager.getActiveDocumentContext()
+    const context = this.documentManager.getDocumentContext(
+      this.state.activeDocumentId,
+    )
     if (context) {
       context.history.addChangeListener(listener)
     }
@@ -791,7 +1277,9 @@ export class PaplicoEngine {
    * アクティブドキュメントのヒストリー変更リスナーを削除
    */
   removeHistoryChangeListener(listener: (event: any) => void): void {
-    const context = this.documentManager.getActiveDocumentContext()
+    const context = this.documentManager.getDocumentContext(
+      this.state.activeDocumentId,
+    )
     if (context) {
       context.history.removeChangeListener(listener)
     }
@@ -801,188 +1289,50 @@ export class PaplicoEngine {
    * ドキュメントを保存済みとしてマーク
    */
   markDocumentAsSaved(documentId?: UUID): void {
-    const targetId = documentId || this.documentManager.getActiveDocument()?.id
+    const targetId = documentId || this.documentManager.activeDocument?.id
     if (targetId) {
       this.documentManager.markDocumentAsSaved(targetId)
     }
   }
 
   /**
-   * ドキュメントマネージャーを取得（高度な操作用）
+   * ドキュメントマネージャーを取得
    */
   getDocumentManager(): DocumentManager {
     return this.documentManager
   }
 
-  // === ファイル保存・読み込みAPI ===
-
   /**
-   * アクティブドキュメントをファイルとして保存
+   * 指定されたドキュメントを保存
    */
-  saveDocumentToFile(
-    filename?: string,
-    options: SerializationOptions = {},
-  ): void {
-    const document = this.getActiveDocument()
-    if (!document) {
-      throw new Error('No active document to save')
-    }
-
-    FileIOHelper.saveDocumentAsFile(document, filename, options)
-
-    // 保存後に変更フラグをクリア
-    this.markDocumentAsSaved()
-  }
-
-  /**
-   * ドキュメントを指定してファイルとして保存
-   */
-  saveSpecificDocumentToFile(
+  saveDocument(
     documentId: UUID,
-    filename?: string,
-    options: SerializationOptions = {},
-  ): void {
-    const document = this.documentManager.getDocument(documentId)
-    if (!document) {
-      throw new Error(`Document with ID ${documentId} not found`)
-    }
+    options?: SerializationOptions,
+  ): Uint8Array | null {
+    const context = this.documentManager.getDocumentContext(documentId)
+    if (!context) return null
 
-    FileIOHelper.saveDocumentAsFile(document, filename, options)
-
-    // 保存後に変更フラグをクリア
-    this.markDocumentAsSaved(documentId)
+    return DocumentSerializer.serialize(context.document, options)
   }
 
   /**
-   * ファイル選択ダイアログを開いてドキュメントを読み込み
+   * ドキュメントを読み込む
    */
-  async openDocumentFromFile(): Promise<UUID> {
-    try {
-      const { document, metadata } = await FileIOHelper.openFileDialog()
+  loadDocument(data: Uint8Array, options?: SerializationOptions): UUID | null {
+    const document = DocumentSerializer.deserialize(data)
+    if (!document) return null
 
-      // 新しいドキュメントとして追加
-      const documentId = this.documentManager.createDocument({
-        name: document.name,
-      })
+    const documentId = this.documentManager.loadDocument(document.document)
 
-      // 読み込んだドキュメントデータで置き換え
-      const context = this.documentManager.getDocumentContext(documentId)
-      if (context) {
-        context.document = document
-        context.isDirty = false
-        context.lastSaved = metadata.updatedAt
-      }
-
-      // アクティブドキュメントに設定
-      this.setActiveDocument(documentId)
-
-      return documentId
-    } catch (error) {
-      throw error
-    }
-  }
-
-  /**
-   * ファイルからドキュメントを読み込み（File オブジェクト指定）
-   */
-  async loadDocumentFromFile(file: File): Promise<UUID> {
-    try {
-      const { document, metadata } =
-        await FileIOHelper.loadDocumentFromFile(file)
-
-      // 新しいドキュメントとして追加
-      const documentId = this.documentManager.createDocument({
-        name: document.name,
-      })
-
-      // 読み込んだドキュメントデータで置き換え
-      const context = this.documentManager.getDocumentContext(documentId)
-      if (context) {
-        context.document = document
-        context.isDirty = false
-        context.lastSaved = metadata.updatedAt
-      }
-
-      // アクティブドキュメントに設定
-      this.setActiveDocument(documentId)
-
-      return documentId
-    } catch (error) {
-      throw error
-    }
-  }
-
-  /**
-   * アクティブドキュメントをCBORバイナリに変換
-   */
-  serializeActiveDocument(options: SerializationOptions = {}): Uint8Array {
-    const document = this.getActiveDocument()
-    if (!document) {
-      throw new Error('No active document to serialize')
-    }
-
-    return DocumentSerializer.serialize(document, options)
-  }
-
-  /**
-   * CBORバイナリからドキュメントを復元して読み込み
-   */
-  deserializeDocument(data: Uint8Array): UUID {
-    try {
-      const { document, metadata } = DocumentSerializer.deserialize(data)
-
-      // 新しいドキュメントとして追加
-      const documentId = this.documentManager.createDocument({
-        name: document.name,
-      })
-
-      // 復元したドキュメントデータで置き換え
-      const context = this.documentManager.getDocumentContext(documentId)
-      if (context) {
-        context.document = document
-        context.isDirty = false
-        context.lastSaved = metadata.updatedAt
-      }
-
-      // アクティブドキュメントに設定
-      this.setActiveDocument(documentId)
-
-      return documentId
-    } catch (error) {
-      throw error
-    }
-  }
-
-  /**
-   * ドキュメントのファイルサイズを見積もり
-   */
-  estimateDocumentFileSize(documentId?: UUID): number {
-    const document = documentId
-      ? this.documentManager.getDocument(documentId)
-      : this.getActiveDocument()
-
-    if (!document) {
-      return 0
-    }
-
-    return DocumentSerializer.estimateFileSize(document)
+    return documentId
   }
 
   /**
    * 描画開始処理
    */
   private handleDrawingStart(event: EnhancedPointerEvent): void {
-    debugLogger.debug('🎨 handleDrawingStart called', {
-      activeTool: engineState.tools.activeTool,
-      button: event.originalEvent.button,
-      x: event.x,
-      y: event.y,
-      pressure: event.pressure,
-      tiltX: event.tiltX,
-      tiltY: event.tiltY,
-      velocity: event.velocity,
-      pointerType: event.pointerType,
-    })
+    // ドキュメント状態とレイヤー状態を確認
+    const activeDocument = this.documentManager.activeDocument
 
     // Canvas座標からワールド座標に変換
     const worldPos = this.screenToWorld({ x: event.x, y: event.y })
@@ -1002,25 +1352,14 @@ export class PaplicoEngine {
     const vectorPath = createVectorPath([enhancedPoint])
 
     // 描画開始
-    startDrawing(vectorPath)
+    this.webgpuEngine.startDrawing(vectorPath)
   }
 
   /**
    * 描画移動処理
    */
   private handleDrawingMove(event: EnhancedPointerEvent): void {
-    if (!engineState.tools.currentStroke) return
-
-    debugLogger.debug('🎨 handleDrawingMove called', {
-      hasCurrentStroke: !!engineState.tools.currentStroke,
-      currentStrokePoints: engineState.tools.currentStroke?.points?.length || 0,
-      x: event.x,
-      y: event.y,
-      pressure: event.pressure,
-      tiltX: event.tiltX,
-      tiltY: event.tiltY,
-      velocity: event.velocity,
-    })
+    if (!this.webgpuEngine.state.tools.currentStroke) return
 
     // Canvas座標からワールド座標に変換
     const worldPos = this.screenToWorld({ x: event.x, y: event.y })
@@ -1037,7 +1376,7 @@ export class PaplicoEngine {
     }
 
     // 現在のストロークにポイントを追加
-    addPointToCurrentStroke(enhancedPoint)
+    this.webgpuEngine.addPointToCurrentStroke(enhancedPoint)
 
     // リアルタイムプレビューのためにレンダリングを要求
     // レンダーループが自動的にrenderWithStrokeModeを呼び出す
@@ -1047,49 +1386,118 @@ export class PaplicoEngine {
    * 描画終了処理
    */
   private handleDrawingEnd(event: EnhancedPointerEvent): void {
-    if (!engineState.tools.currentStroke) return
-
-    debugLogger.debug('🎨 handleDrawingEnd called', {
-      hasCurrentStroke: !!engineState.tools.currentStroke,
-      currentStrokePoints: engineState.tools.currentStroke?.points?.length || 0,
-      x: event.x,
-      y: event.y,
-      pressure: event.pressure,
-      pointerType: event.pointerType,
-    })
+    if (!this.webgpuEngine.state.tools.currentStroke) return
 
     // 描画終了（パスをレイヤーに追加）
-    const activeDocumentContext = this.documentManager.getDocumentContext(
+    const document = this.documentManager.getDocument(
       this.state.activeDocumentId,
     )
-    if (activeDocumentContext) {
-      endDrawing(activeDocumentContext.document)
+
+    if (!document) return
+
+    let vectorLayer = null
+
+    if (document.activeLayerId) {
+      const activeLayer = document.layers[document.activeLayerId]
+      if (activeLayer && activeLayer.type === 'vector') {
+        vectorLayer = activeLayer
+      }
     }
+
+    if (!vectorLayer) {
+      vectorLayer = Object.values(document.layers).find(
+        (layer) => layer.type === 'vector',
+      )
+    }
+
+    if (vectorLayer) {
+      // WebGPUEngineから実際のストロークデータを取得
+      const currentStroke = this.webgpuEngine.state.tools.currentStroke
+
+      if (currentStroke && currentStroke.points.length > 0) {
+        const { strokeSettings: brushConfig } = this.webgpuEngine.state
+        // ドキュメントに追加するコマンドを実行
+        const artObject = createPathArtObject({
+          layerId: vectorLayer.id,
+          path: currentStroke,
+          appearances: [
+            createStrokeAppearance(getStrokeParams(this.webgpuEngine.state)),
+          ],
+        })
+
+        const addCommand = new AddArtObjectCommand({
+          artObjectData: artObject,
+          timestamp: new Date(),
+        })
+
+        // ドキュメントとレイヤー状態を確認
+        const beforeExecute = {
+          activeDocumentId: this.documentManager.activeDocumentId,
+          totalArtObjects: Object.keys(document.artObjects).length,
+          vectorLayer: vectorLayer
+            ? {
+                id: vectorLayer.id,
+                artObjectCount: vectorLayer.artObjectIds.length,
+              }
+            : null,
+        }
+
+        const success = this.documentManager.executeCommand(addCommand)
+
+        // 実行後の状態を確認
+        const afterExecute = {
+          totalArtObjects: Object.keys(document.artObjects).length,
+          vectorLayer: vectorLayer
+            ? {
+                id: vectorLayer.id,
+                artObjectCount: vectorLayer.artObjectIds.length,
+              }
+            : null,
+        }
+      }
+    }
+
+    // WebGPUエンジンの描画終了処理
+    this.webgpuEngine.endDrawing(document)
   }
 
   /**
    * 選択ツールの開始処理
    */
   private handleSelectionStart(event: EnhancedPointerEvent): void {
-    const worldPos = this.screenToWorld({ x: event.x, y: event.y })
+    // カメラ状態を強制同期
+    this.syncCameraWithState()
+
+    const worldPos = this.webgpuEngine.canvasToWorld(event.x, event.y)
     const isMultiSelect = (event.originalEvent as PointerEvent).shiftKey
 
-    debugLogger.debug('🎯 Selection start', {
-      tool: engineState.tools.activeTool,
-      worldPos,
-      isMultiSelect,
-    })
-
-    // ヒットテスト
-    const hitId = hitTestAtPosition(
-      worldPos,
-      engineState.tools.activeTool === 'vertexSelect' ? 'vertex' : 'object',
+    // 新しいレイキャスト機能を使用してヒットテスト
+    const documentContext = this.documentManager.getDocumentContext(
+      this.documentManager.activeDocument?.id || null,
     )
 
-    if (hitId) {
-      if (engineState.tools.activeTool === 'vertexSelect') {
+    if (!documentContext) {
+      console.warn('No document context found for selection')
+      return
+    }
+
+    // UIComponentManagerのレイキャスト機能を使用
+    const raycastHits = this.webgpuEngine.raycast(
+      event.x,
+      event.y,
+      documentContext,
+    )
+
+    // ヒットしたオブジェクトがある場合
+    if (raycastHits.length > 0) {
+      const closestHit = raycastHits[0] // 最も近いオブジェクト
+      const hitId = closestHit.artObject.id
+
+      if (this.webgpuEngine.state.tools.activeTool === 'vertexSelect') {
+        // 頂点選択モード（将来の拡張用）
         selectVertex(hitId, isMultiSelect)
       } else {
+        // オブジェクト選択モード
         if (isMultiSelect) {
           toggleObjectSelection(hitId)
         } else {
@@ -1097,12 +1505,36 @@ export class PaplicoEngine {
         }
       }
 
-      // 移動ツールの場合はドラッグ開始
-      if (engineState.tools.activeTool === 'move') {
+      // UIComponentManagerの選択状態も同期
+      const selectedIds = Array.from(selectionState.selectedObjects)
+      this.webgpuEngine.getUIManager()?.clearSelection()
+      if (selectedIds.length > 0) {
+        this.webgpuEngine.getUIManager()?.updateSelectionFromHitTest(
+          selectedIds.map((id) => ({
+            artObject: { id },
+            boundingBox: closestHit.boundingBox,
+          })),
+        )
+      }
+
+      // 選択されたオブジェクトの内側からドラッグが開始された場合は移動を開始
+      if (
+        this.webgpuEngine.state.tools.activeTool === 'move' ||
+        (this.webgpuEngine.state.tools.activeTool === 'select' &&
+          selectionState.selectedObjects.has(hitId))
+      ) {
         startDrag(worldPos)
       }
-    } else if (!isMultiSelect) {
-      clearSelection()
+    } else {
+      // オブジェクトがヒットしなかった場合
+      if (this.webgpuEngine.state.tools.activeTool === 'select') {
+        // 矩形選択開始
+        startDragSelection(worldPos)
+      } else if (!isMultiSelect) {
+        clearSelection()
+        // UIComponentManagerの選択状態もクリア
+        this.webgpuEngine.getUIManager()?.clearSelection()
+      }
     }
   }
 
@@ -1110,16 +1542,15 @@ export class PaplicoEngine {
    * 選択ツールの移動処理
    */
   private handleSelectionMove(event: EnhancedPointerEvent): void {
-    const worldPos = this.screenToWorld({ x: event.x, y: event.y })
+    // カメラ状態を強制同期
+    this.syncCameraWithState()
+
+    const worldPos = this.webgpuEngine.canvasToWorld(event.x, event.y)
 
     if (selectionState.isDragging) {
       updateDrag(worldPos)
-
-      debugLogger.debug('🎯 Selection move', {
-        worldPos,
-        dragOffset: selectionState.dragOffset,
-        selectedCount: selectionState.selectedObjects.size,
-      })
+    } else if (selectionState.isDragSelecting) {
+      updateDragSelection(worldPos)
     }
   }
 
@@ -1127,43 +1558,310 @@ export class PaplicoEngine {
    * 選択ツールの終了処理
    */
   private handleSelectionEnd(event: EnhancedPointerEvent): void {
+    const isMultiSelect = (event.originalEvent as PointerEvent).shiftKey
+
     if (selectionState.isDragging) {
       endDrag()
-
-      debugLogger.debug('🎯 Selection end', {
-        finalPosition: this.screenToWorld({ x: event.x, y: event.y }),
-        selectedCount: selectionState.selectedObjects.size,
-      })
+    } else if (selectionState.isDragSelecting) {
+      // カスタムドラッグ選択終了処理
+      this.endDragSelectionWithRaycast(isMultiSelect)
     }
   }
 
   /**
-   * スクリーン座標をワールド座標に変換
+   * レイキャストを使った矩形選択終了処理
    */
-  private screenToWorld(screenPos: Vector2): Vector2 {
-    // カメラの変換を適用
-    const worldX =
-      (screenPos.x - this.state.viewport.width / 2) / this.state.camera.zoom +
-      this.state.camera.x
-    const worldY =
-      (screenPos.y - this.state.viewport.height / 2) / this.state.camera.zoom +
-      this.state.camera.y
+  private endDragSelectionWithRaycast(multiSelect: boolean): void {
+    if (!selectionState.isDragSelecting || !selectionState.dragSelectionBox) {
+      clearDragSelection()
+      return
+    }
 
-    return { x: worldX, y: worldY }
+    const documentContext = this.documentManager.getDocumentContext(
+      this.documentManager.activeDocument?.id || null,
+    )
+    if (!documentContext) {
+      console.warn('🎯 No document context found for drag selection')
+      clearDragSelection()
+      return
+    }
+
+    const document = documentContext.document
+    const selectionBox = selectionState.dragSelectionBox
+
+    // 選択ボックス内のオブジェクトを検索
+    const objectsInSelection: string[] = []
+
+    // ドキュメント内の全ArtObjectをチェック
+    for (const [artObjectId, artObject] of Object.entries(
+      document.artObjects,
+    )) {
+      if (!artObject.visible) continue
+
+      // オブジェクトのバウンディングボックスと選択範囲の交差判定
+      let objectBounds: { x: number; y: number; width: number; height: number }
+
+      if (artObject.type === 'path' && artObject.path?.points) {
+        // PathArtObjectのバウンディングボックス計算
+        const points = artObject.path.points
+        let minX = Infinity,
+          minY = Infinity,
+          maxX = -Infinity,
+          maxY = -Infinity
+
+        for (const point of points) {
+          minX = Math.min(minX, point.x)
+          minY = Math.min(minY, point.y)
+          maxX = Math.max(maxX, point.x)
+          maxY = Math.max(maxY, point.y)
+        }
+
+        objectBounds = {
+          x: minX,
+          y: minY,
+          width: maxX - minX,
+          height: maxY - minY,
+        }
+      } else if (artObject.type === 'canvas') {
+        // CanvasArtObjectのバウンディングボックス計算
+        const transform = artObject.transform
+        objectBounds = {
+          x: transform.x,
+          y: transform.y,
+          width: artObject.width * (transform.scaleX || 1),
+          height: artObject.height * (transform.scaleY || 1),
+        }
+      } else {
+        continue
+      }
+
+      // 矩形交差判定
+      const intersects = !(
+        objectBounds.x + objectBounds.width < selectionBox.x ||
+        objectBounds.x > selectionBox.x + selectionBox.width ||
+        objectBounds.y + objectBounds.height < selectionBox.y ||
+        objectBounds.y > selectionBox.y + selectionBox.height
+      )
+
+      if (intersects) {
+        objectsInSelection.push(artObjectId)
+      }
+    }
+
+    // 選択を更新
+    if (!multiSelect) {
+      clearSelection()
+    }
+
+    for (const objectId of objectsInSelection) {
+      selectionState.selectedObjects.add(objectId)
+    }
+
+    clearDragSelection()
   }
 
   /**
-   * ワールド座標をスクリーン座標に変換
+   * ホバー時のヒットテストを実行（簡略版）
    */
-  private worldToScreen(worldPos: Vector2): Vector2 {
-    const screenX =
-      (worldPos.x - this.state.camera.x) * this.state.camera.zoom +
-      this.state.viewport.width / 2
-    const screenY =
-      (worldPos.y - this.state.camera.y) * this.state.camera.zoom +
-      this.state.viewport.height / 2
+  private performHoverHitTest(event: EnhancedPointerEvent): void {
+    const documentContext = this.documentManager.getDocumentContext(
+      this.documentManager.activeDocument?.id || null,
+    )
+    if (!documentContext) return
 
-    return { x: screenX, y: screenY }
+    // ホバー時は簡潔なログのみ
+    const hits = this.webgpuEngine.hitTest(event.x, event.y, documentContext)
+
+    if (hits.length > 0) {
+      const closestHit = hits[0]
+
+      // カーソルを変更
+      this.canvas.style.cursor = 'pointer'
+    } else {
+      // カーソルをデフォルトに戻す
+      this.canvas.style.cursor =
+        this.webgpuEngine.state.tools.activeTool === 'select'
+          ? 'crosshair'
+          : 'move'
+    }
+  }
+
+  /**
+   * 頂点編集ツールの開始処理
+   */
+  private handleVertexEditStart(event: EnhancedPointerEvent): void {
+    const documentContext = this.documentManager.getDocumentContext(
+      this.documentManager.activeDocument?.id || null,
+    )
+    if (!documentContext) {
+      console.warn('No document context found for vertex editing')
+      return
+    }
+
+    // UIComponentManagerから頂点編集ツールを取得
+    const uiComponentManager = this.webgpuEngine.getUIComponentManager()
+    const vertexEditTool = uiComponentManager?.getVertexEditTool()
+    if (!uiComponentManager || !vertexEditTool) {
+      console.warn('Vertex edit tool not initialized')
+      return
+    }
+
+    // ワールド座標に変換
+    const worldPos = this.webgpuEngine.canvasToWorld(event.x, event.y)
+
+    // 頂点編集ツールにドキュメントコンテキストを設定
+    vertexEditTool.setDocumentContext(documentContext)
+
+    // マウスダウン処理を実行
+    const handled = vertexEditTool.onMouseDown(
+      worldPos,
+      event.originalEvent as PointerEvent,
+    )
+
+    if (handled) {
+      // 処理された場合はカーソルを変更
+      this.canvas.style.cursor = 'grab'
+    }
+  }
+
+  /**
+   * 頂点編集ツールの移動処理
+   */
+  private handleVertexEditMove(event: EnhancedPointerEvent): void {
+    const uiComponentManager = this.webgpuEngine.getUIComponentManager()
+    const vertexEditTool = uiComponentManager?.getVertexEditTool()
+    if (!uiComponentManager || !vertexEditTool) {
+      return
+    }
+
+    // ワールド座標に変換
+    const worldPos = this.webgpuEngine.canvasToWorld(event.x, event.y)
+
+    // マウス移動処理を実行
+    const handled = vertexEditTool.onMouseMove(worldPos)
+
+    if (handled) {
+      // ドラッグ中はカーソルを変更
+      this.canvas.style.cursor = 'grabbing'
+    } else {
+      // ホバー時のカーソル変更など
+      this.canvas.style.cursor = 'default'
+    }
+  }
+
+  /**
+   * 頂点編集ツールの終了処理
+   */
+  private handleVertexEditEnd(event: EnhancedPointerEvent): void {
+    const uiComponentManager = this.webgpuEngine.getUIComponentManager()
+    const vertexEditTool = uiComponentManager?.getVertexEditTool()
+    if (!uiComponentManager || !vertexEditTool) {
+      return
+    }
+
+    // マウスアップ処理を実行
+    vertexEditTool.onMouseUp()
+
+    // カーソルをデフォルトに戻す
+    this.canvas.style.cursor = 'default'
+  }
+
+  /**
+   * ヒットテストを実行してデバッグ情報に記録
+   */
+  private performHitTest(event: EnhancedPointerEvent): void {
+    const documentContext = this.documentManager.getDocumentContext(
+      this.documentManager.activeDocument?.id || null,
+    )
+    if (!documentContext) {
+      console.warn('🎯 No document context found for hit test')
+      return
+    }
+
+    const document = documentContext.document
+
+    // ドキュメント内のArtObjectを詳細にログ出力
+
+    // カメラ状態の詳細デバッグ
+    const paplicoCamera = this.camera
+    const webgpuCamera = this.webgpuEngine.getCamera()
+    const engineState = this.webgpuEngine.state.viewport
+    const paplicoState = this.state.camera
+
+    // ワールド座標に変換（複数の方法で確認）
+    const worldPos1 = this.webgpuEngine.canvasToWorld(event.x, event.y)
+    const worldPos2 = this.screenToWorld({ x: event.x, y: event.y })
+
+    // レガシーヒットテストとレイキャストヒットテストの両方を実行
+    const legacyHits = this.webgpuEngine.hitTest(
+      event.x,
+      event.y,
+      documentContext,
+    )
+    const raycastHits = this.webgpuEngine.raycast(
+      event.x,
+      event.y,
+      documentContext,
+    )
+
+    if (legacyHits.length > 0 || raycastHits.length > 0) {
+    } else {
+    }
+  }
+
+  /**
+   * パスの境界を計算
+   */
+  private calculatePathBounds(
+    points: any[],
+  ): { minX: number; minY: number; maxX: number; maxY: number } | null {
+    if (!points || points.length === 0) return null
+
+    let minX = Infinity,
+      minY = Infinity,
+      maxX = -Infinity,
+      maxY = -Infinity
+
+    for (const point of points) {
+      minX = Math.min(minX, point.x)
+      minY = Math.min(minY, point.y)
+      maxX = Math.max(maxX, point.x)
+      maxY = Math.max(maxY, point.y)
+    }
+
+    return { minX, minY, maxX, maxY }
+  }
+
+  /**
+   * エクスポート機能
+   *
+   * @param strategy - エクスポート戦略
+   * @returns エクスポートされたファイルの配列
+   */
+  async export(strategy: IExporterStrategy, documentId: UUID): Promise<File[]> {
+    const activeDocumentContext =
+      this.documentManager.getDocumentContext(documentId)
+    if (!activeDocumentContext) {
+      throw new Error('No active document available for export')
+    }
+
+    try {
+      const files = await strategy.export(
+        activeDocumentContext,
+        this.webgpuEngine,
+      )
+
+      return files
+    } catch (error) {
+      throw error
+    }
+  }
+
+  /**
+   * WebGPUEngineへのアクセス
+   */
+  getEngine(): WebGPUEngine {
+    return this.webgpuEngine
   }
 
   /**

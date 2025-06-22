@@ -1,77 +1,70 @@
 'use client'
 
-import React from 'react'
-import { useEventCallback } from '@paplico/shared-lib/react'
-import { useContext, useRef } from 'react'
-import { useSnapshot } from 'valtio'
-import { Button } from '@/components/ui/button'
-import { Card, CardContent } from '@/components/ui/card'
-import { Slider } from '@/components/ui/slider'
-import { Label } from '@/components/ui/label'
-import {
-  Eye,
-  EyeOff,
-  Plus,
-  Trash2,
-  ChevronDown,
-  ChevronRight,
-  Folder,
-  FolderOpen,
-  FileImage,
-  Layers,
-} from 'lucide-react'
 import {
   DndContext,
-  closestCenter,
-  KeyboardSensor,
-  PointerSensor,
-  useSensor,
-  useSensors,
-  DragEndEvent,
+  type DragEndEvent,
+  type DragOverEvent,
   DragOverlay,
-  DragStartEvent,
+  type DragStartEvent,
+  getFirstCollision,
+  KeyboardSensor,
   MeasuringStrategy,
-  UniqueIdentifier,
+  PointerSensor,
   pointerWithin,
   rectIntersection,
-  getFirstCollision,
-  DragOverEvent,
-  useDndMonitor,
+  type UniqueIdentifier,
   useDroppable,
+  useSensor,
+  useSensors,
 } from '@dnd-kit/core'
 import {
   arrayMove,
   SortableContext,
   sortableKeyboardCoordinates,
-  verticalListSortingStrategy,
   useSortable,
+  verticalListSortingStrategy,
 } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
-import { useEffect, useState, memo } from 'react'
+import { useEventCallback } from '@paplico/shared-lib/react'
+import {
+  ChevronDown,
+  ChevronRight,
+  Eye,
+  EyeOff,
+  FileImage,
+  Folder,
+  FolderOpen,
+  Layers,
+  Plus,
+  Trash2,
+} from 'lucide-react'
+import { memo, useEffect, useState } from 'react'
+import { useSnapshot } from 'valtio'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent } from '@/components/ui/card'
+import { Label } from '@/components/ui/label'
+import { Slider } from '@/components/ui/slider'
 // engineStateはPaplicoEngine経由でアクセス
 import {
   addLayerToDocument,
-  removeLayerFromDocument,
+  type ExtendedTreeItem,
+  getExtendedTree,
+  moveArtObjectToLayer,
+  moveLayerToGroup,
   removeArtObjectFromDocument,
+  removeLayerFromDocument,
   toggleGroupExpanded,
   toggleLayerArtObjectsExpanded,
-  getExtendedTree,
-  moveLayerToGroup,
-  moveArtObjectToLayer,
-  reorderLayers,
-  type ExtendedTreeItem,
 } from '@/engine/document/document'
-import { createVectorLayer, createGroupLayer } from '@/engine/document/layer'
+import type { Layer } from '@/engine/document/layer'
+import { createGroupLayer, createVectorLayer } from '@/engine/document/layer'
 import {
   editorState,
   getActiveDocument,
-  toggleLayerVisibility,
-  setLayerOpacity,
   setActiveLayer,
+  setLayerOpacity,
+  toggleLayerVisibility,
 } from '@/stores/editor'
-import type { Layer, GroupLayer, LayerNode } from '@/engine/document/layer'
-import { EngineState } from '@/engine/state'
-import { useNullishSnapshot } from '@/lib/hooks'
 
 interface ExtendedTreeItemProps {
   treeItem: ExtendedTreeItem
@@ -130,7 +123,7 @@ const ExtendedTreeItemComponent = ({
   canDelete,
   isDraggedOver,
 }: ExtendedTreeItemProps) => {
-  const editorSnap = useSnapshot(editorState)
+  const _editorSnap = useSnapshot(editorState)
 
   const { attributes, listeners, setNodeRef, transform, transition } =
     useSortable({
@@ -545,28 +538,28 @@ export const LayerPanel = memo(() => {
     }
   })
 
-  const handleLayerVisibilityToggle = useEventCallback((layerId: string) => {
+  const _handleLayerVisibilityToggle = useEventCallback((layerId: string) => {
     toggleLayerVisibility(layerId)
   })
 
-  const handleSetActiveLayer = useEventCallback((layerId: string) => {
+  const _handleSetActiveLayer = useEventCallback((layerId: string) => {
     setActiveLayer(layerId)
   })
 
-  const handleSetLayerOpacity = useEventCallback(
+  const _handleSetLayerOpacity = useEventCallback(
     (layerId: string, opacity: number) => {
       setLayerOpacity(layerId, opacity)
     },
   )
 
-  const handleRemoveLayer = useEventCallback((layerId: string) => {
+  const _handleRemoveLayer = useEventCallback((layerId: string) => {
     const document = getActiveDocument()
     if (document) {
       removeLayerFromDocument(document, layerId)
     }
   })
 
-  const handleToggleExpanded = useEventCallback((layerId: string) => {
+  const _handleToggleExpanded = useEventCallback((layerId: string) => {
     const document = getActiveDocument()
     if (document) {
       toggleGroupExpanded(document, layerId)

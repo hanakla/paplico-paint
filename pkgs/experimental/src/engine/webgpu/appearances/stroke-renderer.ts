@@ -1,17 +1,18 @@
-import { Vector2 } from '../../state'
-import { VectorPath } from '../../document/path'
-import {
-  IAppearanceProcessor,
-  BoundingBox,
-} from '../interfaces/IAppearanceProcessor'
-import { StrokeAppearance } from '../../document/appearance'
-import { debugState } from '../core-engine'
-import { airBrush, pencil } from '../../assets'
 import {
   createTextureFromImage,
   makeShaderDataDefinitions,
   makeStructuredView,
 } from 'webgpu-utils'
+import { AppearanceError, EngineError, ErrorCode } from '@/engine/exceptions'
+import { airBrush, pencil } from '../../assets'
+import type { StrokeAppearance } from '../../document/appearance'
+import type { VectorPath } from '../../document/path'
+import type { Vector2 } from '../../state'
+import { debugState } from '../core-engine'
+import type {
+  BoundingBox,
+  IAppearanceProcessor,
+} from '../interfaces/IAppearanceProcessor'
 
 export interface StrokeInstance {
   position: Vector2
@@ -54,7 +55,7 @@ export class StrokeRenderer implements IAppearanceProcessor {
   private uniformBuffer: GPUBuffer | null = null
   private uniformsView: any = null
   private instanceBuffer: GPUBuffer | null = null
-  private maxInstances = 100000
+  private maxInstances = 1000000
   private textureCache = new Map<string, GPUTexture>()
   private currentTexture: GPUTexture | null = null
 
@@ -99,29 +100,30 @@ export class StrokeRenderer implements IAppearanceProcessor {
 
     // サンプラーを作成
     this.sampler = this.device.createSampler({
-      magFilter: 'linear',
-      minFilter: 'linear',
-      mipmapFilter: 'linear',
+      magFilter: 'nearest',
+      minFilter: 'nearest',
+      mipmapFilter: 'nearest',
       addressModeU: 'clamp-to-edge',
       addressModeV: 'clamp-to-edge',
     })
   }
 
   async initialize() {
-    try {
-      // WebGPU Compute機能の利用可能性をチェック
-      if (!this.device.features?.has('bgra8unorm-storage')) {
-      }
+    // WebGPU Compute機能の利用可能性をチェック
+    // if (!this.device.features?.has('bgra8unorm-storage')) {
+    //   // throw new AppearanceError(
+    //   //   'StrokeRenderer: WebGPU Compute is not supported',
+    //   // )
+    // }
 
-      await this.createRenderPipeline()
-      await this.createComputePipeline()
-      this.createInstanceBuffer()
-      this.createUniforms()
-      this.createComputeBuffers()
-    } catch (error) {
-      this.isGPUComputeAvailable = false
-      throw error
-    }
+    await this.createRenderPipeline()
+    await this.createComputePipeline()
+    this.createInstanceBuffer()
+    this.createUniforms()
+    this.createComputeBuffers()
+
+    // テクスチャを事前ロードしてピクセル分析を実行
+    await this.loadBrushTexture('pencil')
   }
 
   private async createRenderPipeline() {
@@ -161,6 +163,14 @@ export class StrokeRenderer implements IAppearanceProcessor {
       fn vs_main(vertex: VertexInput, instance: InstanceInput) -> VertexOutput {
         var output: VertexOutput;
 
+        // サイズが0の場合は面積をゼロにして非表示にする
+        if (instance.instanceSize <= 0.0 || instance.instanceOpacity <= 0.0) {
+          output.position = vec4<f32>(0.0, 0.0, 0.0, 0.0);
+          output.texCoord = vec2<f32>(0.0, 0.0);
+          output.opacity = 0.0;
+          return output;
+        }
+
         // 回転行列を適用
         let cos_r = cos(instance.instanceRotation);
         let sin_r = sin(instance.instanceRotation);
@@ -176,7 +186,7 @@ export class StrokeRenderer implements IAppearanceProcessor {
         // プロジェクション変換
         let mvpMatrix = brushUniforms.projectionMatrix * brushUniforms.viewMatrix;
         output.position = mvpMatrix * vec4<f32>(worldPos, 0.0, 1.0);
-        output.texCoord = vertex.texCoord;
+        output.texCoord = vec2<f32>(vertex.texCoord.x, 1.0 - vertex.texCoord.y);
         output.opacity = instance.instanceOpacity;
 
         return output;
@@ -184,9 +194,31 @@ export class StrokeRenderer implements IAppearanceProcessor {
 
       @fragment
       fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
+        // 不透明度が0の場合はピクセルを破棄
+        if (input.opacity <= 0.0) {
+          discard;
+        }
+
         let texColor = textureSample(brushTexture, brushSampler, input.texCoord);
-        let alpha = texColor.a * input.opacity * brushUniforms.brushColor.a;
-        return vec4<f32>(brushUniforms.brushColor.rgb, alpha);
+
+        // テクスチャはグレースケール値をRGBに持つアルファマップ
+        // 輝度値を計算（グレースケール値）
+        let luminance = (texColor.r + texColor.g + texColor.b) / 3.0;
+
+        // 分析結果に基づく適切な閾値: グレー値30/255 = 0.118
+        let textureAlpha = step(0.118, luminance);
+
+        // 最終アルファ値を計算
+        let alpha = textureAlpha * input.opacity * brushUniforms.brushColor.a;
+
+        // アルファが0の場合は破棄
+        if (alpha <= 0.0) {
+          discard;
+        }
+
+        // ブラシカラーを適用
+        let finalColor = brushUniforms.brushColor.rgb;
+        return vec4<f32>(finalColor, alpha);
       }
     `
 
@@ -211,7 +243,7 @@ export class StrokeRenderer implements IAppearanceProcessor {
         }
       } catch (error) {
         debugState.stroke.webgpuUtils.lastParseError =
-          error?.message || String(error)
+          error instanceof Error ? error.message : String(error)
         this.uniformsView = null
       }
 
@@ -297,13 +329,15 @@ export class StrokeRenderer implements IAppearanceProcessor {
         },
       })
     } catch (error) {
-      throw error
+      throw new AppearanceError(
+        'StrokeRenderer: Failed to create render pipeline',
+        { cause: error },
+      )
     }
   }
 
   private async createComputePipeline() {
-    try {
-      const computeShaderCode = `
+    const computeShaderCode = `
       struct PathPoint {
         x: f32,
         y: f32,
@@ -445,31 +479,17 @@ export class StrokeRenderer implements IAppearanceProcessor {
           return;
         }
 
-        // Calculate total path length (simplified approach)
-        var totalLength = 0.0;
         let numSegments = numPoints - 1u;
 
-        for (var i = 0u; i < numSegments; i = i + 1u) {
-          let p1 = pathPoints[i];
-          let p2 = pathPoints[i + 1u];
-          let dx = p2.x - p1.x;
-          let dy = p2.y - p1.y;
-          let length = sqrt(dx * dx + dy * dy);
-          totalLength = totalLength + length;
-        }
+        // 正確なprogress計算（0.0〜1.0の範囲に制限）
+        // actualInstanceCount - 1で割ることで、最後のインスタンスがprogress=1.0になる
+        let progress = clamp(f32(instanceIndex) / f32(max(actualInstanceCount - 1u, 1u)), 0.0, 1.0);
 
-        if (totalLength == 0.0) {
-          return;
-        }
-
-        // Calculate instance position along path (simplified)
-        let progress = f32(instanceIndex) / f32(actualInstanceCount);
-        
         // Find segment based on progress
         let segmentProgress = progress * f32(numSegments);
         let segmentIndex = u32(floor(segmentProgress));
         let t = segmentProgress - floor(segmentProgress);
-        
+
         // Clamp segment index to valid range
         let clampedSegmentIndex = min(segmentIndex, numSegments - 1u);
 
@@ -483,13 +503,11 @@ export class StrokeRenderer implements IAppearanceProcessor {
         let dy = p2.y - p1.y;
         let rotation = atan2(dy, dx);
 
-        // Use the calculated progress value directly
-
         // Initialize random state
         var randomState = uniforms.seed + instanceIndex;
 
-        // Calculate various effects
-        let inOutScale = calculateInOutScale(progress, totalLength, brushParams.inOutInfluence, brushParams.inOutLength);
+        // Calculate various effects (totalLengthはCPU側から渡されたuniforms.totalLengthを使用)
+        let inOutScale = calculateInOutScale(progress, uniforms.totalLength, brushParams.inOutInfluence, brushParams.inOutLength);
         let randomScale = 1.0 + (seededRandom(&randomState) - 0.5) * brushParams.randomScale;
         let randomRotation = (seededRandom(&randomState) - 0.5) * brushParams.randomRotation * 3.14159;
 
@@ -517,31 +535,25 @@ export class StrokeRenderer implements IAppearanceProcessor {
       }
     `
 
-      // 手動でCompute Shaderデータ定義を設定（webgpu-utilsの問題を回避）
-      this.computeShaderDataDefinitions = null
+    // 手動でCompute Shaderデータ定義を設定（webgpu-utilsの問題を回避）
+    this.computeShaderDataDefinitions = null
 
-      const computeShaderModule = this.device.createShaderModule({
-        label: 'StrokeInstanceComputeShader',
-        code: computeShaderCode,
-      })
+    const computeShaderModule = this.device.createShaderModule({
+      label: 'StrokeInstanceComputeShader',
+      code: computeShaderCode,
+    })
 
-      this.computePipeline = this.device.createComputePipeline({
-        label: 'StrokeInstanceComputePipeline',
-        layout: 'auto',
-        compute: {
-          module: computeShaderModule,
-          entryPoint: 'main',
-        },
-      })
+    this.computePipeline = this.device.createComputePipeline({
+      label: 'StrokeInstanceComputePipeline',
+      layout: 'auto',
+      compute: {
+        module: computeShaderModule,
+        entryPoint: 'main',
+      },
+    })
 
-      this.computeBindGroupLayout =
-        this.computePipeline?.getBindGroupLayout(0) || null
-
-      // Computeパイプライン作成成功
-    } catch (error) {
-      // Computeパイプライン作成失敗
-      throw error
-    }
+    this.computeBindGroupLayout =
+      this.computePipeline?.getBindGroupLayout(0) || null
   }
 
   private createInstanceBuffer() {
@@ -606,35 +618,129 @@ export class StrokeRenderer implements IAppearanceProcessor {
       this.currentTexture = this.textureCache.get(textureName)!
       return
     }
+    // assets/index.tsからBase64エンコードされたテクスチャを取得
+    let base64Data: string
+    switch (textureName) {
+      case 'pencil':
+        base64Data = pencil
+        break
+      case 'airbrush':
+        base64Data = airBrush
+        break
+      default:
+        throw new Error(`Unknown brush texture: ${textureName}`)
+    }
 
+    const dataUrl = `data:image/png;base64,${base64Data}`
+
+    // webgpu-utilsでテクスチャを読み込み
+    const texture = await createTextureFromImage(this.device, dataUrl, {
+      mips: false,
+      flipY: false, // ブラシテクスチャでは反転不要
+      usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST,
+    })
+
+    // テクスチャのピクセルデータを分析
     try {
-      // assets/index.tsからBase64エンコードされたテクスチャを取得
-      let base64Data: string
-      switch (textureName) {
-        case 'pencil':
-          base64Data = pencil
-          break
-        case 'airbrush':
-          base64Data = airBrush
-          break
-        default:
-          throw new Error(`Unknown brush texture: ${textureName}`)
-      }
-
-      const dataUrl = `data:image/png;base64,${base64Data}`
-
-      // webgpu-utilsでテクスチャを読み込み
-      const texture = await createTextureFromImage(this.device, dataUrl, {
-        mips: true,
-        flipY: false, // ブラシテクスチャでは反転不要
-        usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST,
+      const img = new Image()
+      img.src = dataUrl
+      await new Promise((resolve, reject) => {
+        img.onload = resolve
+        img.onerror = reject
       })
 
-      this.textureCache.set(textureName, texture)
-      this.currentTexture = texture
-    } catch (error) {
-      throw error
+      const canvas = document.createElement('canvas')
+      canvas.width = img.width
+      canvas.height = img.height
+      const ctx = canvas.getContext('2d')!
+      ctx.drawImage(img, 0, 0)
+
+      const imageData = ctx.getImageData(0, 0, img.width, img.height)
+      const pixels = imageData.data
+
+      // ピクセル統計を計算（より詳細な分析）
+      let blackPixels = 0
+      let whitePixels = 0
+      let transparentPixels = 0
+      let grayPixels = 0
+      let totalAlpha = 0
+      let maxAlpha = 0
+      let minAlpha = 255
+      let totalGrayValue = 0
+      const grayValueCounts = new Array(256).fill(0)
+
+      for (let i = 0; i < pixels.length; i += 4) {
+        const r = pixels[i]
+        const g = pixels[i + 1]
+        const b = pixels[i + 2]
+        const a = pixels[i + 3]
+
+        totalAlpha += a
+        maxAlpha = Math.max(maxAlpha, a)
+        minAlpha = Math.min(minAlpha, a)
+
+        // グレースケール値を計算
+        const grayValue = Math.round((r + g + b) / 3)
+        totalGrayValue += grayValue
+        grayValueCounts[grayValue]++
+
+        if (a === 0) transparentPixels++
+        else if (r === 0 && g === 0 && b === 0) blackPixels++
+        else if (r === 255 && g === 255 && b === 255) whitePixels++
+        else grayPixels++
+      }
+
+      const totalPixels = pixels.length / 4
+      const avgAlpha = totalAlpha / totalPixels
+      const avgGrayValue = totalGrayValue / totalPixels
+
+      // グレースケール値の分布を抽出（上位10位）
+      const grayDistribution = grayValueCounts
+        .map((count, value) => ({ value, count }))
+        .filter((item) => item.count > 0)
+        .sort((a, b) => b.count - a.count)
+        .slice(0, 10)
+
+      // テクスチャピクセル分析結果をdebugStateに保存
+      debugState.stroke.texturePixelAnalysis = {
+        debugToken: `texture-pixels-v1-${crypto.randomUUID()}`,
+        timestamp: new Date().toISOString(),
+        action: 'texture_pixel_analysis',
+        textureName,
+        dimensions: {
+          width: img.width,
+          height: img.height,
+          totalPixels,
+        },
+        pixelStats: {
+          blackPixels,
+          whitePixels,
+          grayPixels,
+          transparentPixels,
+          blackPercentage: ((blackPixels / totalPixels) * 100).toFixed(2),
+          whitePercentage: ((whitePixels / totalPixels) * 100).toFixed(2),
+          grayPercentage: ((grayPixels / totalPixels) * 100).toFixed(2),
+          transparentPercentage: (
+            (transparentPixels / totalPixels) *
+            100
+          ).toFixed(2),
+        },
+        grayAnalysis: {
+          averageGrayValue: avgGrayValue.toFixed(2),
+          grayDistribution,
+        },
+        alphaStats: {
+          min: minAlpha,
+          max: maxAlpha,
+          average: avgAlpha.toFixed(2),
+        },
+      }
+    } catch (_error) {
+      // ピクセル分析エラーは無視
     }
+
+    this.textureCache.set(textureName, texture)
+    this.currentTexture = texture
   }
 
   private async generateInstancesOnGPU(
@@ -642,6 +748,7 @@ export class StrokeRenderer implements IAppearanceProcessor {
     strokeSize: number,
     brushSettings: BrushSettings,
     seed?: number,
+    artObjectId?: string,
   ): Promise<{ instanceBuffer: GPUBuffer; instanceCount: number }> {
     const startTime = performance.now()
 
@@ -731,11 +838,53 @@ export class StrokeRenderer implements IAppearanceProcessor {
     }
 
     // インスタンス数を計算（CPU版と同じロジック）
-    const baseSpacing = Math.max(strokeSize * 0.1, 1.0) // CPU版と同じ
-    const instanceCount = Math.min(
-      Math.ceil(totalLength / baseSpacing),
-      this.maxInstances,
-    )
+    // baseSpacingを適切な密度に設定（めちゃくちゃ密集させる）
+    const baseSpacing = Math.max(strokeSize * 0.005, 0.05)
+    const requestedInstances = Math.ceil(totalLength / baseSpacing)
+    const instanceCount = Math.min(requestedInstances, this.maxInstances)
+
+    // オーバーフローした場合は、実際に使用する長さを計算
+    let effectiveTotalLength = totalLength
+    if (requestedInstances > this.maxInstances) {
+      // maxInstancesで表現できる最大長に制限
+      effectiveTotalLength = this.maxInstances * baseSpacing
+    }
+
+    // デバッグ情報を記録
+    debugState.stroke.instanceBuffer = {
+      maxInstances: this.maxInstances,
+      requestedInstances,
+      actualInstances: instanceCount,
+      overflow: requestedInstances > this.maxInstances,
+      lastOverflowAt:
+        requestedInstances > this.maxInstances ? Date.now() : null,
+      totalLength,
+      baseSpacing,
+      overflowDetails:
+        requestedInstances > this.maxInstances
+          ? {
+              totalRequested: requestedInstances,
+              capped: instanceCount,
+              overflowAmount: requestedInstances - this.maxInstances,
+              timestamp: Date.now(),
+            }
+          : null,
+    }
+
+    // ストロークごとに新しいインスタンスバッファを作成
+    const instanceSize = 6 * 4 // StrokeInstance構造体のサイズ（6個のf32）
+    const strokeInstanceBuffer = this.device.createBuffer({
+      label: `StrokeInstanceBuffer-${artObjectId || 'temp'}`,
+      size: instanceCount * instanceSize,
+      usage:
+        GPUBufferUsage.STORAGE |
+        GPUBufferUsage.VERTEX |
+        GPUBufferUsage.COPY_DST,
+    })
+
+    // バッファを0で初期化（前回のデータが残らないように）
+    const zeroData = new Float32Array(instanceCount * 6)
+    this.device.queue.writeBuffer(strokeInstanceBuffer, 0, zeroData)
 
     // Compute用ユニフォームデータを設定
     const computeUniformData = new Uint32Array(4)
@@ -744,7 +893,7 @@ export class StrokeRenderer implements IAppearanceProcessor {
     // baseSpacingとtotalLengthをFloat32として扱う
     const computeUniformFloatView = new Float32Array(computeUniformData.buffer)
     computeUniformFloatView[2] = baseSpacing
-    computeUniformFloatView[3] = totalLength
+    computeUniformFloatView[3] = effectiveTotalLength // オーバーフロー時は制限された長さを使用
 
     // Computeユニフォームバッファサイズ確認
     const computeUniformBufferSize = 4 * 4 // 4 u32/f32 * 4 bytes
@@ -768,7 +917,7 @@ export class StrokeRenderer implements IAppearanceProcessor {
         { binding: 0, resource: { buffer: this.pathDataBuffer! } },
         { binding: 1, resource: { buffer: this.brushParamsBuffer! } },
         { binding: 2, resource: { buffer: this.computeUniformBuffer! } },
-        { binding: 3, resource: { buffer: this.instanceOutputBuffer! } },
+        { binding: 3, resource: { buffer: strokeInstanceBuffer } },
       ],
     })
 
@@ -786,6 +935,7 @@ export class StrokeRenderer implements IAppearanceProcessor {
     computePass.setBindGroup(0, computeBindGroup)
 
     // ワークグループ数を計算（64スレッド/ワークグループ）
+    // maxInstancesではなくinstanceCountベースで計算
     const workgroupCount = Math.ceil(instanceCount / 64)
     computePass.dispatchWorkgroups(workgroupCount)
 
@@ -799,7 +949,7 @@ export class StrokeRenderer implements IAppearanceProcessor {
     debugState.stroke.rendering.computeDuration = performance.now() - startTime
 
     return {
-      instanceBuffer: this.instanceOutputBuffer!,
+      instanceBuffer: strokeInstanceBuffer,
       instanceCount,
     }
   }
@@ -819,13 +969,24 @@ export class StrokeRenderer implements IAppearanceProcessor {
       // StrokeRenderer.render呼び出し
 
       if (!this.renderPipeline || !this.bindGroupLayout) {
-        // パイプラインなし
-        return { buffers: [], bounds: inputBounds }
+        throw new AppearanceError(
+          'StrokeRenderer: renderPipeline not initialized',
+        )
       }
 
       if (!this.isGPUComputeAvailable) {
         // GPU Compute不可
-        throw new Error('GPU Compute Pipeline is not available')
+        throw new AppearanceError(
+          'StrokeRenderer: GPU Compute Pipeline is not available',
+        )
+      }
+
+      // widthプロパティの存在チェック
+      if (
+        appearance.params.width === undefined ||
+        appearance.params.width === null
+      ) {
+        return { buffers: [], bounds: inputBounds }
       }
 
       const strokeWidth = appearance.params.width
@@ -842,7 +1003,7 @@ export class StrokeRenderer implements IAppearanceProcessor {
         appearance.params.brushSettings ||
         this.brushSettings
 
-      let seed: number | undefined = undefined
+      let seed: number | undefined
       if (
         artObjectId &&
         artObjectId !== 'temp-stroke' &&
@@ -862,6 +1023,7 @@ export class StrokeRenderer implements IAppearanceProcessor {
           strokeWidth,
           effectiveBrushSettings,
           seed,
+          artObjectId,
         )
 
       debugState.stroke.rendering.computeDuration =
@@ -872,16 +1034,18 @@ export class StrokeRenderer implements IAppearanceProcessor {
 
       // webgpu-utilsでユニフォーム設定
       if (this.uniformsView && this.uniformBuffer) {
+        const brushColor = [
+          appearance.params.color?.r ?? 1.0,
+          appearance.params.color?.g ?? 1.0,
+          appearance.params.color?.b ?? 1.0,
+          appearance.params.color?.a ?? 1.0,
+        ]
+
         this.uniformsView.set({
           projectionMatrix: projectionMatrix,
           viewMatrix: viewMatrix,
           canvasSize: [canvasSize.width, canvasSize.height],
-          brushColor: [
-            appearance.params.color.r,
-            appearance.params.color.g,
-            appearance.params.color.b,
-            appearance.params.color.a,
-          ],
+          brushColor: brushColor,
         })
 
         this.device.queue.writeBuffer(
@@ -911,26 +1075,48 @@ export class StrokeRenderer implements IAppearanceProcessor {
         ],
       })
 
-      // 頂点データ（クアッド）
+      // 頂点データ（クアッド） - テクスチャ座標のデバッグ
       const vertices = new Float32Array([
         // position  texCoord
         -0.5,
         -0.5,
         0.0,
-        1.0, // 左下
+        0.0, // 左下
         0.5,
         -0.5,
         1.0,
-        1.0, // 右下
+        0.0, // 右下
         -0.5,
         0.5,
         0.0,
-        0.0, // 左上
+        1.0, // 左上
         0.5,
         0.5,
         1.0,
-        0.0, // 右上
+        1.0, // 右上
       ])
+
+      // テクスチャ座標のデバッグ情報をdebugStateに保存
+      debugState.stroke.textureCoordinates = {
+        debugToken: `texcoord-debug-v1-${crypto.randomUUID()}`,
+        timestamp: new Date().toISOString(),
+        action: 'texture_coordinates_analysis',
+        vertexData: {
+          vertexCount: vertices.length / 4,
+          vertices: Array.from(vertices),
+          texCoords: [
+            [vertices[2], vertices[3]], // 左下
+            [vertices[6], vertices[7]], // 右下
+            [vertices[10], vertices[11]], // 左上
+            [vertices[14], vertices[15]], // 右上
+          ],
+        },
+        currentTexture: {
+          width: this.currentTexture?.width || 0,
+          height: this.currentTexture?.height || 0,
+          format: this.currentTexture?.format || 'unknown',
+        },
+      }
 
       const indices = new Uint16Array([0, 1, 2, 1, 3, 2])
 
@@ -957,7 +1143,7 @@ export class StrokeRenderer implements IAppearanceProcessor {
       debugState.stroke.pipeline.lastBindGroupCreated = true
       debugState.stroke.pipeline.lastDrawIndexedCalls = 1
 
-      await // レンダリング実行
+      // レンダリング実行
       renderPass.setPipeline(this.renderPipeline)
       renderPass.setBindGroup(0, bindGroup)
       renderPass.setVertexBuffer(0, positionBuffer)
@@ -965,6 +1151,20 @@ export class StrokeRenderer implements IAppearanceProcessor {
       renderPass.setIndexBuffer(indexBuffer, 'uint16')
       // 実際に生成されたインスタンス数のみ描画
       const actualInstanceCount = Math.min(instanceCount, this.maxInstances)
+
+      // パーティクルデバッグ情報を更新
+      debugState.stroke.particleDebug.lastRenderCall = {
+        timestamp: performance.now(),
+        instanceCount,
+        actualDrawnInstances: actualInstanceCount,
+        hasCurrentStroke: path.points.length >= 2,
+        currentStrokePointCount: path.points.length,
+        bufferCleared: true, // クリア処理を追加したのでtrue
+        vertexShaderFiltered: 0, // 後で更新
+        fragmentShaderDiscarded: 0, // 後で更新
+      }
+      debugState.stroke.particleDebug.renderingStats.totalRenderCalls++
+
       renderPass.drawIndexed(6, actualInstanceCount)
 
       // レンダーパス実行完了
@@ -978,9 +1178,11 @@ export class StrokeRenderer implements IAppearanceProcessor {
       debugState.stroke.rendering.lastSuccessTime = performance.now()
       debugState.stroke.rendering.successCount++
 
-      // インスタンスバッファは永続的に保持するため、破棄対象リストには含めない
-      // 代わりに一時的なバッファのみを破棄対象とする
-      return { buffers: [positionBuffer, indexBuffer], bounds: inputBounds }
+      // ストロークごとに作成したインスタンスバッファも破棄対象に含める
+      return {
+        buffers: [positionBuffer, indexBuffer, instanceBuffer],
+        bounds: inputBounds,
+      }
     } catch (error) {
       const errorDetails = {
         message: error instanceof Error ? error.message : String(error),
@@ -998,7 +1200,7 @@ export class StrokeRenderer implements IAppearanceProcessor {
 
       // デバッグ状態に詳細エラー情報を保存
       debugState.stroke.rendering.lastError = errorDetails.message
-      debugState.stroke.rendering.lastErrorStack = errorDetails.stack
+      debugState.stroke.rendering.lastErrorStack = errorDetails.stack || null
       debugState.stroke.rendering.lastErrorLocation = 'StrokeRenderer.render'
       debugState.stroke.rendering.failureCount++
 
@@ -1006,7 +1208,7 @@ export class StrokeRenderer implements IAppearanceProcessor {
     }
   }
 
-  getBounds(path: VectorPath, strokeWidth: number): BoundingBox {
+  protected getBounds(path: VectorPath, strokeWidth: number): BoundingBox {
     if (path.points.length === 0) {
       return { x: 0, y: 0, width: 0, height: 0 }
     }
@@ -1035,7 +1237,7 @@ export class StrokeRenderer implements IAppearanceProcessor {
   calculateBounds(
     path: any,
     appearance: any,
-    inputBounds: BoundingBox,
+    _inputBounds: BoundingBox,
   ): BoundingBox {
     return this.getBounds(path, appearance.params?.width || 1)
   }
@@ -1053,7 +1255,7 @@ export class StrokeRenderer implements IAppearanceProcessor {
     for (const texture of this.textureCache.values()) {
       try {
         texture.destroy()
-      } catch (error) {
+      } catch (_error) {
         // テクスチャの破棄エラーは無視
       }
     }
@@ -1089,6 +1291,7 @@ export function createStrokeInstances(
   if (totalLength === 0) return instances
 
   // インスタンス間隔を計算
+  // spacingをより適切な値に設定（ストロークサイズの0.1倍程度）
   const spacing = Math.max(strokeSize * 0.1, 1.0)
   const instanceCount = Math.ceil(totalLength / spacing)
 
@@ -1101,7 +1304,7 @@ export function createStrokeInstances(
 
   // インスタンス生成
   for (let i = 0; i < instanceCount; i++) {
-    targetLength = (i / instanceCount) * totalLength
+    const targetLength = (i / instanceCount) * totalLength
 
     // セグメントとt値を計算
     let currentLength = 0
@@ -1191,7 +1394,7 @@ function calculateInOutScale(
       (1.0 - inOutInfluence) * (progress / inOutLengthNormalized)
     )
   } else if (progress >= 1.0 - inOutLengthNormalized) {
-    fadeProgress = (1.0 - progress) / inOutLengthNormalized
+    const fadeProgress = (1.0 - progress) / inOutLengthNormalized
     return inOutInfluence + (1.0 - inOutInfluence) * fadeProgress
   } else {
     return 1.0

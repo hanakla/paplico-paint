@@ -1,6 +1,6 @@
-import { UUID, Transform } from './types'
-import { VectorPath } from './path'
-import { Appearance } from './appearance'
+import type { Appearance } from './appearance'
+import type { VectorPath } from './path'
+import type { Transform, UUID } from './types'
 import { generateUid } from './utils'
 
 /**

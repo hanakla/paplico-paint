@@ -1,7 +1,11 @@
-import { UUID } from './types'
-import { Artboard, CreateArtboardParams, createArtboard } from './artboard'
-import { Layer, LayerNode, createLayerNode } from './layer'
-import { ArtObject } from './art-object'
+import type { ArtObject } from './art-object'
+import {
+  type Artboard,
+  type CreateArtboardParams,
+  createArtboard,
+} from './artboard'
+import { createLayerNode, type Layer, type LayerNode } from './layer'
+import type { UUID } from './types'
 
 /**
  * ドキュメント：全体の描画コンテンツを管理
@@ -497,8 +501,8 @@ export function getExtendedTree(document: Document): ExtendedTreeItem[] {
           layer.type === 'group'
             ? layer.expanded !== false
             : layer.type === 'vector'
-            ? (layer as any).artObjectsExpanded !== false
-            : false
+              ? (layer as any).artObjectsExpanded !== false
+              : false
 
         result.push({
           type: 'layer',

@@ -1,7 +1,7 @@
-import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest'
-import { PaplicoEngine } from './paplico'
-import { BaseCommand, ICommand } from './commands'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { MockCanvas } from '../../test/mock-globals'
+import { BaseCommand } from './commands'
+import { PaplicoEngine } from './paplico'
 
 describe('PaplicoEngine', () => {
   let engine: PaplicoEngine
@@ -38,7 +38,7 @@ describe('PaplicoEngine', () => {
 
     it('アクティブドキュメントを設定できる', () => {
       const doc1Id = engine.documentManager.createDocument({ name: 'Doc 1' })
-      const doc2Id = engine.documentManager.createDocument({ name: 'Doc 2' })
+      const _doc2Id = engine.documentManager.createDocument({ name: 'Doc 2' })
 
       engine.setActiveDocument(doc1Id)
       expect(engine.getActiveDocument()?.name).toBe('Doc 1')
@@ -46,7 +46,7 @@ describe('PaplicoEngine', () => {
 
     it('ドキュメントを閉じることができる', () => {
       const doc1Id = engine.documentManager.createDocument({ name: 'Doc 1' })
-      const doc2Id = engine.documentManager.createDocument({ name: 'Doc 2' })
+      const _doc2Id = engine.documentManager.createDocument({ name: 'Doc 2' })
 
       expect(engine.documentManager.getAllDocuments().length).toBe(2)
 

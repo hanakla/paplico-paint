@@ -1,10 +1,9 @@
-import { BoundingBox } from '../interfaces/IAppearanceProcessor'
-import { OffscreenTexturePool } from './offscreen-texture-pool'
-import { debugLogger } from '../../../utils/debug-logger'
 import {
-  makeShaderDataDefinitions,
   makeBindGroupLayoutDescriptors,
+  makeShaderDataDefinitions,
 } from 'webgpu-utils'
+import type { BoundingBox } from '../interfaces/IAppearanceProcessor'
+import type { OffscreenTexturePool } from './offscreen-texture-pool'
 
 /**
  * レイヤー合成システム
@@ -100,7 +99,7 @@ export class LayerCompositor {
       code: fragmentShaderCode,
     })
 
-    const shaderCode = vertexShaderCode + '\n' + fragmentShaderCode
+    const shaderCode = `${vertexShaderCode}\n${fragmentShaderCode}`
     const defs = makeShaderDataDefinitions(shaderCode)
 
     const pipelineDescriptor = {
@@ -417,8 +416,8 @@ export class LayerCompositor {
    */
   private createPositionedQuadBuffer(
     bounds: BoundingBox,
-    projectionMatrix?: Float32Array,
-    viewMatrix?: Float32Array,
+    _projectionMatrix?: Float32Array,
+    _viewMatrix?: Float32Array,
   ): GPUBuffer {
     // メインキャンバスの座標系でのクアッドの位置を計算
     const left = bounds.x

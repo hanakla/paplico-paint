@@ -1,7 +1,7 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import {
-  StrokeRenderer,
   type BrushSettings,
+  StrokeRenderer,
 } from './appearances/stroke-renderer'
 
 // WebGPU関連のモック

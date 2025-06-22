@@ -1,4 +1,4 @@
-import { VectorPath, Vector2, Color, EngineState } from './state'
+import type { EngineState, VectorPath } from './state'
 
 export class ScatterBrushRenderer {
   private device: any

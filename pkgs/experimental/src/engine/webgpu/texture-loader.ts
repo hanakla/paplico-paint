@@ -38,7 +38,7 @@ export class TextureLoader {
       this.textureCache.set(url, texture)
 
       return texture
-    } catch (error) {
+    } catch (_error) {
       // フォールバック用の1x1白テクスチャを作成
       return this.createFallbackTexture()
     }

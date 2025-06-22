@@ -1,17 +1,16 @@
-import { Vector2 } from '../../state'
+import type { Camera2D } from '../../camera/camera-2d'
 import {
-  ArtObject,
-  isPathArtObject,
+  type ArtObject,
   isCanvasArtObject,
   isGroupArtObject,
+  isPathArtObject,
 } from '../../document/art-object'
-import { Document } from '../../document/document'
-import { Camera2D } from '../../camera/camera-2d'
-import { HitTestResult } from './types'
-
-import { PathHitTester } from './path-hit-tester'
+import type { Document } from '../../document/document'
+import type { Vector2 } from '../../state'
 import { CanvasHitTester } from './canvas-hit-tester'
 import { GroupHitTester } from './group-hit-tester'
+import { PathHitTester } from './path-hit-tester'
+import type { HitTestResult } from './types'
 
 /**
  * レイキャスト・ヒットテスト機能
@@ -59,7 +58,11 @@ export class HitTester {
             continue
           }
 
-          const hitResult = this.testArtObject(artObject, worldPos, layer.id)
+          const hitResult = HitTester.testArtObject(
+            artObject,
+            worldPos,
+            layer.id,
+          )
           if (hitResult) {
             results.push(hitResult)
           } else {

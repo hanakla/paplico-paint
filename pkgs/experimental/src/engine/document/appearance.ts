@@ -1,4 +1,4 @@
-import { RGBAColor, Gradient, BlendMode, UUID } from './types'
+import type { BlendMode, Gradient, RGBAColor, UUID } from './types'
 import { generateUid } from './utils'
 
 /**
@@ -290,12 +290,20 @@ export function createGradientFillAppearance(
 export function createStrokeAppearance(
   params: StrokeParams & { enabled?: boolean },
 ): StrokeAppearance {
+  if (params.width == null || params.width <= 0) {
+    console.error(
+      '[createStrokeAppearance] Invalid width parameter:',
+      params.width,
+      'Using fallback width: 10',
+    )
+  }
+
   return {
     uid: generateUid() as UUID,
     enabled: params.enabled !== false,
     effectId: EFFECT_IDS.STROKE,
     params: {
-      width: params.width,
+      width: params.width ?? 10,
       color: params.color,
       style: params.style || 'solid',
       dashPattern: params.dashPattern,

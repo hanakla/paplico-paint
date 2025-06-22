@@ -1,6 +1,6 @@
-import { Vector2 } from '../../state'
-import { ArtObject } from '../../document/art-object'
-import { HitTestResult } from './types'
+import type { ArtObject } from '../../document/art-object'
+import type { Vector2 } from '../../state'
+import type { HitTestResult } from './types'
 
 /**
  * GroupArtObjectのヒットテスト処理
@@ -10,9 +10,9 @@ export class GroupHitTester {
    * GroupArtObjectのヒットテスト
    */
   static test(
-    groupObject: ArtObject & { type: 'group' },
-    worldPos: Vector2,
-    layerId: string,
+    _groupObject: ArtObject & { type: 'group' },
+    _worldPos: Vector2,
+    _layerId: string,
   ): HitTestResult | null {
     // グループの場合は簡単な境界ボックステストを実装
     // 実際の実装では子オブジェクトを再帰的にテストする必要がある

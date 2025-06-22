@@ -1,6 +1,6 @@
-import { VectorPath } from './document/path'
-import { StrokeParams } from './document/appearance'
-import { Document } from './document/document'
+import type { StrokeParams } from './document/appearance'
+import type { Document } from './document/document'
+import type { VectorPath } from './document/path'
 
 export interface Vector2 {
   x: number
@@ -104,19 +104,9 @@ export interface EngineState {
   }
   viewport: Viewport
   strokeSettings: StrokeParams
-  tools: {
-    activeTool:
-      | 'brush'
-      | 'eraser'
-      | 'select'
-      | 'move'
-      | 'vertexSelect'
-      | 'vertexEdit'
-      | 'pan'
-      | 'zoom'
-    isDrawing: boolean
-    currentStroke: VectorPath | null
-  }
+  isDrawing: boolean
+  /** TODO: Move to Paplico, BUT DO NOT REFACTOR BY AI */
+  currentStroke: VectorPath | null
   selection: {
     selectedObjectIds: string[]
     isDragging: boolean
@@ -170,7 +160,7 @@ export const getStrokeParams = (engineState: EngineState): StrokeParams => {
   const { brushSettings } = strokeSettings
 
   return {
-    width: strokeSettings.width,
+    width: strokeSettings.width ?? 10,
     color: strokeSettings.color,
     style: strokeSettings.style,
     dashPattern: strokeSettings.dashPattern,

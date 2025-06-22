@@ -2,14 +2,14 @@
  * DeleteArtObjectsCommandのテスト
  */
 
-import { describe, it, expect, beforeEach } from 'vitest'
-import { DeleteArtObjectsCommand } from './DeleteArtObjectsCommand'
-import { DocumentManager } from '../document-manager'
-import { Document } from '../document/document'
+import { beforeEach, describe, expect, it } from 'vitest'
 import { createPathArtObject } from '../document/art-object'
+import type { Document } from '../document/document'
 import { createVectorLayer } from '../document/layer'
 import { generateUid } from '../document/utils'
+import { DocumentManager } from '../document-manager'
 import { createVectorPath } from '../state'
+import { DeleteArtObjectsCommand } from './DeleteArtObjectsCommand'
 
 describe('DeleteArtObjectsCommand', () => {
   let documentManager: DocumentManager

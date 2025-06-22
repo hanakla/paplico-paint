@@ -1,11 +1,10 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { createDocument, type Document } from './document'
 import {
+  DocumentConverter,
   DocumentSerializer,
   FileIOHelper,
-  DocumentConverter,
 } from './serialization'
-import { Document, createDocument } from './document'
-import { UUID } from './types'
 
 describe('DocumentSerializer', () => {
   let testDocument: Document
@@ -68,7 +67,7 @@ describe('DocumentSerializer', () => {
 
     it('should preserve object structures correctly', () => {
       // Add some test data to objects
-      testDocument.layers['layer1'] = {
+      testDocument.layers.layer1 = {
         id: 'layer1',
         type: 'vector',
         name: 'Test Layer',
@@ -80,7 +79,7 @@ describe('DocumentSerializer', () => {
         appearances: [],
       }
 
-      testDocument.artObjects['art1'] = {
+      testDocument.artObjects.art1 = {
         id: 'art1',
         name: 'Test Path',
         type: 'path',
@@ -104,11 +103,9 @@ describe('DocumentSerializer', () => {
       const { document } = DocumentSerializer.deserialize(serialized)
 
       expect(Object.keys(document.layers).length).toBe(1)
-      expect(document.layers['layer1']).toEqual(testDocument.layers['layer1'])
+      expect(document.layers.layer1).toEqual(testDocument.layers.layer1)
       expect(Object.keys(document.artObjects).length).toBe(1)
-      expect(document.artObjects['art1']).toEqual(
-        testDocument.artObjects['art1'],
-      )
+      expect(document.artObjects.art1).toEqual(testDocument.artObjects.art1)
     })
 
     it('should throw error for invalid CBOR data', () => {
@@ -125,7 +122,7 @@ describe('DocumentSerializer', () => {
 
       // Manually create data with unsupported version
       const { document } = DocumentSerializer.deserialize(serialized)
-      const modifiedProjectFile = {
+      const _modifiedProjectFile = {
         metadata: {
           version: '2.0.0', // Unsupported future version
           application: 'Paplico Paint',
@@ -134,16 +131,16 @@ describe('DocumentSerializer', () => {
           updatedAt: new Date(),
           compressed: false,
         },
-        document: DocumentSerializer['serializeDocument'](document),
+        document: DocumentSerializer.serializeDocument(document),
       }
 
-      const invalidVersionData = new Uint8Array([])
+      const _invalidVersionData = new Uint8Array([])
       // This would need proper CBOR encoding in real test
 
       // For now, test the version compatibility method directly
-      expect(DocumentSerializer['isVersionCompatible']('2.0.0')).toBe(false)
-      expect(DocumentSerializer['isVersionCompatible']('1.0.0')).toBe(true)
-      expect(DocumentSerializer['isVersionCompatible']('1.1.0')).toBe(false)
+      expect(DocumentSerializer.isVersionCompatible('2.0.0')).toBe(false)
+      expect(DocumentSerializer.isVersionCompatible('1.0.0')).toBe(true)
+      expect(DocumentSerializer.isVersionCompatible('1.1.0')).toBe(false)
     })
   })
 

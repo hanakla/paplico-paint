@@ -1,10 +1,10 @@
-import { memo, useState, useRef, useCallback } from 'react'
 import { useEventCallback } from '@paplico/shared-lib/react'
-import { Button } from './ui/button'
-import { Label } from './ui/label'
-import { Input } from './ui/input'
-import { cn } from '@/lib/utils'
+import { memo, useCallback, useRef, useState } from 'react'
 import type { RGBAColor } from '@/engine/document/types'
+import { cn } from '@/lib/utils'
+import { Button } from './ui/button'
+import { Input } from './ui/input'
+import { Label } from './ui/label'
 
 export interface ColorSliderProps {
   value: RGBAColor
@@ -39,8 +39,8 @@ export const ColorSlider = memo(function ColorSlider({
           component === 'h'
             ? newValue
             : component === 'a'
-            ? newValue / 100
-            : newValue / 100,
+              ? newValue / 100
+              : newValue / 100,
       }
       onChange(hsbToRgba(newHsb))
     },
@@ -365,27 +365,30 @@ const GradientSlider = memo(function GradientSlider({
   const sliderRef = useRef<HTMLDivElement>(null)
   const isDragging = useRef(false)
 
-  const handleMouseDown = useCallback((e: React.MouseEvent) => {
-    e.preventDefault()
-    isDragging.current = true
-    updateValue(e)
-
-    const handleMouseMove = (e: MouseEvent) => {
+  const handleMouseDown = useCallback(
+    (e: React.MouseEvent) => {
       e.preventDefault()
-      if (isDragging.current) {
-        updateValue(e as any)
+      isDragging.current = true
+      updateValue(e)
+
+      const handleMouseMove = (e: MouseEvent) => {
+        e.preventDefault()
+        if (isDragging.current) {
+          updateValue(e as any)
+        }
       }
-    }
 
-    const handleMouseUp = () => {
-      isDragging.current = false
-      document.removeEventListener('mousemove', handleMouseMove)
-      document.removeEventListener('mouseup', handleMouseUp)
-    }
+      const handleMouseUp = () => {
+        isDragging.current = false
+        document.removeEventListener('mousemove', handleMouseMove)
+        document.removeEventListener('mouseup', handleMouseUp)
+      }
 
-    document.addEventListener('mousemove', handleMouseMove)
-    document.addEventListener('mouseup', handleMouseUp)
-  }, [])
+      document.addEventListener('mousemove', handleMouseMove)
+      document.addEventListener('mouseup', handleMouseUp)
+    },
+    [updateValue],
+  )
 
   const updateValue = useCallback(
     (e: React.MouseEvent | MouseEvent) => {
@@ -493,7 +496,7 @@ function hsbToRgba(hsb: HSBColor): RGBAColor {
 function rgbaToLch(rgba: RGBAColor): LCHColor {
   const { r, g, b, a } = rgba
   const toLinear = (c: number) =>
-    c <= 0.04045 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4)
+    c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4
   const lr = toLinear(r),
     lg = toLinear(g),
     lb = toLinear(b)
@@ -506,11 +509,11 @@ function rgbaToLch(rgba: RGBAColor): LCHColor {
     yn = 1.0,
     zn = 1.08883
   const fx =
-    x / xn > 0.008856 ? Math.pow(x / xn, 1 / 3) : (7.787 * x) / xn + 16 / 116
+    x / xn > 0.008856 ? (x / xn) ** (1 / 3) : (7.787 * x) / xn + 16 / 116
   const fy =
-    y / yn > 0.008856 ? Math.pow(y / yn, 1 / 3) : (7.787 * y) / yn + 16 / 116
+    y / yn > 0.008856 ? (y / yn) ** (1 / 3) : (7.787 * y) / yn + 16 / 116
   const fz =
-    z / zn > 0.008856 ? Math.pow(z / zn, 1 / 3) : (7.787 * z) / zn + 16 / 116
+    z / zn > 0.008856 ? (z / zn) ** (1 / 3) : (7.787 * z) / zn + 16 / 116
 
   const L = 116 * fy - 16
   const aLab = 500 * (fx - fy)
@@ -547,7 +550,7 @@ function lchToRgba(lch: LCHColor): RGBAColor {
   b = Math.max(0, Math.min(1, b))
 
   const fromLinear = (c: number) =>
-    c <= 0.0031308 ? 12.92 * c : 1.055 * Math.pow(c, 1 / 2.4) - 0.055
+    c <= 0.0031308 ? 12.92 * c : 1.055 * c ** (1 / 2.4) - 0.055
   return { r: fromLinear(r), g: fromLinear(g), b: fromLinear(b), a }
 }
 

@@ -1,6 +1,6 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { writeFile, mkdir } from 'fs/promises'
-import { join } from 'path'
+import { mkdir, writeFile } from 'node:fs/promises'
+import { join } from 'node:path'
+import { type NextRequest, NextResponse } from 'next/server'
 
 const DEBUG_LOG_DIR = join(process.cwd(), 'debug-logs')
 
@@ -10,7 +10,7 @@ function getLogFilePath() {
   return logFilePath
 }
 
-export async function DELETE(request: NextRequest) {
+export async function DELETE(_request: NextRequest) {
   // デバッグログディレクトリを削除
   await writeFile(getLogFilePath(), '', { flag: 'w' })
   return NextResponse.json({ success: true })
@@ -26,7 +26,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    let lines: string[] = []
+    const lines: string[] = []
     for (const { level, message, context, timestamp } of body) {
       if (!level || !message) {
         return NextResponse.json(
@@ -46,7 +46,7 @@ export async function POST(request: NextRequest) {
         context: context || {},
       }
 
-      const logLine = JSON.stringify(logEntry) + '\n'
+      const logLine = `${JSON.stringify(logEntry)}\n`
       lines.push(logLine)
     }
 

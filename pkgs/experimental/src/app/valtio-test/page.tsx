@@ -1,11 +1,11 @@
 'use client'
 
-import { useSnapshot, proxy } from 'valtio'
+import { useState } from 'react'
+import { proxy, useSnapshot } from 'valtio'
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
-import { useState } from 'react'
 
 // テスト用のValtio状態
 interface TestUser {

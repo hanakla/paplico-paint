@@ -2,13 +2,13 @@
  * AddArtObjectCommandのテスト
  */
 
-import { describe, it, expect, beforeEach } from 'vitest'
-import { AddArtObjectCommand } from './add-art-object-command'
-import { Document } from '../document/document'
+import { beforeEach, describe, expect, it } from 'vitest'
 import { createPathArtObject } from '../document/art-object'
+import type { Document } from '../document/document'
 import { createVectorLayer } from '../document/layer'
 import { generateUid } from '../document/utils'
 import { createVectorPath } from '../state'
+import { AddArtObjectCommand } from './add-art-object-command'
 
 describe('AddArtObjectCommand', () => {
   let document: Document

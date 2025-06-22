@@ -1,6 +1,6 @@
-import { Vector2 } from '../../state'
-import { ArtObject } from '../../document/art-object'
-import { HitTestResult } from './types'
+import type { ArtObject } from '../../document/art-object'
+import type { Vector2 } from '../../state'
+import type { HitTestResult } from './types'
 
 /**
  * CanvasArtObjectのヒットテスト処理
@@ -37,11 +37,9 @@ export class CanvasHitTester {
       const centerX = (x1 + x2) / 2
       const centerY = (y1 + y2) / 2
       const distanceFromCenter = Math.sqrt(
-        Math.pow(worldPos.x - centerX, 2) + Math.pow(worldPos.y - centerY, 2),
+        (worldPos.x - centerX) ** 2 + (worldPos.y - centerY) ** 2,
       )
-      const maxDistance = Math.sqrt(
-        Math.pow((x2 - x1) / 2, 2) + Math.pow((y2 - y1) / 2, 2),
-      )
+      const maxDistance = Math.sqrt(((x2 - x1) / 2) ** 2 + ((y2 - y1) / 2) ** 2)
 
       const result = {
         artObject: canvasObject,

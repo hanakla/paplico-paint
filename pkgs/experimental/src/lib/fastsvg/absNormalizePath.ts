@@ -1,6 +1,6 @@
-import { SVGDCommand } from './IndexedPointAtLength'
-import { parseSVGPath } from './parse'
 import abs from 'abs-svg-path'
+import type { SVGDCommand } from './IndexedPointAtLength'
+import { parseSVGPath } from './parse'
 
 export function absNormalizePath(path: string | SVGDCommand[]) {
   let norm = Array.isArray(path) ? path : parseSVGPath(path)

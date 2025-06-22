@@ -2,12 +2,12 @@
  * アートオブジェクト削除コマンド
  */
 
-import { DocumentManager } from '../document-manager'
-import { ICommand } from './base'
-import { UUID } from '../document/types'
-import { ArtObject } from '../document/art-object'
-import { Document } from '../document/document'
+import type { ArtObject } from '../document/art-object'
+import type { Document } from '../document/document'
+import type { UUID } from '../document/types'
 import { generateUid } from '../document/utils'
+import type { DocumentManager } from '../document-manager'
+import type { ICommand } from './base'
 
 export interface DeleteArtObjectsCommandParams {
   artObjectIds: string[]

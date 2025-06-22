@@ -1,5 +1,5 @@
-import { DocumentContext } from '../document-manager'
-import { PaplicoEngine } from '../paplico'
+import type { DocumentContext } from '../document-manager'
+import type { PaplicoEngine } from '../paplico'
 
 /**
  * エクスポーター戦略インターフェース

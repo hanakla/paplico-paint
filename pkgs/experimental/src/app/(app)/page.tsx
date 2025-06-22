@@ -1,79 +1,73 @@
 'use client'
 
-import { useEffect, useRef, useState, useCallback } from 'react'
-import { proxy, ref, snapshot, useSnapshot } from 'valtio'
 import { useEventCallback } from '@paplico/shared-lib/react'
+import {
+  Brush,
+  Bug,
+  Download,
+  Eraser,
+  Filter,
+  Hand,
+  Keyboard,
+  Layers,
+  MousePointer,
+  Move,
+  Pipette,
+  Redo,
+  Settings,
+  Target,
+  Undo,
+  ZoomIn,
+} from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
+import { ref, snapshot, useSnapshot } from 'valtio'
+import { ColorSlider } from '@/components/color-slider'
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Slider } from '@/components/ui/slider'
-import { Badge } from '@/components/ui/badge'
-import { Separator } from '@/components/ui/separator'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Label } from '@/components/ui/label'
-import { Switch } from '@/components/ui/switch'
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from '@/components/ui/tooltip'
-import { ColorSlider } from '@/components/color-slider'
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover'
+import { Separator } from '@/components/ui/separator'
+import { Slider } from '@/components/ui/slider'
+import { Switch } from '@/components/ui/switch'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import {
-  Brush,
-  Eraser,
-  MousePointer,
-  Hand,
-  ZoomIn,
-  Pipette,
-  Layers,
-  Settings,
-  Filter,
-  Undo,
-  Redo,
-  Move,
-  Target,
-  Bug,
-  Download,
-  Keyboard,
-} from 'lucide-react'
-
-import { PaplicoEngine } from '@/engine/paplico'
-import { createVectorPath, EngineState } from '@/engine/state'
-import {
-  editorState,
-  setEngine,
-  setWebGPUSupported,
-  getActiveDocument,
-  undo,
-  redo,
-  canUndo,
-  canRedo,
-} from '@/stores/editor'
-import {
-  selectionState,
-  selectionTool,
-  clearSelection,
-  setSelectionMode,
-  updateSelectionTool,
-  deleteSelected,
-  setExternalDeleteFunctions,
-} from '@/engine/selection-state'
-import { UIBuilder } from '@/engine/webgpu/ui/ui-elements'
-import { useUIStore } from '@/stores/ui-store'
-import { createTestDocument } from './_example'
-import { LayerPanel } from './fragments/LayerPanel'
-import { DebugPane } from './fragments/DebugPane'
-import { deepClone } from '@paplico/shared-lib'
-import { useNullishSnapshot } from '@/lib/hooks'
-import { debugLogger } from '@/utils/debug-logger'
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '@/components/ui/tooltip'
 import { ExportDialog } from '@/dialogs/ExportDialog'
 import { KeyboardShortcutsDialog } from '@/dialogs/KeyboardShortcutsDialog'
-import { DeleteArtObjectsCommand } from '@/engine/commands/DeleteArtObjectsCommand'
+import { PaplicoEngine } from '@/engine/paplico'
+import {
+  clearSelection,
+  deleteSelected,
+  selectionState,
+  selectionTool,
+  setSelectionMode,
+  updateSelectionTool,
+} from '@/engine/selection-state'
+import { UIBuilder } from '@/engine/webgpu/ui/ui-elements'
 import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts'
+import { useNullishSnapshot } from '@/lib/hooks'
+import {
+  canRedo,
+  canUndo,
+  editorState,
+  redo,
+  setEngine,
+  setWebGPUSupported,
+  undo,
+} from '@/stores/editor'
+import { useUIStore } from '@/stores/ui-store'
+import { debugLogger } from '@/utils/debug-logger'
+import { createTestDocument } from './_example'
+import { DebugPane } from './fragments/DebugPane'
+import { LayerPanel } from './fragments/LayerPanel'
 
 const toolIcons = {
   brush: Brush,
@@ -99,12 +93,13 @@ const toolNames = {
 
 export default function Home() {
   const canvasRef = useRef<HTMLCanvasElement>(null)
+  const canvasContainerRef = useRef<HTMLDivElement>(null)
   const engineRef = useRef<PaplicoEngine | null>(null)
   const animationFrameRef = useRef<number | undefined>(undefined)
 
-  const [isWebGPUSupported, setIsWebGPUSupported] = useState(false)
-  const [isInitialized, setIsInitialized] = useState(false)
-  const [isDrawing, setIsDrawing] = useState(false)
+  const [_isWebGPUSupported, setIsWebGPUSupported] = useState(false)
+  const [_isInitialized, setIsInitialized] = useState(false)
+  const [_isDrawing, _setIsDrawing] = useState(false)
   const [shortcutsDialogOpen, setShortcutsDialogOpen] = useState(false)
 
   const engineStateSnap = useNullishSnapshot(
@@ -186,10 +181,14 @@ export default function Home() {
   })
 
   const handleCanvasResize = useEventCallback(() => {
+    const container = canvasContainerRef.current
     const canvas = canvasRef.current
-    if (!canvas || !engineRef.current) return
+    if (!container || !canvas || !engineRef.current) return
 
-    const rect = canvas.getBoundingClientRect()
+    const rect = container.getBoundingClientRect()
+    // キャンバスのDOM要素自体のサイズも更新
+    canvas.style.width = `${rect.width}px`
+    canvas.style.height = `${rect.height}px`
     engineRef.current.resize(rect.width, rect.height)
   })
 
@@ -287,11 +286,7 @@ export default function Home() {
   // 選択状態の変更時にUIを更新
   useEffect(() => {
     updateSelectionUI()
-  }, [
-    selectionSnap.selectedObjects.size,
-    selectionSnap.boundingBox,
-    selectionSnap.selectionMode,
-  ])
+  }, [updateSelectionUI])
 
   // 選択ツール設定の変更
   const handleSelectionModeChange = useEventCallback(
@@ -337,39 +332,33 @@ export default function Home() {
     })
 
     debugLogger.clear().then(() => {
-      initializeWebGPU()
-        .then(() => {
-          // エンジン初期化後に削除関数を設定
-          if (engineRef.current) {
-            setExternalDeleteFunctions(
-              (objectIds: string[]) => {
-                console.log('削除実行:', objectIds)
-                // DeleteArtObjectsCommandを使用
-                const params = { artObjectIds: objectIds }
-                const documentManager = (engineRef.current as any)
-                  .documentManager
-                const command = new DeleteArtObjectsCommand(
-                  params,
-                  documentManager,
-                )
-                engineRef.current?.executeCommand(command)
-              },
-              (vertexIds: string[]) => {
-                console.log('頂点削除実行:', vertexIds)
-                // 頂点削除の実装（将来）
-              },
-            )
-          }
-        })
-        .catch((e) => {
-          console.error('WebGPU initialization failed:', e)
-        })
+      initializeWebGPU().catch((e) => {
+        console.error('WebGPU initialization failed:', e)
+      })
     })
 
     window.addEventListener('resize', handleResize)
 
+    // ResizeObserverを使用してcanvasコンテナのサイズ変更を監視
+    let resizeObserver: ResizeObserver | null = null
+    const container = canvasContainerRef.current
+    if (container) {
+      resizeObserver = new ResizeObserver((entries) => {
+        for (const entry of entries) {
+          if (entry.target === container) {
+            handleCanvasResize()
+          }
+        }
+      })
+      resizeObserver.observe(container)
+    }
+
     return () => {
       window.removeEventListener('resize', handleResize)
+      if (resizeObserver && container) {
+        resizeObserver.unobserve(container)
+        resizeObserver.disconnect()
+      }
       if (animationFrameRef.current) {
         cancelAnimationFrame(animationFrameRef.current)
       }
@@ -377,11 +366,11 @@ export default function Home() {
         engineRef.current.dispose()
       }
     }
-  }, [])
+  }, [handleCanvasResize, handleResize, initializeWebGPU])
 
   useEffect(() => {
     handleCanvasResize()
-  }, [])
+  }, [handleCanvasResize])
 
   return (
     <div className="flex h-screen w-screen bg-background overflow-hidden">
@@ -598,7 +587,10 @@ export default function Home() {
         </div>
 
         {/* キャンバス */}
-        <div className="flex-1 relative bg-muted overflow-hidden">
+        <div
+          ref={canvasContainerRef}
+          className="flex-1 relative bg-muted overflow-hidden"
+        >
           <canvas
             ref={canvasRef}
             className="absolute inset-0 w-full h-full cursor-crosshair touch-none"
@@ -1054,15 +1046,15 @@ export default function Home() {
                             filterType === 'blur'
                               ? 1
                               : filterType === 'brightness'
-                              ? 0
-                              : 1,
+                                ? 0
+                                : 1,
                           ]}
                           max={
                             filterType === 'blur'
                               ? 10
                               : filterType === 'brightness'
-                              ? 1
-                              : 2
+                                ? 1
+                                : 2
                           }
                           min={filterType === 'brightness' ? -1 : 0}
                           step={0.1}
@@ -1208,7 +1200,7 @@ export default function Home() {
 
       {/* デバッグペイン（一番右） */}
       {debugPanelOpen && (
-        <div className="w-96 min-w-96 bg-card border-l flex-none">
+        <div className="bg-card flex-none">
           <DebugPane engine={engineRef.current} isOpen={debugPanelOpen} />
         </div>
       )}

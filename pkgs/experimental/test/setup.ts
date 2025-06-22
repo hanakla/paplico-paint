@@ -1,4 +1,8 @@
 import '@testing-library/jest-dom'
+import { create, globals } from 'webgpu'
+
+Object.assign(globalThis, globals)
+Object.assign(globalThis.navigator, { gpu: create([]) })
 
 // DOM polyfills for radix-ui components
 Object.defineProperty(global, 'ResizeObserver', {
@@ -32,9 +36,6 @@ Object.defineProperty(window, 'HTMLElement', {
   writable: true,
   value: class HTMLElement extends EventTarget {
     style: any = {}
-    constructor() {
-      super()
-    }
   },
 })
 

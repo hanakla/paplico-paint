@@ -1,5 +1,5 @@
-import { CanvasArtObject } from '../document/art-object'
-import { Document } from '../document/document'
+import type { CanvasArtObject } from '../document/art-object'
+import type { Document } from '../document/document'
 import { BaseCommand } from './base'
 
 /**

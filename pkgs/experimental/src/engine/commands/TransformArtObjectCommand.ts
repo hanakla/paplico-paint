@@ -2,10 +2,10 @@
  * ArtObjectのTransform変更コマンド
  */
 
-import { ICommand } from './base'
-import { DocumentManager } from '../document-manager'
-import { Transform, UUID } from '../document/types'
+import type { Transform, UUID } from '../document/types'
 import { generateUid } from '../document/utils'
+import type { DocumentManager } from '../document-manager'
+import type { ICommand } from './base'
 
 export interface TransformArtObjectCommandParams {
   artObjectId: string

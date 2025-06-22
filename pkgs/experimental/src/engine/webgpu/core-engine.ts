@@ -1,31 +1,30 @@
-import { EngineState, Vector2, RenderDebugInfo } from '../state'
 import { proxy } from 'valtio'
-import { StrokeRenderer } from './appearances/stroke-renderer'
-import { FillRenderer } from './appearances/fill-renderer'
-import { CanvasRenderer } from './appearances/canvas-renderer'
+import { Camera2D } from '../camera/camera-2d'
 import {
-  Appearance,
+  type Appearance,
   isFillAppearance,
   isStrokeAppearance,
 } from '../document/appearance'
-import { ArtObject, isCanvasArtObject } from '../document/art-object'
-import { LayerNode } from '../document/layer'
-import { VectorPath } from '../document/path'
-import { Document, createDocument } from '../document/document'
-import { Camera2D } from '../camera/camera-2d'
-import {
-  IAppearanceProcessor,
-  BoundingBox,
-} from './interfaces/IAppearanceProcessor'
+import { isCanvasArtObject } from '../document/art-object'
+import { createDocument } from '../document/document'
+import type { VectorPath } from '../document/path'
+import { DocumentContext } from '../document-manager'
+import { EngineError, ErrorCode } from '../exceptions'
+import { setDocumentAccessFunction } from '../selection-state'
+import type { EngineState, RenderDebugInfo, Vector2 } from '../state'
+import { CanvasRenderer } from './appearances/canvas-renderer'
+import { FillRenderer } from './appearances/fill-renderer'
+import { StrokeRenderer } from './appearances/stroke-renderer'
 import { LayerCompositor } from './compositing/layer-compositor'
 import { OffscreenTexturePool } from './compositing/offscreen-texture-pool'
-import { UIManager, WebGPUIDeclaration, WebGPUComponentContext } from './ui'
-import { DocumentContext } from '../document-manager'
-import { IWebGPUUIComponent } from './ui/IWebGPUUIComponent'
-import { UIComponentManager } from './ui/ui-component-manager'
 import { HitTester } from './hit-test/hit-test'
 import type { HitTestResult } from './hit-test/types'
-import { setDocumentAccessFunction } from '../selection-state'
+import {
+  UIManager,
+  type WebGPUComponentContext,
+  type WebGPUIDeclaration,
+} from './ui'
+import { UIComponentManager } from './ui/ui-component-manager'
 
 // WebGPU Debug State
 export const debugState = proxy({
@@ -36,6 +35,14 @@ export const debugState = proxy({
     lastHitPosition: null as Vector2 | null,
     lastHitResults: [] as any[],
     hitCount: 0,
+  },
+  webgpuEngine: {
+    endDrawing: null as any, // 描画終了時の状態を記録
+    previewStrokeCheck: null as any, // プレビューストローク描画条件チェック
+    renderPreviewStrokeSkipped: null as any, // プレビューストロークスキップ理由
+    renderingPreviewStroke: null as any, // プレビューストローク描画中の情報
+    previewStrokeError: null as any, // プレビューストロークエラー
+    startDrawingCall: null as any, // startDrawing呼び出し記録
   },
   ui: {
     componentCount: 0,
@@ -71,6 +78,14 @@ export const debugState = proxy({
       elementId?: string
       timestamp: number
     }>,
+    backgroundDebugData: null as any,
+    backgroundSuccessData: null as any,
+    documentStateData: null as any,
+    foregroundDebugData: null as any,
+    foregroundSuccessData: null as any,
+    legacyDebugData: null as any,
+    legacySuccessData: null as any,
+    particleDebugData: null as any,
   },
   stroke: {
     renderer: {
@@ -80,6 +95,21 @@ export const debugState = proxy({
       isGPUComputeAvailable: false,
       lastInitError: null as string | null,
       initStackTrace: null as string | null,
+    },
+    instanceBuffer: {
+      maxInstances: 0,
+      requestedInstances: 0,
+      actualInstances: 0,
+      overflow: false,
+      lastOverflowAt: null as number | null,
+      totalLength: 0,
+      baseSpacing: 0,
+      overflowDetails: null as {
+        totalRequested: number
+        capped: number
+        overflowAmount: number
+        timestamp: number
+      } | null,
     },
     webgpuUtils: {
       shaderDataDefs: null as any,
@@ -102,7 +132,87 @@ export const debugState = proxy({
       lastSuccessTime: 0,
       failureCount: 0,
       successCount: 0,
+      // 各ストロークの詳細状態（毎フレームクリア）
+      perStrokeData: {} as Record<
+        string,
+        {
+          id: string
+          type: 'preview' | 'document'
+          attemptTime: number
+          pointCount: number
+          instanceCount: number
+          appearances: Array<{
+            type: string
+            enabled: boolean
+            width?: number
+            color?: { r: number; g: number; b: number; a: number }
+            brushTexture?: string
+          }>
+          geometryData: {
+            pathLength: number
+            boundingBox: {
+              x: number
+              y: number
+              width: number
+              height: number
+            }
+            segmentCount: number
+          }
+          pipelineStages: {
+            instanceGeneration: {
+              success: boolean
+              duration: number
+              error?: string
+            }
+            vertexBuffer: { success: boolean; size: number; error?: string }
+            texture: { success: boolean; bound: boolean; error?: string }
+            compute: { success: boolean; duration: number; error?: string }
+            render: {
+              success: boolean
+              duration: number
+              drawCalls: number
+              error?: string
+            }
+          }
+          renderResult: {
+            success: boolean
+            visible: boolean
+            error?: string
+            finalInstanceCount: number
+          }
+        }
+      >,
+      frameStats: {
+        totalStrokesAttempted: 0,
+        previewStrokesAttempted: 0,
+        documentStrokesAttempted: 0,
+        successfulStrokes: 0,
+        failedStrokes: 0,
+        averageRenderTime: 0,
+      },
+      brushSettingsSource: null as {
+        artObjectId: string
+        hasAppearanceBrushSettings: boolean
+        usingCurrentSettings: boolean
+        brushTexture?: string
+        scatterCount?: number
+      } | null,
     },
+    tempStrokeTransition: null as {
+      debugToken: string
+      timestamp: string
+      action: string
+      previousTempStrokeId: string | null
+      currentStrokePoints: number
+      isDrawing: boolean
+      newPermanentId?: string
+      layerId?: string
+      strokeParams?: {
+        width: number
+        brushTexture?: string
+        scatterCount?: number
+      }
+    } | null,
     pipeline: {
       lastVertexBufferSize: 0,
       lastIndexBufferSize: 0,
@@ -119,6 +229,40 @@ export const debugState = proxy({
       strokeArtObjectCount: 0,
       lastDocumentId: null as string | null,
     },
+    particleDebug: {
+      lastRenderCall: {
+        timestamp: 0,
+        instanceCount: 0,
+        actualDrawnInstances: 0,
+        hasCurrentStroke: false,
+        currentStrokePointCount: 0,
+        bufferCleared: false,
+        vertexShaderFiltered: 0,
+        fragmentShaderDiscarded: 0,
+      },
+      renderingStats: {
+        totalRenderCalls: 0,
+        emptyRenderCalls: 0,
+        lastEmptyRenderReason: null as string | null,
+      },
+    },
+    pipelineError: null as any,
+    texturePixelAnalysis: null as any,
+    textureCoordinates: null as any,
+    strokeSaveData: null as any,
+    commandExecution: null as any,
+    documentChanges: {
+      lastChangeTime: 0,
+      changeHistory: [] as Array<{
+        timestamp: number
+        action: string
+        before: { artObjectCount: number; artObjectIds: string[] }
+        after: { artObjectCount: number; artObjectIds: string[] }
+        stackTrace: string
+      }>,
+    },
+    layerProcessing: null as any,
+    artObjectLookup: null as any,
   },
   selection: {
     selectedObjectsCount: 0,
@@ -219,6 +363,59 @@ export const debugState = proxy({
       }>,
     },
   },
+  paplicoEngine: {
+    renderOptimization: {
+      needsRender: false,
+      lastRenderTime: 0,
+      renderCheckInterval: 16,
+      frameSkipped: 0,
+      totalFrames: 0,
+      renderRequestCount: 0,
+      lastRenderReason: null as string | null,
+    },
+    input: {
+      currentTool: null as string | null,
+      isMouseDown: false,
+      isPanning: false,
+      isZooming: false,
+      pointerCount: 0,
+      lastEventTimestamp: 0,
+      eventCount: {
+        pointerDown: 0,
+        pointerMove: 0,
+        pointerUp: 0,
+        wheel: 0,
+        touch: 0,
+      },
+    },
+    camera: {
+      position: { x: 0, y: 0 },
+      zoom: 1,
+      rotation: 0,
+      viewport: { width: 0, height: 0 },
+      transformationCount: 0,
+      lastTransformTimestamp: 0,
+    },
+    document: {
+      activeDocumentId: null as string | null,
+      layerCount: 0,
+      artObjectCount: 0,
+      artboardCount: 0,
+      lastModified: 0,
+      documentChanges: 0,
+    },
+    performance: {
+      initializationTime: 0,
+      totalRenderTime: 0,
+      averageFrameTime: 0,
+      lastGcTime: 0,
+      memoryUsage: {
+        used: 0,
+        total: 0,
+        limit: 0,
+      },
+    },
+  },
 })
 
 export class WebGPUEngine {
@@ -291,7 +488,7 @@ export class WebGPUEngine {
           texture: 'pencil',
           scatterConfig: {
             count: 5,
-            spread: 10,
+            spread: 2,
             sizeVariation: 0.2,
             opacityVariation: 0.1,
           },
@@ -312,11 +509,9 @@ export class WebGPUEngine {
           minOpacity: 0.1,
         },
       },
-      tools: {
-        activeTool: 'brush',
-        isDrawing: false,
-        currentStroke: null,
-      },
+      // tools は PaplicoEngine に移動
+      isDrawing: false,
+      currentStroke: null,
       selection: {
         selectedObjectIds: [],
         isDragging: false,
@@ -359,127 +554,122 @@ export class WebGPUEngine {
   }
 
   async initialize(): Promise<boolean> {
+    if (!navigator.gpu) {
+      return false
+    }
+
+    const adapter = await navigator.gpu.requestAdapter()
+
+    if (!adapter) {
+      return false
+    }
+
+    this.adapter = adapter
+    this.device = await adapter.requestDevice()
+
+    // WebGPUエラーイベントリスナーを設定
+    this.device.addEventListener('uncapturederror', async (event: any) => {
+      console.error('WebGPU uncaptured error:', event.error)
+      debugState.ui.errorCount++
+      debugState.ui.lastError = `WebGPU uncaptured error: ${event.error.message}`
+    })
+
+    this.device.lost.then(async (info: any) => {
+      console.error('WebGPU device lost:', info)
+      debugState.ui.errorCount++
+      debugState.ui.lastError = `WebGPU device lost: ${
+        info.reason || 'unknown'
+      }`
+    })
+
+    this.context = this.canvas.getContext('webgpu')
+
+    if (!this.context) {
+      return false
+    }
+
+    const canvasFormat = navigator.gpu.getPreferredCanvasFormat()
+
+    this.context.configure({
+      device: this.device,
+      format: canvasFormat,
+      alphaMode: 'premultiplied',
+    })
+
+    await this.createRenderPipeline()
+    await this.createLineRenderPipeline()
+    await this.createTextRenderPipeline()
+    await this.createSimpleFillPipeline()
+    this.createUniformBuffer()
+
+    // ストロークレンダラーを初期化
+    this.strokeRenderer = new StrokeRenderer(this.device)
     try {
-      if (!navigator.gpu) {
-        return false
-      }
-
-      const adapter = await navigator.gpu.requestAdapter()
-
-      if (!adapter) {
-        return false
-      }
-
-      this.adapter = adapter
-      this.device = await adapter.requestDevice()
-
-      // WebGPUエラーイベントリスナーを設定
-      this.device.addEventListener('uncapturederror', async (event: any) => {
-        console.error('WebGPU uncaptured error:', event.error)
-        debugState.ui.errorCount++
-        debugState.ui.lastError = `WebGPU uncaptured error: ${event.error.message}`
-      })
-
-      this.device.lost.then(async (info: any) => {
-        console.error('WebGPU device lost:', info)
-        debugState.ui.errorCount++
-        debugState.ui.lastError = `WebGPU device lost: ${
-          info.reason || 'unknown'
-        }`
-      })
-
-      this.context = this.canvas.getContext('webgpu')
-
-      if (!this.context) {
-        return false
-      }
-
-      const canvasFormat = navigator.gpu.getPreferredCanvasFormat()
-
-      this.context.configure({
-        device: this.device,
-        format: canvasFormat,
-        alphaMode: 'premultiplied',
-      })
-
-      await this.createRenderPipeline()
-      await this.createLineRenderPipeline()
-      await this.createTextRenderPipeline()
-      await this.createSimpleFillPipeline()
-      this.createUniformBuffer()
-
-      // ストロークレンダラーを初期化
-      this.strokeRenderer = new StrokeRenderer(this.device)
-      try {
-        await this.strokeRenderer.initialize()
-        debugState.stroke.renderer.initialized = true
-        debugState.stroke.renderer.hasRenderPipeline = !!(
-          this.strokeRenderer as any
-        ).renderPipeline
-        debugState.stroke.renderer.hasComputePipeline = !!(
-          this.strokeRenderer as any
-        ).computePipeline
-        debugState.stroke.renderer.isGPUComputeAvailable = (
-          this.strokeRenderer as any
-        ).isGPUComputeAvailable
-      } catch (error) {
-        debugState.stroke.renderer.lastInitError =
-          error instanceof Error ? error.message : String(error)
-        debugState.stroke.renderer.initStackTrace =
-          error instanceof Error ? error.stack || null : null
-        throw error
-      }
-
-      // フィルレンダラーを初期化
-      this.fillRenderer = new FillRenderer(this.device)
-      await this.fillRenderer.initialize()
-
-      // キャンバスレンダラーを初期化
-      this.canvasRenderer = new CanvasRenderer(this.device)
-      await this.canvasRenderer.initialize()
-
-      // オフスクリーン合成システムを初期化
-      this.offscreenTexturePool = new OffscreenTexturePool(this.device)
-      this.layerCompositor = new LayerCompositor(
-        this.device,
-        this.offscreenTexturePool,
-      )
-      await this.layerCompositor.initialize()
-
-      // UIコンポーネントマネージャーを初期化
-      this.uiComponentManager = new UIComponentManager(this.device)
-      await this.uiComponentManager.initialize()
-
-      this.uiManager = new UIManager()
-
-      // キャンバスにマウスイベントリスナーを追加
-      this.setupMouseEventListeners()
-
-      // WebGPU UIコンポーネントを初期化
-      this.initializeUIComponents()
-
-      // 選択システムにドキュメントアクセス関数を注入
-      this.setupSelectionSystem()
-
-      this.setWebGPUDevice(this.device, this.context)
-
-      // テストドキュメントをロード
-
-      // カメラをテストデータに合わせて調整
-      this.camera.setPosition(400, 300)
-      this.camera.setZoom(1.0)
-
-      return true
+      await this.strokeRenderer.initialize()
+      debugState.stroke.renderer.initialized = true
+      debugState.stroke.renderer.hasRenderPipeline = !!(
+        this.strokeRenderer as any
+      ).renderPipeline
+      debugState.stroke.renderer.hasComputePipeline = !!(
+        this.strokeRenderer as any
+      ).computePipeline
+      debugState.stroke.renderer.isGPUComputeAvailable = (
+        this.strokeRenderer as any
+      ).isGPUComputeAvailable
     } catch (error) {
+      debugState.stroke.renderer.lastInitError =
+        error instanceof Error ? error.message : String(error)
+      debugState.stroke.renderer.initStackTrace =
+        error instanceof Error ? error.stack || null : null
       throw error
     }
+
+    // フィルレンダラーを初期化
+    this.fillRenderer = new FillRenderer(this.device)
+    await this.fillRenderer.initialize()
+
+    // キャンバスレンダラーを初期化
+    this.canvasRenderer = new CanvasRenderer(this.device)
+    await this.canvasRenderer.initialize()
+
+    // オフスクリーン合成システムを初期化
+    this.offscreenTexturePool = new OffscreenTexturePool(this.device)
+    this.layerCompositor = new LayerCompositor(
+      this.device,
+      this.offscreenTexturePool,
+    )
+    await this.layerCompositor.initialize()
+
+    // UIコンポーネントマネージャーを初期化
+    this.uiComponentManager = new UIComponentManager(this.device)
+    await this.uiComponentManager.initialize()
+
+    this.uiManager = new UIManager()
+
+    // キャンバスにマウスイベントリスナーを追加
+    this.setupMouseEventListeners()
+
+    // WebGPU UIコンポーネントを初期化
+    this.initializeUIComponents()
+
+    // 選択システムにドキュメントアクセス関数を注入
+    this.setupSelectionSystem()
+
+    this.setWebGPUDevice(this.device, this.context)
+
+    // テストドキュメントをロード
+
+    // カメラをテストデータに合わせて調整
+    this.camera.setPosition(400, 300)
+    this.camera.setZoom(1.0)
+
+    return true
   }
 
   private async createRenderPipeline() {
-    if (!this.device) return
+    if (!this.device) throw new EngineError(ErrorCode.WebGPUDeviceNotAvailable)
 
-    try {
-      const vertexShaderCode = `
+    const vertexShaderCode = `
         struct VertexOutput {
           @builtin(position) position: vec4<f32>,
           @location(0) color: vec4<f32>,
@@ -494,84 +684,80 @@ export class WebGPUEngine {
         }
       `
 
-      const fragmentShaderCode = `
+    const fragmentShaderCode = `
         @fragment
         fn fs_main(@location(0) color: vec4<f32>) -> @location(0) vec4<f32> {
           return color;
         }
       `
 
-      const vertexShader = this.device.createShaderModule({
-        label: 'VectorPaintVertexShader',
-        code: vertexShaderCode,
-      })
+    const vertexShader = this.device.createShaderModule({
+      label: 'VectorPaintVertexShader',
+      code: vertexShaderCode,
+    })
 
-      const fragmentShader = this.device.createShaderModule({
-        label: 'VectorPaintFragmentShader',
-        code: fragmentShaderCode,
-      })
+    const fragmentShader = this.device.createShaderModule({
+      label: 'VectorPaintFragmentShader',
+      code: fragmentShaderCode,
+    })
 
-      this.renderPipeline = this.device.createRenderPipeline({
-        label: 'VectorPaintRenderPipeline',
-        layout: 'auto',
-        vertex: {
-          module: vertexShader,
-          entryPoint: 'vs_main',
-          buffers: [
-            {
-              arrayStride: 6 * 4, // position(2) + color(4) = 6 floats
-              attributes: [
-                {
-                  shaderLocation: 0,
-                  offset: 0,
-                  format: 'float32x2', // position
-                },
-                {
-                  shaderLocation: 1,
-                  offset: 2 * 4,
-                  format: 'float32x4', // color
-                },
-              ],
-            },
-          ],
-        },
-        fragment: {
-          module: fragmentShader,
-          entryPoint: 'fs_main',
-          targets: [
-            {
-              format: navigator.gpu.getPreferredCanvasFormat(),
-              blend: {
-                color: {
-                  srcFactor: 'src-alpha',
-                  dstFactor: 'one-minus-src-alpha',
-                },
-                alpha: {
-                  srcFactor: 'one',
-                  dstFactor: 'one-minus-src-alpha',
-                },
+    this.renderPipeline = this.device.createRenderPipeline({
+      label: 'VectorPaintRenderPipeline',
+      layout: 'auto',
+      vertex: {
+        module: vertexShader,
+        entryPoint: 'vs_main',
+        buffers: [
+          {
+            arrayStride: 6 * 4, // position(2) + color(4) = 6 floats
+            attributes: [
+              {
+                shaderLocation: 0,
+                offset: 0,
+                format: 'float32x2', // position
+              },
+              {
+                shaderLocation: 1,
+                offset: 2 * 4,
+                format: 'float32x4', // color
+              },
+            ],
+          },
+        ],
+      },
+      fragment: {
+        module: fragmentShader,
+        entryPoint: 'fs_main',
+        targets: [
+          {
+            format: navigator.gpu.getPreferredCanvasFormat(),
+            blend: {
+              color: {
+                srcFactor: 'src-alpha',
+                dstFactor: 'one-minus-src-alpha',
+              },
+              alpha: {
+                srcFactor: 'one',
+                dstFactor: 'one-minus-src-alpha',
               },
             },
-          ],
-        },
-        primitive: {
-          topology: 'triangle-list',
-          cullMode: 'none',
-        },
-        multisample: {
-          count: 1,
-        },
-      })
-    } catch (error) {
-      throw error
-    }
+          },
+        ],
+      },
+      primitive: {
+        topology: 'triangle-list',
+        cullMode: 'none',
+      },
+      multisample: {
+        count: 1,
+      },
+    })
   }
 
   private async createLineRenderPipeline() {
-    if (!this.device) return
+    if (!this.device) throw new EngineError(ErrorCode.WebGPUDeviceNotAvailable)
 
-    try {
-      const vertexShaderCode = `
+    const vertexShaderCode = `
         struct VertexOutput {
           @builtin(position) position: vec4<f32>,
           @location(0) color: vec4<f32>,
@@ -586,84 +772,80 @@ export class WebGPUEngine {
         }
       `
 
-      const fragmentShaderCode = `
+    const fragmentShaderCode = `
         @fragment
         fn fs_main(@location(0) color: vec4<f32>) -> @location(0) vec4<f32> {
           return color;
         }
       `
 
-      const vertexShader = this.device.createShaderModule({
-        label: 'LineVertexShader',
-        code: vertexShaderCode,
-      })
+    const vertexShader = this.device.createShaderModule({
+      label: 'LineVertexShader',
+      code: vertexShaderCode,
+    })
 
-      const fragmentShader = this.device.createShaderModule({
-        label: 'LineFragmentShader',
-        code: fragmentShaderCode,
-      })
+    const fragmentShader = this.device.createShaderModule({
+      label: 'LineFragmentShader',
+      code: fragmentShaderCode,
+    })
 
-      this.lineRenderPipeline = this.device.createRenderPipeline({
-        label: 'LineRenderPipeline',
-        layout: 'auto',
-        vertex: {
-          module: vertexShader,
-          entryPoint: 'vs_main',
-          buffers: [
-            {
-              arrayStride: 6 * 4, // position(2) + color(4) = 6 floats
-              attributes: [
-                {
-                  shaderLocation: 0,
-                  offset: 0,
-                  format: 'float32x2', // position
-                },
-                {
-                  shaderLocation: 1,
-                  offset: 2 * 4,
-                  format: 'float32x4', // color
-                },
-              ],
-            },
-          ],
-        },
-        fragment: {
-          module: fragmentShader,
-          entryPoint: 'fs_main',
-          targets: [
-            {
-              format: navigator.gpu.getPreferredCanvasFormat(),
-              blend: {
-                color: {
-                  srcFactor: 'src-alpha',
-                  dstFactor: 'one-minus-src-alpha',
-                },
-                alpha: {
-                  srcFactor: 'one',
-                  dstFactor: 'one-minus-src-alpha',
-                },
+    this.lineRenderPipeline = this.device.createRenderPipeline({
+      label: 'LineRenderPipeline',
+      layout: 'auto',
+      vertex: {
+        module: vertexShader,
+        entryPoint: 'vs_main',
+        buffers: [
+          {
+            arrayStride: 6 * 4, // position(2) + color(4) = 6 floats
+            attributes: [
+              {
+                shaderLocation: 0,
+                offset: 0,
+                format: 'float32x2', // position
+              },
+              {
+                shaderLocation: 1,
+                offset: 2 * 4,
+                format: 'float32x4', // color
+              },
+            ],
+          },
+        ],
+      },
+      fragment: {
+        module: fragmentShader,
+        entryPoint: 'fs_main',
+        targets: [
+          {
+            format: navigator.gpu.getPreferredCanvasFormat(),
+            blend: {
+              color: {
+                srcFactor: 'src-alpha',
+                dstFactor: 'one-minus-src-alpha',
+              },
+              alpha: {
+                srcFactor: 'one',
+                dstFactor: 'one-minus-src-alpha',
               },
             },
-          ],
-        },
-        primitive: {
-          topology: 'line-list',
-          cullMode: 'none',
-        },
-        multisample: {
-          count: 1,
-        },
-      })
-    } catch (error) {
-      throw error
-    }
+          },
+        ],
+      },
+      primitive: {
+        topology: 'line-list',
+        cullMode: 'none',
+      },
+      multisample: {
+        count: 1,
+      },
+    })
   }
 
   private async createTextRenderPipeline() {
-    if (!this.device) return
+    if (!this.device) throw new EngineError(ErrorCode.WebGPUDeviceNotAvailable)
 
-    try {
-      const vertexShaderCode = `
+    const vertexShaderCode = `
         struct VertexOutput {
           @builtin(position) position: vec4<f32>,
           @location(0) uv: vec2<f32>,
@@ -678,7 +860,7 @@ export class WebGPUEngine {
         }
       `
 
-      const fragmentShaderCode = `
+    const fragmentShaderCode = `
         @group(0) @binding(0) var textureSampler: sampler;
         @group(0) @binding(1) var textTexture: texture_2d<f32>;
 
@@ -688,77 +870,73 @@ export class WebGPUEngine {
         }
       `
 
-      const vertexShader = this.device.createShaderModule({
-        label: 'TextVertexShader',
-        code: vertexShaderCode,
-      })
+    const vertexShader = this.device.createShaderModule({
+      label: 'TextVertexShader',
+      code: vertexShaderCode,
+    })
 
-      const fragmentShader = this.device.createShaderModule({
-        label: 'TextFragmentShader',
-        code: fragmentShaderCode,
-      })
+    const fragmentShader = this.device.createShaderModule({
+      label: 'TextFragmentShader',
+      code: fragmentShaderCode,
+    })
 
-      this.textRenderPipeline = this.device.createRenderPipeline({
-        label: 'TextRenderPipeline',
-        layout: 'auto',
-        vertex: {
-          module: vertexShader,
-          entryPoint: 'vs_main',
-          buffers: [
-            {
-              arrayStride: 4 * 4, // position(2) + uv(2) = 4 floats
-              attributes: [
-                {
-                  shaderLocation: 0,
-                  offset: 0,
-                  format: 'float32x2', // position
-                },
-                {
-                  shaderLocation: 1,
-                  offset: 2 * 4,
-                  format: 'float32x2', // uv
-                },
-              ],
-            },
-          ],
-        },
-        fragment: {
-          module: fragmentShader,
-          entryPoint: 'fs_main',
-          targets: [
-            {
-              format: navigator.gpu.getPreferredCanvasFormat(),
-              blend: {
-                color: {
-                  srcFactor: 'src-alpha',
-                  dstFactor: 'one-minus-src-alpha',
-                },
-                alpha: {
-                  srcFactor: 'one',
-                  dstFactor: 'one-minus-src-alpha',
-                },
+    this.textRenderPipeline = this.device.createRenderPipeline({
+      label: 'TextRenderPipeline',
+      layout: 'auto',
+      vertex: {
+        module: vertexShader,
+        entryPoint: 'vs_main',
+        buffers: [
+          {
+            arrayStride: 4 * 4, // position(2) + uv(2) = 4 floats
+            attributes: [
+              {
+                shaderLocation: 0,
+                offset: 0,
+                format: 'float32x2', // position
+              },
+              {
+                shaderLocation: 1,
+                offset: 2 * 4,
+                format: 'float32x2', // uv
+              },
+            ],
+          },
+        ],
+      },
+      fragment: {
+        module: fragmentShader,
+        entryPoint: 'fs_main',
+        targets: [
+          {
+            format: navigator.gpu.getPreferredCanvasFormat(),
+            blend: {
+              color: {
+                srcFactor: 'src-alpha',
+                dstFactor: 'one-minus-src-alpha',
+              },
+              alpha: {
+                srcFactor: 'one',
+                dstFactor: 'one-minus-src-alpha',
               },
             },
-          ],
-        },
-        primitive: {
-          topology: 'triangle-list',
-          cullMode: 'none',
-        },
-        multisample: {
-          count: 1,
-        },
-      })
-    } catch (error) {
-      throw error
-    }
+          },
+        ],
+      },
+      primitive: {
+        topology: 'triangle-list',
+        cullMode: 'none',
+      },
+      multisample: {
+        count: 1,
+      },
+    })
   }
 
   private async createSimpleFillPipeline() {
-    if (!this.device) return
+    if (!this.device) throw new EngineError(ErrorCode.WebGPUDeviceNotAvailable)
 
-    try {
-      const shaderCode = `
+    const shaderCode = `
         struct VertexOutput {
           @builtin(position) position: vec4<f32>,
           @location(0) color: vec4<f32>,
@@ -778,70 +956,67 @@ export class WebGPUEngine {
         }
       `
 
-      const shaderModule = this.device.createShaderModule({
-        label: 'SimpleFillShader',
-        code: shaderCode,
-      })
+    const shaderModule = this.device.createShaderModule({
+      label: 'SimpleFillShader',
+      code: shaderCode,
+    })
 
-      this.simpleFillPipeline = this.device.createRenderPipeline({
-        label: 'SimpleFillPipeline',
-        layout: 'auto',
-        vertex: {
-          module: shaderModule,
-          entryPoint: 'vs_main',
-          buffers: [
-            {
-              arrayStride: 2 * 4, // position: vec2<f32>
-              attributes: [
-                {
-                  shaderLocation: 0,
-                  offset: 0,
-                  format: 'float32x2', // position
-                },
-              ],
-            },
-            {
-              arrayStride: 4 * 4, // color: vec4<f32>
-              attributes: [
-                {
-                  shaderLocation: 1,
-                  offset: 0,
-                  format: 'float32x4', // color
-                },
-              ],
-            },
-          ],
-        },
-        fragment: {
-          module: shaderModule,
-          entryPoint: 'fs_main',
-          targets: [
-            {
-              format: navigator.gpu.getPreferredCanvasFormat(),
-              blend: {
-                color: {
-                  srcFactor: 'src-alpha',
-                  dstFactor: 'one-minus-src-alpha',
-                },
-                alpha: {
-                  srcFactor: 'one',
-                  dstFactor: 'one-minus-src-alpha',
-                },
+    this.simpleFillPipeline = this.device.createRenderPipeline({
+      label: 'SimpleFillPipeline',
+      layout: 'auto',
+      vertex: {
+        module: shaderModule,
+        entryPoint: 'vs_main',
+        buffers: [
+          {
+            arrayStride: 2 * 4, // position: vec2<f32>
+            attributes: [
+              {
+                shaderLocation: 0,
+                offset: 0,
+                format: 'float32x2', // position
+              },
+            ],
+          },
+          {
+            arrayStride: 4 * 4, // color: vec4<f32>
+            attributes: [
+              {
+                shaderLocation: 1,
+                offset: 0,
+                format: 'float32x4', // color
+              },
+            ],
+          },
+        ],
+      },
+      fragment: {
+        module: shaderModule,
+        entryPoint: 'fs_main',
+        targets: [
+          {
+            format: navigator.gpu.getPreferredCanvasFormat(),
+            blend: {
+              color: {
+                srcFactor: 'src-alpha',
+                dstFactor: 'one-minus-src-alpha',
+              },
+              alpha: {
+                srcFactor: 'one',
+                dstFactor: 'one-minus-src-alpha',
               },
             },
-          ],
-        },
-        primitive: {
-          topology: 'triangle-list',
-          cullMode: 'none',
-        },
-        multisample: {
-          count: 1,
-        },
-      })
-    } catch (error) {
-      throw error
-    }
+          },
+        ],
+      },
+      primitive: {
+        topology: 'triangle-list',
+        cullMode: 'none',
+      },
+      multisample: {
+        count: 1,
+      },
+    })
   }
 
   private createUniformBuffer() {
@@ -863,52 +1038,6 @@ export class WebGPUEngine {
     const rootNodes = document.layerNodes
       .filter((node: any) => node.parentId === null)
       .sort((a: any, b: any) => a.order - b.order)
-
-    // エクスポート時の場合は、処理対象のレイヤー数をエラーログに記録（初回のみ）
-    if (debugState.export.rendering) {
-      console.log('=== PNG Export Debug: Document Structure ===')
-      console.log(
-        `Document has ${Object.keys(document.layers).length} total layers`,
-      )
-      console.log(
-        `Document has ${
-          Object.keys(document.artObjects).length
-        } total artObjects`,
-      )
-      console.log(`Root nodes found: ${rootNodes.length}`)
-      console.log('document.layerNodes:', document.layerNodes)
-
-      debugState.export.errors.push(`=== Document Structure ===`)
-      debugState.export.errors.push(
-        `Document has ${Object.keys(document.layers).length} total layers`,
-      )
-      debugState.export.errors.push(
-        `Document has ${
-          Object.keys(document.artObjects).length
-        } total artObjects`,
-      )
-      debugState.export.errors.push(`Root nodes found: ${rootNodes.length}`)
-      rootNodes.forEach((node, i) => {
-        const layer = document.layers[node.layerId]
-        console.log(
-          `Root ${i}: Layer ${node.layerId} visible=${layer?.visible} type=${layer?.type}`,
-        )
-        debugState.export.errors.push(
-          `Root ${i}: Layer ${node.layerId} visible=${layer?.visible} type=${layer?.type}`,
-        )
-
-        // ベクターレイヤーのアートオブジェクト情報も記録
-        if (layer?.type === 'vector' && (layer as any).artObjectIds) {
-          const vectorLayer = layer as any
-          console.log(
-            `  - Contains ${vectorLayer.artObjectIds.length} art objects`,
-          )
-          debugState.export.errors.push(
-            `  - Contains ${vectorLayer.artObjectIds.length} art objects`,
-          )
-        }
-      })
-    }
 
     for (const node of rootNodes) {
       await this.renderDownLayerTreeInner(
@@ -933,28 +1062,7 @@ export class WebGPUEngine {
   ): Promise<void> {
     const document = documentContext.document
 
-    if (debugState.export.rendering) {
-      debugState.export.errors.push(`Processing node ${node.layerId}`)
-    }
-
     const layer = document.layers[node.layerId]
-    if (!layer || !layer.visible) {
-      // 統計に非表示レイヤーを記録
-      if (debugState.export.rendering) {
-        debugState.export.rendering.skippedObjects++
-        debugState.export.errors.push(
-          `Skipped layer ${node.layerId}: ${
-            !layer ? 'not found' : 'not visible'
-          }`,
-        )
-      }
-      return
-    }
-
-    // 統計にレイヤー処理を記録
-    if (debugState.export.rendering) {
-      debugState.export.rendering.layersProcessed++
-    }
 
     const layerOpacity = (layer.opacity || 1.0) * inheritedOpacity
 
@@ -998,49 +1106,110 @@ export class WebGPUEngine {
 
     // artObjectIds内のArtObjectをレンダリング
     if (layer.artObjectIds && layer.artObjectIds.length > 0) {
+      // レイヤー内のartObjectIds処理開始時のデバッグ情報をdebugStateに保存
+      debugState.stroke.layerProcessing = {
+        debugToken: `layer-processing-v1-${crypto.randomUUID()}`,
+        timestamp: new Date().toISOString(),
+        action: 'process_layer_artobjects',
+        layerId: layer.id,
+        layerType: layer.type,
+        artObjectIds: layer.artObjectIds,
+        artObjectIdsCount: layer.artObjectIds.length,
+        totalDocumentArtObjects: Object.keys(document.artObjects).length,
+        documentArtObjectIds: Object.keys(document.artObjects),
+      }
+
       for (const artObjectId of layer.artObjectIds) {
         const artObject = document.artObjects[artObjectId]
+
+        // 詳細なデバッグ情報をdebugStateに保存
+        debugState.stroke.artObjectLookup = {
+          debugToken: `artobject-lookup-v1-${crypto.randomUUID()}`,
+          timestamp: new Date().toISOString(),
+          action: 'lookup_artobject',
+          artObjectId,
+          found: !!artObject,
+          visible: artObject?.visible,
+          type: artObject?.type,
+          artObjectExists: artObjectId in document.artObjects,
+          artObjectData: artObject
+            ? {
+                id: artObject.id,
+                layerId: artObject.layerId,
+                type: artObject.type,
+                visible: artObject.visible,
+              }
+            : null,
+        }
+
         if (!artObject || !artObject.visible) {
-          // 統計に非表示オブジェクトを記録
-          if (debugState.export.rendering) {
-            debugState.export.rendering.skippedObjects++
-          }
+          debugState.stroke.artObjectLookup.skipped = true
+          debugState.stroke.artObjectLookup.skipReason = !artObject
+            ? 'not_found'
+            : 'not_visible'
           continue
         }
 
-        // 統計にオブジェクト処理を記録
-        if (debugState.export.rendering) {
-          debugState.export.rendering.artObjectsProcessed++
+        // デバッグ: アートオブジェクトが見つかった場合
+        const renderDebugData = {
+          debugToken: `core-engine-render-v1-${Math.random().toString(36).substring(2)}`,
+          timestamp: new Date().toISOString(),
+          action: 'stroke_rendering',
+          artObjectId,
+          layerId: layer.id,
+          artObject: {
+            type: artObject.type,
+            visible: artObject.visible,
+            hasPath: artObject.type === 'path' && !!(artObject as any).path,
+            pointCount:
+              artObject.type === 'path'
+                ? (artObject as any).path?.points?.length || 0
+                : 0,
+            appearances: artObject.appearances?.map((a: any) => ({
+              type: a.type,
+              enabled: a.enabled,
+              params:
+                a.type === 'stroke'
+                  ? {
+                      width: a.params?.width,
+                      color: a.params?.color,
+                      hasbrushSettings: !!a.params?.brushSettings,
+                    }
+                  : {},
+            })),
+          },
+          layer: {
+            id: layer.id,
+            type: layer.type,
+            visible: layer.visible,
+            opacity: layer.opacity || 1.0,
+            artObjectIds: (layer as any).artObjectIds || [],
+          },
         }
 
-        try {
-          // タイプ別にレンダリング
-          if (artObject.type === 'path') {
-            await this.renderPathArtObject(
-              renderPass,
-              artObject,
-              opacity,
-              buffersToDestroy,
-            )
-          } else if (artObject.type === 'canvas') {
-            await this.renderCanvasArtObject(
-              renderPass,
-              artObject,
-              opacity,
-              buffersToDestroy,
-            )
-          }
-        } catch (error) {
-          // 統計にレンダリングエラーを記録
-          if (debugState.export.rendering) {
-            debugState.export.rendering.renderErrors.push({
-              artObjectId,
-              artObjectType: artObject.type,
-              error: error instanceof Error ? error.message : String(error),
-              timestamp: performance.now(),
-            })
-          }
-          throw error
+        // 最初のストロークレンダリング時のみデバッグ情報をdebugStateに保存
+        if (
+          artObject.type === 'path' &&
+          !(window as any).__strokeRenderDebugSaved
+        ) {
+          ;(window as any).__strokeRenderDebugSaved = true
+          debugState.stroke.renderDebugData = renderDebugData
+        }
+        // タイプ別にレンダリング
+        if (artObject.type === 'path') {
+          await this.renderPathArtObject(
+            renderPass,
+            artObject,
+            opacity,
+            buffersToDestroy,
+          )
+        } else if (artObject.type === 'canvas') {
+          await this.renderCanvasArtObject(
+            renderPass,
+            artObject,
+            opacity,
+            buffersToDestroy,
+          )
         }
       }
     }
@@ -1060,10 +1229,6 @@ export class WebGPUEngine {
       !artObject.path.points ||
       artObject.path.points.length < 2
     ) {
-      // 統計に無効なパスを記録
-      if (debugState.export.rendering) {
-        debugState.export.rendering.skippedObjects++
-      }
       return
     }
 
@@ -1073,90 +1238,53 @@ export class WebGPUEngine {
       closed: artObject.path.closed || false,
     }
 
-    // 統計にパス処理を記録
-    if (debugState.export.rendering) {
-      debugState.export.rendering.pathsRendered++
-      debugState.export.errors.push(`=== Rendering Path ${artObject.id} ===`)
-      debugState.export.errors.push(`  Points: ${vectorPath.points.length}`)
-      debugState.export.errors.push(
-        `  Transform: ${
-          artObject.transform
-            ? `(${artObject.transform.x}, ${artObject.transform.y})`
-            : 'none'
-        }`,
-      )
-      debugState.export.errors.push(
-        `  Appearances: ${artObject.appearances.length}`,
-      )
+    // ドキュメントストロークの詳細状態を記録
+    const strokeId = artObject.id
+    const attemptTime = performance.now()
+    debugState.stroke.rendering.frameStats.totalStrokesAttempted++
+    debugState.stroke.rendering.frameStats.documentStrokesAttempted++
+
+    const strokeData = {
+      id: strokeId,
+      type: 'document' as const,
+      attemptTime,
+      pointCount: artObject.path.points.length,
+      instanceCount: 0,
+      appearances: artObject.appearances.map((a: any) => ({
+        effectId: a.effectId,
+        enabled: a.enabled,
+        width: a.params?.width,
+        color: a.params?.color,
+        brushTexture: a.params?.brushSettings?.texture,
+      })),
+      geometryData: {
+        pathLength: 0,
+        boundingBox: { x: 0, y: 0, width: 0, height: 0 },
+        segmentCount: Math.max(0, artObject.path.points.length - 1),
+      },
+      pipelineStages: {
+        instanceGeneration: { success: false, duration: 0 },
+        vertexBuffer: { success: false, size: 0 },
+        texture: { success: false, bound: false },
+        compute: { success: false, duration: 0 },
+        render: { success: false, duration: 0, drawCalls: 0 },
+      },
+      renderResult: {
+        success: false,
+        visible: false,
+        finalInstanceCount: 0,
+      },
     }
+
+    debugState.stroke.rendering.perStrokeData[strokeId] = strokeData
 
     // 各アピアランスを処理
     for (const appearance of artObject.appearances) {
       if (!appearance.enabled) continue
-
-      try {
-        if (isStrokeAppearance(appearance)) {
-          // 統計にストローク処理を記録
-          if (debugState.export.rendering) {
-            debugState.export.rendering.strokesRendered++
-          }
-
-          if (this.strokeRenderer) {
-            // エクスポート時はアルファ値を強制的に上げる
-            const exportAppearance = {
-              ...appearance,
-              params: {
-                ...appearance.params,
-                opacity: Math.max(
-                  appearance.params.opacity * layerOpacity,
-                  0.5,
-                ),
-              },
-            }
-
-            // 一時ストロークと同じレンダリングパイプラインを使用
-            try {
-              await this.renderStrokePipeline(
-                renderPass,
-                vectorPath,
-                exportAppearance,
-                1.0, // layerOpacityは既にappearanceに適用済み
-                buffersToDestroy,
-                artObject.id,
-              )
-
-              // ストローク描画成功をログ
-              if (debugState.export.rendering) {
-                debugState.export.errors.push(
-                  `Stroke rendered: ${artObject.id}`,
-                )
-              }
-            } catch (error) {
-              if (debugState.export.rendering) {
-                debugState.export.errors.push(
-                  `Stroke failed: ${artObject.id} - ${error}`,
-                )
-              }
-            }
-          }
-        } else if (isFillAppearance(appearance) && this.fillRenderer) {
-          // 統計に塗り処理を記録
-          if (debugState.export.rendering) {
-            debugState.export.rendering.fillsRendered++
-          }
-
-          // 論理ピクセルサイズを使用（一時ストロークと統一）
-          // エクスポート時はターゲットテクスチャのサイズを使用
-          const canvasSize = this.currentRenderTargetTexture
-            ? {
-                width: this.currentRenderTargetTexture.width,
-                height: this.currentRenderTargetTexture.height,
-              }
-            : this.getLogicalCanvasSize()
-          const { width: logicalWidth, height: logicalHeight } = canvasSize
-
+      if (isStrokeAppearance(appearance)) {
+        if (this.strokeRenderer) {
           // エクスポート時はアルファ値を強制的に上げる
-          const exportFillAppearance = {
+          const exportAppearance = {
             ...appearance,
             params: {
               ...appearance.params,
@@ -1164,46 +1292,104 @@ export class WebGPUEngine {
             },
           }
 
-          // 塗りアピアランスをレンダリング
+          // 一時ストロークと同じレンダリングパイプラインを使用
+          const pipelineStartTime = performance.now()
+          debugState.stroke.rendering.perStrokeData[strokeId].pipelineStages
+            .render.drawCalls++
+
           try {
-            const { buffers } = await this.fillRenderer.render(
+            await this.renderStrokePipeline(
               renderPass,
               vectorPath,
-              exportFillAppearance,
-              this.camera.getProjectionMatrix(logicalWidth, logicalHeight),
-              this.camera.getViewMatrix(logicalWidth, logicalHeight),
-              { width: logicalWidth, height: logicalHeight },
-              { x: 0, y: 0, width: 0, height: 0 },
+              exportAppearance,
+              1.0, // layerOpacityは既にappearanceに適用済み
+              buffersToDestroy,
+              artObject.id,
             )
-            // バッファを安全に追加（undefinedを除外）
-            buffers.forEach((buffer) => {
-              if (buffer) buffersToDestroy.push(buffer)
-            })
 
-            // フィル描画成功をログ
-            if (debugState.export.rendering) {
-              debugState.export.errors.push(`Fill rendered: ${artObject.id}`)
-            }
+            // 成功時の状態記録
+            const pipelineDuration = performance.now() - pipelineStartTime
+            debugState.stroke.rendering.perStrokeData[
+              strokeId
+            ].pipelineStages.render.success = true
+            debugState.stroke.rendering.perStrokeData[
+              strokeId
+            ].pipelineStages.render.duration = pipelineDuration
+            debugState.stroke.rendering.perStrokeData[
+              strokeId
+            ].renderResult.success = true
+            debugState.stroke.rendering.perStrokeData[
+              strokeId
+            ].renderResult.visible = true
+            debugState.stroke.rendering.frameStats.successfulStrokes++
           } catch (error) {
-            if (debugState.export.rendering) {
-              debugState.export.errors.push(
-                `Fill failed: ${artObject.id} - ${error}`,
-              )
-            }
+            // 失敗時の状態記録
+            const pipelineDuration = performance.now() - pipelineStartTime
+            debugState.stroke.rendering.perStrokeData[
+              strokeId
+            ].pipelineStages.render.success = false
+            debugState.stroke.rendering.perStrokeData[
+              strokeId
+            ].pipelineStages.render.duration = pipelineDuration
+            debugState.stroke.rendering.perStrokeData[
+              strokeId
+            ].pipelineStages.render.error =
+              error instanceof Error ? error.message : String(error)
+            debugState.stroke.rendering.perStrokeData[
+              strokeId
+            ].renderResult.success = false
+            debugState.stroke.rendering.perStrokeData[
+              strokeId
+            ].renderResult.error =
+              error instanceof Error ? error.message : String(error)
+            debugState.stroke.rendering.frameStats.failedStrokes++
+
+            console.error(
+              `[StrokeDebug] Failed to render document stroke ${artObject.id}:`,
+              error,
+            )
+            debugState.stroke.rendering.lastError =
+              error instanceof Error ? error.message : String(error)
+            debugState.stroke.rendering.lastErrorLocation =
+              'renderPathArtObject'
           }
         }
-      } catch (error) {
-        // 統計にアピアランス処理エラーを記録
-        if (debugState.export.rendering) {
-          debugState.export.rendering.renderErrors.push({
-            artObjectId: artObject.id,
-            artObjectType: artObject.type,
-            appearanceType: appearance.type,
-            error: error instanceof Error ? error.message : String(error),
-            timestamp: performance.now(),
-          })
+      } else if (isFillAppearance(appearance) && this.fillRenderer) {
+        // 論理ピクセルサイズを使用（一時ストロークと統一）
+        // エクスポート時はターゲットテクスチャのサイズを使用
+        const canvasSize = this.currentRenderTargetTexture
+          ? {
+              width: this.currentRenderTargetTexture.width,
+              height: this.currentRenderTargetTexture.height,
+            }
+          : this.getLogicalCanvasSize()
+        const { width: logicalWidth, height: logicalHeight } = canvasSize
+
+        // エクスポート時はアルファ値を強制的に上げる
+        const exportFillAppearance = {
+          ...appearance,
+          params: {
+            ...appearance.params,
+            opacity: Math.max(appearance.params.opacity * layerOpacity, 0.5),
+          },
         }
-        throw error
+
+        // 塗りアピアランスをレンダリング
+        try {
+          const { buffers } = await this.fillRenderer.render(
+            renderPass,
+            vectorPath,
+            exportFillAppearance,
+            this.camera.getProjectionMatrix(logicalWidth, logicalHeight),
+            this.camera.getViewMatrix(logicalWidth, logicalHeight),
+            { width: logicalWidth, height: logicalHeight },
+            { x: 0, y: 0, width: 0, height: 0 },
+          )
+          // バッファを安全に追加（undefinedを除外）
+          buffers.forEach((buffer) => {
+            if (buffer) buffersToDestroy.push(buffer)
+          })
+        } catch (_error) {}
       }
     }
   }
@@ -1214,7 +1400,7 @@ export class WebGPUEngine {
   private async renderCanvasArtObject(
     renderPass: GPURenderPassEncoder,
     artObject: any,
-    layerOpacity: number,
+    _layerOpacity: number,
     buffersToDestroy: GPUBuffer[],
   ): Promise<void> {
     if (!isCanvasArtObject(artObject) || !this.canvasRenderer) {
@@ -1238,7 +1424,7 @@ export class WebGPUEngine {
       buffers.forEach((buffer) => {
         if (buffer) buffersToDestroy.push(buffer)
       })
-    } catch (error) {}
+    } catch (_error) {}
   }
 
   async render(documentContext?: DocumentContext) {
@@ -1251,20 +1437,13 @@ export class WebGPUEngine {
    * @param region レンダリング領域（未指定の場合は全領域）
    * @param targetTexture 出力先テクスチャ（未指定の場合はキャンバス）
    */
-  async renderRegion(
+  public async renderRegion(
     documentContext?: DocumentContext,
     region?: { x: number; y: number; width: number; height: number },
     targetTexture?: GPUTexture,
-    cameraOverride?: { position: { x: number; y: number }; zoom: number },
+    _cameraOverride?: { position: { x: number; y: number }; zoom: number },
   ) {
     if (!this.device || !this.context || !this.renderPipeline) {
-      if (debugState.export.rendering) {
-        debugState.export.errors.push(
-          `FATAL: WebGPU not initialized: device=${!!this
-            .device} context=${!!this.context} pipeline=${!!this
-            .renderPipeline}`,
-        )
-      }
       return
     }
 
@@ -1273,11 +1452,6 @@ export class WebGPUEngine {
     const canvasHeight = this.canvas.height
 
     if (canvasWidth <= 0 || canvasHeight <= 0) {
-      if (debugState.export.rendering) {
-        debugState.export.errors.push(
-          `FATAL: Invalid canvas size: ${canvasWidth}x${canvasHeight}`,
-        )
-      }
       console.error(`Invalid canvas size: ${canvasWidth}x${canvasHeight}`)
       debugState.ui.errorCount++
       debugState.ui.lastError = `Invalid canvas size: ${canvasWidth}x${canvasHeight}`
@@ -1287,20 +1461,24 @@ export class WebGPUEngine {
     // UIデバッグ情報をフレーム毎にリセット
     debugState.ui.renderOrder = []
 
-    // documentContextが提供されていない場合は、state.documentから作成
-    if (!documentContext) {
-      documentContext = new DocumentContext(
-        this.state.document,
-        null as any, // ヒストリーは今回は無視
-        {
-          renderCache: new Map(),
-          bufferCache: new Map(),
-          geometryCache: new Map(),
-          filterCache: new Map(),
-          lastAccessed: new Date(),
-        },
-      )
+    // ストロークデバッグ情報をフレーム毎にリセット
+    debugState.stroke.rendering.perStrokeData = {}
+    debugState.stroke.rendering.frameStats.totalStrokesAttempted = 0
+    debugState.stroke.rendering.frameStats.previewStrokesAttempted = 0
+    debugState.stroke.rendering.frameStats.documentStrokesAttempted = 0
+    debugState.stroke.rendering.frameStats.successfulStrokes = 0
+    debugState.stroke.rendering.frameStats.failedStrokes = 0
+
+    // 重複レンダリング検出用
+    ;(debugState.stroke as any).duplicateRenderCheck = {
+      frameNumber: this.frameNumber,
+      tempStrokeIds: new Set<string>(),
+      permanentStrokeIds: new Set<string>(),
+      duplicates: [] as Array<{ id: string; type: string; timestamp: number }>,
     }
+
+    // documentContextが提供されていない場合は、state.documentから作成
+    if (!documentContext) return
 
     const renderStartTime = performance.now()
 
@@ -1352,33 +1530,13 @@ export class WebGPUEngine {
     }
 
     // ターゲットテクスチャの決定
-    const renderTexture = targetTexture || canvasTexture
+    const _renderTexture = targetTexture || canvasTexture
     const renderTextureView = targetTexture
       ? targetTexture.createView({ label: 'CustomTargetTextureView' })
       : canvasTexture.createView({ label: 'VectorPaintCanvasTextureView' })
 
     // 現在のレンダーターゲットを保存
     this.currentRenderTargetTexture = targetTexture || null
-
-    // 修正1テスト: テクスチャとビューの詳細をデバッグ
-    if (targetTexture) {
-      debugState.export.errors.push(
-        `DEBUG-TOKEN-VWX789: Using targetTexture: ${targetTexture.width}x${targetTexture.height} format=${targetTexture.format}`,
-      )
-      debugState.export.errors.push(
-        `DEBUG-TOKEN-VWX789: TargetTexture usage: ${targetTexture.usage} (should include RENDER_ATTACHMENT=${GPUTextureUsage.RENDER_ATTACHMENT})`,
-      )
-      debugState.export.errors.push(
-        `DEBUG-TOKEN-VWX789: TextureView created: ${
-          renderTextureView ? 'YES' : 'NO'
-        }`,
-      )
-      debugState.export.errors.push(
-        `DEBUG-TOKEN-VWX789: RenderTexture === TargetTexture: ${
-          renderTexture === targetTexture ? 'YES' : 'NO'
-        }`,
-      )
-    }
 
     // 背景色をデバッグ
     const bgColor = this.state.canvas.backgroundColor
@@ -1398,12 +1556,6 @@ export class WebGPUEngine {
           a: bgColor.a,
         }
 
-    if (targetTexture) {
-      debugState.export.errors.push(
-        `DEBUG-TOKEN-MNO789: ClearValue set to: RGBA(${clearValue.r},${clearValue.g},${clearValue.b},${clearValue.a})`,
-      )
-    }
-
     const renderPass = commandEncoder.beginRenderPass({
       label: targetTexture
         ? 'VectorPaintOffscreenRenderPass'
@@ -1418,19 +1570,6 @@ export class WebGPUEngine {
       ],
     })
 
-    // 修正1テスト: RenderPass作成直後のデバッグ
-    if (targetTexture) {
-      debugState.export.errors.push(
-        `DEBUG-TOKEN-VWX789: RenderPass created: ${renderPass ? 'YES' : 'NO'}`,
-      )
-      debugState.export.errors.push(
-        `DEBUG-TOKEN-VWX789: LoadOp='clear' with clearValue RGBA(${clearValue.r},${clearValue.g},${clearValue.b},${clearValue.a})`,
-      )
-      debugState.export.errors.push(
-        `DEBUG-TOKEN-VWX789: StoreOp='store' - result should be saved to texture`,
-      )
-    }
-
     // 領域指定がある場合はビューポートとシザリング設定
     if (region) {
       // ターゲットテクスチャへのレンダリング時はDPRを適用しない
@@ -1443,41 +1582,6 @@ export class WebGPUEngine {
 
       // WebGPUのビューポート座標系は左上原点、Y軸下向き
       renderPass.setViewport(x, y, width, height, 0.0, 1.0)
-
-      // WebGPUでは明示的なシザーテストは存在しないため、ビューポートで制限
-      // 必要に応じてシェーダー内でワールド座標の範囲チェックを行う
-
-      if (targetTexture) {
-        debugState.export.errors.push(
-          `DEBUG-TOKEN-MNO789: Export Viewport set: (${x},${y}) ${width}x${height} (no DPR)`,
-        )
-        debugState.export.errors.push(
-          `DEBUG-TOKEN-MNO789: Region input: (${region.x},${region.y}) ${region.width}x${region.height}`,
-        )
-        debugState.export.errors.push(
-          `DEBUG-TOKEN-MNO789: Texture size: ${renderTexture.width}x${renderTexture.height}`,
-        )
-
-        // ビューポートがテクスチャサイズを超えていないかチェック
-        const textureWidth = renderTexture.width
-        const textureHeight = renderTexture.height
-        if (x + width > textureWidth || y + height > textureHeight) {
-          debugState.export.errors.push(
-            `DEBUG-TOKEN-MNO789: ERROR - Viewport exceeds texture bounds! Texture: ${textureWidth}x${textureHeight}`,
-          )
-        }
-
-        // ビューポートが0以下でないかチェック
-        if (width <= 0 || height <= 0) {
-          debugState.export.errors.push(
-            `DEBUG-TOKEN-MNO789: ERROR - Invalid viewport size: ${width}x${height}`,
-          )
-        }
-      } else {
-        debugState.export.errors.push(
-          `Viewport: ${x},${y} ${width}x${height} DPR:${dpr}`,
-        )
-      }
     }
 
     // バッファ管理変数を初期化
@@ -1495,12 +1599,28 @@ export class WebGPUEngine {
         type: 'ui-background',
         timestamp: performance.now(),
       })
+      // Background UI components debug info
+      const bgUIDebugData = {
+        debugToken: `ui-background-v1-${Math.random().toString(36).substring(2)}`,
+        timestamp: new Date().toISOString(),
+        action: 'ui_background_render_start',
+        componentType: 'background',
+      }
+
+      debugState.ui.backgroundDebugData = bgUIDebugData
+
       try {
         await this.renderUIComponentsBackground(
           renderPass,
           documentContext,
           buffersToDestroy,
         )
+
+        // Background UI success debug info
+        debugState.ui.backgroundSuccessData = {
+          ...bgUIDebugData,
+          action: 'ui_background_render_success',
+        }
       } catch (error) {
         console.error('Error rendering background UI components:', error)
         debugState.ui.errorCount++
@@ -1546,36 +1666,53 @@ export class WebGPUEngine {
       debugState.stroke.document.strokeLayerCount = strokeLayerCount
       debugState.stroke.document.strokeArtObjectCount = strokeArtObjectCount
 
-      // エクスポート時のレンダリング統計をリセット
-      if (targetTexture) {
-        debugState.export.rendering.layersProcessed = 0
-        debugState.export.rendering.artObjectsProcessed = 0
-        debugState.export.rendering.visibleLayers = visibleLayerCount
-        debugState.export.rendering.pathsRendered = 0
-        debugState.export.rendering.fillsRendered = 0
-        debugState.export.rendering.strokesRendered = 0
-        debugState.export.rendering.skippedObjects = 0
-        debugState.export.rendering.renderErrors = []
+      // ドキュメント全体のデバッグ情報を保存（毎回更新）
+      if (strokeArtObjectCount > 0) {
+        const documentDebugData = {
+          debugToken: `document-state-v1-${Math.random().toString(36).substring(2)}`,
+          timestamp: new Date().toISOString(),
+          action: 'document_state',
+          document: {
+            id: document.id,
+            layerCount: Object.keys(document.layers).length,
+            artObjectCount: Object.keys(document.artObjects).length,
+            visibleLayerCount,
+            strokeLayerCount,
+            strokeArtObjectCount,
+            layers: Object.values(document.layers).map((l: any) => ({
+              id: l.id,
+              type: l.type,
+              visible: l.visible,
+              artObjectIds: l.artObjectIds || [],
+              artObjectCount: l.artObjectIds?.length || 0,
+            })),
+            artObjects: Object.entries(document.artObjects).map(
+              ([id, obj]: [string, any]) => ({
+                id,
+                type: obj.type,
+                layerId: obj.layerId,
+                visible: obj.visible,
+                pointCount:
+                  obj.type === 'path' ? obj.path?.points?.length || 0 : 0,
+              }),
+            ),
+          },
+        }
+
+        debugState.ui.documentStateData = documentDebugData
       }
 
       // 2. アートオブジェクト・レイヤーを描画
-      if (targetTexture && debugState.export.rendering) {
-        debugState.export.errors.push('Starting renderDownLayerTree')
-      }
-
       debugState.ui.drawOrder.push({
         type: 'artobjects',
         timestamp: performance.now(),
       })
+
       await this.renderDownLayerTree(
         renderPass,
         buffersToDestroy,
         documentContext,
       )
-
-      if (targetTexture && debugState.export.rendering) {
-        debugState.export.errors.push('Finished renderDownLayerTree')
-      }
     } catch (error) {
       console.error('renderDownLayerTree error:', error)
       debugState.stroke.rendering.lastError =
@@ -1588,25 +1725,98 @@ export class WebGPUEngine {
 
     // 3. 現在描画中のストロークを描画（リアルタイムプレビュー）
     // エクスポート時はプレビューストロークをスキップ
+
+    // debugStateに記録
+    debugState.webgpuEngine = debugState.webgpuEngine || {}
+    debugState.webgpuEngine.previewStrokeCheck = {
+      hasTargetTexture: !!targetTexture,
+      hasStrokeRenderer: !!this.strokeRenderer,
+      hasCurrentStroke: !!this.state.currentStroke,
+      currentTempStrokeId: this.currentTempStrokeId,
+      isDrawing: this.state.isDrawing,
+      pointsLength: this.state.currentStroke?.points?.length || 0,
+      timestamp: Date.now(),
+    }
+
     if (
       !targetTexture &&
       this.strokeRenderer &&
-      this.state.tools.currentStroke &&
-      this.state.tools.currentStroke.points.length >= 2
+      this.state.isDrawing &&
+      this.state.currentStroke &&
+      this.state.currentStroke.points.length >= 2
     ) {
+      // debugStateに記録
+      debugState.webgpuEngine.renderingPreviewStroke = {
+        tempStrokeId: this.currentTempStrokeId,
+        pointsLength: this.state.currentStroke.points.length,
+        timestamp: Date.now(),
+      }
+
+      // プレビューストロークのデバッグ情報を記録
+      debugState.stroke.particleDebug.lastRenderCall.hasCurrentStroke = true
+      debugState.stroke.particleDebug.lastRenderCall.currentStrokePointCount =
+        this.state.currentStroke.points.length
       try {
         await this.renderPreviewStroke(
           renderPass,
-          this.state.tools.currentStroke,
+          this.state.currentStroke,
           buffersToDestroy,
           documentContext,
         )
         pathsRendered++
       } catch (error) {
-        console.error('Error rendering preview stroke:', error)
+        debugState.webgpuEngine.previewStrokeError =
+          error instanceof Error ? error.message : String(error)
         debugState.ui.errorCount++
         debugState.ui.lastError =
           error instanceof Error ? error.message : String(error)
+      }
+    } else {
+      // プレビューストロークがない場合のデバッグ情報
+      debugState.stroke.particleDebug.renderingStats.emptyRenderCalls++
+      debugState.stroke.particleDebug.renderingStats.lastEmptyRenderReason =
+        !this.strokeRenderer
+          ? 'no strokeRenderer'
+          : !this.state.currentStroke
+            ? 'no currentStroke'
+            : this.state.currentStroke.points.length < 2
+              ? 'insufficient points'
+              : targetTexture
+                ? 'export mode'
+                : 'unknown'
+
+      // パーティクルデバッグ情報をAPIに送信（空のレンダリングの場合）
+      if (
+        debugState.stroke.particleDebug.renderingStats.emptyRenderCalls % 10 ===
+        1
+      ) {
+        const particleDebugData = {
+          debugToken: `particle-debug-v1-${Math.random().toString(36).substring(2)}`,
+          timestamp: new Date().toISOString(),
+          action: 'empty_render_analysis',
+          debugState: {
+            stroke: {
+              particleDebug: debugState.stroke.particleDebug,
+              rendering: {
+                callCount: debugState.stroke.rendering.callCount,
+                lastCallTime: debugState.stroke.rendering.lastCallTime,
+                lastInstanceCount:
+                  debugState.stroke.rendering.lastInstanceCount,
+                successCount: debugState.stroke.rendering.successCount,
+                failureCount: debugState.stroke.rendering.failureCount,
+              },
+            },
+          },
+          currentState: {
+            hasStrokeRenderer: !!this.strokeRenderer,
+            hasCurrentStroke: !!this.state.currentStroke,
+            currentStrokePoints: this.state.currentStroke?.points?.length || 0,
+            activeTool: 'unknown', // activeToolはPaplicoEngine側で管理
+            isExportMode: !!targetTexture,
+          },
+        }
+
+        debugState.ui.particleDebugData = particleDebugData
       }
     }
 
@@ -1617,12 +1827,28 @@ export class WebGPUEngine {
         type: 'ui-foreground',
         timestamp: performance.now(),
       })
+      // Foreground UI components debug info
+      const fgUIDebugData = {
+        debugToken: `ui-foreground-v1-${Math.random().toString(36).substring(2)}`,
+        timestamp: new Date().toISOString(),
+        action: 'ui_foreground_render_start',
+        componentType: 'foreground',
+      }
+
+      debugState.ui.foregroundDebugData = fgUIDebugData
+
       try {
         await this.renderUIComponentsForeground(
           renderPass,
           documentContext,
           buffersToDestroy,
         )
+
+        // Foreground UI success debug info
+        debugState.ui.foregroundSuccessData = {
+          ...fgUIDebugData,
+          action: 'ui_foreground_render_success',
+        }
       } catch (error) {
         console.error('Error rendering foreground UI components:', error)
         debugState.ui.errorCount++
@@ -1638,6 +1864,17 @@ export class WebGPUEngine {
         type: 'ui-legacy',
         timestamp: performance.now(),
       })
+      // Legacy UI components debug info
+      const legacyUIDebugData = {
+        debugToken: `ui-legacy-v1-${Math.random().toString(36).substring(2)}`,
+        timestamp: new Date().toISOString(),
+        action: 'ui_legacy_render_start',
+        componentType: 'legacy',
+        hasUIManager: !!this.uiManager,
+      }
+
+      debugState.ui.legacyDebugData = legacyUIDebugData
+
       const canvasSize = this.getLogicalCanvasSize()
       const uiBuffers = await this.uiManager.renderUI(
         renderPass,
@@ -1646,89 +1883,22 @@ export class WebGPUEngine {
         canvasSize,
         this,
       )
+
+      // Legacy UI success debug info
+      debugState.ui.legacySuccessData = {
+        ...legacyUIDebugData,
+        action: 'ui_legacy_render_success',
+        buffersGenerated: uiBuffers.length,
+        canvasSize,
+      }
       buffersToDestroy.push(...uiBuffers)
     }
 
     renderPass.end()
 
-    if (targetTexture) {
-      debugState.export.errors.push(
-        `DEBUG-TOKEN-MNO789: RenderPass ended for offscreen texture`,
-      )
-
-      // 修正1テスト: renderPass.end()直後にテクスチャサンプリングをcommandEncoderに追加
-      debugState.export.errors.push(
-        `DEBUG-TOKEN-VWX789: Adding texture sampling to same command buffer`,
-      )
-
-      const immediateTestBuffer = this.device.createBuffer({
-        size: 16,
-        usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ,
-      })
-
-      commandEncoder.copyTextureToBuffer(
-        {
-          texture: targetTexture,
-          origin: {
-            x: Math.floor(targetTexture.width / 2),
-            y: Math.floor(targetTexture.height / 2),
-            z: 0,
-          },
-        },
-        { buffer: immediateTestBuffer, bytesPerRow: 256 },
-        { width: 1, height: 1, depthOrArrayLayers: 1 },
-      )
-
-      // コマンドバッファー送信後にサンプリング結果を確認
-      const commandBuffer = commandEncoder.finish()
-      this.device.queue.submit([commandBuffer])
-
-      this.device.queue.onSubmittedWorkDone().then(async () => {
-        await immediateTestBuffer.mapAsync(GPUMapMode.READ)
-        const immediateTestData = new Uint8Array(
-          immediateTestBuffer.getMappedRange(),
-        )
-
-        const immediatePixel = {
-          r: immediateTestData[0],
-          g: immediateTestData[1],
-          b: immediateTestData[2],
-          a: immediateTestData[3],
-        }
-        debugState.export.errors.push(
-          `DEBUG-TOKEN-VWX789: IMMEDIATE after renderPass.end(): RGBA(${immediatePixel.r},${immediatePixel.g},${immediatePixel.b},${immediatePixel.a})`,
-        )
-
-        immediateTestBuffer.unmap()
-        immediateTestBuffer.destroy()
-      })
-    } else {
-      // targetTextureがない場合は通常の処理
-      // コマンドをfinishする前にテクスチャが有効か再確認
-      try {
-        // テクスチャが破棄されていないか最終チェック
-        if (!targetTexture && canvasTexture.label !== undefined) {
-          // canvasTextureが有効であることを確認
-        }
-
-        const commandBuffer = commandEncoder.finish()
-        this.device.queue.submit([commandBuffer])
-      } catch (error) {
-        console.error('Error submitting WebGPU commands:', error)
-        debugState.ui.errorCount++
-        debugState.ui.lastError =
-          error instanceof Error ? error.message : String(error)
-
-        // 破棄されたテクスチャエラーの場合、特別なハンドリング
-        if (
-          error instanceof Error &&
-          error.message.includes('Destroyed texture')
-        ) {
-          console.warn('Destroyed texture detected, skipping this frame')
-          return
-        }
-      }
-    }
+    // コマンドバッファー送信後にサンプリング結果を確認
+    const commandBuffer = commandEncoder.finish()
+    this.device.queue.submit([commandBuffer])
 
     // 全ての描画コマンドがキューに送信された後でバッファを破棄
     buffersToDestroy.forEach((buffer) => {
@@ -1755,6 +1925,19 @@ export class WebGPUEngine {
 
     // デバッグキャプチャ完了
     this.finishFrameCapture()
+
+    // フレームサマリーをログ出力（重複検出結果含む）
+    const duplicateCheck = (debugState.stroke as any).duplicateRenderCheck
+    if (duplicateCheck && duplicateCheck.duplicates.length > 0) {
+      console.log('[StrokeDebug] Frame summary with duplicates:', {
+        frameNumber: this.frameNumber,
+        tempStrokes: duplicateCheck.tempStrokeIds.size,
+        permanentStrokes: duplicateCheck.permanentStrokeIds.size,
+        duplicates: duplicateCheck.duplicates,
+        hasCurrentStroke: !!this.state.currentStroke,
+        isDrawing: this.state.isDrawing,
+      })
+    }
 
     // デバッグ情報
     if (pathsRendered === 0) {
@@ -1837,8 +2020,17 @@ export class WebGPUEngine {
    * 描画開始
    */
   startDrawing(path: VectorPath): void {
-    this.state.tools.isDrawing = true
-    this.state.tools.currentStroke = path
+    // debugStateに記録
+    debugState.webgpuEngine.startDrawingCall = {
+      wasDrawing: this.state.isDrawing,
+      hadCurrentStroke: !!this.state.currentStroke,
+      pathPoints: path.points.length,
+      stackTrace: new Error().stack?.split('\n').slice(1, 5).join('\n'),
+      timestamp: Date.now(),
+    }
+
+    this.state.isDrawing = true
+    this.state.currentStroke = path
     // 一時ストローク用の決定的なIDを生成
     this.currentTempStrokeId = this.generateTempStrokeId(path)
   }
@@ -1846,18 +2038,52 @@ export class WebGPUEngine {
   /**
    * 描画終了
    */
-  endDrawing(document: any): void {
-    this.state.tools.isDrawing = false
-    this.state.tools.currentStroke = null
+  endDrawing(_document: any): void {
+    // debugStateに記録
+    debugState.webgpuEngine.endDrawing = {
+      called: true,
+      before: {
+        currentTempStrokeId: this.currentTempStrokeId,
+        hasCurrentStroke: !!this.state.currentStroke,
+        currentStrokePoints: this.state.currentStroke?.points?.length || 0,
+        isDrawing: this.state.isDrawing,
+        timestamp: Date.now(),
+      },
+      after: null as any, // 後で設定
+    }
+
+    // デバッグ: 一時ストロークIDの状態遷移を記録
+    debugState.stroke.tempStrokeTransition = {
+      debugToken: `temp-stroke-transition-v1-${crypto.randomUUID()}`,
+      timestamp: new Date().toISOString(),
+      action: 'end_drawing',
+      previousTempStrokeId: this.currentTempStrokeId,
+      currentStrokePoints: this.state.currentStroke?.points?.length || 0,
+      isDrawing: this.state.isDrawing,
+    }
+
+    this.state.isDrawing = false
+    this.state.currentStroke = null
     this.currentTempStrokeId = null
+
+    // debugStateに完了後の状態を記録
+    debugState.webgpuEngine.endDrawing.after = {
+      currentTempStrokeId: this.currentTempStrokeId,
+      hasCurrentStroke: !!this.state.currentStroke,
+      isDrawing: this.state.isDrawing,
+      timestamp: Date.now(),
+    }
+
+    // プレビューストローク情報もクリア
+    debugState.webgpuEngine.renderingPreviewStroke = null
   }
 
   /**
    * 現在のストロークにポイントを追加
    */
   addPointToCurrentStroke(point: Vector2): void {
-    if (this.state.tools.currentStroke) {
-      this.state.tools.currentStroke.points.push(point)
+    if (this.state.currentStroke) {
+      this.state.currentStroke.points.push(point)
     }
   }
 
@@ -1870,9 +2096,10 @@ export class WebGPUEngine {
 
   /**
    * アクティブツールを設定
+   * @deprecated activeToolはPaplicoEngineで管理されるようになりました
    */
-  setActiveTool(tool: any): void {
-    this.state.tools.activeTool = tool
+  setActiveTool(_tool: any): void {
+    // activeToolはPaplicoEngineで管理されるため、何もしない
   }
 
   /**
@@ -1932,6 +2159,102 @@ export class WebGPUEngine {
       return
     }
 
+    // ストロークタイプを判定（プレビューか永続かドキュメントか）
+    const isTemporaryStroke =
+      artObjectId === this.currentTempStrokeId ||
+      artObjectId.startsWith('temp-stroke-')
+    const strokeType = isTemporaryStroke ? 'preview' : 'document'
+
+    // 重複レンダリング検出
+    const duplicateCheck = (debugState.stroke as any).duplicateRenderCheck
+    if (duplicateCheck) {
+      if (isTemporaryStroke) {
+        if (duplicateCheck.tempStrokeIds.has(artObjectId)) {
+          console.warn(
+            '[StrokeDebug] Duplicate temp stroke render:',
+            artObjectId,
+          )
+        }
+        duplicateCheck.tempStrokeIds.add(artObjectId)
+      } else {
+        if (duplicateCheck.permanentStrokeIds.has(artObjectId)) {
+          console.warn(
+            '[StrokeDebug] Duplicate permanent stroke render:',
+            artObjectId,
+          )
+        }
+        duplicateCheck.permanentStrokeIds.add(artObjectId)
+
+        // 同じストロークがtempとpermanentの両方でレンダリングされているかチェック
+        const tempIds = duplicateCheck.tempStrokeIds as Set<string>
+        const tempId = Array.from(tempIds).find((id) => {
+          // 座標部分を比較して同じストロークか判定
+          const tempParts = id.split('-')
+          const permParts = artObjectId.split('-')
+          return tempParts.length >= 4 && permParts.length >= 1
+        })
+
+        if (tempId) {
+          duplicateCheck.duplicates.push({
+            id: artObjectId,
+            type: 'temp-permanent-duplicate',
+            timestamp: performance.now(),
+          })
+          console.warn(
+            '[StrokeDebug] Same stroke rendered as both temp and permanent:',
+            {
+              tempId,
+              permanentId: artObjectId,
+              frameNumber: duplicateCheck.frameNumber,
+            },
+          )
+        }
+      }
+    }
+
+    // プレビューストロークの場合は新規記録、ドキュメントストロークの場合は既存記録を更新
+    if (isTemporaryStroke) {
+      const attemptTime = performance.now()
+      debugState.stroke.rendering.frameStats.totalStrokesAttempted++
+      debugState.stroke.rendering.frameStats.previewStrokesAttempted++
+
+      const strokeData = {
+        id: artObjectId,
+        type: strokeType as const,
+        attemptTime,
+        pointCount: vectorPath.points.length,
+        instanceCount: 0,
+        appearances: [
+          {
+            type: appearance.type,
+            enabled: true,
+            width: appearance.params?.width,
+            color: appearance.params?.color,
+            brushTexture: appearance.params?.brushSettings?.texture,
+          },
+        ],
+        geometryData: {
+          pathLength: 0,
+          boundingBox: { x: 0, y: 0, width: 0, height: 0 },
+          segmentCount: Math.max(0, vectorPath.points.length - 1),
+        },
+        pipelineStages: {
+          instanceGeneration: { success: false, duration: 0 },
+          vertexBuffer: { success: false, size: 0 },
+          texture: { success: false, bound: false },
+          compute: { success: false, duration: 0 },
+          render: { success: false, duration: 0, drawCalls: 0 },
+        },
+        renderResult: {
+          success: false,
+          visible: false,
+          finalInstanceCount: 0,
+        },
+      }
+
+      debugState.stroke.rendering.perStrokeData[artObjectId] = strokeData
+    }
+
     // 論理ピクセルサイズを使用（統一）
     // エクスポート時はターゲットテクスチャのサイズを使用
     const canvasSize = this.currentRenderTargetTexture
@@ -1946,6 +2269,15 @@ export class WebGPUEngine {
     const brushSettings =
       appearance.params.brushSettings || this.state.strokeSettings.brushSettings
 
+    // デバッグ: ブラシ設定の取得元を記録
+    debugState.stroke.rendering.brushSettingsSource = {
+      artObjectId,
+      hasAppearanceBrushSettings: !!appearance.params.brushSettings,
+      usingCurrentSettings: !appearance.params.brushSettings,
+      brushTexture: brushSettings?.texture,
+      scatterCount: brushSettings?.scatterConfig?.count,
+    }
+
     const renderStartTime = performance.now()
 
     // レンダリング呼び出し情報を更新
@@ -1955,6 +2287,16 @@ export class WebGPUEngine {
     debugState.stroke.rendering.lastArtObjectId = artObjectId
 
     try {
+      // パイプライン段階の開始時刻記録
+      const strokeData = debugState.stroke.rendering.perStrokeData[artObjectId]
+      if (strokeData) {
+        strokeData.pipelineStages.texture.bound = true // テクスチャが使用可能と仮定
+        strokeData.pipelineStages.texture.success = true
+        strokeData.pipelineStages.instanceGeneration.success = true
+        strokeData.pipelineStages.instanceGeneration.duration =
+          performance.now() - renderStartTime
+      }
+
       const { buffers } = await this.strokeRenderer.render(
         renderPass,
         vectorPath,
@@ -1973,6 +2315,31 @@ export class WebGPUEngine {
         brushSettings,
       )
 
+      // 成功時の詳細状態記録
+      if (strokeData) {
+        strokeData.pipelineStages.compute.success = true
+        strokeData.pipelineStages.compute.duration =
+          performance.now() - renderStartTime
+        strokeData.pipelineStages.vertexBuffer.success = true
+        strokeData.pipelineStages.vertexBuffer.size = buffers?.length || 0
+
+        // render段階の成功を記録
+        strokeData.pipelineStages.render.success = true
+        strokeData.pipelineStages.render.duration =
+          performance.now() - renderStartTime
+        strokeData.pipelineStages.render.drawCalls = 1 // drawIndexedが1回呼ばれる
+
+        strokeData.renderResult.success = true
+        strokeData.renderResult.visible = true
+        strokeData.renderResult.finalInstanceCount =
+          debugState.stroke.rendering.lastInstanceCount || 0
+
+        // frameStatsが未更新の場合のみ増加（ドキュメントストロークの場合は既に更新済み）
+        if (strokeType === 'preview') {
+          debugState.stroke.rendering.frameStats.successfulStrokes++
+        }
+      }
+
       debugState.stroke.rendering.renderDuration =
         performance.now() - renderStartTime
       debugState.stroke.rendering.lastError = null
@@ -1986,6 +2353,24 @@ export class WebGPUEngine {
         if (buffer) buffersToDestroy.push(buffer)
       })
     } catch (error) {
+      // 失敗時の詳細状態記録
+      const strokeData = debugState.stroke.rendering.perStrokeData[artObjectId]
+      if (strokeData) {
+        const errorMessage =
+          error instanceof Error ? error.message : String(error)
+        strokeData.pipelineStages.render.success = false
+        strokeData.pipelineStages.render.error = errorMessage
+        strokeData.pipelineStages.render.duration =
+          performance.now() - renderStartTime
+        strokeData.renderResult.success = false
+        strokeData.renderResult.error = errorMessage
+
+        // frameStatsが未更新の場合のみ増加（ドキュメントストロークの場合は既に更新済み）
+        if (strokeType === 'preview') {
+          debugState.stroke.rendering.frameStats.failedStrokes++
+        }
+      }
+
       debugState.stroke.rendering.lastError =
         error instanceof Error ? error.message : String(error)
       debugState.stroke.rendering.lastErrorStack =
@@ -2033,8 +2418,30 @@ export class WebGPUEngine {
     })
 
     // 一時ストローク用の決定的なIDを使用（永続化時と同じIDにするため）
-    const tempStrokeId =
-      this.currentTempStrokeId || this.generateTempStrokeId(currentStroke)
+    // 重要: currentTempStrokeIdがnullの場合は新しいIDを生成しない
+    if (!this.currentTempStrokeId) {
+      debugState.webgpuEngine.renderPreviewStrokeSkipped = {
+        reason: 'No currentTempStrokeId',
+        hasCurrentStroke: !!currentStroke,
+        pointCount: currentStroke?.points?.length || 0,
+        timestamp: Date.now(),
+      }
+      return
+    }
+    const tempStrokeId = this.currentTempStrokeId
+
+    // デバッグ: プレビューストロークのレンダリング状況を記録
+    debugState.webgpuEngine.renderingPreviewStroke = {
+      tempStrokeId,
+      currentTempStrokeId: this.currentTempStrokeId,
+      pointCount: currentStroke.points.length,
+      isDrawing: this.state.isDrawing,
+      width: this.state.strokeSettings.width,
+      brushTexture: this.state.strokeSettings.brushSettings?.texture,
+      scatterCount:
+        this.state.strokeSettings.brushSettings?.scatterConfig?.count,
+      timestamp: Date.now(),
+    }
 
     await this.renderStrokePipeline(
       renderPass,
@@ -2107,7 +2514,9 @@ export class WebGPUEngine {
    */
   private generateTempStrokeId(path: VectorPath): string {
     if (path.points.length === 0) {
-      return `temp-stroke-${Date.now()}`
+      // ランダム要素を追加して一意性を確保
+      const randomPart = Math.random().toString(36).substring(2, 9)
+      return `temp-stroke-${Date.now()}-${randomPart}`
     }
 
     const firstPoint = path.points[0]
@@ -2116,8 +2525,10 @@ export class WebGPUEngine {
     const y = Math.floor(firstPoint.y * 1000)
     // timestampは現在のストロークが始まった時点の時刻を使用
     const timestamp = Date.now()
+    // ランダムな文字列を追加して絶対的な一意性を保証
+    const randomPart = Math.random().toString(36).substring(2, 9)
 
-    return `temp-stroke-${x}-${y}-${timestamp}`
+    return `temp-stroke-${x}-${y}-${timestamp}-${randomPart}`
   }
 
   /**
@@ -2198,15 +2609,15 @@ export class WebGPUEngine {
                   appearance.effectId === 'fill'
                     ? ('fill' as const)
                     : appearance.effectId === 'stroke'
-                    ? ('stroke' as const)
-                    : ('fill' as const),
+                      ? ('stroke' as const)
+                      : ('fill' as const),
                 id: appearance.uid,
                 color:
                   appearance.effectId === 'fill'
                     ? appearance.params.color
                     : appearance.effectId === 'stroke'
-                    ? appearance.params.color
-                    : undefined,
+                      ? appearance.params.color
+                      : undefined,
                 strokeWidth:
                   appearance.effectId === 'stroke'
                     ? appearance.params.width
@@ -2223,12 +2634,12 @@ export class WebGPUEngine {
                 renderTime: 0, // 実際のレンダリング時間は後で設定
               },
             }
-            this.currentRenderDebugInfo!.renderedObjects.push(renderedObject)
+            this.currentRenderDebugInfo?.renderedObjects.push(renderedObject)
           }
         })
       }
 
-      this.currentRenderDebugInfo!.layerInfo.push(layerInfo)
+      this.currentRenderDebugInfo?.layerInfo.push(layerInfo)
     })
   }
 
@@ -2386,9 +2797,9 @@ export class WebGPUEngine {
    * WebGPU UIコンポーネントを描画（前景レイヤー）
    */
   private async renderUIComponentsForeground(
-    renderPass: GPURenderPassEncoder,
-    documentContext: DocumentContext,
-    buffersToDestroy: GPUBuffer[],
+    _renderPass: GPURenderPassEncoder,
+    _documentContext: DocumentContext,
+    _buffersToDestroy: GPUBuffer[],
   ): Promise<void> {
     // 選択ハンドルなどの前景UIコンポーネントは、現在は背景と同じパスで描画される
     // 将来的には選択状態に応じた前景UI要素を追加する予定
@@ -2498,10 +2909,7 @@ export class WebGPUEngine {
     height: number,
     format: GPUTextureFormat = navigator.gpu.getPreferredCanvasFormat(),
   ): GPUTexture | null {
-    if (!this.device) {
-      console.error('WebGPU device is not available')
-      return null
-    }
+    if (!this.device) throw new EngineError(ErrorCode.WebGPUDeviceNotAvailable)
 
     if (width <= 0 || height <= 0) {
       console.error(`Invalid texture size: ${width}x${height}`)
@@ -2530,10 +2938,7 @@ export class WebGPUEngine {
    * @returns ImageDataまたはnull
    */
   async readTextureAsImageData(texture: GPUTexture): Promise<ImageData | null> {
-    if (!this.device) {
-      console.error('WebGPU device is not available')
-      return null
-    }
+    if (!this.device) throw new EngineError(ErrorCode.WebGPUDeviceNotAvailable)
 
     try {
       const width = texture.width
@@ -2541,10 +2946,6 @@ export class WebGPUEngine {
       const bytesPerPixel = 4 // RGBA
 
       // テクスチャ情報をdebugStateに記録
-      debugState.export.texture.width = width
-      debugState.export.texture.height = height
-      debugState.export.texture.format = texture.format
-      debugState.export.texture.readStartTime = performance.now()
 
       // バッファサイズを256バイト境界にアラインメント
       const bytesPerRow = Math.ceil((width * bytesPerPixel) / 256) * 256
@@ -2622,15 +3023,43 @@ export class WebGPUEngine {
       buffer.destroy()
 
       // debugStateにImageData情報を記録
-      debugState.export.texture.readEndTime = performance.now()
-      debugState.export.texture.bytesRead = bufferSize
-      debugState.export.imageData.width = width
-      debugState.export.imageData.height = height
 
       return imageData
     } catch (error) {
       console.error('Failed to read texture as ImageData:', error)
       return null
+    }
+  }
+
+  /**
+   * 領域レンダリング結果をImageDataとして取得
+   * @param region ワールド座標での領域
+   * @param outputWidth 出力幅（デフォルト：region.width）
+   * @param outputHeight 出力高さ（デフォルト：region.height）
+   * @returns ImageDataまたはnull
+   */
+  public async renderRegionToImageData(
+    region: { x: number; y: number; width: number; height: number },
+    outputWidth?: number,
+    outputHeight?: number,
+    documentContext?: DocumentContext,
+  ): Promise<ImageData | null> {
+    const texture = await this.renderRegionToTexture(
+      region,
+      outputWidth,
+      outputHeight,
+      documentContext,
+    )
+    if (!texture) {
+      return null
+    }
+
+    try {
+      const imageData = await this.readTextureAsImageData(texture)
+      return imageData
+    } finally {
+      // テクスチャリソースをクリーンアップ
+      texture.destroy()
     }
   }
 
@@ -2641,20 +3070,19 @@ export class WebGPUEngine {
    * @param outputHeight 出力テクスチャの高さ（デフォルト：region.height）
    * @returns レンダリング結果テクスチャ
    */
-  async renderRegionToTexture(
+  protected async renderRegionToTexture(
     region: { x: number; y: number; width: number; height: number },
     outputWidth?: number,
     outputHeight?: number,
     providedDocumentContext?: DocumentContext,
   ): Promise<GPUTexture | null> {
+    if (!this.device) throw new EngineError(ErrorCode.WebGPUDeviceNotAvailable)
+
     // 無限再帰防止チェック
     const callKey = `${region.x},${region.y},${region.width},${region.height}`
     if (!this.renderCallCount) this.renderCallCount = new Map()
     const currentCount = this.renderCallCount.get(callKey) || 0
     if (currentCount > 5) {
-      debugState.export.errors.push(
-        `Prevented infinite recursion for region ${callKey}`,
-      )
       return null
     }
     this.renderCallCount.set(callKey, currentCount + 1)
@@ -2676,41 +3104,17 @@ export class WebGPUEngine {
 
     // 提供されたdocumentContextを使用している場合のデバッグ
     if (providedDocumentContext) {
-      debugState.export.errors.push('Using provided documentContext')
     } else {
-      debugState.export.errors.push(
-        'Creating new documentContext from state.document',
-      )
     }
 
     // layerNodesが存在するか確認
     if (documentContext.document.layerNodes) {
-      console.log(
-        '[PNG Export Debug] document.layerNodes:',
-        documentContext.document.layerNodes,
-      )
       if (documentContext.document.layerNodes.length === 0) {
         console.error('[PNG Export Debug] layerNodes is empty!')
-        debugState.export.errors.push('FATAL: layerNodes is empty in document')
       }
     } else {
       console.error('[PNG Export Debug] No layerNodes property in document!')
-      debugState.export.errors.push('FATAL: No layerNodes property in document')
     }
-
-    if (!documentContext.document) {
-      debugState.export.errors.push(
-        'FATAL: No active document for region rendering',
-      )
-      console.warn('No active document for region rendering')
-      return null
-    }
-
-    debugState.export.errors.push(
-      `Document loaded: ${documentContext.document.id} with ${
-        Object.keys(documentContext.document.layers).length
-      } layers`,
-    )
 
     // 出力サイズを決定（指定されない場合は領域サイズと同じ）
     const textureWidth = outputWidth || Math.ceil(region.width)
@@ -2724,25 +3128,21 @@ export class WebGPUEngine {
     }
 
     // スクロール中のエクスポートのズレを防ぐため、レンダリング前にキューを完了させる
-    await this.device!.queue.onSubmittedWorkDone()
-
-    // カメラの現在状態を保存
-    const originalPosition = this.camera.getPosition()
-    const originalZoom = this.camera.getZoom()
+    await this.device.queue.onSubmittedWorkDone()
 
     // エクスポート用カメラの準備
-    let originalCamera: Camera2D | null = null
+    const originalCamera: Camera2D | null = null
 
     try {
       // アートボード境界内のコンテンツ範囲を計算（アートボード外のオブジェクトは無視）
-      let actualContentBounds = {
+      const actualContentBounds = {
         left: region.x,
         top: region.y,
         right: region.x + region.width,
         bottom: region.y + region.height,
       }
 
-      let hasContent = false
+      let _hasContent = false
 
       // アートボード境界内のアートオブジェクトのみを調査
       for (const artObject of Object.values(
@@ -2774,7 +3174,7 @@ export class WebGPUEngine {
                 actualContentBounds.bottom,
                 point.y,
               )
-              hasContent = true
+              _hasContent = true
             }
           }
         }
@@ -2788,27 +3188,10 @@ export class WebGPUEngine {
       const scaleY = textureHeight / region.height
       const newZoom = Math.min(scaleX, scaleY)
 
-      debugState.export.errors.push(
-        `Using artboard bounds: (${region.x},${region.y}) ${region.width}x${region.height}`,
-      )
-      if (hasContent) {
-        debugState.export.errors.push(`Content found within artboard bounds`)
-      }
-
       const adjustedCenterX = centerX
       const adjustedCenterY = centerY
 
       // debugStateにカメラ情報を記録
-      debugState.export.camera.originalPosition = {
-        x: originalPosition.x,
-        y: originalPosition.y,
-      }
-      debugState.export.camera.originalZoom = originalZoom
-      debugState.export.camera.newPosition = {
-        x: adjustedCenterX,
-        y: adjustedCenterY,
-      }
-      debugState.export.camera.newZoom = newZoom
 
       // エクスポート用の一時的なカメラを作成
       const originalCamera = this.camera
@@ -2819,40 +3202,7 @@ export class WebGPUEngine {
       // 一時的にエクスポート用カメラを使用
       this.camera = exportCamera
 
-      // NDC変換テスト（最初のオブジェクト位置で検証）
-      if (
-        debugState.export.rendering &&
-        Object.values(documentContext.document.artObjects).length > 0
-      ) {
-        const firstObj = Object.values(
-          documentContext.document.artObjects,
-        )[0] as any
-        if (firstObj.path?.points?.length > 0) {
-          const testPoint = firstObj.path.points[0]
-          const relX = testPoint.x - adjustedCenterX
-          const relY = testPoint.y - adjustedCenterY
-          const ndcX = (2 * relX * newZoom) / textureWidth
-          const ndcY = -(2 * relY * newZoom) / textureHeight
-          debugState.export.errors.push(
-            `NDC test: obj(${testPoint.x},${testPoint.y}) -> NDC(${ndcX.toFixed(
-              2,
-            )},${ndcY.toFixed(2)})`,
-          )
-        }
-      }
-
       // カメラ行列の確認
-      debugState.export.errors.push(
-        `Camera setup: center(${centerX.toFixed(1)}, ${centerY.toFixed(
-          1,
-        )}) zoom=${newZoom}`,
-      )
-      debugState.export.errors.push(
-        `Texture size: ${textureWidth}x${textureHeight}`,
-      )
-      debugState.export.errors.push(
-        `Region: ${region.x},${region.y} ${region.width}x${region.height}`,
-      )
 
       // レンダリング対象の確認
       const artObjectCount = Object.keys(
@@ -2860,50 +3210,13 @@ export class WebGPUEngine {
       ).length
       debugState.stroke.document.artObjectCount = artObjectCount
 
-      // エクスポート時のレンダリング統計をリセット
-      debugState.export.rendering = {
-        layersProcessed: 0,
-        artObjectsProcessed: 0,
-        visibleLayers: 0,
-        pathsRendered: 0,
-        fillsRendered: 0,
-        strokesRendered: 0,
-        skippedObjects: 0,
-        renderErrors: [],
-      }
-
-      // 専用テクスチャにレンダリング実行
-      debugState.export.errors.push(
-        `Calling renderRegion with texture ${renderTexture.width}x${renderTexture.height}`,
-      )
-
-      // 仮説15テスト: シェーダー段階の問題を特定するためのテクスチャフォーマット整合性確認
-      debugState.export.errors.push(
-        `DEBUG-TOKEN-DEF789: Shader-stage debugging - texture format verification`,
-      )
-
-      // テクスチャフォーマット確認
-      const renderTextureFormat = renderTexture.format
-      debugState.export.errors.push(
-        `DEBUG-TOKEN-DEF789: RenderTexture format: ${renderTextureFormat}`,
-      )
-
-      // FillRendererが想定するフォーマットと一致するかチェック
-      const expectedFormat = 'rgba8unorm'
-      const formatMatches = renderTextureFormat === expectedFormat
-      debugState.export.errors.push(
-        `DEBUG-TOKEN-DEF789: Format matches expected (${expectedFormat}): ${
-          formatMatches ? 'YES' : 'NO'
-        }`,
-      )
-
       // renderRegion実行前のベースライン確認
-      const baselineBuffer = this.device!.createBuffer({
+      const baselineBuffer = this.device.createBuffer({
         size: 16, // 1ピクセル分
         usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ,
       })
 
-      const baselineEncoder = this.device!.createCommandEncoder({
+      const baselineEncoder = this.device.createCommandEncoder({
         label: 'BaselineSample',
       })
       baselineEncoder.copyTextureToBuffer(
@@ -2918,28 +3231,24 @@ export class WebGPUEngine {
         { buffer: baselineBuffer, bytesPerRow: 256 },
         { width: 1, height: 1, depthOrArrayLayers: 1 },
       )
-      this.device!.queue.submit([baselineEncoder.finish()])
+      this.device.queue.submit([baselineEncoder.finish()])
 
-      await this.device!.queue.onSubmittedWorkDone()
+      await this.device.queue.onSubmittedWorkDone()
       await baselineBuffer.mapAsync(GPUMapMode.READ)
       const baselineData = new Uint8Array(baselineBuffer.getMappedRange())
 
-      const baselinePixel = {
+      const _baselinePixel = {
         r: baselineData[0],
         g: baselineData[1],
         b: baselineData[2],
         a: baselineData[3],
       }
-      debugState.export.errors.push(
-        `DEBUG-TOKEN-DEF789: BASELINE before renderRegion: RGBA(${baselinePixel.r},${baselinePixel.g},${baselinePixel.b},${baselinePixel.a})`,
-      )
 
       baselineBuffer.unmap()
       baselineBuffer.destroy()
 
       // ビューポート領域を指定してレンダリング
       // 実際のアートボードレンダリングを実行
-      debugState.export.errors.push(`DEBUG: Executing full artboard rendering`)
 
       await this.renderRegion(
         documentContext,
@@ -2952,18 +3261,13 @@ export class WebGPUEngine {
         renderTexture,
       )
 
-      debugState.export.errors.push(`renderRegion completed (actual rendering)`)
-
       // 仮説15テスト: renderRegion後のシェーダー実行結果を確認
-      debugState.export.errors.push(
-        `DEBUG-TOKEN-DEF789: Post-renderRegion shader execution verification`,
-      )
-      const postRenderBuffer = this.device!.createBuffer({
+      const postRenderBuffer = this.device.createBuffer({
         size: 16, // 1ピクセル分
         usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ,
       })
 
-      const postRenderEncoder = this.device!.createCommandEncoder({
+      const postRenderEncoder = this.device.createCommandEncoder({
         label: 'PostRenderSample',
       })
       postRenderEncoder.copyTextureToBuffer(
@@ -2978,87 +3282,63 @@ export class WebGPUEngine {
         { buffer: postRenderBuffer, bytesPerRow: 256 },
         { width: 1, height: 1, depthOrArrayLayers: 1 },
       )
-      this.device!.queue.submit([postRenderEncoder.finish()])
+      this.device.queue.submit([postRenderEncoder.finish()])
 
-      await this.device!.queue.onSubmittedWorkDone()
+      await this.device.queue.onSubmittedWorkDone()
       await postRenderBuffer.mapAsync(GPUMapMode.READ)
       const postRenderData = new Uint8Array(postRenderBuffer.getMappedRange())
 
-      const postRenderPixel = {
+      const _postRenderPixel = {
         r: postRenderData[0],
         g: postRenderData[1],
         b: postRenderData[2],
         a: postRenderData[3],
       }
-      debugState.export.errors.push(
-        `DEBUG-TOKEN-DEF789: AFTER renderRegion: RGBA(${postRenderPixel.r},${postRenderPixel.g},${postRenderPixel.b},${postRenderPixel.a})`,
-      )
 
       postRenderBuffer.unmap()
       postRenderBuffer.destroy()
 
       // 実際のレンダリング結果に焦点を当てる
-      debugState.export.errors.push(
-        `DEBUG-TOKEN-HIJ567: Focus on actual rendering results`,
-      )
-      debugState.export.errors.push(
-        `DEBUG-TOKEN-HIJ567: Expected: orange and green shapes`,
-      )
-      debugState.export.errors.push(
-        `DEBUG-TOKEN-HIJ567: Actual: RGBA(0,0,0,0) - transparent`,
-      )
 
       // 仮説4テスト: canvasTextureをチェック（Fill/Strokeが間違ったテクスチャに描画している可能性）
-      debugState.export.errors.push(
-        `DEBUG-TOKEN-JKL012: Checking canvasTexture for misdirected rendering`,
-      )
 
       // canvasTextureから中央部をサンプリング
       const sampleCenterX = Math.floor(textureWidth / 2)
       const sampleCenterY = Math.floor(textureHeight / 2)
 
-      const canvasBuffer = this.device!.createBuffer({
+      const canvasBuffer = this.device.createBuffer({
         size: 64, // 16ピクセル分 (4 bytes per pixel)
         usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ,
       })
 
-      const canvasEncoder = this.device!.createCommandEncoder({
+      const canvasEncoder = this.device.createCommandEncoder({
         label: 'SampleCanvasTexture',
       })
+
       canvasEncoder.copyTextureToBuffer(
         {
-          texture: this.context!.getCurrentTexture(),
+          texture: this.context?.getCurrentTexture(),
           origin: { x: sampleCenterX - 8, y: sampleCenterY, z: 0 },
         },
         { buffer: canvasBuffer, bytesPerRow: 256 },
         { width: 16, height: 1, depthOrArrayLayers: 1 },
       )
-      this.device!.queue.submit([canvasEncoder.finish()])
+      this.device.queue.submit([canvasEncoder.finish()])
 
-      await this.device!.queue.onSubmittedWorkDone()
+      await this.device.queue.onSubmittedWorkDone()
       await canvasBuffer.mapAsync(GPUMapMode.READ)
-      const canvasData = new Uint8Array(canvasBuffer.getMappedRange())
-
-      const canvasPixel = {
-        r: canvasData[32], // 中央ピクセル (8番目 * 4)
-        g: canvasData[33],
-        b: canvasData[34],
-        a: canvasData[35],
-      }
-      debugState.export.errors.push(
-        `DEBUG-TOKEN-JKL012: Canvas center pixel: RGBA(${canvasPixel.r},${canvasPixel.g},${canvasPixel.b},${canvasPixel.a})`,
-      )
+      const _canvasData = new Uint8Array(canvasBuffer.getMappedRange())
 
       canvasBuffer.unmap()
       canvasBuffer.destroy()
 
       // renderTextureサンプリング
-      const renderBuffer = this.device!.createBuffer({
+      const renderBuffer = this.device.createBuffer({
         size: 64,
         usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ,
       })
 
-      const renderEncoder = this.device!.createCommandEncoder({
+      const renderEncoder = this.device.createCommandEncoder({
         label: 'SampleRenderTexture',
       })
       renderEncoder.copyTextureToBuffer(
@@ -3069,21 +3349,11 @@ export class WebGPUEngine {
         { buffer: renderBuffer, bytesPerRow: 256 },
         { width: 16, height: 1, depthOrArrayLayers: 1 },
       )
-      this.device!.queue.submit([renderEncoder.finish()])
+      this.device.queue.submit([renderEncoder.finish()])
 
-      await this.device!.queue.onSubmittedWorkDone()
+      await this.device.queue.onSubmittedWorkDone()
       await renderBuffer.mapAsync(GPUMapMode.READ)
-      const renderData = new Uint8Array(renderBuffer.getMappedRange())
-
-      const renderPixel = {
-        r: renderData[32],
-        g: renderData[33],
-        b: renderData[34],
-        a: renderData[35],
-      }
-      debugState.export.errors.push(
-        `DEBUG-TOKEN-JKL012: RenderTexture center pixel: RGBA(${renderPixel.r},${renderPixel.g},${renderPixel.b},${renderPixel.a})`,
-      )
+      const _renderData = new Uint8Array(renderBuffer.getMappedRange())
 
       renderBuffer.unmap()
       renderBuffer.destroy()
@@ -3091,23 +3361,6 @@ export class WebGPUEngine {
       // レンダリング完了を確実に待つ
       if (this.device) {
         await this.device.queue.onSubmittedWorkDone()
-      }
-
-      // レンダリング完了をdebugStateに記録
-      debugState.export.artboard.renderEndTime = performance.now()
-
-      // レンダリング統計をログに出力（1回のみ）
-      if (!debugState.export.errors.some((e) => e.startsWith('Stats:'))) {
-        if (
-          debugState.export.rendering.layersProcessed > 0 ||
-          debugState.export.rendering.artObjectsProcessed > 0
-        ) {
-          debugState.export.errors.push(
-            `Stats: L${debugState.export.rendering.layersProcessed} O${debugState.export.rendering.artObjectsProcessed} P${debugState.export.rendering.pathsRendered} F${debugState.export.rendering.fillsRendered} S${debugState.export.rendering.strokesRendered} Skip${debugState.export.rendering.skippedObjects}`,
-          )
-        } else {
-          debugState.export.errors.push('No objects processed during rendering')
-        }
       }
 
       return renderTexture
@@ -3129,46 +3382,9 @@ export class WebGPUEngine {
   }
 
   /**
-   * 領域レンダリング結果をImageDataとして取得
-   * @param region ワールド座標での領域
-   * @param outputWidth 出力幅（デフォルト：region.width）
-   * @param outputHeight 出力高さ（デフォルト：region.height）
-   * @returns ImageDataまたはnull
-   */
-  async renderRegionToImageData(
-    region: { x: number; y: number; width: number; height: number },
-    outputWidth?: number,
-    outputHeight?: number,
-    documentContext?: DocumentContext,
-  ): Promise<ImageData | null> {
-    const texture = await this.renderRegionToTexture(
-      region,
-      outputWidth,
-      outputHeight,
-      documentContext,
-    )
-    if (!texture) {
-      return null
-    }
-
-    try {
-      const imageData = await this.readTextureAsImageData(texture)
-      debugState.export.errors.push(
-        `readTextureAsImageData result: ${
-          imageData ? `${imageData.width}x${imageData.height}` : 'null'
-        }`,
-      )
-      return imageData
-    } finally {
-      // テクスチャリソースをクリーンアップ
-      texture.destroy()
-    }
-  }
-
-  /**
    * キャンバス座標をワールド座標に変換（カメラ考慮版）
    */
-  canvasToWorld(canvasX: number, canvasY: number): Vector2 {
+  public canvasToWorld(canvasX: number, canvasY: number): Vector2 {
     const canvasSize = this.getLogicalCanvasSize()
     return this.camera.screenToWorld(
       canvasX,
@@ -3181,7 +3397,7 @@ export class WebGPUEngine {
   /**
    * ワールド座標をキャンバス座標に変換（カメラ考慮版）
    */
-  worldToCanvas(worldX: number, worldY: number): Vector2 {
+  public worldToCanvas(worldX: number, worldY: number): Vector2 {
     const canvasSize = this.getLogicalCanvasSize()
     return this.camera.worldToScreen(
       worldX,
@@ -3189,5 +3405,40 @@ export class WebGPUEngine {
       canvasSize.width,
       canvasSize.height,
     )
+  }
+}
+
+/** document.artObjectsの変更を追跡する関数 */
+export function trackDocumentChange(action: string, document: any) {
+  const currentIds = Object.keys(document.artObjects)
+  const lastChange =
+    debugState.stroke.documentChanges.changeHistory[
+      debugState.stroke.documentChanges.changeHistory.length - 1
+    ]
+
+  const before = {
+    artObjectCount: lastChange?.after?.artObjectCount || 0,
+    artObjectIds: lastChange?.after?.artObjectIds || [],
+  }
+
+  const after = {
+    artObjectCount: currentIds.length,
+    artObjectIds: [...currentIds],
+  }
+
+  const change = {
+    timestamp: performance.now(),
+    action,
+    before,
+    after,
+    stackTrace: new Error().stack || 'no stack available',
+  }
+
+  debugState.stroke.documentChanges.changeHistory.push(change)
+  debugState.stroke.documentChanges.lastChangeTime = change.timestamp
+
+  // 履歴は最新20件のみ保持
+  if (debugState.stroke.documentChanges.changeHistory.length > 20) {
+    debugState.stroke.documentChanges.changeHistory.shift()
   }
 }

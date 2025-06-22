@@ -1,17 +1,14 @@
-import { RGBAColor, BlendMode } from '../../document/types'
-import { VectorPath } from '../../document/path'
-import { FillAppearance, isFillAppearance } from '../../document/appearance'
 import {
-  IAppearanceProcessor,
-  BoundingBox,
-} from '../interfaces/IAppearanceProcessor'
-import {
+  createBuffersAndAttributesFromArrays,
   makeShaderDataDefinitions,
   makeStructuredView,
-  createBuffersAndAttributesFromArrays,
 } from 'webgpu-utils'
-import { debugLogger } from '../../../utils/debug-logger'
-import { debugState } from '../core-engine'
+import type { FillAppearance } from '../../document/appearance'
+import type { VectorPath } from '../../document/path'
+import type {
+  BoundingBox,
+  IAppearanceProcessor,
+} from '../interfaces/IAppearanceProcessor'
 
 /**
  * パスからポリゴンへの三角分割を行う関数
@@ -248,7 +245,7 @@ export class FillRenderer implements IAppearanceProcessor {
     try {
       await this.createShaders()
       return true
-    } catch (error) {
+    } catch (_error) {
       return false
     }
   }
@@ -258,9 +255,8 @@ export class FillRenderer implements IAppearanceProcessor {
    * webgpu-utilsを使用して自動レイアウト生成
    */
   private async createShaders(): Promise<void> {
-    try {
-      // 塗りつぶし用のシェーダーコード（webgpu-utils対応）
-      const shaderCode = `
+    // 塗りつぶし用のシェーダーコード（webgpu-utils対応）
+    const shaderCode = `
         struct FillUniforms {
           projectionMatrix: mat4x4<f32>,
           viewMatrix: mat4x4<f32>,
@@ -300,139 +296,133 @@ export class FillRenderer implements IAppearanceProcessor {
         }
       `
 
-      const defs = makeShaderDataDefinitions(shaderCode)
+    const defs = makeShaderDataDefinitions(shaderCode)
 
-      this.uniformValues = makeStructuredView(defs.uniforms.uniforms)
+    this.uniformValues = makeStructuredView(defs.uniforms.uniforms)
 
-      // ユニフォームバッファーを正しいサイズで作成
-      this.uniformBuffer = this.device.createBuffer({
-        label: 'FillUniformBuffer',
-        size: this.uniformValues.arrayBuffer.byteLength,
-        usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
-      })
+    // ユニフォームバッファーを正しいサイズで作成
+    this.uniformBuffer = this.device.createBuffer({
+      label: 'FillUniformBuffer',
+      size: this.uniformValues.arrayBuffer.byteLength,
+      usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
+    })
 
-      const shaderModule = this.device.createShaderModule({
-        label: 'FillShaderModule',
-        code: shaderCode,
-      })
+    const shaderModule = this.device.createShaderModule({
+      label: 'FillShaderModule',
+      code: shaderCode,
+    })
 
-      // バインドグループレイアウトを作成
-      this.bindGroupLayout = this.device.createBindGroupLayout({
-        label: 'FillBindGroupLayout',
-        entries: [
-          {
-            binding: 0,
-            visibility: GPUShaderStage.VERTEX,
-            buffer: { type: 'uniform' },
-          },
-        ],
-      })
-
-      // バインドグループを作成
-      this.bindGroup = this.device.createBindGroup({
-        label: 'FillBindGroup',
-        layout: this.bindGroupLayout,
-        entries: [
-          {
-            binding: 0,
-            resource: { buffer: this.uniformBuffer },
-          },
-        ],
-      })
-
-      // webgpu-utilsでサンプルのバッファレイアウトを取得
-      // 明示的に成分数を指定してダミーデータで作成
-      const sampleBufferInfo = createBuffersAndAttributesFromArrays(
-        this.device,
+    // バインドグループレイアウトを作成
+    this.bindGroupLayout = this.device.createBindGroupLayout({
+      label: 'FillBindGroupLayout',
+      entries: [
         {
-          position: { numComponents: 2, data: [0, 0] }, // 2成分のposition
-          color: { numComponents: 4, data: [1, 0, 0, 1] }, // 4成分のcolor
+          binding: 0,
+          visibility: GPUShaderStage.VERTEX,
+          buffer: { type: 'uniform' },
         },
-      )
+      ],
+    })
 
-      this.bufferLayouts = sampleBufferInfo.bufferLayouts
-
-      // サンプルバッファは破棄
-      sampleBufferInfo.buffers.forEach((buffer) => buffer.destroy())
-
-      // メインキャンバス用レンダーパイプラインを作成
-      this.renderPipeline = this.device.createRenderPipeline({
-        label: 'FillRenderPipeline',
-        layout: this.device.createPipelineLayout({
-          bindGroupLayouts: [this.bindGroupLayout],
-        }),
-        vertex: {
-          module: shaderModule,
-          entryPoint: 'vs_main',
-          buffers: this.bufferLayouts,
+    // バインドグループを作成
+    this.bindGroup = this.device.createBindGroup({
+      label: 'FillBindGroup',
+      layout: this.bindGroupLayout,
+      entries: [
+        {
+          binding: 0,
+          resource: { buffer: this.uniformBuffer },
         },
-        fragment: {
-          module: shaderModule,
-          entryPoint: 'fs_main',
-          targets: [
-            {
-              format: navigator.gpu.getPreferredCanvasFormat(),
-              blend: {
-                color: {
-                  srcFactor: 'src-alpha',
-                  dstFactor: 'one-minus-src-alpha',
-                  operation: 'add',
-                },
-                alpha: {
-                  srcFactor: 'one',
-                  dstFactor: 'one-minus-src-alpha',
-                  operation: 'add',
-                },
+      ],
+    })
+
+    // webgpu-utilsでサンプルのバッファレイアウトを取得
+    // 明示的に成分数を指定してダミーデータで作成
+    const sampleBufferInfo = createBuffersAndAttributesFromArrays(this.device, {
+      position: { numComponents: 2, data: [0, 0] }, // 2成分のposition
+      color: { numComponents: 4, data: [1, 0, 0, 1] }, // 4成分のcolor
+    })
+
+    this.bufferLayouts = sampleBufferInfo.bufferLayouts
+
+    // サンプルバッファは破棄
+    sampleBufferInfo.buffers.forEach((buffer) => buffer.destroy())
+
+    // メインキャンバス用レンダーパイプラインを作成
+    this.renderPipeline = this.device.createRenderPipeline({
+      label: 'FillRenderPipeline',
+      layout: this.device.createPipelineLayout({
+        bindGroupLayouts: [this.bindGroupLayout],
+      }),
+      vertex: {
+        module: shaderModule,
+        entryPoint: 'vs_main',
+        buffers: this.bufferLayouts,
+      },
+      fragment: {
+        module: shaderModule,
+        entryPoint: 'fs_main',
+        targets: [
+          {
+            format: navigator.gpu.getPreferredCanvasFormat(),
+            blend: {
+              color: {
+                srcFactor: 'src-alpha',
+                dstFactor: 'one-minus-src-alpha',
+                operation: 'add',
+              },
+              alpha: {
+                srcFactor: 'one',
+                dstFactor: 'one-minus-src-alpha',
+                operation: 'add',
               },
             },
-          ],
-        },
-        primitive: {
-          topology: 'triangle-list',
-          cullMode: 'none', // 面カリングを無効化
-        },
-      })
+          },
+        ],
+      },
+      primitive: {
+        topology: 'triangle-list',
+        cullMode: 'none', // 面カリングを無効化
+      },
+    })
 
-      // オフスクリーン用レンダーパイプラインを作成
-      this.offscreenRenderPipeline = this.device.createRenderPipeline({
-        label: 'FillOffscreenRenderPipeline',
-        layout: this.device.createPipelineLayout({
-          bindGroupLayouts: [this.bindGroupLayout],
-        }),
-        vertex: {
-          module: shaderModule,
-          entryPoint: 'vs_main',
-          buffers: this.bufferLayouts,
-        },
-        fragment: {
-          module: shaderModule,
-          entryPoint: 'fs_main',
-          targets: [
-            {
-              format: navigator.gpu.getPreferredCanvasFormat(), // キャンバスと同じフォーマット
-              blend: {
-                color: {
-                  srcFactor: 'src-alpha',
-                  dstFactor: 'one-minus-src-alpha',
-                  operation: 'add',
-                },
-                alpha: {
-                  srcFactor: 'one',
-                  dstFactor: 'one-minus-src-alpha',
-                  operation: 'add',
-                },
+    // オフスクリーン用レンダーパイプラインを作成
+    this.offscreenRenderPipeline = this.device.createRenderPipeline({
+      label: 'FillOffscreenRenderPipeline',
+      layout: this.device.createPipelineLayout({
+        bindGroupLayouts: [this.bindGroupLayout],
+      }),
+      vertex: {
+        module: shaderModule,
+        entryPoint: 'vs_main',
+        buffers: this.bufferLayouts,
+      },
+      fragment: {
+        module: shaderModule,
+        entryPoint: 'fs_main',
+        targets: [
+          {
+            format: navigator.gpu.getPreferredCanvasFormat(), // キャンバスと同じフォーマット
+            blend: {
+              color: {
+                srcFactor: 'src-alpha',
+                dstFactor: 'one-minus-src-alpha',
+                operation: 'add',
+              },
+              alpha: {
+                srcFactor: 'one',
+                dstFactor: 'one-minus-src-alpha',
+                operation: 'add',
               },
             },
-          ],
-        },
-        primitive: {
-          topology: 'triangle-list',
-          cullMode: 'none', // 面カリングを無効化
-        },
-      })
-    } catch (error) {
-      throw error
-    }
+          },
+        ],
+      },
+      primitive: {
+        topology: 'triangle-list',
+        cullMode: 'none', // 面カリングを無効化
+      },
+    })
   }
 
   /**
@@ -465,16 +455,6 @@ export class FillRenderer implements IAppearanceProcessor {
       ? this.offscreenRenderPipeline
       : this.renderPipeline
 
-    // デバッグ情報を記録（シェーダー段階テスト用）
-    debugState.export.errors.push(
-      `DEBUG-TOKEN-DEF789: FillRenderer called - isOffscreen: ${isOffscreenPass}, label: "${renderPassLabel}"`,
-    )
-    debugState.export.errors.push(
-      `DEBUG-TOKEN-DEF789: Pipeline selected: ${
-        selectedPipeline ? (isOffscreenPass ? 'offscreen' : 'main') : 'null'
-      }`,
-    )
-
     // パスが閉じていない場合は塗りつぶししない
     if (!path.closed) {
       return { buffers: [], bounds: inputBounds }
@@ -505,11 +485,11 @@ export class FillRenderer implements IAppearanceProcessor {
       return { buffers: [], bounds: inputBounds }
     }
 
-    const totalVertexCount = triangles.length / 6
+    const _totalVertexCount = triangles.length / 6
 
     // 三角分割結果の詳細ログ（最初の数個の頂点）
     if (isOffscreenPass) {
-      const firstFewVertices = triangles.slice(
+      const _firstFewVertices = triangles.slice(
         0,
         Math.min(18, triangles.length),
       ) // 最初の3つの頂点
@@ -536,7 +516,7 @@ export class FillRenderer implements IAppearanceProcessor {
 
         // NDC範囲チェック
         const allVerts = [tv1, tv2, tv3]
-        const inRange = allVerts.every(
+        const _inRange = allVerts.every(
           (v) => v.x >= -1 && v.x <= 1 && v.y >= -1 && v.y <= 1,
         )
       }
@@ -555,165 +535,35 @@ export class FillRenderer implements IAppearanceProcessor {
         maxY = Math.max(maxY, y)
       }
     }
+    // 手動でインターリーブバッファを作成（webgpu-utilsの制限回避）
+    const vertexCount = triangles.length / 6
 
-    // webgpu-utilsを使って頂点バッファーを自動作成
-    try {
-      // 手動でインターリーブバッファを作成（webgpu-utilsの制限回避）
-      const vertexCount = triangles.length / 6
+    // バッファを手動作成
+    const vertexBuffer = this.device.createBuffer({
+      label: 'FillVertexBuffer',
+      size: triangles.length * 4, // Float32Array
+      usage: GPUBufferUsage.VERTEX | GPUBufferUsage.COPY_DST,
+    })
 
-      // バッファを手動作成
-      const vertexBuffer = this.device.createBuffer({
-        label: 'FillVertexBuffer',
-        size: triangles.length * 4, // Float32Array
-        usage: GPUBufferUsage.VERTEX | GPUBufferUsage.COPY_DST,
-      })
+    // データを転送
+    this.device.queue.writeBuffer(vertexBuffer, 0, triangles)
 
-      // データを転送
-      this.device.queue.writeBuffer(vertexBuffer, 0, triangles)
+    // 既存のレンダーパスで描画
+    // 選択されたパイプラインを使用
+    renderPass.setPipeline(selectedPipeline)
 
-      // 既存のレンダーパスで描画
-      // 選択されたパイプラインを使用
-      renderPass.setPipeline(selectedPipeline)
+    renderPass.setBindGroup(0, this.bindGroup)
 
-      renderPass.setBindGroup(0, this.bindGroup)
+    // 手動作成したバッファを設定
+    renderPass.setVertexBuffer(0, vertexBuffer)
 
-      // 手動作成したバッファを設定
-      renderPass.setVertexBuffer(0, vertexBuffer)
+    // 頂点数で描画
+    renderPass.draw(vertexCount)
 
-      // 頂点数で描画
-
-      // デバッグ: レンダーパス情報を確認
-      if (isOffscreenPass) {
-        debugState.export.errors.push(
-          `DEBUG-TOKEN-YZA456: FillRenderer about to draw ${vertexCount} vertices`,
-        )
-        debugState.export.errors.push(
-          `DEBUG-TOKEN-YZA456: RenderPass exists: ${renderPass ? 'YES' : 'NO'}`,
-        )
-        debugState.export.errors.push(
-          `DEBUG-TOKEN-YZA456: VertexBuffer created: ${
-            vertexBuffer ? 'YES' : 'NO'
-          }`,
-        )
-        debugState.export.errors.push(
-          `DEBUG-TOKEN-YZA456: Pipeline exists: ${
-            selectedPipeline ? 'YES' : 'NO'
-          }`,
-        )
-        debugState.export.errors.push(
-          `DEBUG-TOKEN-YZA456: BindGroup exists: ${
-            this.bindGroup ? 'YES' : 'NO'
-          }`,
-        )
-
-        // 頂点データのサンプル（最初の数値だけ）
-        const sampleData = Array.from(triangles.slice(0, 12))
-          .map((v) => v.toFixed(2))
-          .join(',')
-        debugState.export.errors.push(
-          `DEBUG-TOKEN-YZA456: Vertex data sample: [${sampleData}]`,
-        )
-
-        // 色データの確認
-        const color = appearance.params.color || { r: 0, g: 0, b: 0, a: 1 }
-        const opacity = appearance.params.opacity || 1
-        debugState.export.errors.push(
-          `DEBUG-TOKEN-YZA456: Color: RGBA(${color.r},${color.g},${color.b},${color.a}) opacity: ${opacity}`,
-        )
-
-        // カメラ行列の確認
-        debugState.export.errors.push(
-          `DEBUG-TOKEN-YZA456: Canvas size: ${canvasSize.width}x${canvasSize.height}`,
-        )
-        debugState.export.errors.push(
-          `DEBUG-TOKEN-YZA456: ProjectionMatrix sample: [${Array.from(
-            projectionMatrix.slice(0, 4),
-          )
-            .map((v) => v.toFixed(3))
-            .join(',')}]`,
-        )
-        debugState.export.errors.push(
-          `DEBUG-TOKEN-YZA456: ViewMatrix sample: [${Array.from(
-            viewMatrix.slice(0, 4),
-          )
-            .map((v) => v.toFixed(3))
-            .join(',')}]`,
-        )
-
-        // 最初の頂点のNDC変換を手動計算
-        const firstVertX = triangles[0]
-        const firstVertY = triangles[1]
-
-        // 4x4行列変換（簡略化）
-        const worldPos = [firstVertX, firstVertY, 0, 1]
-        const viewPos = [
-          viewMatrix[0] * worldPos[0] +
-            viewMatrix[4] * worldPos[1] +
-            viewMatrix[8] * worldPos[2] +
-            viewMatrix[12] * worldPos[3],
-          viewMatrix[1] * worldPos[0] +
-            viewMatrix[5] * worldPos[1] +
-            viewMatrix[9] * worldPos[2] +
-            viewMatrix[13] * worldPos[3],
-          viewMatrix[2] * worldPos[0] +
-            viewMatrix[6] * worldPos[1] +
-            viewMatrix[10] * worldPos[2] +
-            viewMatrix[14] * worldPos[3],
-          viewMatrix[3] * worldPos[0] +
-            viewMatrix[7] * worldPos[1] +
-            viewMatrix[11] * worldPos[2] +
-            viewMatrix[15] * worldPos[3],
-        ]
-
-        const projPos = [
-          projectionMatrix[0] * viewPos[0] +
-            projectionMatrix[4] * viewPos[1] +
-            projectionMatrix[8] * viewPos[2] +
-            projectionMatrix[12] * viewPos[3],
-          projectionMatrix[1] * viewPos[0] +
-            projectionMatrix[5] * viewPos[1] +
-            projectionMatrix[9] * viewPos[2] +
-            projectionMatrix[13] * viewPos[3],
-          projectionMatrix[2] * viewPos[0] +
-            projectionMatrix[6] * viewPos[1] +
-            projectionMatrix[10] * viewPos[2] +
-            projectionMatrix[14] * viewPos[3],
-          projectionMatrix[3] * viewPos[0] +
-            projectionMatrix[7] * viewPos[1] +
-            projectionMatrix[11] * viewPos[2] +
-            projectionMatrix[15] * viewPos[3],
-        ]
-
-        const ndcX = projPos[0] / projPos[3]
-        const ndcY = projPos[1] / projPos[3]
-
-        debugState.export.errors.push(
-          `DEBUG-TOKEN-YZA456: Manual NDC calc for (${firstVertX},${firstVertY}): NDC(${ndcX.toFixed(
-            3,
-          )},${ndcY.toFixed(3)})`,
-        )
-        debugState.export.errors.push(
-          `DEBUG-TOKEN-YZA456: NDC in range: ${
-            ndcX >= -1 && ndcX <= 1 && ndcY >= -1 && ndcY <= 1 ? 'YES' : 'NO'
-          }`,
-        )
-      }
-
-      renderPass.draw(vertexCount)
-
-      if (isOffscreenPass) {
-        debugState.export.errors.push(
-          `DEBUG-TOKEN-YZA456: FillRenderer draw call completed for ${vertexCount} vertices`,
-        )
-      }
-
-      // 手動作成したバッファを返して、呼び出し元で破棄管理
-      // TODO: 実際のパスバウンディングボックスを計算
-      const updatedBounds = this.calculateBounds(path, appearance, inputBounds)
-      return { buffers: [vertexBuffer], bounds: updatedBounds }
-    } catch (error) {
-      throw error
-    }
+    // 手動作成したバッファを返して、呼び出し元で破棄管理
+    // TODO: 実際のパスバウンディングボックスを計算
+    const updatedBounds = this.calculateBounds(path, appearance, inputBounds)
+    return { buffers: [vertexBuffer], bounds: updatedBounds }
   }
 
   /**
@@ -721,7 +571,7 @@ export class FillRenderer implements IAppearanceProcessor {
    */
   calculateBounds(
     path: VectorPath,
-    appearance: FillAppearance,
+    _appearance: FillAppearance,
     inputBounds: BoundingBox,
   ): BoundingBox {
     if (!path.closed || path.points.length < 3) {

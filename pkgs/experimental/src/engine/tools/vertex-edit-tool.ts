@@ -4,15 +4,15 @@
  */
 
 import { proxy } from 'valtio'
-import {
-  type Vector2,
-  type PathVertex,
-  type BezierHandle,
-  type VertexEditState,
-  hitTestVertex,
-  hitTestHandle,
-} from '../selection-types'
 import type { DocumentContext } from '../document-manager'
+import {
+  type BezierHandle,
+  hitTestHandle,
+  hitTestVertex,
+  type PathVertex,
+  type Vector2,
+  type VertexEditState,
+} from '../selection-types'
 
 export interface VertexEditToolOptions {
   showHandles: boolean

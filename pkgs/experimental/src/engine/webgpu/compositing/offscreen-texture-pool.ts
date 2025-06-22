@@ -1,4 +1,4 @@
-import { BoundingBox } from '../interfaces/IAppearanceProcessor'
+import type { BoundingBox } from '../interfaces/IAppearanceProcessor'
 
 /**
  * オフスクリーンテクスチャのプール管理
@@ -67,7 +67,7 @@ export class OffscreenTexturePool {
     if (!this.availableTextures.has(key)) {
       this.availableTextures.set(key, [])
     }
-    this.availableTextures.get(key)!.push(texture)
+    this.availableTextures.get(key)?.push(texture)
   }
 
   /**
@@ -82,7 +82,7 @@ export class OffscreenTexturePool {
       if (!this.availableTextures.has(key)) {
         this.availableTextures.set(key, [])
       }
-      this.availableTextures.get(key)!.push(texture)
+      this.availableTextures.get(key)?.push(texture)
     }
     this.usedTextures.clear()
   }

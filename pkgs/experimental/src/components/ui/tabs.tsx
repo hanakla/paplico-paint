@@ -1,7 +1,7 @@
 'use client'
 
-import { memo } from 'react'
 import * as TabsPrimitive from '@radix-ui/react-tabs'
+import { memo } from 'react'
 
 import { cn } from '@/lib/utils'
 

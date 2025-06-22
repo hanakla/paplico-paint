@@ -1,7 +1,7 @@
 import { proxy } from 'valtio'
-import { PaplicoEngine } from '@/engine/paplico'
-import { Document } from '@/engine/document/document'
-import { UUID } from '@/engine/document/types'
+import type { Document } from '@/engine/document/document'
+import type { UUID } from '@/engine/document/types'
+import type { PaplicoEngine } from '@/engine/paplico'
 
 /**
  * エディター状態管理

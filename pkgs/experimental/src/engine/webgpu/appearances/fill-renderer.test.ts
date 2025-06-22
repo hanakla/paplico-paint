@@ -1,7 +1,7 @@
-import { describe, it, expect } from 'vitest'
-import { triangulatePolygon } from './fill-renderer'
-import type { VectorPath } from '../../document/path'
+import { describe, expect, it } from 'vitest'
 import { createSolidFill } from '../../document/appearance'
+import type { VectorPath } from '../../document/path'
+import { triangulatePolygon } from './fill-renderer'
 
 describe('triangulatePolygon', () => {
   const createTestAppearance = (

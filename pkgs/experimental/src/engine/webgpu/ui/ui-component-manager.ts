@@ -1,25 +1,20 @@
-import {
-  IWebGPUUIComponent,
-  UICoordinateSystem,
-  UIRenderLayer,
-} from './IWebGPUUIComponent'
-import { DocumentContext } from '../../document-manager'
-import { Camera2D } from '../../camera/camera-2d'
-import { Vector2 } from '../../state'
-import { ArtObject } from '../../document/art-object'
-import {
-  UIBuilder,
-  UIElement,
-  TextUIElement,
-  SurfaceUIElement,
-  ButtonUIElement,
-  PathUIElement,
-} from './ui-elements'
-import { VectorPath } from '../../document/path'
-import { debugState } from '../core-engine'
-import { makeStructuredView, makeShaderDataDefinitions } from 'webgpu-utils'
-import { VertexEditRenderer } from './vertex-edit-renderer'
+import { makeShaderDataDefinitions, makeStructuredView } from 'webgpu-utils'
+import type { Camera2D } from '../../camera/camera-2d'
+import type { ArtObject } from '../../document/art-object'
+import type { DocumentContext } from '../../document-manager'
+import type { Vector2 } from '../../state'
 import { VertexEditTool } from '../../tools/vertex-edit-tool'
+import { debugState } from '../core-engine'
+import type { IWebGPUUIComponent } from './IWebGPUUIComponent'
+import {
+  type ButtonUIElement,
+  type PathUIElement,
+  type SurfaceUIElement,
+  type TextUIElement,
+  UIBuilder,
+  type UIElement,
+} from './ui-elements'
+import { VertexEditRenderer } from './vertex-edit-renderer'
 
 /**
  * レイキャスト結果
@@ -290,7 +285,7 @@ export class UIComponentManager {
     try {
       const defs = makeShaderDataDefinitions(shaderCode)
 
-      if (defs.structs && defs.structs.UIUniforms) {
+      if (defs.structs?.UIUniforms) {
         this.uniformValues = makeStructuredView(defs.structs.UIUniforms)
 
         this.uniformBuffer = this.device.createBuffer({
@@ -307,7 +302,7 @@ export class UIComponentManager {
         })
         this.uniformValues = null
       }
-    } catch (error) {
+    } catch (_error) {
       // エラー時は手動でバッファを作成
       this.uniformBuffer = this.device.createBuffer({
         label: 'UIComponentManager-UniformBuffer',
@@ -319,7 +314,7 @@ export class UIComponentManager {
 
     this.bindGroup = this.device.createBindGroup({
       label: 'UIComponentManager-BindGroup',
-      layout: this.renderPipeline!.getBindGroupLayout(0),
+      layout: this.renderPipeline?.getBindGroupLayout(0),
       entries: [
         {
           binding: 0,
@@ -1289,7 +1284,7 @@ export class UIComponentManager {
       )
 
       return { texture, width, height }
-    } catch (error) {
+    } catch (_error) {
       return null
     }
   }
@@ -1455,7 +1450,7 @@ export class UIComponentManager {
   /**
    * UIのクリックイベントを処理
    */
-  handleClick(x: number, y: number): boolean {
+  handleClick(_x: number, _y: number): boolean {
     // TODO: UI要素のクリック判定を実装
     return false
   }
@@ -1550,7 +1545,7 @@ export class UIComponentManager {
     // パスの各線分に対して距離を計算
     let minDistance = Infinity
     let closestPoint: Vector2 | null = null
-    let boundingBox = this.calculatePathBoundingBox(path.points)
+    const boundingBox = this.calculatePathBoundingBox(path.points)
 
     for (let i = 0; i < path.points.length - 1; i++) {
       const p1 = path.points[i]
@@ -1681,7 +1676,7 @@ export class UIComponentManager {
       return Math.sqrt(A * A + B * B)
     }
 
-    let param = dot / lenSq
+    const param = dot / lenSq
 
     let xx: number, yy: number
 

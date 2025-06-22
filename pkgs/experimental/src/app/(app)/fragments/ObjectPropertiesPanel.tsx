@@ -1,24 +1,23 @@
 'use client'
 
+import { Eye, Layers } from 'lucide-react'
 import { memo } from 'react'
 import { useSnapshot } from 'valtio'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Slider } from '@/components/ui/slider'
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Separator } from '@/components/ui/separator'
-import { Badge } from '@/components/ui/badge'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Slider } from '@/components/ui/slider'
 import { Switch } from '@/components/ui/switch'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import {
+  type Appearance,
+  isFillAppearance,
+  isStrokeAppearance,
+} from '@/engine/document/appearance'
 import { selectionState } from '@/engine/selection-state'
 import { editorState, getActiveDocument } from '@/stores/editor'
-import {
-  Appearance,
-  isStrokeAppearance,
-  isFillAppearance,
-} from '@/engine/document/appearance'
-import { Palette, Move, Eye, Layers } from 'lucide-react'
 
 export interface ObjectPropertiesPanelProps {
   className?: string
@@ -28,7 +27,7 @@ export const ObjectPropertiesPanel = memo(function ObjectPropertiesPanel({
   className,
 }: ObjectPropertiesPanelProps) {
   const selection = useSnapshot(selectionState)
-  const editor = useSnapshot(editorState)
+  const _editor = useSnapshot(editorState)
   const document = getActiveDocument()
 
   const selectedObjects = Array.from(selection.selectedObjects || [])

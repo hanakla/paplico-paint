@@ -2,14 +2,14 @@
  * MoveArtObjectsCommandのテスト
  */
 
-import { describe, it, expect, beforeEach } from 'vitest'
-import { MoveArtObjectsCommand } from './MoveArtObjectsCommand'
-import { DocumentManager } from '../document-manager'
-import { Document } from '../document/document'
+import { beforeEach, describe, expect, it } from 'vitest'
 import { createPathArtObject } from '../document/art-object'
+import type { Document } from '../document/document'
 import { createVectorLayer } from '../document/layer'
 import { generateUid } from '../document/utils'
+import { DocumentManager } from '../document-manager'
 import { createVectorPath } from '../state'
+import { MoveArtObjectsCommand } from './MoveArtObjectsCommand'
 
 describe('MoveArtObjectsCommand', () => {
   let documentManager: DocumentManager
@@ -51,7 +51,13 @@ describe('MoveArtObjectsCommand', () => {
 
     // 初期位置を設定
     artObject1.transform = { x: 50, y: 50, rotation: 0, scaleX: 1, scaleY: 1 }
-    artObject2.transform = { x: 150, y: 150, rotation: 0, scaleX: 1, scaleY: 1 }
+    artObject2.transform = {
+      x: 150,
+      y: 150,
+      rotation: 0,
+      scaleX: 1,
+      scaleY: 1,
+    }
 
     artObjectId1 = artObject1.id
     artObjectId2 = artObject2.id

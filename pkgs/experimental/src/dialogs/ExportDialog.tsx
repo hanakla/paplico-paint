@@ -1,28 +1,25 @@
 'use client'
 
-import { useState, useCallback } from 'react'
 import { useEventCallback } from '@paplico/shared-lib/react'
+import { Download, Eye, FileImage } from 'lucide-react'
+import { useState } from 'react'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { Card } from '@/components/ui/card'
+import { Checkbox } from '@/components/ui/checkbox'
 import {
   Dialog,
   DialogContent,
   DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-  DialogFooter,
 } from '@/components/ui/dialog'
-import { Button } from '@/components/ui/button'
-import { Checkbox } from '@/components/ui/checkbox'
-import { Badge } from '@/components/ui/badge'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Download, FileImage, Eye } from 'lucide-react'
-import { Artboard } from '@/engine/document/artboard'
-import {
-  PngAllArtboardExporter,
-  PngExportOptions,
-} from '@/engine/exporters/PngAllArtboardExporter'
-import { DocumentContext } from '@/engine/document-manager'
-import { WebGPUEngine } from '@/engine/webgpu/core-engine'
+import type { Artboard } from '@/engine/document/artboard'
+import type { DocumentContext } from '@/engine/document-manager'
+import { PngAllArtboardExporter } from '@/engine/exporters/PngAllArtboardExporter'
+import type { WebGPUEngine } from '@/engine/webgpu/core-engine'
 
 interface ExportDialogProps {
   artboards: Artboard[]

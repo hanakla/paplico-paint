@@ -1,6 +1,5 @@
-import { encodeCbor, decodeCbor } from '@std/cbor'
-import { Document } from './document'
-import { UUID } from './types'
+import { decodeCbor, encodeCbor } from '@std/cbor'
+import type { Document } from './document'
 
 /**
  * プロジェクトファイルのメタデータ
@@ -76,12 +75,12 @@ export class DocumentSerializer {
     const now = new Date()
 
     // MapオブジェクトをJSONシリアライズ可能な形式に変換
-    const serializedDocument = this.serializeDocument(document)
+    const serializedDocument = DocumentSerializer.serializeDocument(document)
 
     const projectFile: ProjectFile = {
       metadata: {
-        version: this.FILE_VERSION,
-        application: this.APPLICATION_NAME,
+        version: DocumentSerializer.FILE_VERSION,
+        application: DocumentSerializer.APPLICATION_NAME,
         appVersion,
         createdAt: document.createdAt,
         updatedAt: now,
@@ -125,15 +124,17 @@ export class DocumentSerializer {
     }
 
     // バージョン互換性チェック
-    if (!this.isVersionCompatible(projectFile.metadata.version)) {
+    if (!DocumentSerializer.isVersionCompatible(projectFile.metadata.version)) {
       throw new Error(
         `Unsupported file version: ${projectFile.metadata.version}. ` +
-          `Current version: ${this.FILE_VERSION}`,
+          `Current version: ${DocumentSerializer.FILE_VERSION}`,
       )
     }
 
     // ドキュメントを復元
-    const document = this.deserializeDocument(projectFile.document)
+    const document = DocumentSerializer.deserializeDocument(
+      projectFile.document,
+    )
 
     return {
       document,
@@ -187,7 +188,7 @@ export class DocumentSerializer {
   private static isVersionCompatible(fileVersion: string): boolean {
     const [fileMajor, fileMinor] = fileVersion.split('.').map(Number)
     const [currentMajor, currentMinor] =
-      this.FILE_VERSION.split('.').map(Number)
+      DocumentSerializer.FILE_VERSION.split('.').map(Number)
 
     // メジャーバージョンが同じで、ファイルのマイナーバージョンが現在以下の場合は互換性あり
     return fileMajor === currentMajor && fileMinor <= currentMinor
@@ -210,7 +211,9 @@ export class DocumentSerializer {
    */
   static estimateFileSize(document: Document): number {
     // 簡易的なサイズ計算
-    const jsonString = JSON.stringify(this.serializeDocument(document))
+    const jsonString = JSON.stringify(
+      DocumentSerializer.serializeDocument(document),
+    )
     return new TextEncoder().encode(jsonString).length
   }
 }
@@ -320,7 +323,7 @@ export class FileIOHelper {
       input.onchange = (event) => {
         const file = (event.target as HTMLInputElement).files?.[0]
         if (file) {
-          this.loadDocumentFromFile(file).then(resolve).catch(reject)
+          FileIOHelper.loadDocumentFromFile(file).then(resolve).catch(reject)
         } else {
           reject(new Error('No file selected'))
         }
@@ -341,7 +344,7 @@ export class DocumentConverter {
    * ドキュメントをJSON形式にエクスポート
    */
   static toJSON(document: Document, pretty: boolean = false): string {
-    const serialized = DocumentSerializer['serializeDocument'](document)
+    const serialized = DocumentSerializer.serializeDocument(document)
     return JSON.stringify(serialized, null, pretty ? 2 : 0)
   }
 
@@ -351,7 +354,7 @@ export class DocumentConverter {
   static fromJSON(json: string): Document {
     try {
       const data = JSON.parse(json)
-      return DocumentSerializer['deserializeDocument'](data)
+      return DocumentSerializer.deserializeDocument(data)
     } catch (error) {
       throw new Error(`Failed to parse JSON: ${error}`)
     }

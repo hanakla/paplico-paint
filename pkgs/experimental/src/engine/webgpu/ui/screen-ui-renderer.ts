@@ -1,11 +1,11 @@
-import {
+import type { Camera2D } from '../../camera/camera-2d'
+import type { DocumentContext } from '../../document-manager'
+import type {
   IWebGPUUIComponent,
   UICoordinateSystem,
   UIRenderLayer,
 } from './IWebGPUUIComponent'
-import { DocumentContext } from '../../document-manager'
-import { Camera2D } from '../../camera/camera-2d'
-import { UIBuilder } from './ui-elements'
+import type { UIBuilder } from './ui-elements'
 
 /**
  * スクリーン座標系でのUI要素描画クラス
@@ -26,7 +26,7 @@ export class ScreenUIRenderer implements IWebGPUUIComponent {
    * スクリーン座標系のUI要素を生成してUIBuilderに追加
    */
   generateElements(
-    documentContext: DocumentContext,
+    _documentContext: DocumentContext,
     uiBuilder: UIBuilder,
     camera?: Camera2D,
     canvasSize?: { width: number; height: number },
@@ -205,11 +205,11 @@ export class ScreenUIRenderer implements IWebGPUUIComponent {
    * レガシーレンダリング用（将来削除予定）
    */
   async render(
-    renderPass: GPURenderPassEncoder,
-    documentContext: DocumentContext,
-    camera: Camera2D,
-    canvasSize: { width: number; height: number },
-    buffersToDestroy: GPUBuffer[],
+    _renderPass: GPURenderPassEncoder,
+    _documentContext: DocumentContext,
+    _camera: Camera2D,
+    _canvasSize: { width: number; height: number },
+    _buffersToDestroy: GPUBuffer[],
   ): Promise<void> {
     // このメソッドは非推奨 - generateElements()を使用してください
     console.warn(

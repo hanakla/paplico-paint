@@ -3,12 +3,12 @@
  * 頂点とベジエハンドルの描画を担当
  */
 
+import { makeShaderDataDefinitions, makeStructuredView } from 'webgpu-utils'
 import type { Camera2D } from '../../camera/camera-2d'
+import type { DocumentContext } from '../../document-manager'
+import type { Vector2 } from '../../selection-types'
 import type { VertexEditTool } from '../../tools/vertex-edit-tool'
-import type { PathVertex, BezierHandle, Vector2 } from '../../selection-types'
 import type { IWebGPUUIComponent } from './IWebGPUUIComponent'
-import { DocumentContext } from '../../document-manager'
-import { makeStructuredView, makeShaderDataDefinitions } from 'webgpu-utils'
 
 export class VertexEditRenderer implements IWebGPUUIComponent {
   public readonly name = 'VertexEditRenderer'
@@ -212,7 +212,7 @@ export class VertexEditRenderer implements IWebGPUUIComponent {
 
     this.bindGroup = this.device.createBindGroup({
       label: 'VertexEditBindGroup',
-      layout: this.renderPipeline!.getBindGroupLayout(0),
+      layout: this.renderPipeline?.getBindGroupLayout(0),
       entries: [
         {
           binding: 0,
@@ -224,7 +224,7 @@ export class VertexEditRenderer implements IWebGPUUIComponent {
 
   async render(
     renderPass: GPURenderPassEncoder,
-    documentContext: DocumentContext,
+    _documentContext: DocumentContext,
     camera: Camera2D,
     canvasSize: { width: number; height: number },
     buffersToDestroy: GPUBuffer[],

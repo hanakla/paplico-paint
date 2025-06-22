@@ -1,5 +1,5 @@
-import { Camera2D } from '../../camera/camera-2d'
-import { DocumentContext } from '../../document-manager'
+import type { Camera2D } from '../../camera/camera-2d'
+import type { DocumentContext } from '../../document-manager'
 
 /**
  * UI要素の座標系

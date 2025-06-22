@@ -4,7 +4,7 @@
  * 統合UIレンダリングシステム：宣言的UI・テキスト・アイコン・UI要素を効率的に描画
  */
 
-import { VectorPath } from '../../document/path'
+import type { VectorPath } from '../../document/path'
 
 export interface TextStyle {
   fontSize: number

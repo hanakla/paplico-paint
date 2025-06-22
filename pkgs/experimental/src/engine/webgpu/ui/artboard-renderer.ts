@@ -1,12 +1,12 @@
-import {
+import type { Camera2D } from '../../camera/camera-2d'
+import type { Artboard } from '../../document/artboard'
+import type { DocumentContext } from '../../document-manager'
+import type {
   IWebGPUUIComponent,
   UICoordinateSystem,
   UIRenderLayer,
 } from './IWebGPUUIComponent'
-import { Artboard } from '../../document/artboard'
-import { DocumentContext } from '../../document-manager'
-import { Camera2D } from '../../camera/camera-2d'
-import { UIBuilder } from './ui-elements'
+import type { UIBuilder } from './ui-elements'
 
 /**
  * アートボード描画を管理する統合クラス（境界線・背景・ラベル）
@@ -59,10 +59,10 @@ export class ArtboardRenderer implements IWebGPUUIComponent {
           this.showBackground && this.showBounds
             ? 'both'
             : this.showBackground
-            ? 'fill'
-            : this.showBounds
-            ? 'stroke'
-            : undefined,
+              ? 'fill'
+              : this.showBounds
+                ? 'stroke'
+                : undefined,
       })
     }
 
@@ -146,11 +146,11 @@ export class ArtboardRenderer implements IWebGPUUIComponent {
    * レガシーレンダリング用（将来削除予定）
    */
   async render(
-    renderPass: GPURenderPassEncoder,
-    documentContext: DocumentContext,
-    camera: Camera2D,
-    canvasSize: { width: number; height: number },
-    buffersToDestroy: GPUBuffer[],
+    _renderPass: GPURenderPassEncoder,
+    _documentContext: DocumentContext,
+    _camera: Camera2D,
+    _canvasSize: { width: number; height: number },
+    _buffersToDestroy: GPUBuffer[],
   ): Promise<void> {
     // このメソッドは非推奨 - generateElements()を使用してください
     console.warn(

@@ -1,4 +1,4 @@
-import { VectorPoint } from './types'
+import type { VectorPoint } from './types'
 
 /**
  * ベクターパス

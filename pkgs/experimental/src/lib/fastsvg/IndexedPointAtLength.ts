@@ -6,8 +6,8 @@ This is fork of below code
 For faster point-at-length searching
 */
 
-import { absNormalizePath } from './absNormalizePath'
 import { distance2D } from '../math'
+import { absNormalizePath } from './absNormalizePath'
 
 export type SVGDCommand = [cmd: string, ...args: number[]]
 
@@ -185,7 +185,7 @@ export class IndexedPointAtLength {
       : null
     const beginSvgVertIndex = warm
       ? 0
-      : indexedSubdivBeginState?.svgVertIdx ?? 0
+      : (indexedSubdivBeginState?.svgVertIdx ?? 0)
     let currentSubvertIdx = fromSubvertIndex ?? 0
 
     Object.assign(cursor, indexedSubdivBeginState?.prev ?? cursor)
@@ -502,10 +502,10 @@ export class IndexedPointAtLength {
       const _ = 1 - t
       return (
         // prettier-ignore
-        (_ * _ * _) * startX +
+        _ * _ * _ * startX +
         3 * (_ * _) * t * p[1] +
         3 * _ * (t * t) * p[3] +
-        (t * t * t) * p[5]
+        t * t * t * p[5]
       )
     }
 
@@ -514,10 +514,10 @@ export class IndexedPointAtLength {
       return (
         /* _pow ** 3 */
         // prettier-ignore
-        (_ * _ * _) * startY +
+        _ * _ * _ * startY +
         3 * (_ * _) * t * p[2] +
         3 * _ * (t * t) * p[4] +
-        (t * t * t) * p[6]
+        t * t * t * p[6]
       )
     }
 
@@ -525,9 +525,7 @@ export class IndexedPointAtLength {
       const _ = 1 - t
       return (
         // prettier-ignore
-        (_ * _) * startX +
-        2 * _ * t * p[1] +
-        (t * t) * p[3]
+        _ * _ * startX + 2 * _ * t * p[1] + t * t * p[3]
       )
     }
 
@@ -535,9 +533,7 @@ export class IndexedPointAtLength {
       const _ = 1 - t
       return (
         // prettier-ignore
-        (_ * _) * startY +
-        2 * _ * t * p[2] +
-        (t * t) * p[4]
+        _ * _ * startY + 2 * _ * t * p[2] + t * t * p[4]
       )
     }
 

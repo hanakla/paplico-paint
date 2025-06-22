@@ -1,10 +1,10 @@
 'use client'
 
+import { Check, Copy } from 'lucide-react'
 import { memo, useState } from 'react'
 import { useSnapshot } from 'valtio'
-import { Copy, Check } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { debugState } from '../../../engine/webgpu/core-engine'
+import { debugState } from '../../../../engine/webgpu/core-engine'
 
 export const StrokeDebugSection = memo(() => {
   const strokeDebug = useSnapshot(debugState.stroke)
@@ -154,6 +154,37 @@ webgpu-utilsエラー: ${strokeDebug.webgpuUtils.lastParseError || 'なし'}
           <span>ストロークオブジェクト:</span>
           <span className="font-mono text-right">
             {strokeDebug.document.strokeArtObjectCount}
+          </span>
+        </div>
+
+        {/* インスタンスバッファ状況 */}
+        <div className="grid grid-cols-2 gap-1">
+          <span>最大インスタンス:</span>
+          <span className="font-mono text-right">
+            {strokeDebug.instanceBuffer.maxInstances}
+          </span>
+        </div>
+        <div className="grid grid-cols-2 gap-1">
+          <span>要求/実際:</span>
+          <span className="font-mono text-right">
+            {strokeDebug.instanceBuffer.requestedInstances}/
+            {strokeDebug.instanceBuffer.actualInstances}
+          </span>
+        </div>
+        <div className="grid grid-cols-2 gap-1">
+          <span>オーバーフロー:</span>
+          <span className="text-right">
+            {strokeDebug.instanceBuffer.overflow ? (
+              <span className="text-red-600">発生</span>
+            ) : (
+              'なし'
+            )}
+          </span>
+        </div>
+        <div className="grid grid-cols-2 gap-1">
+          <span>基本間隔:</span>
+          <span className="font-mono text-right">
+            {strokeDebug.instanceBuffer.baseSpacing.toFixed(3)}
           </span>
         </div>
 

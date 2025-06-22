@@ -2,14 +2,14 @@
  * TransformArtObjectCommandのテスト
  */
 
-import { describe, it, expect, beforeEach } from 'vitest'
-import { TransformArtObjectCommand } from './TransformArtObjectCommand'
-import { DocumentManager } from '../document-manager'
-import { Document } from '../document/document'
+import { beforeEach, describe, expect, it } from 'vitest'
 import { createPathArtObject } from '../document/art-object'
+import type { Document } from '../document/document'
 import { createVectorLayer } from '../document/layer'
 import { generateUid } from '../document/utils'
+import { DocumentManager } from '../document-manager'
 import { createVectorPath } from '../state'
+import { TransformArtObjectCommand } from './TransformArtObjectCommand'
 
 describe('TransformArtObjectCommand', () => {
   let documentManager: DocumentManager

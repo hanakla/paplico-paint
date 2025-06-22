@@ -1,4 +1,4 @@
-import { Vector2 } from '../math/vector2'
+import type { Vector2 } from '../math/vector2'
 
 /**
  * 2Dカメラクラス

@@ -1,5 +1,5 @@
-import { Vector2 } from '../../state'
-import { ArtObject } from '../../document/art-object'
+import type { ArtObject } from '../../document/art-object'
+import type { Vector2 } from '../../state'
 
 /**
  * ヒットテスト結果

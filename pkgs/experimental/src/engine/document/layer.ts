@@ -1,5 +1,5 @@
-import { UUID, BlendMode } from './types'
-import { Appearance } from './appearance'
+import type { Appearance } from './appearance'
+import type { BlendMode, UUID } from './types'
 
 /**
  * レイヤーの基本インターフェース

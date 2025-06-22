@@ -4,32 +4,25 @@
  * メインWebGPUエンジンとUIレンダリングシステムの統合
  */
 
-import type {
-  TextStyle,
-  UIElement,
-  TextUIElement,
-  SurfaceUIElement,
-  ButtonUIElement,
-  PathUIElement,
-} from './ui-elements'
-import { UIBuilder } from './ui-elements'
 import { selectionState } from '../../selection-state'
-import { IWebGPUUIComponent } from './IWebGPUUIComponent'
 import { ArtboardRenderer } from './artboard-renderer'
-import { SelectionRenderer } from './selection-renderer'
+import type { IWebGPUUIComponent } from './IWebGPUUIComponent'
 import { ScreenUIRenderer } from './screen-ui-renderer'
+import { SelectionRenderer } from './selection-renderer'
+import type { TextUIElement, UIElement } from './ui-elements'
+import { UIBuilder } from './ui-elements'
 
-export { UIBuilder } from './ui-elements'
 export type {
-  TextStyle,
-  UIRenderOptions,
-  UIElement,
-  TextUIElement,
-  SurfaceUIElement,
+  AnyUIElement,
   ButtonUIElement,
   PathUIElement,
-  AnyUIElement,
+  SurfaceUIElement,
+  TextStyle,
+  TextUIElement,
+  UIElement,
+  UIRenderOptions,
 } from './ui-elements'
+export { UIBuilder } from './ui-elements'
 
 // WebGPU宣言的UI設定
 export interface WebGPUIDeclaration {
@@ -157,7 +150,7 @@ export class UIManager {
       if (this.hoveredElement !== hitElement?.id) {
         // 前の要素のホバーを解除
         if (this.hoveredElement) {
-          const prevElement = this.elements.get(this.hoveredElement)
+          const _prevElement = this.elements.get(this.hoveredElement)
           // onHoverプロパティは現在のUIElementには存在しないためスキップ
         }
 
@@ -207,7 +200,7 @@ export class UIManager {
     height: number
   } {
     switch (element.type) {
-      case 'text':
+      case 'text': {
         const textEl = element as TextUIElement
         // テキストサイズを概算（実際の実装では正確な測定が必要）
         return {
@@ -217,6 +210,7 @@ export class UIManager {
             0.6,
           height: textEl.style?.fontSize || textEl.fontSize || 16,
         }
+      }
       case 'icon':
         return { width: 24, height: 24 }
       default:
@@ -230,7 +224,7 @@ export class UIManager {
   buildArtboardUI(
     documentContext: any,
     uiBuilder: UIBuilder,
-    options: {
+    _options: {
       showBackground?: boolean
       showLabel?: boolean
       showBounds?: boolean
@@ -256,11 +250,11 @@ export class UIManager {
   }
 
   async renderUI(
-    renderPass: GPURenderPassEncoder,
+    _renderPass: GPURenderPassEncoder,
     documentContext?: any,
-    camera?: any,
-    canvasSize?: { width: number; height: number },
-    webgpuEngine?: any,
+    _camera?: any,
+    _canvasSize?: { width: number; height: number },
+    _webgpuEngine?: any,
   ): Promise<GPUBuffer[]> {
     // UI要素の生成のみ（実際のレンダリングはui-component-managerで行われる）
 
@@ -334,10 +328,10 @@ export class UIManager {
         }
 
         if (
-          isFinite(minX) &&
-          isFinite(minY) &&
-          isFinite(maxX) &&
-          isFinite(maxY)
+          Number.isFinite(minX) &&
+          Number.isFinite(minY) &&
+          Number.isFinite(maxX) &&
+          Number.isFinite(maxY)
         ) {
           const selectionBounds = {
             x: minX,
@@ -362,14 +356,14 @@ export class UIManager {
           })
 
           // Handle drag temporarily disabled
-          const onHandleDrag = (
-            handleType: string,
-            deltaX: number,
-            deltaY: number,
+          const _onHandleDrag = (
+            _handleType: string,
+            _deltaX: number,
+            _deltaY: number,
           ) => {
             // Handle drag logic would go here
           }
-          const onSelectionMove = (deltaX: number, deltaY: number) => {
+          const _onSelectionMove = (_deltaX: number, _deltaY: number) => {
             // Selection move logic would go here
           }
         }

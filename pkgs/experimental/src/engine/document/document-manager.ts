@@ -1,7 +1,11 @@
-import { Document, createDocument, CreateDocumentParams } from './document'
-import { DocumentHistory, HistoryChangeEvent } from '../history/history'
-import { ICommand } from '../history/command'
-import { UUID } from './types'
+import type { ICommand } from '../history/command'
+import { DocumentHistory, type HistoryChangeEvent } from '../history/history'
+import {
+  type CreateDocumentParams,
+  createDocument,
+  type Document,
+} from './document'
+import type { UUID } from './types'
 
 /**
  * ドキュメントごのキャッシュデータ

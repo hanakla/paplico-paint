@@ -47,20 +47,19 @@ export const parseSVGPath = function parseSVGPath(path: string) {
     const parsedArgs: number[] = parseValues(args)
 
     // overloaded moveTo
-    if (type == 'm' && parsedArgs.length > 2) {
+    if (type === 'm' && parsedArgs.length > 2) {
       data.push([command, ...parsedArgs.splice(0, 2)])
       type = 'l'
-      command = command == 'm' ? 'l' : 'L'
+      command = command === 'm' ? 'l' : 'L'
     }
 
-    if (parsedArgs.length == argLength[type]) {
+    if (parsedArgs.length === argLength[type]) {
       data.push([command, ...parsedArgs])
       continue
     }
 
     if (parsedArgs.length < argLength[type]) {
       console.warn(command, args, matches)
-      debugger
       throw new Error('malformed path data')
     }
 

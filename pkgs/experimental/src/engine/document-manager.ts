@@ -1,8 +1,12 @@
-import { Document, createDocument, CreateDocumentParams } from './document'
-import { DocumentHistory, HistoryChangeEvent } from './history/history'
-import { ICommand } from './history/command'
-import { UUID } from './document/types'
 import { Emitter } from '@paplico/shared-lib'
+import {
+  type CreateDocumentParams,
+  createDocument,
+  type Document,
+} from './document'
+import type { UUID } from './document/types'
+import type { ICommand } from './history/command'
+import { DocumentHistory, type HistoryChangeEvent } from './history/history'
 
 /**
  * ドキュメントごのキャッシュデータ
@@ -49,7 +53,7 @@ export class DocumentManager extends Emitter<DocumentManagerEvents> {
   /**
    * ドキュメントを読み込む
    */
-  loadDocument(document: Document) {
+  public loadDocument(document: Document) {
     const history = new DocumentHistory(document)
     const context: DocumentContext = new DocumentContext(
       document,

@@ -1,7 +1,7 @@
-import { describe, it, expect, vi } from 'vitest'
-import { createStrokeInstances, type BrushSettings } from './stroke-renderer'
+import { describe, expect, it } from 'vitest'
 import type { VectorPath } from '../../document/path'
 import type { VectorPoint } from '../../document/types'
+import { type BrushSettings, createStrokeInstances } from './stroke-renderer'
 
 // パフォーマンステスト用のユーティリティ
 function createLargeTestPath(vertexCount: number): VectorPath {

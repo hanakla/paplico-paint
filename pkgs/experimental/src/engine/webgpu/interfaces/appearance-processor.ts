@@ -1,9 +1,9 @@
-import { Bounds } from '../../document/types'
-import {
+import type {
+  DropShadowAppearance,
   FillAppearance,
   StrokeAppearance,
-  DropShadowAppearance,
 } from '../../document/appearance'
+import type { Bounds } from '../../document/types'
 
 /**
  * アピアランス処理の基底インターフェース

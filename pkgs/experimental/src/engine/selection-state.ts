@@ -3,20 +3,20 @@
  */
 
 import { proxy } from 'valtio'
-import { proxySet, proxyMap } from 'valtio/utils'
+import { proxyMap, proxySet } from 'valtio/utils'
 import {
-  SelectionState,
-  SelectionTool,
-  SelectableObject,
-  PathVertex,
-  BoundingBox,
-  Vector2,
+  type BoundingBox,
   calculateBoundingBox,
+  createRectFromPoints,
   hitTestObject,
   hitTestVertex,
-  Vec2,
-  createRectFromPoints,
   isObjectInSelectionBox,
+  type PathVertex,
+  type SelectableObject,
+  type SelectionState,
+  type SelectionTool,
+  Vec2,
+  type Vector2,
 } from './selection-types'
 import { debugState } from './webgpu/core-engine'
 
@@ -372,7 +372,7 @@ export function deleteSelected(): void {
   // clearSelection内でupdateDebugSelectionState()が呼ばれるので、ここでは不要
 }
 
-function moveSelectedObjects(offset: Vector2): void {
+function moveSelectedObjects(_offset: Vector2): void {
   // ドラッグ中は視覚的なプレビューのみ（実際のドキュメント更新はendDragで実行）
   // 実装: UIレンダラーに一時的なオフセット情報を渡すなどの処理が必要
   // 現在はoffsetを保存しておくのみ
@@ -398,7 +398,7 @@ function updateBoundingBox(): void {
     // 実際のドキュメントからオブジェクトを取得
     if (externalGetDocumentFunction) {
       const document = externalGetDocumentFunction()
-      if (document && document.artObjects) {
+      if (document?.artObjects) {
         const selectedIds = Array.from(selectionState.selectedObjects)
         selectionState.boundingBox = calculateBoundingBoxFromDocument(
           document,

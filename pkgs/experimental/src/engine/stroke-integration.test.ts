@@ -1,9 +1,4 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest'
-// TODO: Rewrite these tests to work with WebGPUEngine.state structure
-// import { engineState, convertVectorPathToArtObject, setDocument } from './state'
-import { createTestDocument } from '../app/(app)/_example'
-import { isStrokeAppearance } from './document/appearance'
-import type { VectorPath } from './state'
+import { describe, expect, it, vi } from 'vitest'
 
 // モックの設定
 vi.mock('../utils/debug-logger', () => ({

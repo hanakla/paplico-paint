@@ -2,13 +2,13 @@
  * 複数のArtObjectを同時に移動するコマンド
  */
 
-import { ICommand } from './base'
-import { DocumentManager } from '../document-manager'
-import { UUID } from '../document/types'
-import { Vector2 } from '../state'
-import { Document } from '../document/document'
+import type { Document } from '../document/document'
+import type { UUID } from '../document/types'
 import { generateUid } from '../document/utils'
+import type { DocumentManager } from '../document-manager'
+import type { Vector2 } from '../state'
 import { debugState } from '../webgpu/core-engine'
+import type { ICommand } from './base'
 
 export interface MoveArtObjectsCommandParams {
   artObjectIds: string[]
@@ -83,7 +83,7 @@ export class MoveArtObjectsCommand implements ICommand {
 
       for (const artObjectId of this.params.artObjectIds) {
         const artObject = document.artObjects[artObjectId]
-        if (artObject && artObject.transform) {
+        if (artObject?.transform) {
           const originalPos = {
             x: artObject.transform.x,
             y: artObject.transform.y,
@@ -160,7 +160,7 @@ export class MoveArtObjectsCommand implements ICommand {
       const artObject = document.artObjects[artObjectId]
       const originalPos = this.params.originalPositions.get(artObjectId)
 
-      if (artObject && artObject.transform && originalPos) {
+      if (artObject?.transform && originalPos) {
         artObject.transform.x = originalPos.x
         artObject.transform.y = originalPos.y
       }

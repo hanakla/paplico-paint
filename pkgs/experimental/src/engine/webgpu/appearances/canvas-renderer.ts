@@ -1,6 +1,5 @@
-import { CanvasArtObject } from '../../document/art-object'
-import { Camera2D } from '../../camera/camera-2d'
-import { BoundingBox } from '../interfaces/IAppearanceProcessor'
+import type { CanvasArtObject } from '../../document/art-object'
+import type { BoundingBox } from '../interfaces/IAppearanceProcessor'
 
 /**
  * CanvasArtObjectをWebGPUで描画するレンダラー
@@ -157,7 +156,7 @@ export class CanvasRenderer {
     projectionMatrix: Float32Array,
     viewMatrix: Float32Array,
     canvasSize: { width: number; height: number },
-    clipBounds: BoundingBox,
+    _clipBounds: BoundingBox,
   ): Promise<{ buffers: GPUBuffer[] }> {
     if (!this.renderPipeline || !this.sampler || !this.uniformBuffer) {
       throw new Error('CanvasRenderer not initialized')

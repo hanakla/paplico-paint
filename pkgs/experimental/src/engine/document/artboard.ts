@@ -1,4 +1,4 @@
-import { UUID, Bounds, RGBAColor } from './types'
+import type { Bounds, RGBAColor, UUID } from './types'
 
 /**
  * アートボード：描画領域の定義

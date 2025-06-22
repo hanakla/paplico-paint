@@ -1,6 +1,5 @@
-import { ICommand } from './command'
-import { Document } from '../document'
-import { UUID } from '../document/types'
+import type { Document } from '../document'
+import type { ICommand } from './command'
 
 /**
  * ヒストリーエントリー

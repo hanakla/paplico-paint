@@ -1,9 +1,9 @@
-import { describe, it, expect, beforeEach } from 'vitest'
-import { PaplicoEngine } from './paplico'
-import { DocumentManager } from './document-manager'
+import { beforeEach, describe, expect, it } from 'vitest'
+import { createMockCanvas, type MockCanvas } from '../../test/mockCanvas'
 import { isStrokeAppearance } from './document/appearance'
+import type { DocumentManager } from './document-manager'
+import { PaplicoEngine } from './paplico'
 import type { Vector2 } from './state'
-import { MockCanvas } from '../../test/mock-globals'
 
 describe('ストロークの永続化とブラシ設定', () => {
   let engine: PaplicoEngine
@@ -11,7 +11,7 @@ describe('ストロークの永続化とブラシ設定', () => {
   let documentManager: DocumentManager
 
   beforeEach(async () => {
-    canvas = new MockCanvas()
+    canvas = createMockCanvas(800, 600)
     engine = new PaplicoEngine(canvas as any)
     documentManager = engine.getDocumentManager()
 
@@ -116,11 +116,11 @@ describe('ストロークの永続化とブラシ設定', () => {
     const documentBefore = engine.getActiveDocument()
     expect(documentBefore).toBeTruthy()
 
-    const initialArtObjectCount = Object.keys(documentBefore!.artObjects).length
+    const initialArtObjectCount = Object.keys(documentBefore?.artObjects).length
 
     // 描画終了（ストロークを永続化）
     // handleDrawingEndを直接呼び出してイベントをシミュレート
-    const mockEvent = {
+    const _mockEvent = {
       x: 200,
       y: 200,
       pressure: 0.5,
@@ -208,12 +208,12 @@ describe('ストロークの永続化とブラシ設定', () => {
     expect(documentAfter).toBeTruthy()
 
     // 新しいアートオブジェクトが追加されたことを確認
-    const artObjectsAfter = Object.keys(documentAfter!.artObjects)
+    const artObjectsAfter = Object.keys(documentAfter?.artObjects)
     expect(artObjectsAfter.length).toBe(initialArtObjectCount + 1)
 
     // 最新のアートオブジェクトを取得
     const newArtObjectId = artObjectsAfter[artObjectsAfter.length - 1]
-    const newArtObject = documentAfter!.artObjects[newArtObjectId]
+    const newArtObject = documentAfter?.artObjects[newArtObjectId]
 
     expect(newArtObject).toBeTruthy()
     expect(newArtObject.type).toBe('path')

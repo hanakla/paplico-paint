@@ -1,6 +1,6 @@
-import { Vector2 } from '../../state'
-import { ArtObject } from '../../document/art-object'
-import { HitTestResult } from './types'
+import type { ArtObject } from '../../document/art-object'
+import type { Vector2 } from '../../state'
+import type { HitTestResult } from './types'
 
 /**
  * PathArtObjectのヒットテスト処理
@@ -25,10 +25,10 @@ export class PathHitTester {
       const p1 = path.points[i]
       const p2 = path.points[i + 1]
 
-      const distance = this.pointToLineDistance(worldPos, p1, p2)
+      const distance = PathHitTester.pointToLineDistance(worldPos, p1, p2)
       if (distance < minDistance) {
         minDistance = distance
-        closestPoint = this.closestPointOnLine(worldPos, p1, p2)
+        closestPoint = PathHitTester.closestPointOnLine(worldPos, p1, p2)
       }
     }
 
@@ -37,15 +37,17 @@ export class PathHitTester {
       const p1 = path.points[path.points.length - 1]
       const p2 = path.points[0]
 
-      const distance = this.pointToLineDistance(worldPos, p1, p2)
+      const distance = PathHitTester.pointToLineDistance(worldPos, p1, p2)
       if (distance < minDistance) {
         minDistance = distance
-        closestPoint = this.closestPointOnLine(worldPos, p1, p2)
+        closestPoint = PathHitTester.closestPointOnLine(worldPos, p1, p2)
       }
     }
 
     // ストローク幅を考慮したヒット判定
-    const maxStrokeWidth = this.getMaxStrokeWidth(pathObject.appearances)
+    const maxStrokeWidth = PathHitTester.getMaxStrokeWidth(
+      pathObject.appearances,
+    )
     const hitTolerance = Math.max(maxStrokeWidth / 2, 5) // 最小5ピクセルの許容範囲
 
     if (minDistance <= hitTolerance && closestPoint) {
@@ -88,7 +90,7 @@ export class PathHitTester {
       return Math.sqrt(A * A + B * B)
     }
 
-    let param = dot / lenSq
+    const param = dot / lenSq
 
     let xx: number, yy: number
 

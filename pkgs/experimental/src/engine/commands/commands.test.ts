@@ -3,18 +3,18 @@
  * 全てのコマンドが正しく連携動作することを確認
  */
 
-import { describe, it, expect, beforeEach } from 'vitest'
-import { DocumentManager } from '../document-manager'
-import { Document } from '../document/document'
+import { beforeEach, describe, expect, it } from 'vitest'
 import { createPathArtObject } from '../document/art-object'
+import type { Document } from '../document/document'
 import { createVectorLayer } from '../document/layer'
 import { generateUid } from '../document/utils'
+import { DocumentManager } from '../document-manager'
 import { createVectorPath } from '../state'
 
 import { AddArtObjectCommand } from './add-art-object-command'
+import { DeleteArtObjectsCommand } from './DeleteArtObjectsCommand'
 import { MoveArtObjectsCommand } from './MoveArtObjectsCommand'
 import { TransformArtObjectCommand } from './TransformArtObjectCommand'
-import { DeleteArtObjectsCommand } from './DeleteArtObjectsCommand'
 
 describe('Commands Integration Tests', () => {
   let documentManager: DocumentManager
@@ -57,7 +57,13 @@ describe('Commands Integration Tests', () => {
 
     // 初期transform設定
     artObject1.transform = { x: 50, y: 50, rotation: 0, scaleX: 1, scaleY: 1 }
-    artObject2.transform = { x: 150, y: 150, rotation: 0, scaleX: 1, scaleY: 1 }
+    artObject2.transform = {
+      x: 150,
+      y: 150,
+      rotation: 0,
+      scaleX: 1,
+      scaleY: 1,
+    }
 
     document = {
       id: generateUid(),

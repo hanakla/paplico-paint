@@ -1,5 +1,5 @@
-import { Document } from '../document/document'
-import { UUID } from '../document/types'
+import type { Document } from '../document/document'
+import type { UUID } from '../document/types'
 import { generateUid } from '../document/utils'
 
 /**

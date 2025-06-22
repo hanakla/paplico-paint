@@ -1,4 +1,8 @@
-import { useState, useRef } from 'react'
+import { Keyboard, RotateCcw } from 'lucide-react'
+import { useRef, useState } from 'react'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import {
   Dialog,
   DialogContent,
@@ -7,13 +11,9 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
-import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
 import { useUIStore } from '@/stores/ui-store'
-import { Keyboard, RotateCcw } from 'lucide-react'
 
 interface KeyboardShortcutsDialogProps {
   open: boolean

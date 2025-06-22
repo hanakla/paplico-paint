@@ -1,5 +1,5 @@
-import { useEffect, useRef } from 'react'
 import { micetrap } from '@hanakla/micetrap'
+import { useEffect, useRef } from 'react'
 import { useUIStore } from '@/stores/ui-store'
 
 interface KeyboardShortcutsOptions {

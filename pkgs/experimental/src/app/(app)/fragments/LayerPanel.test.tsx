@@ -1,18 +1,15 @@
-import { test, expect, describe } from 'vitest'
-import { render, screen, fireEvent, act } from '@testing-library/react'
 import { DndContext } from '@dnd-kit/core'
+import { act, fireEvent, render, screen } from '@testing-library/react'
+import { describe, expect, test } from 'vitest'
 import '@testing-library/jest-dom'
-import React from 'react'
-import { LayerPanel } from './LayerPanel'
+import type React from 'react'
 import {
-  createDocument,
   addLayerToDocument,
+  createDocument,
 } from '../../../engine/document/document'
-import {
-  createVectorLayer,
-  createGroupLayer,
-} from '../../../engine/document/layer'
-import { editorState, setEngine } from '../../../stores/editor'
+import { createVectorLayer } from '../../../engine/document/layer'
+import { setEngine } from '../../../stores/editor'
+import { LayerPanel } from './LayerPanel'
 
 // 最小限のテスト用エンジンを作成
 const createTestEngine = (document: any) => ({
@@ -150,9 +147,9 @@ describe('LayerPanel No Mock Tests', () => {
     ])
 
     // handlerを設定
-    dragEndHandler = vi.fn((event) => {
+    dragEndHandler = vi.fn((_event) => {
       // handlerが呼ばれるように、直接ドラッグエンドイベントをシミュレート
-      const mockEvent = {
+      const _mockEvent = {
         active: { id: layer3.id },
         over: { id: layer1.id },
       }
@@ -194,7 +191,7 @@ describe('LayerPanel No Mock Tests', () => {
 
     await act(async () => {
       // ドラッグエンドイベントを直接発火
-      dragEndHandler!({
+      dragEndHandler?.({
         active: { id: layer3.id },
         over: { id: layer1.id },
       })

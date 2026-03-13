@@ -1,9 +1,9 @@
-'use client'
+'use client';
 
-import * as TabsPrimitive from '@radix-ui/react-tabs'
-import { memo } from 'react'
+import * as TabsPrimitive from '@radix-ui/react-tabs';
+import { memo } from 'react';
 
-import { cn } from '@/lib/utils'
+import { cn } from '@/lib/utils';
 
 const Tabs = memo(function Tabs({
   className,
@@ -15,8 +15,8 @@ const Tabs = memo(function Tabs({
       className={cn('flex flex-col gap-2', className)}
       {...props}
     />
-  )
-})
+  );
+});
 
 const TabsList = memo(function TabsList({
   className,
@@ -31,8 +31,8 @@ const TabsList = memo(function TabsList({
       )}
       {...props}
     />
-  )
-})
+  );
+});
 
 const TabsTrigger = memo(function TabsTrigger({
   className,
@@ -47,8 +47,8 @@ const TabsTrigger = memo(function TabsTrigger({
       )}
       {...props}
     />
-  )
-})
+  );
+});
 
 const TabsContent = memo(function TabsContent({
   className,
@@ -60,7 +60,7 @@ const TabsContent = memo(function TabsContent({
       className={cn('flex-1 outline-none', className)}
       {...props}
     />
-  )
-})
+  );
+});
 
-export { Tabs, TabsList, TabsTrigger, TabsContent }
+export { Tabs, TabsList, TabsTrigger, TabsContent };

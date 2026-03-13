@@ -1,6 +1,6 @@
-import { memo } from 'react'
+import { memo } from 'react';
 
-import { cn } from '@/lib/utils'
+import { cn } from '@/lib/utils';
 
 const Card = memo(function Card({
   className,
@@ -15,8 +15,8 @@ const Card = memo(function Card({
       )}
       {...props}
     />
-  )
-})
+  );
+});
 
 const CardHeader = memo(function CardHeader({
   className,
@@ -31,8 +31,8 @@ const CardHeader = memo(function CardHeader({
       )}
       {...props}
     />
-  )
-})
+  );
+});
 
 const CardTitle = memo(function CardTitle({
   className,
@@ -44,8 +44,8 @@ const CardTitle = memo(function CardTitle({
       className={cn('leading-none font-semibold', className)}
       {...props}
     />
-  )
-})
+  );
+});
 
 const CardDescription = memo(function CardDescription({
   className,
@@ -57,8 +57,8 @@ const CardDescription = memo(function CardDescription({
       className={cn('text-muted-foreground text-sm', className)}
       {...props}
     />
-  )
-})
+  );
+});
 
 const CardAction = memo(function CardAction({
   className,
@@ -73,8 +73,8 @@ const CardAction = memo(function CardAction({
       )}
       {...props}
     />
-  )
-})
+  );
+});
 
 const CardContent = memo(function CardContent({
   className,
@@ -86,8 +86,8 @@ const CardContent = memo(function CardContent({
       className={cn('px-6', className)}
       {...props}
     />
-  )
-})
+  );
+});
 
 const CardFooter = memo(function CardFooter({
   className,
@@ -99,8 +99,8 @@ const CardFooter = memo(function CardFooter({
       className={cn('flex items-center px-6 [.border-t]:pt-6', className)}
       {...props}
     />
-  )
-})
+  );
+});
 
 export {
   Card,
@@ -110,4 +110,4 @@ export {
   CardAction,
   CardDescription,
   CardContent,
-}
+};

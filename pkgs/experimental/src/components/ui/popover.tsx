@@ -1,21 +1,21 @@
-'use client'
+'use client';
 
-import * as PopoverPrimitive from '@radix-ui/react-popover'
-import { memo } from 'react'
+import * as PopoverPrimitive from '@radix-ui/react-popover';
+import { memo } from 'react';
 
-import { cn } from '@/lib/utils'
+import { cn } from '@/lib/utils';
 
 const Popover = memo(function Popover({
   ...props
 }: React.ComponentProps<typeof PopoverPrimitive.Root>) {
-  return <PopoverPrimitive.Root data-slot="popover" {...props} />
-})
+  return <PopoverPrimitive.Root data-slot="popover" {...props} />;
+});
 
 const PopoverTrigger = memo(function PopoverTrigger({
   ...props
 }: React.ComponentProps<typeof PopoverPrimitive.Trigger>) {
-  return <PopoverPrimitive.Trigger data-slot="popover-trigger" {...props} />
-})
+  return <PopoverPrimitive.Trigger data-slot="popover-trigger" {...props} />;
+});
 
 const PopoverContent = memo(function PopoverContent({
   className,
@@ -36,13 +36,13 @@ const PopoverContent = memo(function PopoverContent({
         {...props}
       />
     </PopoverPrimitive.Portal>
-  )
-})
+  );
+});
 
 const PopoverAnchor = memo(function PopoverAnchor({
   ...props
 }: React.ComponentProps<typeof PopoverPrimitive.Anchor>) {
-  return <PopoverPrimitive.Anchor data-slot="popover-anchor" {...props} />
-})
+  return <PopoverPrimitive.Anchor data-slot="popover-anchor" {...props} />;
+});
 
-export { Popover, PopoverTrigger, PopoverContent, PopoverAnchor }
+export { Popover, PopoverTrigger, PopoverContent, PopoverAnchor };

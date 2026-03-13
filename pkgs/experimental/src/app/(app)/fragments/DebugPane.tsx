@@ -1,112 +1,113 @@
-'use client'
+'use client';
 
-import { useEventCallback } from '@paplico/shared-lib/react'
-import { Bug } from 'lucide-react'
-import { memo, useEffect } from 'react'
-import { snapshot } from 'valtio'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Separator } from '@/components/ui/separator'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import type { PaplicoEngine } from '@/engine/paplico'
-import { debugState } from '@/engine/webgpu/core-engine'
-import { saveDebugData } from '@/lib/debug-helpers'
-import { DocumentStateSection } from './DebugPane/DocumentStateSection'
-import { EngineDebugSection } from './DebugPane/EngineDebugSection'
-import { AutoPngSection } from './DebugPane/Exports'
-import { HitTestDebugSection } from './DebugPane/HitTestDebugSection'
-import { PaplicoDebugSection } from './DebugPane/PaplicoDebugSection'
-import { StrokeDebugSection } from './DebugPane/StrokeDebugSection'
-import { UIDebugSection } from './DebugPane/UIDebugSection'
+import { useEventCallback } from '@paplico/shared-lib/react';
+import { Bug } from 'lucide-react';
+import { memo, useEffect } from 'react';
+import { snapshot } from 'valtio';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Separator } from '@/components/ui/separator';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import type { PaplicoEngine } from '@/engine/paplico';
+import { debugState } from '@/engine/webgpu/core-engine';
+import { saveDebugData } from '@/lib/debug-helpers';
+import { DocumentStateSection } from './DebugPane/DocumentStateSection';
+import { EngineDebugSection } from './DebugPane/EngineDebugSection';
+import { AutoPngSection } from './DebugPane/Exports';
+import { HistoryDebugSection } from './DebugPane/HistoryDebugSection';
+import { HitTestDebugSection } from './DebugPane/HitTestDebugSection';
+import { PaplicoDebugSection } from './DebugPane/PaplicoDebugSection';
+import { StrokeDebugSection } from './DebugPane/StrokeDebugSection';
+import { UIDebugSection } from './DebugPane/UIDebugSection';
 
 interface DebugPaneProps {
-  engine: PaplicoEngine | null
-  isOpen: boolean
+  engine: PaplicoEngine | null;
+  isOpen: boolean;
 }
 
 export const DebugPane = memo(({ engine: paplico, isOpen }: DebugPaneProps) => {
   const submitDebugData = useEventCallback(async () => {
-    const debugStateSnap = snapshot(debugState)
+    const debugStateSnap = snapshot(debugState);
     try {
-      if (!debugStateSnap) return
+      if (!debugStateSnap) return;
 
       // stroke関連のデバッグ情報を抽出
-      const strokeDebugData: any = {}
+      const strokeDebugData: any = {};
 
       if (debugStateSnap.stroke?.pipelineError) {
-        strokeDebugData.pipelineError = debugStateSnap.stroke.pipelineError
+        strokeDebugData.pipelineError = debugStateSnap.stroke.pipelineError;
       }
 
       if (debugStateSnap.stroke?.texturePixelAnalysis) {
         strokeDebugData.texturePixelAnalysis =
-          debugStateSnap.stroke.texturePixelAnalysis
+          debugStateSnap.stroke.texturePixelAnalysis;
       }
 
       if (debugStateSnap.stroke?.textureCoordinates) {
         strokeDebugData.textureCoordinates =
-          debugStateSnap.stroke.textureCoordinates
+          debugStateSnap.stroke.textureCoordinates;
       }
 
       if (debugStateSnap.stroke?.strokeSaveData) {
-        strokeDebugData.strokeSaveData = debugStateSnap.stroke.strokeSaveData
+        strokeDebugData.strokeSaveData = debugStateSnap.stroke.strokeSaveData;
       }
 
       if (debugStateSnap.stroke?.commandExecution) {
         strokeDebugData.commandExecution =
-          debugStateSnap.stroke.commandExecution
+          debugStateSnap.stroke.commandExecution;
       }
 
       if (debugStateSnap.stroke?.documentChanges) {
-        strokeDebugData.documentChanges = debugStateSnap.stroke.documentChanges
+        strokeDebugData.documentChanges = debugStateSnap.stroke.documentChanges;
       }
 
       if (debugStateSnap.stroke?.rendering?.perStrokeData) {
         strokeDebugData.perStrokeData =
-          debugStateSnap.stroke.rendering.perStrokeData
+          debugStateSnap.stroke.rendering.perStrokeData;
       }
 
       if (debugStateSnap.stroke?.rendering?.frameStats) {
-        strokeDebugData.frameStats = debugStateSnap.stroke.rendering.frameStats
+        strokeDebugData.frameStats = debugStateSnap.stroke.rendering.frameStats;
       }
 
       // UI関連のデバッグデータ
-      const uiDebugData: any = {}
+      const uiDebugData: any = {};
 
       if (debugStateSnap.ui?.backgroundDebugData) {
-        uiDebugData.backgroundDebugData = debugStateSnap.ui.backgroundDebugData
+        uiDebugData.backgroundDebugData = debugStateSnap.ui.backgroundDebugData;
       }
 
       if (debugStateSnap.ui?.backgroundSuccessData) {
         uiDebugData.backgroundSuccessData =
-          debugStateSnap.ui.backgroundSuccessData
+          debugStateSnap.ui.backgroundSuccessData;
       }
 
       if (debugStateSnap.ui?.documentStateData) {
-        uiDebugData.documentStateData = debugStateSnap.ui.documentStateData
+        uiDebugData.documentStateData = debugStateSnap.ui.documentStateData;
       }
 
       if (debugStateSnap.ui?.foregroundDebugData) {
-        uiDebugData.foregroundDebugData = debugStateSnap.ui.foregroundDebugData
+        uiDebugData.foregroundDebugData = debugStateSnap.ui.foregroundDebugData;
       }
 
       if (debugStateSnap.ui?.foregroundSuccessData) {
         uiDebugData.foregroundSuccessData =
-          debugStateSnap.ui.foregroundSuccessData
+          debugStateSnap.ui.foregroundSuccessData;
       }
 
       if (debugStateSnap.ui?.legacyDebugData) {
-        uiDebugData.legacyDebugData = debugStateSnap.ui.legacyDebugData
+        uiDebugData.legacyDebugData = debugStateSnap.ui.legacyDebugData;
       }
 
       if (debugStateSnap.ui?.legacySuccessData) {
-        uiDebugData.legacySuccessData = debugStateSnap.ui.legacySuccessData
+        uiDebugData.legacySuccessData = debugStateSnap.ui.legacySuccessData;
       }
 
       if (debugStateSnap.ui?.particleDebugData) {
-        uiDebugData.particleDebugData = debugStateSnap.ui.particleDebugData
+        uiDebugData.particleDebugData = debugStateSnap.ui.particleDebugData;
       }
 
       // 現在の問題（ポインターアップ後もストロークが続く）に必要な情報のみ
-      const pointerEventDebugData = {} as any
+      const pointerEventDebugData = {} as any;
 
       // 最新のポインターイベントのみ記録
       if (debugStateSnap.paplicoEngine?.input) {
@@ -116,7 +117,7 @@ export const DebugPane = memo(({ engine: paplico, isOpen }: DebugPaneProps) => {
           timestamp: debugStateSnap.paplicoEngine.input.lastEventTimestamp,
           pointerUpBrushTool:
             debugStateSnap.paplicoEngine.input.pointerUpBrushTool,
-        }
+        };
       }
 
       // 描画状態の変化のみ記録
@@ -131,7 +132,7 @@ export const DebugPane = memo(({ engine: paplico, isOpen }: DebugPaneProps) => {
           hasCurrentStrokeAfter:
             debugStateSnap.webgpuEngine.endDrawing.after?.hasCurrentStroke,
           timestamp: debugStateSnap.webgpuEngine.endDrawing.after?.timestamp,
-        }
+        };
       }
 
       // 現在のプレビューストローク情報
@@ -141,7 +142,7 @@ export const DebugPane = memo(({ engine: paplico, isOpen }: DebugPaneProps) => {
             debugStateSnap.webgpuEngine.renderingPreviewStroke.tempStrokeId,
           pointsLength:
             debugStateSnap.webgpuEngine.renderingPreviewStroke.pointsLength,
-        }
+        };
       }
 
       // 現在の問題調査に必要なデータのみ送信
@@ -165,7 +166,7 @@ export const DebugPane = memo(({ engine: paplico, isOpen }: DebugPaneProps) => {
         await saveDebugData({
           filename: 'pointerEvent-debug',
           json: pointerEventDebugData,
-        })
+        });
       }
 
       // WebGPUエンジンのデバッグデータを保存
@@ -176,7 +177,8 @@ export const DebugPane = memo(({ engine: paplico, isOpen }: DebugPaneProps) => {
           debugStateSnap.webgpuEngine?.renderPreviewStrokeSkipped,
         renderingPreviewStroke:
           debugStateSnap.webgpuEngine?.renderingPreviewStroke,
-      }
+        ioSurfaceDebug: debugStateSnap.webgpuEngine?.ioSurfaceDebug,
+      };
 
       if (
         Object.keys(webgpuEngineDebugData).some(
@@ -188,34 +190,34 @@ export const DebugPane = memo(({ engine: paplico, isOpen }: DebugPaneProps) => {
         await saveDebugData({
           filename: 'webgpuEngine-debug',
           json: webgpuEngineDebugData,
-        })
+        });
       }
 
       // PaplicoEngineのデバッグデータを保存
-      const paplicoEngineDebugData = debugStateSnap.paplicoEngine
+      const paplicoEngineDebugData = debugStateSnap.paplicoEngine;
       if (paplicoEngineDebugData) {
         await saveDebugData({
           filename: 'paplicoEngine-debug',
           json: paplicoEngineDebugData,
-        })
+        });
       }
     } catch (_error) {
       // エラーは無視
     }
-  })
+  });
 
   // 100msごとにdebugStateからJSONデータを送信
   useEffect(() => {
-    if (!isOpen || !paplico) return
+    if (!isOpen || !paplico) return;
 
     const interval = setInterval(async () => {
-      await submitDebugData()
-    }, 1000)
+      await submitDebugData();
+    }, 1000);
 
-    return () => clearInterval(interval)
-  }, [isOpen, paplico, submitDebugData])
+    return () => clearInterval(interval);
+  }, [isOpen, paplico, submitDebugData]);
 
-  if (!isOpen) return null
+  if (!isOpen) return null;
 
   return (
     <div className="inset-y-0 right-0 w-80 bg-background border-l border-border z-50 overflow-hidden flex flex-col">
@@ -244,9 +246,10 @@ export const DebugPane = memo(({ engine: paplico, isOpen }: DebugPaneProps) => {
               className="flex-1 overflow-hidden mt-2"
             >
               <Tabs defaultValue="main" className="w-full h-full flex flex-col">
-                <TabsList className="grid w-full grid-cols-4 flex-none">
+                <TabsList className="grid w-full grid-cols-5 flex-none">
                   <TabsTrigger value="main">メイン</TabsTrigger>
                   <TabsTrigger value="document">ドキュメント</TabsTrigger>
+                  <TabsTrigger value="history">履歴</TabsTrigger>
                   <TabsTrigger value="ui">UI</TabsTrigger>
                   <TabsTrigger value="hitTest">ヒット</TabsTrigger>
                 </TabsList>
@@ -263,6 +266,13 @@ export const DebugPane = memo(({ engine: paplico, isOpen }: DebugPaneProps) => {
                   className="flex-1 overflow-y-auto space-y-2 mt-2"
                 >
                   <DocumentStateSection paplico={paplico} />
+                </TabsContent>
+
+                <TabsContent
+                  value="history"
+                  className="flex-1 overflow-y-auto space-y-2 mt-2"
+                >
+                  <HistoryDebugSection paplico={paplico} />
                 </TabsContent>
 
                 <TabsContent
@@ -317,7 +327,7 @@ export const DebugPane = memo(({ engine: paplico, isOpen }: DebugPaneProps) => {
         </CardContent>
       </Card>
     </div>
-  )
-})
+  );
+});
 
-DebugPane.displayName = 'DebugPane'
+DebugPane.displayName = 'DebugPane';

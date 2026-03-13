@@ -1,8 +1,8 @@
-import { Keyboard, RotateCcw } from 'lucide-react'
-import { useRef, useState } from 'react'
-import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Keyboard, RotateCcw } from 'lucide-react';
+import { useRef, useState } from 'react';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
   Dialog,
   DialogContent,
@@ -10,21 +10,21 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from '@/components/ui/dialog'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { useUIStore } from '@/stores/ui-store'
+} from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { useUIStore } from '@/stores/ui-store';
 
 interface KeyboardShortcutsDialogProps {
-  open: boolean
-  onOpenChange: (open: boolean) => void
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
 }
 
 interface ShortcutConfig {
-  action: string
-  label: string
-  defaultKey: string
-  category: 'tools' | 'editing' | 'view'
+  action: string;
+  label: string;
+  defaultKey: string;
+  category: 'tools' | 'editing' | 'view';
 }
 
 const shortcutConfigs: ShortcutConfig[] = [
@@ -70,102 +70,102 @@ const shortcutConfigs: ShortcutConfig[] = [
     defaultKey: 'delete',
     category: 'editing',
   },
-]
+];
 
 const categoryLabels = {
   tools: 'ツール',
   editing: '編集',
   view: '表示',
-}
+};
 
 export function KeyboardShortcutsDialog({
   open,
   onOpenChange,
 }: KeyboardShortcutsDialogProps) {
-  const { shortcuts, updateShortcut } = useUIStore()
+  const { shortcuts, updateShortcut } = useUIStore();
   const [editingShortcuts, setEditingShortcuts] = useState<
     Record<string, string>
-  >({})
-  const [isRecording, setIsRecording] = useState<string | null>(null)
-  const inputRefs = useRef<Record<string, HTMLInputElement | null>>({})
+  >({});
+  const [isRecording, setIsRecording] = useState<string | null>(null);
+  const inputRefs = useRef<Record<string, HTMLInputElement | null>>({});
 
   // ダイアログが開かれた時に現在のショートカットをコピー
   useState(() => {
     if (open) {
-      setEditingShortcuts({ ...shortcuts })
+      setEditingShortcuts({ ...shortcuts });
     }
-  })
+  });
 
   /** キー入力を記録開始 */
   const startRecording = (action: string) => {
-    setIsRecording(action)
-    const input = inputRefs.current[action]
+    setIsRecording(action);
+    const input = inputRefs.current[action];
     if (input) {
-      input.focus()
-      input.value = ''
+      input.focus();
+      input.value = '';
     }
-  }
+  };
 
   /** キー入力を処理 */
   const handleKeyDown = (e: React.KeyboardEvent, action: string) => {
-    if (isRecording !== action) return
+    if (isRecording !== action) return;
 
-    e.preventDefault()
-    e.stopPropagation()
+    e.preventDefault();
+    e.stopPropagation();
 
-    const keys: string[] = []
-    if (e.ctrlKey || e.metaKey) keys.push(e.metaKey ? 'meta' : 'ctrl')
-    if (e.shiftKey) keys.push('shift')
-    if (e.altKey) keys.push('alt')
+    const keys: string[] = [];
+    if (e.ctrlKey || e.metaKey) keys.push(e.metaKey ? 'meta' : 'ctrl');
+    if (e.shiftKey) keys.push('shift');
+    if (e.altKey) keys.push('alt');
 
     // メインキーを追加
     if (e.key && !['Control', 'Shift', 'Alt', 'Meta'].includes(e.key)) {
-      keys.push(e.key.toLowerCase())
+      keys.push(e.key.toLowerCase());
     }
 
     if (keys.length > 0) {
-      const shortcut = keys.join('+')
+      const shortcut = keys.join('+');
       setEditingShortcuts((prev) => ({
         ...prev,
         [action]: shortcut,
-      }))
-      setIsRecording(null)
+      }));
+      setIsRecording(null);
     }
-  }
+  };
 
   /** デフォルト値にリセット */
   const resetToDefaults = () => {
-    const defaultShortcuts: Record<string, string> = {}
+    const defaultShortcuts: Record<string, string> = {};
     shortcutConfigs.forEach((config) => {
-      defaultShortcuts[config.action] = config.defaultKey
-    })
-    setEditingShortcuts(defaultShortcuts)
-  }
+      defaultShortcuts[config.action] = config.defaultKey;
+    });
+    setEditingShortcuts(defaultShortcuts);
+  };
 
   /** 変更を保存 */
   const saveChanges = () => {
     Object.entries(editingShortcuts).forEach(([action, key]) => {
-      updateShortcut(action, key)
-    })
-    onOpenChange(false)
-  }
+      updateShortcut(action, key);
+    });
+    onOpenChange(false);
+  };
 
   /** 変更をキャンセル */
   const cancelChanges = () => {
-    setEditingShortcuts({ ...shortcuts })
-    setIsRecording(null)
-    onOpenChange(false)
-  }
+    setEditingShortcuts({ ...shortcuts });
+    setIsRecording(null);
+    onOpenChange(false);
+  };
 
   // カテゴリ別にグループ化
   const groupedConfigs = shortcutConfigs.reduce(
     (acc, config) => {
-      if (!acc[config.category]) acc[config.category] = []
-      acc[config.category].push(config)
-      return acc
+      if (!acc[config.category]) acc[config.category] = [];
+      acc[config.category].push(config);
+      return acc;
     },
     {} as Record<string, ShortcutConfig[]>,
-  )
+  );
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -208,7 +208,7 @@ export function KeyboardShortcutsDialog({
                     <div className="flex items-center gap-2">
                       <Input
                         ref={(el) => {
-                          inputRefs.current[config.action] = el
+                          inputRefs.current[config.action] = el;
                         }}
                         className="w-32 text-center"
                         placeholder="キーを押す"
@@ -256,5 +256,5 @@ export function KeyboardShortcutsDialog({
         </DialogFooter>
       </DialogContent>
     </Dialog>
-  )
+  );
 }

@@ -1,19 +1,19 @@
-import { proxy } from 'valtio'
-import type { Document } from '@/engine/document/document'
-import type { UUID } from '@/engine/document/types'
-import type { PaplicoEngine } from '@/engine/paplico'
+import { proxy } from 'valtio';
+import type { Document } from '@/engine/document/document';
+import type { UUID } from '@/engine/document/types';
+import type { PaplicoEngine } from '@/engine/paplico';
 
 /**
  * エディター状態管理
  */
 export interface EditorState {
-  activeDocumentId: UUID | null
+  activeDocumentId: UUID | null;
   /** PaplicoEngineの参照 */
-  engine: PaplicoEngine | null
+  engine: PaplicoEngine | null;
   /** エンジンの初期化状態 */
-  isInitialized: boolean
+  isInitialized: boolean;
   /** WebGPUサポート状態 */
-  isWebGPUSupported: boolean
+  isWebGPUSupported: boolean;
 }
 
 export const editorState = proxy<EditorState>({
@@ -21,77 +21,77 @@ export const editorState = proxy<EditorState>({
   engine: null,
   isInitialized: false,
   isWebGPUSupported: false,
-})
+});
 
 /**
  * エンジンを設定
  */
 export const setEngine = (engine: PaplicoEngine | null) => {
-  editorState.engine = engine
-  editorState.isInitialized = !!engine
-}
+  editorState.engine = engine;
+  editorState.isInitialized = !!engine;
+};
 
 /**
  * WebGPUサポート状態を設定
  */
 export const setWebGPUSupported = (supported: boolean) => {
-  editorState.isWebGPUSupported = supported
-}
+  editorState.isWebGPUSupported = supported;
+};
 
 export const setActiveDocument = (id: UUID | null) => {
-  editorState.activeDocumentId = id
-  editorState.engine?.documentManager.setActiveDocument(id)
-}
+  editorState.activeDocumentId = id;
+  editorState.engine?.documentManager.setActiveDocument(id);
+};
 
 /**
  * アクティブドキュメントを取得
  */
 export const getActiveDocument = (): Document | null => {
-  if (!editorState.engine) return null
-  return editorState.engine.documentManager.activeDocument
-}
+  if (!editorState.engine) return null;
+  return editorState.engine.documentManager.activeDocument;
+};
 
 /**
  * エンジンでコマンドを実行
  */
 export const executeCommand = (command: any): boolean => {
-  if (!editorState.engine) return false
-  return editorState.engine.executeCommand(command)
-}
+  if (!editorState.engine) return false;
+  return editorState.engine.executeCommand(command);
+};
 
 /**
  * Undo実行
  */
 export const undo = (): boolean => {
-  if (!editorState.engine) return false
-  return editorState.engine.undo()
-}
+  if (!editorState.engine) return false;
+  return editorState.engine.undo();
+};
 
 /**
  * Redo実行
  */
 export const redo = (): boolean => {
-  if (!editorState.engine) return false
-  return editorState.engine.redo()
-}
+  if (!editorState.engine) return false;
+  return editorState.engine.redo();
+};
 
 /**
  * Undoが可能かチェック
  */
 export const canUndo = (): boolean => {
-  if (!editorState.engine) return false
-  const historyState = editorState.engine.getHistoryState()
-  return historyState ? historyState.canUndo : false
-}
+  if (!editorState.engine) return false;
+  const historyState = editorState.engine.getHistoryState();
+  return historyState ? historyState.canUndo : false;
+};
 
 /**
  * Redoが可能かチェック
  */
 export const canRedo = (): boolean => {
-  if (!editorState.engine) return false
-  const historyState = editorState.engine.getHistoryState()
-  return historyState ? historyState.canRedo : false
-}
+  if (!editorState.engine) return false;
+  const historyState = editorState.engine.getHistoryState();
+  return historyState ? historyState.canRedo : false;
+};
 
 /**
  * レイヤー操作のヘルパー関数群
@@ -101,35 +101,35 @@ export const canRedo = (): boolean => {
  * レイヤーの表示/非表示を切り替え
  */
 export const toggleLayerVisibility = (layerId: UUID): void => {
-  const document = getActiveDocument()
+  const document = getActiveDocument();
   if (document) {
-    const layer = document.layers[layerId]
+    const layer = document.layers[layerId];
     if (layer) {
-      layer.visible = !layer.visible
-      document.updatedAt = new Date()
+      layer.visible = !layer.visible;
+      document.updatedAt = new Date();
     }
   }
-}
+};
 
 /**
  * レイヤーの不透明度を設定
  */
 export const setLayerOpacity = (layerId: UUID, opacity: number): void => {
-  const document = getActiveDocument()
+  const document = getActiveDocument();
   if (document) {
-    const layer = document.layers[layerId]
+    const layer = document.layers[layerId];
     if (layer) {
-      layer.opacity = Math.max(0, Math.min(1, opacity))
-      document.updatedAt = new Date()
+      layer.opacity = Math.max(0, Math.min(1, opacity));
+      document.updatedAt = new Date();
     }
   }
-}
+};
 
 /**
  * アクティブレイヤーを設定
  */
 export const setActiveLayer = (layerId: UUID): void => {
   if (editorState.engine) {
-    editorState.engine.setActiveLayer(layerId)
+    editorState.engine.setActiveLayer(layerId);
   }
-}
+};

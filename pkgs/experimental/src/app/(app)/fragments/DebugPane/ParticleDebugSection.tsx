@@ -1,13 +1,13 @@
-'use client'
+'use client';
 
-import { memo } from 'react'
-import { useSnapshot } from 'valtio'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { debugState } from '@/engine/webgpu/core-engine'
+import { memo } from 'react';
+import { useSnapshot } from 'valtio';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { debugState } from '@/engine/webgpu/core-engine';
 
 export const ParticleDebugSection = memo(() => {
-  const debugSnapshot = useSnapshot(debugState)
-  const particleDebug = debugSnapshot.stroke.particleDebug
+  const debugSnapshot = useSnapshot(debugState);
+  const particleDebug = debugSnapshot.stroke.particleDebug;
 
   return (
     <Card>
@@ -109,7 +109,7 @@ export const ParticleDebugSection = memo(() => {
         </div>
       </CardContent>
     </Card>
-  )
-})
+  );
+});
 
-ParticleDebugSection.displayName = 'ParticleDebugSection'
+ParticleDebugSection.displayName = 'ParticleDebugSection';

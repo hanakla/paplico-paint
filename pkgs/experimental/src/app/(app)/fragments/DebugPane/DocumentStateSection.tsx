@@ -1,18 +1,23 @@
-'use client'
+'use client';
 
-import { memo } from 'react'
-import { snapshot, useSnapshot } from 'valtio'
-import { Badge } from '@/components/ui/badge'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import type { PaplicoEngine } from '@/engine/paplico'
+import { memo, useEffect, useReducer } from 'react';
+import { Badge } from '@/components/ui/badge';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import type { PaplicoEngine } from '@/engine/paplico';
 
 interface DocumentStateSectionProps {
-  paplico: PaplicoEngine | null
+  paplico: PaplicoEngine | null;
 }
 
 export const DocumentStateSection = memo(
   ({ paplico }: DocumentStateSectionProps) => {
-    const document = paplico?.getActiveDocument()
+    const [, rerender] = useReducer((x) => x + 1, 0);
+    useEffect(() => {
+      const timer = setInterval(rerender, 400); // 400msごとに再レンダリング
+      return () => clearInterval(timer);
+    }, []);
+
+    const document = paplico?.getActiveDocument();
 
     if (!document) {
       return (
@@ -28,27 +33,27 @@ export const DocumentStateSection = memo(
             </div>
           </CardContent>
         </Card>
-      )
+      );
     }
 
-    const layers = Object.values(document.layers || {})
-    const artObjects = Object.values(document.artObjects || {})
-    const artboards = Object.values(document.artboards || {})
+    const layers = Object.values(document.layers || {});
+    const artObjects = Object.values(document.artObjects || {});
+    const _artboards = Object.values(document.artboards || {});
 
     // レイヤー統計
-    const visibleLayerCount = layers.filter((layer) => layer.visible).length
-    const vectorLayerCount = layers.filter(
+    const visibleLayerCount = layers.filter((layer) => layer.visible).length;
+    const _vectorLayerCount = layers.filter(
       (layer) => layer.type === 'vector',
-    ).length
-    const groupLayerCount = layers.filter(
+    ).length;
+    const _groupLayerCount = layers.filter(
       (layer) => layer.type === 'group',
-    ).length
+    ).length;
 
     // アートオブジェクト統計
     const pathObjectCount = artObjects.filter(
       (obj) => obj.type === 'path',
-    ).length
-    const visibleObjectCount = artObjects.filter((obj) => obj.visible).length
+    ).length;
+    const _visibleObjectCount = artObjects.filter((obj) => obj.visible).length;
 
     return (
       <div className="space-y-0.5 text-xs">
@@ -186,8 +191,8 @@ export const DocumentStateSection = memo(
           </CardContent>
         </Card>
       </div>
-    )
+    );
   },
-)
+);
 
-DocumentStateSection.displayName = 'DocumentStateSection'
+DocumentStateSection.displayName = 'DocumentStateSection';

@@ -1,15 +1,15 @@
-import { useEventCallback } from '@paplico/shared-lib/react'
-import { memo, useCallback, useRef, useState } from 'react'
-import type { RGBAColor } from '@/engine/document/types'
-import { cn } from '@/lib/utils'
-import { Button } from './ui/button'
-import { Input } from './ui/input'
-import { Label } from './ui/label'
+import { useEventCallback } from '@paplico/shared-lib/react';
+import { memo, useCallback, useRef, useState } from 'react';
+import type { RGBAColor } from '@/engine/document/types';
+import { cn } from '@/lib/utils';
+import { Button } from './ui/button';
+import { Input } from './ui/input';
+import { Label } from './ui/label';
 
 export interface ColorSliderProps {
-  value: RGBAColor
-  onChange: (color: RGBAColor) => void
-  className?: string
+  value: RGBAColor;
+  onChange: (color: RGBAColor) => void;
+  className?: string;
 }
 
 export const ColorSlider = memo(function ColorSlider({
@@ -17,19 +17,19 @@ export const ColorSlider = memo(function ColorSlider({
   onChange,
   className,
 }: ColorSliderProps) {
-  const [mode, setMode] = useState<ColorMode>('rgb')
+  const [mode, setMode] = useState<ColorMode>('rgb');
 
-  const hsb = rgbaToHsb(value)
-  const lch = rgbaToLch(value)
+  const hsb = rgbaToHsb(value);
+  const lch = rgbaToLch(value);
 
   const handleRgbChange = useEventCallback(
     (component: 'r' | 'g' | 'b' | 'a', newValue: number) => {
       onChange({
         ...value,
         [component]: newValue / (component === 'a' ? 100 : 255),
-      })
+      });
     },
-  )
+  );
 
   const handleHsbChange = useEventCallback(
     (component: 'h' | 's' | 'b' | 'a', newValue: number) => {
@@ -41,24 +41,24 @@ export const ColorSlider = memo(function ColorSlider({
             : component === 'a'
               ? newValue / 100
               : newValue / 100,
-      }
-      onChange(hsbToRgba(newHsb))
+      };
+      onChange(hsbToRgba(newHsb));
     },
-  )
+  );
 
   const handleLchChange = useEventCallback(
     (component: 'l' | 'c' | 'h' | 'a', newValue: number) => {
       const newLch = {
         ...lch,
         [component]: component === 'a' ? newValue / 100 : newValue,
-      }
-      onChange(lchToRgba(newLch))
+      };
+      onChange(lchToRgba(newLch));
     },
-  )
+  );
 
   const colorPreview = `rgba(${Math.round(value.r * 255)}, ${Math.round(
     value.g * 255,
-  )}, ${Math.round(value.b * 255)}, ${value.a})`
+  )}, ${Math.round(value.b * 255)}, ${value.a})`;
 
   return (
     <div className={cn('space-y-3', className)}>
@@ -325,33 +325,33 @@ export const ColorSlider = memo(function ColorSlider({
         </div>
       )}
     </div>
-  )
-})
+  );
+});
 
 // Helper types and functions
-type ColorMode = 'rgb' | 'hsb' | 'lch'
+type ColorMode = 'rgb' | 'hsb' | 'lch';
 
 interface HSBColor {
-  h: number // 0-360
-  s: number // 0-1
-  b: number // 0-1
-  a: number // 0-1
+  h: number; // 0-360
+  s: number; // 0-1
+  b: number; // 0-1
+  a: number; // 0-1
 }
 
 interface LCHColor {
-  l: number // 0-100
-  c: number // 0-100+
-  h: number // 0-360
-  a: number // 0-1
+  l: number; // 0-100
+  c: number; // 0-100+
+  h: number; // 0-360
+  a: number; // 0-1
 }
 
 interface GradientSliderProps {
-  value: number
-  onValueChange: (value: number) => void
-  max: number
-  step?: number
-  className?: string
-  gradientStops: string[]
+  value: number;
+  onValueChange: (value: number) => void;
+  max: number;
+  step?: number;
+  className?: string;
+  gradientStops: string[];
 }
 
 const GradientSlider = memo(function GradientSlider({
@@ -362,53 +362,53 @@ const GradientSlider = memo(function GradientSlider({
   className,
   gradientStops,
 }: GradientSliderProps) {
-  const sliderRef = useRef<HTMLDivElement>(null)
-  const isDragging = useRef(false)
+  const sliderRef = useRef<HTMLDivElement>(null);
+  const isDragging = useRef(false);
 
   const handleMouseDown = useCallback(
     (e: React.MouseEvent) => {
-      e.preventDefault()
-      isDragging.current = true
-      updateValue(e)
+      e.preventDefault();
+      isDragging.current = true;
+      updateValue(e);
 
       const handleMouseMove = (e: MouseEvent) => {
-        e.preventDefault()
+        e.preventDefault();
         if (isDragging.current) {
-          updateValue(e as any)
+          updateValue(e as any);
         }
-      }
+      };
 
       const handleMouseUp = () => {
-        isDragging.current = false
-        document.removeEventListener('mousemove', handleMouseMove)
-        document.removeEventListener('mouseup', handleMouseUp)
-      }
+        isDragging.current = false;
+        document.removeEventListener('mousemove', handleMouseMove);
+        document.removeEventListener('mouseup', handleMouseUp);
+      };
 
-      document.addEventListener('mousemove', handleMouseMove)
-      document.addEventListener('mouseup', handleMouseUp)
+      document.addEventListener('mousemove', handleMouseMove);
+      document.addEventListener('mouseup', handleMouseUp);
     },
     [updateValue],
-  )
+  );
 
   const updateValue = useCallback(
     (e: React.MouseEvent | MouseEvent) => {
-      if (!sliderRef.current) return
+      if (!sliderRef.current) return;
 
-      const rect = sliderRef.current.getBoundingClientRect()
+      const rect = sliderRef.current.getBoundingClientRect();
       const percentage = Math.max(
         0,
         Math.min(1, (e.clientX - rect.left) / rect.width),
-      )
-      const newValue = Math.round((percentage * max) / step) * step
-      onValueChange(newValue)
+      );
+      const newValue = Math.round((percentage * max) / step) * step;
+      onValueChange(newValue);
     },
     [max, step, onValueChange],
-  )
+  );
 
-  const percentage = (value / max) * 100
+  const percentage = (value / max) * 100;
   const gradientBackground = `linear-gradient(to right, ${gradientStops.join(
     ', ',
-  )})`
+  )})`;
 
   return (
     <div className={cn('relative w-full', className)}>
@@ -427,200 +427,201 @@ const GradientSlider = memo(function GradientSlider({
         onMouseDown={handleMouseDown}
       />
     </div>
-  )
-})
+  );
+});
 
 function rgbaToHsb(rgba: RGBAColor): HSBColor {
-  const { r, g, b, a } = rgba
-  const max = Math.max(r, g, b)
-  const min = Math.min(r, g, b)
-  const diff = max - min
-  let h = 0
-  const s = max === 0 ? 0 : diff / max
-  const brightness = max
+  const { r, g, b, a } = rgba;
+  const max = Math.max(r, g, b);
+  const min = Math.min(r, g, b);
+  const diff = max - min;
+  let h = 0;
+  const s = max === 0 ? 0 : diff / max;
+  const brightness = max;
 
   if (diff !== 0) {
     switch (max) {
       case r:
-        h = ((g - b) / diff + (g < b ? 6 : 0)) * 60
-        break
+        h = ((g - b) / diff + (g < b ? 6 : 0)) * 60;
+        break;
       case g:
-        h = ((b - r) / diff + 2) * 60
-        break
+        h = ((b - r) / diff + 2) * 60;
+        break;
       case b:
-        h = ((r - g) / diff + 4) * 60
-        break
+        h = ((r - g) / diff + 4) * 60;
+        break;
     }
   }
-  return { h, s, b: brightness, a }
+  return { h, s, b: brightness, a };
 }
 
 function hsbToRgba(hsb: HSBColor): RGBAColor {
-  const { h, s, b, a } = hsb
-  const c = b * s
-  const x = c * (1 - Math.abs(((h / 60) % 2) - 1))
-  const m = b - c
+  const { h, s, b, a } = hsb;
+  const c = b * s;
+  const x = c * (1 - Math.abs(((h / 60) % 2) - 1));
+  const m = b - c;
   let r = 0,
     g = 0,
-    blue = 0
+    blue = 0;
 
   if (h >= 0 && h < 60) {
-    r = c
-    g = x
-    blue = 0
+    r = c;
+    g = x;
+    blue = 0;
   } else if (h >= 60 && h < 120) {
-    r = x
-    g = c
-    blue = 0
+    r = x;
+    g = c;
+    blue = 0;
   } else if (h >= 120 && h < 180) {
-    r = 0
-    g = c
-    blue = x
+    r = 0;
+    g = c;
+    blue = x;
   } else if (h >= 180 && h < 240) {
-    r = 0
-    g = x
-    blue = c
+    r = 0;
+    g = x;
+    blue = c;
   } else if (h >= 240 && h < 300) {
-    r = x
-    g = 0
-    blue = c
+    r = x;
+    g = 0;
+    blue = c;
   } else if (h >= 300 && h < 360) {
-    r = c
-    g = 0
-    blue = x
+    r = c;
+    g = 0;
+    blue = x;
   }
 
-  return { r: r + m, g: g + m, b: blue + m, a }
+  return { r: r + m, g: g + m, b: blue + m, a };
 }
 
 function rgbaToLch(rgba: RGBAColor): LCHColor {
-  const { r, g, b, a } = rgba
+  const { r, g, b, a } = rgba;
   const toLinear = (c: number) =>
-    c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4
+    c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
   const lr = toLinear(r),
     lg = toLinear(g),
-    lb = toLinear(b)
+    lb = toLinear(b);
 
-  const x = lr * 0.4124564 + lg * 0.3575761 + lb * 0.1804375
-  const y = lr * 0.2126729 + lg * 0.7151522 + lb * 0.072175
-  const z = lr * 0.0193339 + lg * 0.119192 + lb * 0.9503041
+  const x = lr * 0.4124564 + lg * 0.3575761 + lb * 0.1804375;
+  const y = lr * 0.2126729 + lg * 0.7151522 + lb * 0.072175;
+  const z = lr * 0.0193339 + lg * 0.119192 + lb * 0.9503041;
 
   const xn = 0.95047,
     yn = 1.0,
-    zn = 1.08883
+    zn = 1.08883;
   const fx =
-    x / xn > 0.008856 ? (x / xn) ** (1 / 3) : (7.787 * x) / xn + 16 / 116
+    x / xn > 0.008856 ? (x / xn) ** (1 / 3) : (7.787 * x) / xn + 16 / 116;
   const fy =
-    y / yn > 0.008856 ? (y / yn) ** (1 / 3) : (7.787 * y) / yn + 16 / 116
+    y / yn > 0.008856 ? (y / yn) ** (1 / 3) : (7.787 * y) / yn + 16 / 116;
   const fz =
-    z / zn > 0.008856 ? (z / zn) ** (1 / 3) : (7.787 * z) / zn + 16 / 116
+    z / zn > 0.008856 ? (z / zn) ** (1 / 3) : (7.787 * z) / zn + 16 / 116;
 
-  const L = 116 * fy - 16
-  const aLab = 500 * (fx - fy)
-  const bLab = 200 * (fy - fz)
-  const C = Math.sqrt(aLab * aLab + bLab * bLab)
-  let H = (Math.atan2(bLab, aLab) * 180) / Math.PI
-  if (H < 0) H += 360
+  const L = 116 * fy - 16;
+  const aLab = 500 * (fx - fy);
+  const bLab = 200 * (fy - fz);
+  const C = Math.sqrt(aLab * aLab + bLab * bLab);
+  let H = (Math.atan2(bLab, aLab) * 180) / Math.PI;
+  if (H < 0) H += 360;
 
-  return { l: L, c: C, h: H, a }
+  return { l: L, c: C, h: H, a };
 }
 
 function lchToRgba(lch: LCHColor): RGBAColor {
-  const { l: L, c: C, h: H, a } = lch
-  const aLab = C * Math.cos((H * Math.PI) / 180)
-  const bLab = C * Math.sin((H * Math.PI) / 180)
+  const { l: L, c: C, h: H, a } = lch;
+  const aLab = C * Math.cos((H * Math.PI) / 180);
+  const bLab = C * Math.sin((H * Math.PI) / 180);
 
-  const fy = (L + 16) / 116
-  const fx = aLab / 500 + fy
-  const fz = fy - bLab / 200
+  const fy = (L + 16) / 116;
+  const fx = aLab / 500 + fy;
+  const fz = fy - bLab / 200;
 
   const xn = 0.95047,
     yn = 1.0,
-    zn = 1.08883
-  const x = (fx > 0.206897 ? fx * fx * fx : (fx - 16 / 116) / 7.787) * xn
-  const y = (fy > 0.206897 ? fy * fy * fy : (fy - 16 / 116) / 7.787) * yn
-  const z = (fz > 0.206897 ? fz * fz * fz : (fz - 16 / 116) / 7.787) * zn
+    zn = 1.08883;
+  const x = (fx > 0.206897 ? fx * fx * fx : (fx - 16 / 116) / 7.787) * xn;
+  const y = (fy > 0.206897 ? fy * fy * fy : (fy - 16 / 116) / 7.787) * yn;
+  const z = (fz > 0.206897 ? fz * fz * fz : (fz - 16 / 116) / 7.787) * zn;
 
-  let r = x * 3.2404542 + y * -1.5371385 + z * -0.4985314
-  let g = x * -0.969266 + y * 1.8760108 + z * 0.041556
-  let b = x * 0.0556434 + y * -0.2040259 + z * 1.0572252
+  let r = x * 3.2404542 + y * -1.5371385 + z * -0.4985314;
+  let g = x * -0.969266 + y * 1.8760108 + z * 0.041556;
+  let b = x * 0.0556434 + y * -0.2040259 + z * 1.0572252;
 
-  r = Math.max(0, Math.min(1, r))
-  g = Math.max(0, Math.min(1, g))
-  b = Math.max(0, Math.min(1, b))
+  r = Math.max(0, Math.min(1, r));
+  g = Math.max(0, Math.min(1, g));
+  b = Math.max(0, Math.min(1, b));
 
   const fromLinear = (c: number) =>
-    c <= 0.0031308 ? 12.92 * c : 1.055 * c ** (1 / 2.4) - 0.055
-  return { r: fromLinear(r), g: fromLinear(g), b: fromLinear(b), a }
+    c <= 0.0031308 ? 12.92 * c : 1.055 * c ** (1 / 2.4) - 0.055;
+  return { r: fromLinear(r), g: fromLinear(g), b: fromLinear(b), a };
 }
 
 function generateRgbGradient(
   component: 'r' | 'g' | 'b',
   currentColor: RGBAColor,
 ): string[] {
-  const result: string[] = []
+  const result: string[] = [];
   for (let i = 0; i <= 10; i++) {
-    const color = { ...currentColor, [component]: i / 10 }
+    const color = { ...currentColor, [component]: i / 10 };
     result.push(
       `rgb(${Math.round(color.r * 255)}, ${Math.round(
         color.g * 255,
       )}, ${Math.round(color.b * 255)})`,
-    )
+    );
   }
-  return result
+  return result;
 }
 
 function generateAlphaGradient(currentColor: RGBAColor): string[] {
-  const result: string[] = []
+  const result: string[] = [];
   for (let i = 0; i <= 10; i++) {
-    const alpha = i / 10
+    const alpha = i / 10;
     result.push(
       `rgba(${Math.round(currentColor.r * 255)}, ${Math.round(
         currentColor.g * 255,
       )}, ${Math.round(currentColor.b * 255)}, ${alpha})`,
-    )
+    );
   }
-  return result
+  return result;
 }
 
 function generateHsbGradient(
   component: 'h' | 's' | 'b',
   currentHsb: HSBColor,
 ): string[] {
-  const result: string[] = []
+  const result: string[] = [];
   for (let i = 0; i <= 10; i++) {
-    let newHsb: HSBColor
-    if (component === 'h') newHsb = { ...currentHsb, h: ((i / 10) * 360) % 360 }
-    else if (component === 's') newHsb = { ...currentHsb, s: i / 10 }
-    else newHsb = { ...currentHsb, b: i / 10 }
+    let newHsb: HSBColor;
+    if (component === 'h')
+      newHsb = { ...currentHsb, h: ((i / 10) * 360) % 360 };
+    else if (component === 's') newHsb = { ...currentHsb, s: i / 10 };
+    else newHsb = { ...currentHsb, b: i / 10 };
 
-    const rgba = hsbToRgba(newHsb)
+    const rgba = hsbToRgba(newHsb);
     result.push(
       `rgb(${Math.round(rgba.r * 255)}, ${Math.round(
         rgba.g * 255,
       )}, ${Math.round(rgba.b * 255)})`,
-    )
+    );
   }
-  return result
+  return result;
 }
 
 function generateLchGradient(
   component: 'l' | 'c' | 'h',
   currentLch: LCHColor,
 ): string[] {
-  const result: string[] = []
+  const result: string[] = [];
   for (let i = 0; i <= 10; i++) {
-    let newLch: LCHColor
-    if (component === 'l') newLch = { ...currentLch, l: (i / 10) * 100 }
-    else if (component === 'c') newLch = { ...currentLch, c: (i / 10) * 100 }
-    else newLch = { ...currentLch, h: (i / 10) * 360 }
+    let newLch: LCHColor;
+    if (component === 'l') newLch = { ...currentLch, l: (i / 10) * 100 };
+    else if (component === 'c') newLch = { ...currentLch, c: (i / 10) * 100 };
+    else newLch = { ...currentLch, h: (i / 10) * 360 };
 
-    const rgba = lchToRgba(newLch)
+    const rgba = lchToRgba(newLch);
     result.push(
       `rgb(${Math.round(rgba.r * 255)}, ${Math.round(
         rgba.g * 255,
       )}, ${Math.round(rgba.b * 255)})`,
-    )
+    );
   }
-  return result
+  return result;
 }

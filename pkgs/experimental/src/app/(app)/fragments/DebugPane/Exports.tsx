@@ -1,30 +1,30 @@
-'use client'
+'use client';
 
-import { Image, Send } from 'lucide-react'
-import { memo, useEffect, useRef, useState } from 'react'
-import type { PngExportDebugData } from '@/app/api/debug/png-export/route'
-import { Button } from '@/components/ui/button'
-import { PngAllArtboardExporter } from '@/engine/exporters/PngAllArtboardExporter'
-import type { PaplicoEngine } from '@/engine/paplico'
-import { debugState } from '@/engine/webgpu/core-engine'
+import { Image, Send } from 'lucide-react';
+import { memo, useEffect, useRef, useState } from 'react';
+import type { PngExportDebugData } from '@/app/api/debug/png-export/route';
+import { Button } from '@/components/ui/button';
+import { PngAllArtboardExporter } from '@/engine/exporters/PngAllArtboardExporter';
+import type { PaplicoEngine } from '@/engine/paplico';
+import { debugState } from '@/engine/webgpu/core-engine';
 
 export const AutoPngSection = memo(
   ({ engine }: { engine: PaplicoEngine | null }) => {
-    const [pngDataUrl, setPngDataUrl] = useState<string | null>(null)
-    const [lastUpdate, setLastUpdate] = useState<Date | null>(null)
-    const [isEnabled, setIsEnabled] = useState(true)
-    const [error, setError] = useState<string | null>(null)
-    const [isSending, setIsSending] = useState(false)
-    const [_apiResponse, _setApiResponse] = useState<any>(null)
-    const intervalRef = useRef<NodeJS.Timeout | null>(null)
+    const [pngDataUrl, setPngDataUrl] = useState<string | null>(null);
+    const [lastUpdate, setLastUpdate] = useState<Date | null>(null);
+    const [isEnabled, setIsEnabled] = useState(true);
+    const [error, setError] = useState<string | null>(null);
+    const [isSending, setIsSending] = useState(false);
+    const [_apiResponse, _setApiResponse] = useState<any>(null);
+    const intervalRef = useRef<NodeJS.Timeout | null>(null);
 
     const captureImage = async () => {
       if (!engine || !engine.getEngine()) {
-        setError('エンジンが初期化されていません')
-        return
+        setError('エンジンが初期化されていません');
+        return;
       }
 
-      const startTime = performance.now()
+      const startTime = performance.now();
       const debugData: PngExportDebugData = {
         timestamp: Date.now(),
         success: false,
@@ -34,32 +34,32 @@ export const AutoPngSection = memo(
           exportedArtboards: 0,
           renderTime: 0,
         },
-      }
+      };
 
       try {
-        const webgpuEngine = engine.getEngine()
-        const documentContext = engine.getActiveDocumentContext()
+        const webgpuEngine = engine.getEngine();
+        const documentContext = engine.getActiveDocumentContext();
 
         if (!documentContext) {
-          debugData.error = 'アクティブドキュメントがありません'
-          setError(debugData.error)
-          await sendDebugData(debugData)
-          return
+          debugData.error = 'アクティブドキュメントがありません';
+          setError(debugData.error);
+          await sendDebugData(debugData);
+          return;
         }
 
         // 最初のアートボードを選択
-        const document = documentContext.document
+        const document = documentContext.document;
 
         if (!document || !document.artboards) {
-          debugData.error = 'ドキュメントまたはアートボードがありません'
-          setError(debugData.error)
-          await sendDebugData(debugData)
-          return
+          debugData.error = 'ドキュメントまたはアートボードがありません';
+          setError(debugData.error);
+          await sendDebugData(debugData);
+          return;
         }
 
         // artboardsはオブジェクトなので、値の配列に変換
-        const artboardsArray = Object.values(document.artboards)
-        debugData.exportStats.totalArtboards = artboardsArray.length
+        const artboardsArray = Object.values(document.artboards);
+        debugData.exportStats.totalArtboards = artboardsArray.length;
 
         // アートボード情報を収集
         debugData.artboards = artboardsArray.map((ab: any) => ({
@@ -68,55 +68,55 @@ export const AutoPngSection = memo(
           bounds: ab.bounds,
           artObjectCount: Object.values(document.artObjects).filter(
             (obj: any) => {
-              if (obj.type !== 'path' || !obj.path?.points) return false
-              const transformX = obj.transform?.x || 0
-              const transformY = obj.transform?.y || 0
-              const xs = obj.path.points.map((p: any) => p.x + transformX)
-              const ys = obj.path.points.map((p: any) => p.y + transformY)
+              if (obj.type !== 'path' || !obj.path?.points) return false;
+              const transformX = obj.transform?.x || 0;
+              const transformY = obj.transform?.y || 0;
+              const xs = obj.path.points.map((p: any) => p.x + transformX);
+              const ys = obj.path.points.map((p: any) => p.y + transformY);
               const minX = Math.min(...xs),
-                maxX = Math.max(...xs)
+                maxX = Math.max(...xs);
               const minY = Math.min(...ys),
-                maxY = Math.max(...ys)
+                maxY = Math.max(...ys);
               return !(
                 maxX < ab.bounds.x ||
                 minX > ab.bounds.x + ab.bounds.width ||
                 maxY < ab.bounds.y ||
                 minY > ab.bounds.y + ab.bounds.height
-              )
+              );
             },
           ).length,
-        }))
+        }));
 
         if (artboardsArray.length === 0) {
-          debugData.error = 'アートボード配列が空です'
-          setError(debugData.error)
-          await sendDebugData(debugData)
-          return
+          debugData.error = 'アートボード配列が空です';
+          setError(debugData.error);
+          await sendDebugData(debugData);
+          return;
         }
 
-        const firstArtboard = artboardsArray[0] as any
+        const firstArtboard = artboardsArray[0] as any;
         const exporter = new PngAllArtboardExporter({
           selectedArtboardIds: [firstArtboard.id],
-        })
+        });
 
         // PNG化実行
         const files = await exporter.export(
           documentContext,
           webgpuEngine as any,
-        )
+        );
 
-        debugData.exportStats.exportedArtboards = files.length
-        debugData.exportStats.renderTime = performance.now() - startTime
+        debugData.exportStats.exportedArtboards = files.length;
+        debugData.exportStats.renderTime = performance.now() - startTime;
 
         // エクスポート後に少し待ってからdebugStateを取得
-        await new Promise((resolve) => setTimeout(resolve, 10))
+        await new Promise((resolve) => setTimeout(resolve, 10));
 
         // 最新のスナップショットを取得（直接debugStateを参照）
-        const latestSnapshot = debugState.export
+        const latestSnapshot = debugState.export;
 
         // debugStateから詳細情報を取得
         if (latestSnapshot.imageData) {
-          debugData.exportStats.imageData = { ...latestSnapshot.imageData }
+          debugData.exportStats.imageData = { ...latestSnapshot.imageData };
         }
         if (latestSnapshot.rendering) {
           debugData.renderingDetails = {
@@ -130,77 +130,77 @@ export const AutoPngSection = memo(
             renderErrors: latestSnapshot.rendering.renderErrors.map(
               (e: any) => e.error,
             ),
-          }
+          };
         }
 
         if (files.length > 0) {
           // Fileオブジェクトをdata URLに変換
-          const reader = new FileReader()
+          const reader = new FileReader();
           reader.onload = async (e) => {
-            const dataUrl = e.target?.result as string
-            setPngDataUrl(dataUrl)
-            setLastUpdate(new Date())
-            setError(null)
+            const dataUrl = e.target?.result as string;
+            setPngDataUrl(dataUrl);
+            setLastUpdate(new Date());
+            setError(null);
 
             // base64Imageはサイズが大きいのでAPIには送らない
-            debugData.success = true
-            await sendDebugData(debugData)
-          }
-          reader.readAsDataURL(files[0])
+            debugData.success = true;
+            await sendDebugData(debugData);
+          };
+          reader.readAsDataURL(files[0]);
         } else {
-          debugData.error = 'PNG化に失敗しました'
-          setError(debugData.error)
-          await sendDebugData(debugData)
+          debugData.error = 'PNG化に失敗しました';
+          setError(debugData.error);
+          await sendDebugData(debugData);
         }
       } catch (err) {
-        console.error('PNG capture error:', err)
-        debugData.error = err instanceof Error ? err.message : 'PNG化エラー'
-        setError(debugData.error)
-        await sendDebugData(debugData)
+        console.error('PNG capture error:', err);
+        debugData.error = err instanceof Error ? err.message : 'PNG化エラー';
+        setError(debugData.error);
+        await sendDebugData(debugData);
       }
-    }
+    };
 
     const sendDebugData = async (data: PngExportDebugData) => {
-      setIsSending(true)
+      setIsSending(true);
       try {
         const response = await fetch('/api/debug/png-export', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(data),
-        })
+        });
         if (!response.ok) {
-          console.error('Debug API error:', response.status)
+          console.error('Debug API error:', response.status);
         }
       } catch (err) {
-        console.error('Failed to send debug data:', err)
+        console.error('Failed to send debug data:', err);
       } finally {
-        setIsSending(false)
+        setIsSending(false);
       }
-    }
+    };
 
     useEffect(() => {
       if (isEnabled) {
         // 即座に最初のキャプチャを実行
-        captureImage()
+        captureImage();
 
         // 5秒ごとにキャプチャ
         intervalRef.current = setInterval(() => {
-          captureImage()
-        }, 5000)
+          captureImage();
+        }, 5000);
       } else {
         // タイマークリア
         if (intervalRef.current) {
-          clearInterval(intervalRef.current)
-          intervalRef.current = null
+          clearInterval(intervalRef.current);
+          intervalRef.current = null;
         }
       }
 
       return () => {
         if (intervalRef.current) {
-          clearInterval(intervalRef.current)
+          clearInterval(intervalRef.current);
         }
-      }
-    }, [isEnabled, captureImage])
+      };
+    }, [isEnabled, captureImage]);
 
     return (
       <div className="mb-2">
@@ -263,10 +263,10 @@ export const AutoPngSection = memo(
                 variant="outline"
                 size="sm"
                 onClick={() => {
-                  const link = document.createElement('a')
-                  link.href = pngDataUrl
-                  link.download = `canvas-${new Date().toISOString()}.png`
-                  link.click()
+                  const link = document.createElement('a');
+                  link.href = pngDataUrl;
+                  link.download = `canvas-${new Date().toISOString()}.png`;
+                  link.click();
                 }}
                 className="w-full h-6 text-xs"
               >
@@ -283,8 +283,8 @@ export const AutoPngSection = memo(
           )}
         </div>
       </div>
-    )
+    );
   },
-)
+);
 
-AutoPngSection.displayName = 'AutoPngSection'
+AutoPngSection.displayName = 'AutoPngSection';

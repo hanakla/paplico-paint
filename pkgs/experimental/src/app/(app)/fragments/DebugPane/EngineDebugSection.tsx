@@ -1,28 +1,28 @@
-'use client'
+'use client';
 
-import { memo } from 'react'
-import type { PaplicoEngine } from '@/engine/paplico'
-import { debugState } from '@/engine/webgpu/core-engine'
-import { useNullishSnapshot } from '@/lib/hooks'
+import { memo } from 'react';
+import type { PaplicoEngine } from '@/engine/paplico';
+import { debugState } from '@/engine/webgpu/core-engine';
+import { useNullishSnapshot } from '@/lib/hooks';
 
 interface EngineDebugSectionProps {
-  engine: PaplicoEngine | null
+  engine: PaplicoEngine | null;
 }
 
 export const EngineDebugSection = memo(
   ({ engine }: EngineDebugSectionProps) => {
-    const debugSnapshot = useNullishSnapshot(debugState)
+    const debugSnapshot = useNullishSnapshot(debugState);
 
     if (!debugSnapshot || !engine) {
       return (
         <div className="text-xs text-muted-foreground">
           Engine debug data loading...
         </div>
-      )
+      );
     }
 
-    const engineState = engine.getEngineState()
-    const paplicoState = engine.getState()
+    const engineState = engine.getEngineState();
+    const paplicoState = engine.getState();
 
     return (
       <div className="space-y-2">
@@ -188,8 +188,8 @@ export const EngineDebugSection = memo(
           </div>
         </div>
       </div>
-    )
+    );
   },
-)
+);
 
-EngineDebugSection.displayName = 'EngineDebugSection'
+EngineDebugSection.displayName = 'EngineDebugSection';

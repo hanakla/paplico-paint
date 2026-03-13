@@ -18,16 +18,16 @@ const argLength = {
   t: 2,
   v: 1,
   z: 0,
-}
+};
 
 /** segment pattern */
-const SEGMENT_PATTERN = /([astvzqmhlc])([^astvzqmhlc]*)/gi
+const SEGMENT_PATTERN = /([astvzqmhlc])([^astvzqmhlc]*)/gi;
 
-const NUMBER_PATTERN = /-?[0-9]*\.?[0-9]+(?:e[-+]?\d+)?/gi
+const NUMBER_PATTERN = /-?[0-9]*\.?[0-9]+(?:e[-+]?\d+)?/gi;
 
 function parseValues(args: string) {
-  const numbers = args.match(NUMBER_PATTERN)
-  return numbers ? numbers.map(parseFloat) : []
+  const numbers = args.match(NUMBER_PATTERN);
+  return numbers ? numbers.map(parseFloat) : [];
 }
 
 /**
@@ -39,32 +39,32 @@ function parseValues(args: string) {
  * @return {Array}
  */
 export const parseSVGPath = function parseSVGPath(path: string) {
-  const data: [command: string, ...args: number[]][] = []
-  const matches = Array.from(path.matchAll(SEGMENT_PATTERN))
+  const data: [command: string, ...args: number[]][] = [];
+  const matches = Array.from(path.matchAll(SEGMENT_PATTERN));
 
   for (let [, command, args] of matches) {
-    let type = command.toLowerCase() as keyof typeof argLength
-    const parsedArgs: number[] = parseValues(args)
+    let type = command.toLowerCase() as keyof typeof argLength;
+    const parsedArgs: number[] = parseValues(args);
 
     // overloaded moveTo
     if (type === 'm' && parsedArgs.length > 2) {
-      data.push([command, ...parsedArgs.splice(0, 2)])
-      type = 'l'
-      command = command === 'm' ? 'l' : 'L'
+      data.push([command, ...parsedArgs.splice(0, 2)]);
+      type = 'l';
+      command = command === 'm' ? 'l' : 'L';
     }
 
     if (parsedArgs.length === argLength[type]) {
-      data.push([command, ...parsedArgs])
-      continue
+      data.push([command, ...parsedArgs]);
+      continue;
     }
 
     if (parsedArgs.length < argLength[type]) {
-      console.warn(command, args, matches)
-      throw new Error('malformed path data')
+      console.warn(command, args, matches);
+      throw new Error('malformed path data');
     }
 
-    data.push([command, ...parsedArgs.splice(0, argLength[type])])
+    data.push([command, ...parsedArgs.splice(0, argLength[type])]);
   }
 
-  return data
-}
+  return data;
+};

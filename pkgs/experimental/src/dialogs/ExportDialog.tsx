@@ -1,12 +1,12 @@
-'use client'
+'use client';
 
-import { useEventCallback } from '@paplico/shared-lib/react'
-import { Download, Eye, FileImage } from 'lucide-react'
-import { useState } from 'react'
-import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
-import { Card } from '@/components/ui/card'
-import { Checkbox } from '@/components/ui/checkbox'
+import { useEventCallback } from '@paplico/shared-lib/react';
+import { Download, Eye, FileImage } from 'lucide-react';
+import { useState } from 'react';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
   Dialog,
   DialogContent,
@@ -15,23 +15,23 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-} from '@/components/ui/dialog'
-import type { Artboard } from '@/engine/document/artboard'
-import type { DocumentContext } from '@/engine/document-manager'
-import { PngAllArtboardExporter } from '@/engine/exporters/PngAllArtboardExporter'
-import type { WebGPUEngine } from '@/engine/webgpu/core-engine'
+} from '@/components/ui/dialog';
+import type { Artboard } from '@/engine/document/artboard';
+import type { DocumentContext } from '@/engine/document-manager';
+import { PngAllArtboardExporter } from '@/engine/exporters/PngAllArtboardExporter';
+import type { WebGPUEngine } from '@/engine/webgpu/core-engine';
 
 interface ExportDialogProps {
-  artboards: Artboard[]
-  documentContext: DocumentContext
-  webgpuEngine: WebGPUEngine
-  children?: React.ReactNode
+  artboards: Artboard[];
+  documentContext: DocumentContext;
+  webgpuEngine: WebGPUEngine;
+  children?: React.ReactNode;
 }
 
 interface ExportPreview {
-  artboardId: string
-  previewUrl: string | null
-  isGenerating: boolean
+  artboardId: string;
+  previewUrl: string | null;
+  isGenerating: boolean;
 }
 
 export const ExportDialog = ({
@@ -40,39 +40,39 @@ export const ExportDialog = ({
   webgpuEngine,
   children,
 }: ExportDialogProps) => {
-  const [isOpen, setIsOpen] = useState(false)
+  const [isOpen, setIsOpen] = useState(false);
   const [selectedArtboards, setSelectedArtboards] = useState<Set<string>>(
     new Set(),
-  )
-  const [isExporting, setIsExporting] = useState(false)
+  );
+  const [isExporting, setIsExporting] = useState(false);
   const [previews, setPreviews] = useState<Map<string, ExportPreview>>(
     new Map(),
-  )
+  );
 
   const handleArtboardToggle = useEventCallback(
     (artboardId: string, checked: boolean) => {
-      const newSelection = new Set(selectedArtboards)
+      const newSelection = new Set(selectedArtboards);
       if (checked) {
-        newSelection.add(artboardId)
+        newSelection.add(artboardId);
       } else {
-        newSelection.delete(artboardId)
+        newSelection.delete(artboardId);
       }
-      setSelectedArtboards(newSelection)
+      setSelectedArtboards(newSelection);
     },
-  )
+  );
 
   const handleSelectAll = useEventCallback(() => {
-    const visibleArtboards = artboards.filter((ab) => ab.visible)
-    setSelectedArtboards(new Set(visibleArtboards.map((ab) => ab.id)))
-  })
+    const visibleArtboards = artboards.filter((ab) => ab.visible);
+    setSelectedArtboards(new Set(visibleArtboards.map((ab) => ab.id)));
+  });
 
   const handleSelectNone = useEventCallback(() => {
-    setSelectedArtboards(new Set())
-  })
+    setSelectedArtboards(new Set());
+  });
 
   const generatePreview = useEventCallback(async (artboardId: string) => {
-    const artboard = artboards.find((ab) => ab.id === artboardId)
-    if (!artboard) return
+    const artboard = artboards.find((ab) => ab.id === artboardId);
+    if (!artboard) return;
 
     setPreviews(
       (prev) =>
@@ -83,17 +83,17 @@ export const ExportDialog = ({
             isGenerating: true,
           }),
         ),
-    )
+    );
 
     try {
       // 小さなプレビュー用のエクスポーター作成（特定のアートボードのみ）
       const exporter = new PngAllArtboardExporter({
         selectedArtboardIds: [artboardId],
-      })
-      const files = await exporter.export(documentContext, webgpuEngine)
+      });
+      const files = await exporter.export(documentContext, webgpuEngine);
 
       if (files.length > 0) {
-        const previewUrl = URL.createObjectURL(files[0])
+        const previewUrl = URL.createObjectURL(files[0]);
         setPreviews(
           (prev) =>
             new Map(
@@ -103,10 +103,10 @@ export const ExportDialog = ({
                 isGenerating: false,
               }),
             ),
-        )
+        );
       }
     } catch (error) {
-      console.error('Preview generation failed:', error)
+      console.error('Preview generation failed:', error);
       setPreviews(
         (prev) =>
           new Map(
@@ -116,44 +116,44 @@ export const ExportDialog = ({
               isGenerating: false,
             }),
           ),
-      )
+      );
     }
-  })
+  });
 
   const handleExport = useEventCallback(async () => {
-    if (selectedArtboards.size === 0) return
+    if (selectedArtboards.size === 0) return;
 
-    setIsExporting(true)
+    setIsExporting(true);
     try {
       const exporter = new PngAllArtboardExporter({
         selectedArtboardIds: Array.from(selectedArtboards),
-      })
-      const files = await exporter.export(documentContext, webgpuEngine)
+      });
+      const files = await exporter.export(documentContext, webgpuEngine);
 
       // ファイルをダウンロード
       for (const file of files) {
-        const url = URL.createObjectURL(file)
-        const a = document.createElement('a')
-        a.href = url
-        a.download = file.name
-        document.body.appendChild(a)
-        a.click()
-        document.body.removeChild(a)
-        URL.revokeObjectURL(url)
+        const url = URL.createObjectURL(file);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = file.name;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
       }
 
-      setIsOpen(false)
+      setIsOpen(false);
     } catch (error) {
-      console.error('Export failed:', error)
+      console.error('Export failed:', error);
     } finally {
-      setIsExporting(false)
+      setIsExporting(false);
     }
-  })
+  });
 
-  const visibleArtboards = artboards.filter((ab) => ab.visible)
+  const visibleArtboards = artboards.filter((ab) => ab.visible);
   const allSelected =
     visibleArtboards.length > 0 &&
-    visibleArtboards.every((ab) => selectedArtboards.has(ab.id))
+    visibleArtboards.every((ab) => selectedArtboards.has(ab.id));
 
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
@@ -203,8 +203,8 @@ export const ExportDialog = ({
           {/* アートボード一覧 */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {visibleArtboards.map((artboard) => {
-              const isSelected = selectedArtboards.has(artboard.id)
-              const preview = previews.get(artboard.id)
+              const isSelected = selectedArtboards.has(artboard.id);
+              const preview = previews.get(artboard.id);
 
               return (
                 <div key={artboard.id} className="space-y-2">
@@ -233,8 +233,8 @@ export const ExportDialog = ({
                           variant="ghost"
                           size="sm"
                           onClick={(e) => {
-                            e.stopPropagation()
-                            generatePreview(artboard.id)
+                            e.stopPropagation();
+                            generatePreview(artboard.id);
                           }}
                           className="text-xs h-6"
                         >
@@ -263,7 +263,7 @@ export const ExportDialog = ({
                     </div>
                   </div>
                 </div>
-              )
+              );
             })}
           </div>
 
@@ -289,5 +289,5 @@ export const ExportDialog = ({
         </DialogFooter>
       </DialogContent>
     </Dialog>
-  )
-}
+  );
+};

@@ -1,18 +1,18 @@
-'use client'
+'use client';
 
-import { memo } from 'react'
-import { debugState } from '@/engine/webgpu/core-engine'
-import { useNullishSnapshot } from '@/lib/hooks'
+import { memo } from 'react';
+import { debugState } from '@/engine/webgpu/core-engine';
+import { useNullishSnapshot } from '@/lib/hooks';
 
 export const HitTestDebugSection = memo(() => {
-  const debugSnapshot = useNullishSnapshot(debugState)
+  const debugSnapshot = useNullishSnapshot(debugState);
 
   if (!debugSnapshot) {
     return (
       <div className="text-xs text-muted-foreground">
         Hit test debug data loading...
       </div>
-    )
+    );
   }
 
   return (
@@ -112,7 +112,7 @@ export const HitTestDebugSection = memo(() => {
         </div>
       </div>
     </div>
-  )
-})
+  );
+});
 
-HitTestDebugSection.displayName = 'HitTestDebugSection'
+HitTestDebugSection.displayName = 'HitTestDebugSection';

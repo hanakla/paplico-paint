@@ -31,6 +31,20 @@ export const usePropsMemo = () => {
   )
 }
 
+/**
+ * Stable referenced useCallback
+ *
+ * ```ts
+ * // useCallback
+ * const handleClick = useEventCallback(() => {
+ *   console.log(dep)
+ * , [dep]) <-- needs to deps
+ *
+ * // useEventCallback
+ * const handleClick = useEventCallback(() => {
+ *   console.log(dep)
+ * }) // no deps needed
+ */
 export function useEventCallback<T extends (...args: any[]) => any>(fn: T) {
   const latestRef = useRef<T | null>(null)
   const stableRef = useRef<T | null>(null)
@@ -48,6 +62,10 @@ export function useEventCallback<T extends (...args: any[]) => any>(fn: T) {
   return stableRef.current
 }
 
+/**
+ * useEffect for DOMEventListeners it's provide AbortSignal at 1st argument,
+ * it's aborting on unmount to remove event listeners.
+ */
 export function useEffectWithSignal(
   effect: (signal: AbortSignal) => (() => void) | void,
   deps: DependencyList,

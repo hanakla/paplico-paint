@@ -1,40 +1,40 @@
-'use client'
+'use client';
 
-import { Eye, Layers } from 'lucide-react'
-import { memo } from 'react'
-import { useSnapshot } from 'valtio'
-import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Slider } from '@/components/ui/slider'
-import { Switch } from '@/components/ui/switch'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Eye, Layers } from 'lucide-react';
+import { memo } from 'react';
+import { useSnapshot } from 'valtio';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Slider } from '@/components/ui/slider';
+import { Switch } from '@/components/ui/switch';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   type Appearance,
   isFillAppearance,
   isStrokeAppearance,
-} from '@/engine/document/appearance'
-import { selectionState } from '@/engine/selection-state'
-import { editorState, getActiveDocument } from '@/stores/editor'
+} from '@/engine/document/appearance';
+import { selectionState } from '@/engine/selection-state';
+import { editorState, getActiveDocument } from '@/stores/editor';
 
 export interface ObjectPropertiesPanelProps {
-  className?: string
+  className?: string;
 }
 
 export const ObjectPropertiesPanel = memo(function ObjectPropertiesPanel({
   className,
 }: ObjectPropertiesPanelProps) {
-  const selection = useSnapshot(selectionState)
-  const _editor = useSnapshot(editorState)
-  const document = getActiveDocument()
+  const selection = useSnapshot(selectionState);
+  const _editor = useSnapshot(editorState);
+  const document = getActiveDocument();
 
   const selectedObjects = Array.from(selection.selectedObjects || [])
     .map((id: string) => document?.artObjects?.[id])
-    .filter(Boolean)
+    .filter(Boolean);
 
-  const selectedObject = selectedObjects[0]
+  const selectedObject = selectedObjects[0];
 
   if (!selectedObject) {
     return (
@@ -51,7 +51,7 @@ export const ObjectPropertiesPanel = memo(function ObjectPropertiesPanel({
           </div>
         </CardContent>
       </Card>
-    )
+    );
   }
 
   return (
@@ -199,12 +199,12 @@ export const ObjectPropertiesPanel = memo(function ObjectPropertiesPanel({
         </Tabs>
       </CardContent>
     </Card>
-  )
-})
+  );
+});
 
 interface AppearanceItemProps {
-  appearance: Appearance
-  index: number
+  appearance: Appearance;
+  index: number;
 }
 
 const AppearanceItem = memo(function AppearanceItem({
@@ -213,29 +213,29 @@ const AppearanceItem = memo(function AppearanceItem({
 }: AppearanceItemProps) {
   const getAppearanceLabel = () => {
     if (isStrokeAppearance(appearance)) {
-      return `線 (${appearance.params.width}px)`
+      return `線 (${appearance.params.width}px)`;
     }
     if (isFillAppearance(appearance)) {
-      return appearance.params.fillType === 'solid' ? '塗り' : 'グラデーション'
+      return appearance.params.fillType === 'solid' ? '塗り' : 'グラデーション';
     }
-    return 'エフェクト'
-  }
+    return 'エフェクト';
+  };
 
   const getAppearanceColor = () => {
     if (isStrokeAppearance(appearance)) {
-      const color = appearance.params.color
+      const color = appearance.params.color;
       return `rgba(${Math.round(color.r * 255)}, ${Math.round(
         color.g * 255,
-      )}, ${Math.round(color.b * 255)}, ${color.a})`
+      )}, ${Math.round(color.b * 255)}, ${color.a})`;
     }
     if (isFillAppearance(appearance) && appearance.params.color) {
-      const color = appearance.params.color
+      const color = appearance.params.color;
       return `rgba(${Math.round(color.r * 255)}, ${Math.round(
         color.g * 255,
-      )}, ${Math.round(color.b * 255)}, ${color.a})`
+      )}, ${Math.round(color.b * 255)}, ${color.a})`;
     }
-    return '#000000'
-  }
+    return '#000000';
+  };
 
   return (
     <div className="flex items-center gap-2 p-1 border rounded text-xs">
@@ -252,5 +252,5 @@ const AppearanceItem = memo(function AppearanceItem({
       </div>
       <Switch checked={appearance.enabled} className="scale-75" />
     </div>
-  )
-})
+  );
+});

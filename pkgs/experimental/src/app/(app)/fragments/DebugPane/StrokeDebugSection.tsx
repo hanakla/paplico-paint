@@ -1,14 +1,14 @@
-'use client'
+'use client';
 
-import { Check, Copy } from 'lucide-react'
-import { memo, useState } from 'react'
-import { useSnapshot } from 'valtio'
-import { Button } from '@/components/ui/button'
-import { debugState } from '../../../../engine/webgpu/core-engine'
+import { Check, Copy } from 'lucide-react';
+import { memo, useState } from 'react';
+import { useSnapshot } from 'valtio';
+import { Button } from '@/components/ui/button';
+import { debugState } from '../../../../engine/webgpu/core-engine';
 
 export const StrokeDebugSection = memo(() => {
-  const strokeDebug = useSnapshot(debugState.stroke)
-  const [isCopied, setIsCopied] = useState(false)
+  const strokeDebug = useSnapshot(debugState.stroke);
+  const [isCopied, setIsCopied] = useState(false);
 
   const copyDebugInfo = async () => {
     const debugInfo = `ストロークレンダリング状態:
@@ -35,16 +35,16 @@ webgpu-utilsエラー: ${strokeDebug.webgpuUtils.lastParseError || 'なし'}
       strokeDebug.rendering.lastErrorStack
         ? strokeDebug.rendering.lastErrorStack.split('\n')[0]
         : 'なし'
-    }`
+    }`;
 
     try {
-      await navigator.clipboard.writeText(debugInfo)
-      setIsCopied(true)
-      setTimeout(() => setIsCopied(false), 2000)
+      await navigator.clipboard.writeText(debugInfo);
+      setIsCopied(true);
+      setTimeout(() => setIsCopied(false), 2000);
     } catch (error) {
-      console.error('コピーに失敗:', error)
+      console.error('コピーに失敗:', error);
     }
-  }
+  };
 
   return (
     <div className="mb-2">
@@ -229,7 +229,7 @@ webgpu-utilsエラー: ${strokeDebug.webgpuUtils.lastParseError || 'なし'}
         )}
       </div>
     </div>
-  )
-})
+  );
+});
 
-StrokeDebugSection.displayName = 'StrokeDebugSection'
+StrokeDebugSection.displayName = 'StrokeDebugSection';

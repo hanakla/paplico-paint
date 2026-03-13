@@ -1,9 +1,9 @@
-'use client'
+'use client';
 
-import * as SwitchPrimitive from '@radix-ui/react-switch'
-import { memo } from 'react'
+import * as SwitchPrimitive from '@radix-ui/react-switch';
+import { memo } from 'react';
 
-import { cn } from '@/lib/utils'
+import { cn } from '@/lib/utils';
 
 const Switch = memo(function Switch({
   className,
@@ -25,7 +25,7 @@ const Switch = memo(function Switch({
         )}
       />
     </SwitchPrimitive.Root>
-  )
-})
+  );
+});
 
-export { Switch }
+export { Switch };

@@ -1,13 +1,13 @@
-import { createVectorPath, type VectorPoint } from '../../engine/document'
+import { createVectorPath, type VectorPoint } from '../../engine/document';
 import {
   createSolidFill,
   createStrokeAppearance,
-} from '../../engine/document/appearance'
-import { createPathArtObject } from '../../engine/document/art-object'
-import { createArtboard } from '../../engine/document/artboard'
-import { createDocument, type Document } from '../../engine/document/document'
-import { createVectorLayer } from '../../engine/document/layer'
-import type { RGBAColor } from '../../engine/document/types'
+} from '../../engine/document/appearance';
+import { createPathArtObject } from '../../engine/document/art-object';
+import { createArtboard } from '../../engine/document/artboard';
+import { createDocument, type Document } from '../../engine/document/document';
+import { createVectorLayer } from '../../engine/document/layer';
+import type { RGBAColor } from '../../engine/document/types';
 
 export function createTestDocument(): Document {
   const colors = {
@@ -19,7 +19,7 @@ export function createTestDocument(): Document {
     black: { r: 0, g: 0, b: 0, a: 1 } as RGBAColor,
     white: { r: 1, g: 1, b: 1, a: 1 } as RGBAColor,
     gray: { r: 0.5, g: 0.5, b: 0.5, a: 0.3 } as RGBAColor,
-  }
+  };
 
   const document = createDocument({
     name: 'テストドキュメント',
@@ -29,9 +29,9 @@ export function createTestDocument(): Document {
       height: 600,
       backgroundColor: { r: 0.95, g: 0.95, b: 0.95, a: 1 },
     },
-  })
+  });
 
-  const mainArtboard = document.artboards[0]
+  const mainArtboard = document.artboards[0];
 
   document.artboards.push(
     createArtboard({
@@ -44,7 +44,7 @@ export function createTestDocument(): Document {
       locked: false,
       visible: true,
     }),
-  )
+  );
 
   // レイヤー1
   const shapesLayer = createVectorLayer({
@@ -61,8 +61,8 @@ export function createTestDocument(): Document {
       //   blendMode: 'normal',
       // }),
     ],
-  })
-  document.layers[shapesLayer.id] = shapesLayer
+  });
+  document.layers[shapesLayer.id] = shapesLayer;
 
   // 円形（シンプルなテスト用）
   const circlePath = createVectorPath({
@@ -74,16 +74,16 @@ export function createTestDocument(): Document {
       { x: 100, y: 100, pressure: 1 },
     ] as VectorPoint[],
     closed: true,
-  })
+  });
   const circleObject = createPathArtObject({
     name: 'Circle',
     layerId: shapesLayer.id,
     artboardId: mainArtboard.id,
     path: circlePath,
     appearances: [createSolidFill({ color: colors.red, opacity: 1.0 })],
-  })
-  document.artObjects[circleObject.id] = circleObject
-  shapesLayer.artObjectIds.push(circleObject.id)
+  });
+  document.artObjects[circleObject.id] = circleObject;
+  shapesLayer.artObjectIds.push(circleObject.id);
 
   // 四角形（大きなテスト用）
   const rectPath = createVectorPath({
@@ -95,16 +95,16 @@ export function createTestDocument(): Document {
       { x: 50, y: 50, pressure: 1 },
     ] as VectorPoint[],
     closed: true,
-  })
+  });
   const rectObject = createPathArtObject({
     name: 'Rect',
     layerId: shapesLayer.id,
     artboardId: mainArtboard.id,
     path: rectPath,
     appearances: [createSolidFill({ color: colors.green, opacity: 1.0 })],
-  })
-  document.artObjects[rectObject.id] = rectObject
-  shapesLayer.artObjectIds.push(rectObject.id)
+  });
+  document.artObjects[rectObject.id] = rectObject;
+  shapesLayer.artObjectIds.push(rectObject.id);
 
   const rectObject2 = createPathArtObject({
     name: 'Rect',
@@ -119,9 +119,9 @@ export function createTestDocument(): Document {
       })),
     },
     appearances: [createSolidFill({ color: colors.orange, opacity: 1.0 })],
-  })
-  document.artObjects[rectObject2.id] = rectObject2
-  shapesLayer.artObjectIds.push(rectObject2.id)
+  });
+  document.artObjects[rectObject2.id] = rectObject2;
+  shapesLayer.artObjectIds.push(rectObject2.id);
 
   // レイヤー2
   const drawingLayer = createVectorLayer({
@@ -137,8 +137,8 @@ export function createTestDocument(): Document {
       //   blendMode: 'normal',
       // }),
     ],
-  })
-  document.layers[drawingLayer.id] = drawingLayer
+  });
+  document.layers[drawingLayer.id] = drawingLayer;
 
   // 波線
   const wavePath = createVectorPath({
@@ -151,7 +151,7 @@ export function createTestDocument(): Document {
       { x: 300, y: 250, pressure: 1.0 },
     ] as VectorPoint[],
     closed: false,
-  })
+  });
   const waveObject = createPathArtObject({
     name: 'Wave',
     layerId: drawingLayer.id,
@@ -168,9 +168,9 @@ export function createTestDocument(): Document {
         blendMode: 'normal',
       }),
     ],
-  })
-  document.artObjects[waveObject.id] = waveObject
-  drawingLayer.artObjectIds.push(waveObject.id)
+  });
+  document.artObjects[waveObject.id] = waveObject;
+  drawingLayer.artObjectIds.push(waveObject.id);
 
   // レイヤー3
   const decorationLayer = createVectorLayer({
@@ -188,8 +188,8 @@ export function createTestDocument(): Document {
       //   blendMode: 'normal',
       // }),
     ],
-  })
-  document.layers[decorationLayer.id] = decorationLayer
+  });
+  document.layers[decorationLayer.id] = decorationLayer;
 
   // 点線の枠
   const framePath = createVectorPath({
@@ -201,7 +201,7 @@ export function createTestDocument(): Document {
       { x: 30, y: 30, pressure: 1 },
     ] as VectorPoint[],
     closed: true,
-  })
+  });
   const frameObject = createPathArtObject({
     name: 'Frame',
     layerId: decorationLayer.id,
@@ -219,21 +219,21 @@ export function createTestDocument(): Document {
       //   blendMode: 'normal',
       // }),
     ],
-  })
-  document.artObjects[frameObject.id] = frameObject
-  decorationLayer.artObjectIds.push(frameObject.id)
+  });
+  document.artObjects[frameObject.id] = frameObject;
+  decorationLayer.artObjectIds.push(frameObject.id);
 
   // レイヤーノード
   document.layerNodes = [
     { layerId: shapesLayer.id, parentId: null, order: 0 },
     { layerId: drawingLayer.id, parentId: null, order: 1 },
     { layerId: decorationLayer.id, parentId: null, order: 2 },
-  ]
+  ];
 
   // アクティブレイヤーを設定（描画用レイヤーを選択）
-  document.activeLayerId = drawingLayer.id
+  document.activeLayerId = drawingLayer.id;
 
-  return document
+  return document;
 }
 
 /**
@@ -248,11 +248,11 @@ export function createSimpleTestDocument(): Document {
       height: 300,
       backgroundColor: { r: 1, g: 1, b: 1, a: 1 },
     },
-  })
-  const artboard = document.artboards[0]
+  });
+  const artboard = document.artboards[0];
 
-  const layer = createVectorLayer({ name: 'テストレイヤー' })
-  document.layers[layer.id] = layer
+  const layer = createVectorLayer({ name: 'テストレイヤー' });
+  document.layers[layer.id] = layer;
 
   // シンプルな線
   const simplePath = createVectorPath({
@@ -261,7 +261,7 @@ export function createSimpleTestDocument(): Document {
       { x: 350, y: 250, pressure: 1 },
     ],
     closed: false,
-  })
+  });
   const simpleObject = createPathArtObject({
     name: 'SimpleLine',
     layerId: layer.id,
@@ -278,14 +278,14 @@ export function createSimpleTestDocument(): Document {
         blendMode: 'normal',
       }),
     ],
-  })
-  document.artObjects[simpleObject.id] = simpleObject
-  layer.artObjectIds.push(simpleObject.id)
+  });
+  document.artObjects[simpleObject.id] = simpleObject;
+  layer.artObjectIds.push(simpleObject.id);
 
-  document.layerNodes = [{ layerId: layer.id, parentId: null, order: 0 }]
+  document.layerNodes = [{ layerId: layer.id, parentId: null, order: 0 }];
 
   // アクティブレイヤーを設定
-  document.activeLayerId = layer.id
+  document.activeLayerId = layer.id;
 
-  return document
+  return document;
 }

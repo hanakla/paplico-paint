@@ -1,43 +1,43 @@
-'use client'
+'use client';
 
-import { useState } from 'react'
-import { proxy, useSnapshot } from 'valtio'
-import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Separator } from '@/components/ui/separator'
+import { useState } from 'react';
+import { proxy, useSnapshot } from 'valtio';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Separator } from '@/components/ui/separator';
 
 // テスト用のValtio状態
 interface TestUser {
-  id: string
-  name: string
-  age: number
-  email: string
+  id: string;
+  name: string;
+  age: number;
+  email: string;
 }
 
 interface TestState {
   // プリミティブ値
-  counter: number
-  message: string
+  counter: number;
+  message: string;
 
   // ネストしたオブジェクト
-  user: TestUser
+  user: TestUser;
 
   // Map
-  users: Map<string, TestUser>
+  users: Map<string, TestUser>;
 
   // 配列
-  items: string[]
+  items: string[];
 
   // 深いネスト
   deep: {
     level1: {
       level2: {
-        value: string
-        count: number
-      }
-    }
-  }
+        value: string;
+        count: number;
+      };
+    };
+  };
 }
 
 const testState = proxy<TestState>({
@@ -63,113 +63,113 @@ const testState = proxy<TestState>({
       },
     },
   },
-})
+});
 
 export default function ValtioTestPage() {
-  const snap = useSnapshot(testState)
-  const [updateLog, setUpdateLog] = useState<string[]>([])
+  const snap = useSnapshot(testState);
+  const [updateLog, setUpdateLog] = useState<string[]>([]);
 
   const logUpdate = (action: string, result: 'SUCCESS' | 'FAILED') => {
-    const timestamp = new Date().toLocaleTimeString()
-    setUpdateLog((prev) => [...prev, `[${timestamp}] ${action} - ${result}`])
-  }
+    const timestamp = new Date().toLocaleTimeString();
+    setUpdateLog((prev) => [...prev, `[${timestamp}] ${action} - ${result}`]);
+  };
 
   // プリミティブ値の更新（常に動作）
   const updateCounter = () => {
-    testState.counter += 1
-    logUpdate('Counter increment', 'SUCCESS')
-  }
+    testState.counter += 1;
+    logUpdate('Counter increment', 'SUCCESS');
+  };
 
   const updateMessage = () => {
-    testState.message = `Updated at ${Date.now()}`
-    logUpdate('Message update', 'SUCCESS')
-  }
+    testState.message = `Updated at ${Date.now()}`;
+    logUpdate('Message update', 'SUCCESS');
+  };
 
   // ネストしたオブジェクトの更新（shallow only）
   const updateUserName_Shallow = () => {
     // ❌ これは検知されない
-    testState.user.name = `John-${Date.now()}`
-    logUpdate('User name (direct mutation)', 'FAILED')
-  }
+    testState.user.name = `John-${Date.now()}`;
+    logUpdate('User name (direct mutation)', 'FAILED');
+  };
 
   const updateUserName_Deep = () => {
     // ✅ これは検知される
-    testState.user = { ...testState.user, name: `John-${Date.now()}` }
-    logUpdate('User name (object replacement)', 'SUCCESS')
-  }
+    testState.user = { ...testState.user, name: `John-${Date.now()}` };
+    logUpdate('User name (object replacement)', 'SUCCESS');
+  };
 
   // Map内オブジェクトの更新
   const updateMapUser_Shallow = () => {
     // ❌ これは検知されない
-    const user = testState.users.get('1')
+    const user = testState.users.get('1');
     if (user) {
-      user.age += 1
-      logUpdate('Map user age (direct mutation)', 'FAILED')
+      user.age += 1;
+      logUpdate('Map user age (direct mutation)', 'FAILED');
     }
-  }
+  };
 
   const updateMapUser_Deep = () => {
     // ✅ これは検知される
-    const user = testState.users.get('1')
+    const user = testState.users.get('1');
     if (user) {
-      const newUsers = new Map(testState.users)
-      newUsers.set('1', { ...user, age: user.age + 1 })
-      testState.users = newUsers
-      logUpdate('Map user age (Map replacement)', 'SUCCESS')
+      const newUsers = new Map(testState.users);
+      newUsers.set('1', { ...user, age: user.age + 1 });
+      testState.users = newUsers;
+      logUpdate('Map user age (Map replacement)', 'SUCCESS');
     }
-  }
+  };
 
   // 配列内要素の更新
   const updateArrayItem_Shallow = () => {
     // ❌ これは検知されない
-    testState.items[0] = `updated-${Date.now()}`
-    logUpdate('Array item (direct mutation)', 'FAILED')
-  }
+    testState.items[0] = `updated-${Date.now()}`;
+    logUpdate('Array item (direct mutation)', 'FAILED');
+  };
 
   const updateArrayItem_Deep = () => {
     // ✅ これは検知される
-    testState.items = [...testState.items]
-    testState.items[0] = `updated-${Date.now()}`
-    logUpdate('Array item (array replacement)', 'SUCCESS')
-  }
+    testState.items = [...testState.items];
+    testState.items[0] = `updated-${Date.now()}`;
+    logUpdate('Array item (array replacement)', 'SUCCESS');
+  };
 
   // 配列への要素追加
   const addArrayItem_Push = () => {
     // ❌ これは検知されない場合がある
-    testState.items.push(`new-${Date.now()}`)
-    logUpdate('Array push (direct mutation)', 'FAILED')
-  }
+    testState.items.push(`new-${Date.now()}`);
+    logUpdate('Array push (direct mutation)', 'FAILED');
+  };
 
   const addArrayItem_Spread = () => {
     // ✅ これは確実に検知される
-    testState.items = [...testState.items, `new-${Date.now()}`]
-    logUpdate('Array add (spread operator)', 'SUCCESS')
-  }
+    testState.items = [...testState.items, `new-${Date.now()}`];
+    logUpdate('Array add (spread operator)', 'SUCCESS');
+  };
 
   // 配列からの要素削除
   const removeArrayItem_Splice = () => {
     // ❌ これは検知されない場合がある
     if (testState.items.length > 3) {
-      testState.items.splice(-1, 1)
-      logUpdate('Array splice (direct mutation)', 'FAILED')
+      testState.items.splice(-1, 1);
+      logUpdate('Array splice (direct mutation)', 'FAILED');
     }
-  }
+  };
 
   const removeArrayItem_Filter = () => {
     // ✅ これは確実に検知される
     if (testState.items.length > 3) {
-      testState.items = testState.items.slice(0, -1)
-      logUpdate('Array remove (slice)', 'SUCCESS')
+      testState.items = testState.items.slice(0, -1);
+      logUpdate('Array remove (slice)', 'SUCCESS');
     }
-  }
+  };
 
   // 深いネストの更新
   const updateDeepNested_Shallow = () => {
     // ❌ これは検知されない
-    const o = testState.deep.level1
-    o.level2.count += 1
-    logUpdate('Deep nested (direct mutation)', 'FAILED')
-  }
+    const o = testState.deep.level1;
+    o.level2.count += 1;
+    logUpdate('Deep nested (direct mutation)', 'FAILED');
+  };
 
   const updateDeepNested_Deep = () => {
     // ✅ これは検知される
@@ -182,13 +182,13 @@ export default function ValtioTestPage() {
           count: testState.deep.level1.level2.count + 1,
         },
       },
-    }
-    logUpdate('Deep nested (full replacement)', 'SUCCESS')
-  }
+    };
+    logUpdate('Deep nested (full replacement)', 'SUCCESS');
+  };
 
   const clearLog = () => {
-    setUpdateLog([])
-  }
+    setUpdateLog([]);
+  };
 
   return (
     <div className="container mx-auto p-6 max-w-6xl">
@@ -477,5 +477,5 @@ export default function ValtioTestPage() {
         </CardContent>
       </Card>
     </div>
-  )
+  );
 }

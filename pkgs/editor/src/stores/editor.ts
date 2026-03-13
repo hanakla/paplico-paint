@@ -127,6 +127,7 @@ export const createEditorStore = () => {
       left: 0,
       width: 0,
       height: 0,
+      scale: 1,
     },
     setViewport: (viewport) => {
       set(() => ({ viewport }))

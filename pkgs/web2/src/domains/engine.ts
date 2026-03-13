@@ -200,26 +200,32 @@ export const useCanvasEditorState: UseCanvasEditor = <T>(
     [canvasEditor],
   )
 
-  return useSyncExternalStore(onChangeCallback, () => {
-    if (!canvasEditor) {
-      return (prevRef.current ??= {} as Record<string, null>)
-    }
+  return useSyncExternalStore(
+    onChangeCallback,
+    () => {
+      if (!canvasEditor) {
+        return (prevRef.current ??= {} as Record<string, null>)
+      }
 
-    const next = selectorRef.current(canvasEditor)
+      const next = selectorRef.current(canvasEditor)
 
-    if (prevRef.current && shallowEquals(next, prevRef.current)) {
-      return prevRef.current
-    }
+      if (prevRef.current && shallowEquals(next, prevRef.current)) {
+        return prevRef.current
+      }
 
-    // if (prevRef.current && next) {
-    //   console.groupCollapsed('changed', changedKeys(prevRef.current, next))
-    //   console.log(getLine(mountedStack!, 1, Infinity))
-    //   console.groupEnd()
-    // }
+      // if (prevRef.current && next) {
+      //   console.groupCollapsed('changed', changedKeys(prevRef.current, next))
+      //   console.log(getLine(mountedStack!, 1, Infinity))
+      //   console.groupEnd()
+      // }
 
-    prevRef.current = next
-    return next
-  })
+      prevRef.current = next
+      return next
+    },
+    () => {
+      return selectorRef.current
+    },
+  )
 }
 
 function usePaplicoChat(papRef: RefObject<Paplico | null>, enabled: boolean) {

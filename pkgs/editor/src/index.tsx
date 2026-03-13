@@ -75,7 +75,7 @@ export function bindPaplico(
     theme?: typeof themeVariables
     draggingThreadholdRealPixels?: number
   } = {},
-) {
+): PplcEditorHandle {
   if (typeof window === 'undefined') {
     throw new Error('bindPaplico must be called in browser environment')
   }

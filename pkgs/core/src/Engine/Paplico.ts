@@ -779,28 +779,28 @@ export class Paplico extends Emitter<Paplico.Events> {
       //   return { ...d, busy: true }
       // })
 
-      if (clearCache) {
-        this.runtimeDoc.invalidateAllLayerBitmapCache()
-      }
+      // if (clearCache) {
+      //   this.runtimeDoc.invalidateAllLayerBitmapCache()
+      // }
 
-      const result = await this.pipeline.fullyRenderWithScheduler(
-        dstctx,
-        runtimeDoc,
-        this.vectorRenderer,
-        {
-          abort: signal,
-          layerNodeOverrides: layerOverrides,
-          transformOverrides,
-          pixelRatio,
-          viewport: vp,
-          phase: 'final',
-          logger: RenderCycleLogger.current,
-        },
-      )
+      // const result = await this.pipeline.fullyRenderWithScheduler(
+      //   dstctx,
+      //   runtimeDoc,
+      //   this.vectorRenderer,
+      //   {
+      //     abort: signal,
+      //     layerNodeOverrides: layerOverrides,
+      //     transformOverrides,
+      //     pixelRatio,
+      //     viewport: vp,
+      //     phase: 'final',
+      //     logger: RenderCycleLogger.current,
+      //   },
+      // )
 
-      if (result) {
-        this.processMetrics(runtimeDoc, result.visuMetrics)
-      }
+      // if (result) {
+      //   this.processMetrics(runtimeDoc, result.visuMetrics)
+      // }
 
       if (dstctx === this.dstctx) {
         throwLaterIfFailure([rescue(() => this.emit('finishRenderCompleted'))])

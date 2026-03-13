@@ -1,18 +1,18 @@
-'use client'
+'use client';
 
-import { memo } from 'react'
-import { debugState } from '@/engine/webgpu/core-engine'
-import { useNullishSnapshot } from '@/lib/hooks'
+import { memo } from 'react';
+import { debugState } from '@/engine/webgpu/core-engine';
+import { useNullishSnapshot } from '@/lib/hooks';
 
 export const UIDebugSection = memo(() => {
-  const debugSnapshot = useNullishSnapshot(debugState)
+  const debugSnapshot = useNullishSnapshot(debugState);
 
   if (!debugSnapshot) {
     return (
       <div className="text-xs text-muted-foreground">
         Debug state loading...
       </div>
-    )
+    );
   }
 
   return (
@@ -199,7 +199,7 @@ export const UIDebugSection = memo(() => {
         </div>
       )}
     </div>
-  )
-})
+  );
+});
 
-UIDebugSection.displayName = 'UIDebugSection'
+UIDebugSection.displayName = 'UIDebugSection';

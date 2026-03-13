@@ -1,9 +1,9 @@
-'use client'
+'use client';
 
-import * as LabelPrimitive from '@radix-ui/react-label'
-import { memo } from 'react'
+import * as LabelPrimitive from '@radix-ui/react-label';
+import { memo } from 'react';
 
-import { cn } from '@/lib/utils'
+import { cn } from '@/lib/utils';
 
 const Label = memo(function Label({
   className,
@@ -18,7 +18,7 @@ const Label = memo(function Label({
       )}
       {...props}
     />
-  )
-})
+  );
+});
 
-export { Label }
+export { Label };

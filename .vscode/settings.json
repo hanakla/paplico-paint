@@ -1,8 +1,6 @@
 {
   "search.exclude": {
     "**/node_modules": true,
-    "**/bower_components": true,
-    "**/*.code-search": true,
     "**/.next": true,
     "**/*.{d.ts,mjs,umd.js}": true,
     "pkgs/core/dist/**/*": true
@@ -11,6 +9,9 @@
   "typescript.preferences.importModuleSpecifier": "shortest",
   "[glsl]": {
     "editor.formatOnSave": false
+  },
+  "editor.codeActionsOnSave": {
+    "source.fixAll.biome": "explicit"
   },
   "editor.foldingStrategy": "indentation"
 }

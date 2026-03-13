@@ -54,18 +54,21 @@ export default function RootLayout({
 
         <title>Paplico</title>
       </Head>
-      <StyledComponentsRegistry>
-        <Theme
-          asChild
-          style={{ width: '100%', height: '100%' }}
-          accentColor="lime"
-        >
-          <body {...bindLongPress}>
-            <GlobalStyle />
-            <ModalProvider>{children}</ModalProvider>
-          </body>
-        </Theme>
-      </StyledComponentsRegistry>
+      <body {...bindLongPress}>
+        <StyledComponentsRegistry>
+          <GlobalStyle />
+
+          <Theme
+            asChild
+            style={{ width: '100%', height: '100%' }}
+            accentColor="lime"
+          >
+            <div>
+              <ModalProvider>{children}</ModalProvider>
+            </div>
+          </Theme>
+        </StyledComponentsRegistry>
+      </body>
     </html>
   )
 }
